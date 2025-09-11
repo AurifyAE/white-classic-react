@@ -37,7 +37,7 @@ import axiosInstance from "../../api/axios";
 import useMarketData from "../../components/marketData";
 // Constants
 const API_CONFIG = {
-  KEY: "cur_live_PwrdXAAoMwGUG9i7z4DmtEhRcAhALikOUzO3BeTj",
+  KEY: "cur_live_xiOZwQm5FXIXwwz8bZS5FLcAHaNcq5NUFlKgH62c",
   BASE_URL: "https://api.currencyapi.com/v3/latest",
   CACHE_DURATION: 5 * 60 * 1000, // 5 minutes
   REFRESH_INTERVAL: 300000, // 5 minutes
@@ -251,8 +251,8 @@ const CurrencyFixing = () => {
           spreadPercent:
             currencyData.value > 0
               ? (((partyCurr.bid || 0) + (partyCurr.ask || 0)) /
-                  currencyData.value) *
-                100
+                currencyData.value) *
+              100
               : 0,
         };
       });
@@ -698,8 +698,7 @@ const CurrencyFixing = () => {
         if (type === "buy") setBuyAmount("");
         else setSellAmount("");
         toast.success(
-          `${
-            type.charAt(0).toUpperCase() + type.slice(1)
+          `${type.charAt(0).toUpperCase() + type.slice(1)
           } order executed successfully`
         );
       } catch (err) {
@@ -770,11 +769,10 @@ const CurrencyFixing = () => {
                 <div>
                   <span className="text-gray-600 font-medium">Type</span>
                   <p
-                    className={`font-bold capitalize ${
-                      modalContent.type === "buy"
+                    className={`font-bold capitalize ${modalContent.type === "buy"
                         ? "text-emerald-600"
                         : "text-red-600"
-                    }`}
+                      }`}
                   >
                     {modalContent.type}
                   </p>
@@ -852,11 +850,10 @@ const CurrencyFixing = () => {
                       setView(key);
                       setSidebarOpen(false);
                     }}
-                    className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${
-                      view === key
+                    className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${view === key
                         ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md"
                         : "text-gray-700 hover:bg-gray-100"
-                    }`}
+                      }`}
                   >
                     <Icon className="w-5 h-5" />
                     <span className="font-medium">{label}</span>
@@ -928,11 +925,10 @@ const CurrencyFixing = () => {
                   <button
                     key={key}
                     onClick={() => setView(key)}
-                    className={`flex items-center space-x-1 px-3 py-2 text-xs font-medium rounded-md transition-all ${
-                      view === key
+                    className={`flex items-center space-x-1 px-3 py-2 text-xs font-medium rounded-md transition-all ${view === key
                         ? "bg-white text-blue-600 shadow-sm"
                         : "text-gray-600 hover:text-gray-900"
-                    }`}
+                      }`}
                   >
                     <Icon className="w-4 h-4" />
                     <span>{label}</span>
@@ -991,13 +987,12 @@ const CurrencyFixing = () => {
                   </label>
                   <div className="flex items-center space-x-2">
                     <div
-                      className={`w-3 h-3 rounded-full ${
-                        goldData.marketStatus === "TRADEABLE"
+                      className={`w-3 h-3 rounded-full ${goldData.marketStatus === "TRADEABLE"
                           ? "bg-green-500"
                           : goldData.marketStatus === "LOADING"
-                          ? "bg-yellow-500"
-                          : "bg-red-500"
-                      }`}
+                            ? "bg-yellow-500"
+                            : "bg-red-500"
+                        }`}
                     ></div>
                     <span className="text-sm font-medium text-gray-700">
                       {goldData.marketStatus || "UNKNOWN"}
@@ -1085,13 +1080,12 @@ const CurrencyFixing = () => {
                     <TrendingDown className="w-4 h-4 text-red-500 mr-1" />
                   ) : null}
                   <span
-                    className={`text-sm font-medium ${
-                      goldData.direction === "up"
+                    className={`text-sm font-medium ${goldData.direction === "up"
                         ? "text-green-600"
                         : goldData.direction === "down"
-                        ? "text-red-600"
-                        : "text-gray-500"
-                    }`}
+                          ? "text-red-600"
+                          : "text-gray-500"
+                      }`}
                   >
                     {goldData.dailyChangePercent}
                   </span>
@@ -1191,13 +1185,12 @@ const CurrencyFixing = () => {
                                 <TrendingDown className="w-4 h-4 text-red-500 mr-1" />
                               ) : null}
                               <span
-                                className={`text-sm font-medium ${
-                                  currency.trend === "up"
+                                className={`text-sm font-medium ${currency.trend === "up"
                                     ? "text-green-600"
                                     : currency.trend === "down"
-                                    ? "text-red-600"
-                                    : "text-gray-600"
-                                }`}
+                                      ? "text-red-600"
+                                      : "text-gray-600"
+                                  }`}
                               >
                                 {formatters.percentage(currency.changePercent)}
                               </span>
@@ -1338,13 +1331,12 @@ const CurrencyFixing = () => {
                                   <ArrowDownRight className="w-4 h-4 text-red-500 mr-1" />
                                 ) : null}
                                 <span
-                                  className={`font-medium ${
-                                    pair.trend === "up"
+                                  className={`font-medium ${pair.trend === "up"
                                       ? "text-green-600"
                                       : pair.trend === "down"
-                                      ? "text-red-600"
-                                      : "text-gray-600"
-                                  }`}
+                                        ? "text-red-600"
+                                        : "text-gray-600"
+                                    }`}
                                 >
                                   {formatters.percentage(pair.changePercent)}
                                 </span>
@@ -1371,11 +1363,10 @@ const CurrencyFixing = () => {
                                   e.stopPropagation();
                                   setSelectedPair(pair.currency);
                                 }}
-                                className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
-                                  selectedPair === pair.currency
+                                className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${selectedPair === pair.currency
                                     ? "bg-blue-600 text-white"
                                     : "bg-blue-100 text-blue-700 hover:bg-blue-200"
-                                }`}
+                                  }`}
                               >
                                 {selectedPair === pair.currency
                                   ? "Selected"
@@ -1406,13 +1397,12 @@ const CurrencyFixing = () => {
                         </p>
                       </div>
                       <div
-                        className={`flex items-center px-3 py-1 rounded-full ${
-                          currencies[selectedPair].trend === "up"
+                        className={`flex items-center px-3 py-1 rounded-full ${currencies[selectedPair].trend === "up"
                             ? "bg-green-100 text-green-700"
                             : currencies[selectedPair].trend === "down"
-                            ? "bg-red-100 text-red-700"
-                            : "bg-gray-100 text-gray-700"
-                        }`}
+                              ? "bg-red-100 text-red-700"
+                              : "bg-gray-100 text-gray-700"
+                          }`}
                       >
                         {currencies[selectedPair].trend === "up" ? (
                           <TrendingUp className="w-4 h-4 mr-1" />
@@ -1481,16 +1471,16 @@ const CurrencyFixing = () => {
                               <span className="font-mono font-semibold text-gray-900">
                                 {selectedPair === DEFAULT_CONFIG.GOLD_SYMBOL
                                   ? formatters.currency(
-                                      parseFloat(
-                                        calculateGoldValue(buyAmount, true)
-                                      ),
-                                      2
-                                    )
+                                    parseFloat(
+                                      calculateGoldValue(buyAmount, true)
+                                    ),
+                                    2
+                                  )
                                   : formatters.currency(
-                                      parseFloat(buyAmount) *
-                                        currencies[selectedPair].buyRate,
-                                      2
-                                    )}{" "}
+                                    parseFloat(buyAmount) *
+                                    currencies[selectedPair].buyRate,
+                                    2
+                                  )}{" "}
                                 {baseCurrency}
                               </span>
                             </div>
@@ -1564,16 +1554,16 @@ const CurrencyFixing = () => {
                               <span className="font-mono font-semibold text-gray-900">
                                 {selectedPair === DEFAULT_CONFIG.GOLD_SYMBOL
                                   ? formatters.currency(
-                                      parseFloat(
-                                        calculateGoldValue(sellAmount, true)
-                                      ),
-                                      2
-                                    )
+                                    parseFloat(
+                                      calculateGoldValue(sellAmount, true)
+                                    ),
+                                    2
+                                  )
                                   : formatters.currency(
-                                      parseFloat(sellAmount) *
-                                        currencies[selectedPair].sellRate,
-                                      2
-                                    )}{" "}
+                                    parseFloat(sellAmount) *
+                                    currencies[selectedPair].sellRate,
+                                    2
+                                  )}{" "}
                                 {baseCurrency}
                               </span>
                             </div>
@@ -1634,7 +1624,7 @@ const CurrencyFixing = () => {
                             ((currencies[selectedPair].bidSpread +
                               currencies[selectedPair].askSpread) /
                               currencies[selectedPair].value) *
-                              100
+                            100
                           )}
                         </p>
                       </div>
@@ -1685,11 +1675,10 @@ const CurrencyFixing = () => {
                     {filteredParties.map((party) => (
                       <div
                         key={party.id}
-                        className={`p-6 rounded-xl border-2 transition-all duration-200 cursor-pointer ${
-                          selectedParty?.id === party.id
+                        className={`p-6 rounded-xl border-2 transition-all duration-200 cursor-pointer ${selectedParty?.id === party.id
                             ? "border-blue-500 bg-blue-50 shadow-md"
                             : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm"
-                        }`}
+                          }`}
                         onClick={() => setSelectedParty(party)}
                       >
                         <div className="flex items-start justify-between mb-4">
@@ -1855,8 +1844,8 @@ const CurrencyFixing = () => {
                                 <span className="font-mono font-semibold text-gray-900">
                                   {currencies[currency.currency]
                                     ? formatters.currency(
-                                        currencies[currency.currency].value
-                                      )
+                                      currencies[currency.currency].value
+                                    )
                                     : "N/A"}
                                 </span>
                               </td>
