@@ -37,7 +37,7 @@ import axiosInstance from "../../api/axios";
 import useMarketData from "../../components/marketData";
 // Constants
 const API_CONFIG = {
-  KEY: "cur_live_xiOZwQm5FXIXwwz8bZS5FLcAHaNcq5NUFlKgH62c",
+  KEY: "cur_live_5y5ZbNguuVDVh4afwOgiLz5wyLdtSZ1Osi2p1AJa",
   BASE_URL: "https://api.currencyapi.com/v3/latest",
   CACHE_DURATION: 5 * 60 * 1000, // 5 minutes
   REFRESH_INTERVAL: 300000, // 5 minutes
@@ -162,7 +162,6 @@ const CurrencyFixing = () => {
   const [watchlist, setWatchlist] = useLocalStorage(STORAGE_KEYS.WATCHLIST, []);
   // Gold state
   const { marketData, refreshData } = useMarketData(["GOLD"]);
-  console.log(marketData);
   const [goldData, setGoldData] = useState({
     symbol: DEFAULT_CONFIG.GOLD_SYMBOL,
     bid: null,
@@ -842,7 +841,6 @@ const CurrencyFixing = () => {
                 {[
                   { key: "overview", label: "Market Overview", icon: Activity },
                   { key: "trading", label: "Live Trading", icon: TrendingUp },
-                  { key: "parties", label: "Trading Parties", icon: Users },
                 ].map(({ key, label, icon: Icon }) => (
                   <button
                     key={key}
@@ -897,7 +895,7 @@ const CurrencyFixing = () => {
                 </div>
               </div>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center mx-auto  space-x-4">
               {/* Base Currency Selector */}
               <div className="relative">
                 <div className="flex items-center">
@@ -908,8 +906,8 @@ const CurrencyFixing = () => {
                     className="pl-10 pr-8 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 hover:bg-blue-100 transition-all duration-200 appearance-none cursor-pointer"
                   >
                     {currencyMaster.map((curr) => (
-                      <option key={curr.code} value={curr.code}>
-                        {curr.code} - {curr.description}
+                      <option  value={curr.code}>
+                        {curr.code} 
                       </option>
                     ))}
                   </select>
@@ -920,7 +918,6 @@ const CurrencyFixing = () => {
                 {[
                   { key: "overview", label: "Overview", icon: Activity },
                   { key: "trading", label: "Trading", icon: TrendingUp },
-                  { key: "parties", label: "Parties", icon: Users },
                 ].map(({ key, label, icon: Icon }) => (
                   <button
                     key={key}
@@ -1105,21 +1102,283 @@ const CurrencyFixing = () => {
               </div>
             </div>
             {/* Watchlist */}
+<div className="flex gap-4">
+  <div className="bg-white/80 backdrop-blur rounded-2xl shadow-lg border border-gray-200 w-1/2">
+    <div className="p-6 border-b border-gray-200">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold text-gray-900 mr-4 flex items-center">
+          <Star className="w-6 h-6 mr-2 text-purple-600" />
+          Watchlist
+        </h2>
+        <div className="flex items-center space-x-3">
+          <div className="relative">
+            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search currencies..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+          <button
+            onClick={() => {/* Clear watchlist logic */}}
+            className="px-3 py-1 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
+          >
+            Clear
+          </button>
+        </div>
+      </div>
+    </div>
+    <div className="p-6">
+      {watchlistData.length === 0 ? (
+        <div className="text-center py-8">
+          <Star className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+          <p className="text-gray-500 font-medium">
+            No currencies in watchlist
+          </p>
+          <p className="text-gray-400 text-sm">
+            Add currencies to track their performance
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {watchlistData.map((currency) => (
+            <div
+              key={currency.code}
+              className="p-4 bg-gradient-to-br from-gray-50 to-white rounded-xl border border-gray-200 hover:shadow-md transition-all duration-200"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center">
+                    <span className="text-sm font-bold text-blue-700">
+                      {currency.code}
+                    </span>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900">
+                      {currency.code}
+                    </h3>
+                    <p className="text-xs text-gray-500">
+                      vs {baseCurrency}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => toggleWatchlist(currency.code)}
+                  className="text-purple-600 hover:text-purple-800 transition-colors"
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Rate</span>
+                  <span className="font-semibold text-gray-900">
+                    {formatters.currency(currency.value)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">
+                    Change
+                  </span>
+                  <div className="flex items-center">
+                    {currency.trend === "up" ? (
+                      <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
+                    ) : currency.trend === "down" ? (
+                      <TrendingDown className="w-4 h-4 text-red-500 mr-1" />
+                    ) : null}
+                    <span
+                      className={`text-sm font-medium ${currency.trend === "up"
+                          ? "text-green-600"
+                          : currency.trend === "down"
+                            ? "text-red-600"
+                            : "text-gray-600"
+                        }`}
+                    >
+                      {formatters.percentage(currency.changePercent)}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">
+                    Volume
+                  </span>
+                  <span className="text-sm text-gray-900">
+                    {formatters.volume(currency.volume)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Last Updated</span>
+                  <span className="text-sm text-gray-900">
+                    {new Date().toLocaleTimeString()}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+    {/* Add to Watchlist */}
+    {availableCurrencies.length > 0 && (
+      <div className="p-6 border-t border-gray-200 bg-gray-50">
+        <h3 className="font-semibold text-gray-900 mb-3">
+          Add to Watchlist
+        </h3>
+        <div className="flex flex-wrap gap-2">
+          {availableCurrencies.slice(0, 8).map((currency) => (
+            <button
+              key={currency.code}
+              onClick={() => toggleWatchlist(currency.code)}
+              className="flex items-center space-x-2 px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-all duration-200 text-sm"
+            >
+              <Plus className="w-4 h-4 text-blue-600" />
+              <span className="font-medium text-gray-700">
+                {currency.code}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+    )}
+  </div>
+
+  {/* Trading Pairs */}
+  <div className="bg-white/80 backdrop-blur rounded-2xl shadow-lg border border-gray-200 w-full">
+    <div className="p-6 border-b border-gray-200">
+      <h2 className="text-xl font-bold text-gray-900 flex items-center">
+        <TrendingUp className="w-6 h-6 mr-2 text-green-600" />
+        Live Trading Pairs
+      </h2>
+      <p className="text-gray-600 mt-1">
+        Real-time rates with party-specific spreads
+      </p>
+    </div>
+    <div className="p-6">
+      {partyCurrencyPairs.length === 0 ? (
+        <div className="text-center py-8">
+          <TrendingUp className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+          <p className="text-gray-500 font-medium">
+            No trading pairs available
+          </p>
+          <p className="text-gray-400 text-sm">
+            {!selectedParty
+              ? "Select a trading party"
+              : "Party has no configured currencies"}
+          </p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="min-w-full">
+            <thead>
+              <tr className="border-b border-gray-200">
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">
+                  Pair
+                </th>
+                <th className="text-right py-3 px-4 font-semibold text-gray-700">
+                  Rate
+                </th>
+                <th className="text-right py-3 px-4 font-semibold text-gray-700">
+                  Buy Rate
+                </th>
+                <th className="text-right py-3 px-4 font-semibold text-gray-700">
+                  Sell Rate
+                </th>
+                {/* <th className="text-center py-3 px-4 font-semibold text-gray-700">
+                  Action
+                </th> */}
+              </tr>
+            </thead>
+            <tbody>
+              {partyCurrencyPairs.map((pair) => (
+                <tr
+                  key={pair.currency}
+                  className="border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
+                  onClick={() => setSelectedPair(pair.currency)}
+                >
+                  <td className="py-4 px-4">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center">
+                        <span className="text-xs font-bold text-blue-700">
+                          {pair.currency}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900">
+                          {pair.pairName}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {
+                            currencyMaster.find(
+                              (c) => c.code === pair.currency
+                            )?.description
+                          }
+                        </p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="py-4 px-4 text-right">
+                    <span className="font-mono font-semibold text-gray-900">
+                      {formatters.currency(pair.value)}
+                    </span>
+                  </td>
+                  <td className="py-4 px-4 text-right">
+                    <span className="font-mono text-green-600 font-semibold">
+                      {formatters.currency(pair.buyRate)}
+                    </span>
+                  </td>
+                  <td className="py-4 px-4 text-right">
+                    <span className="font-mono text-red-600 font-semibold">
+                      {formatters.currency(pair.sellRate)}
+                    </span>
+                  </td>
+                  {/* <td className="py-4 px-4 text-center">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedPair(pair.currency);
+                      }}
+                      className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${selectedPair === pair.currency
+                          ? "bg-blue-600 text-white"
+                          : "bg-blue-100 text-blue-700 hover:bg-blue-200"
+                        }`}
+                    >
+                      {selectedPair === pair.currency
+                        ? "Selected"
+                        : "Select"}
+                    </button>
+                  </td> */}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  </div>
+</div>
+          </div>
+        )}
+        {/* Trading View */}
+        {view === "trading" && (
+          <div className="space-y-6">
+            {/* Trading Parties */}
             <div className="bg-white/80 backdrop-blur rounded-2xl shadow-lg border border-gray-200">
               <div className="p-6 border-b border-gray-200">
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-bold text-gray-900 flex items-center">
-                    <Star className="w-6 h-6 mr-2 text-purple-600" />
-                    Watchlist
+                    <Users className="w-6 h-6 mr-2 text-blue-600" />
+                    Trading Parties
                   </h2>
                   <div className="flex items-center space-x-3">
                     <div className="relative">
                       <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
                       <input
                         type="text"
-                        placeholder="Search currencies..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        placeholder="Search parties..."
+                        value={partySearchTerm}
+                        onChange={(e) => setPartySearchTerm(e.target.value)}
                         className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     </div>
@@ -1127,139 +1386,14 @@ const CurrencyFixing = () => {
                 </div>
               </div>
               <div className="p-6">
-                {watchlistData.length === 0 ? (
+                {filteredParties.length === 0 ? (
                   <div className="text-center py-8">
-                    <Star className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                    <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                     <p className="text-gray-500 font-medium">
-                      No currencies in watchlist
+                      No trading parties found
                     </p>
                     <p className="text-gray-400 text-sm">
-                      Add currencies to track their performance
-                    </p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                    {watchlistData.map((currency) => (
-                      <div
-                        key={currency.code}
-                        className="p-4 bg-gradient-to-br from-gray-50 to-white rounded-xl border border-gray-200 hover:shadow-md transition-all duration-200"
-                      >
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-10 h-10 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center">
-                              <span className="text-sm font-bold text-blue-700">
-                                {currency.code}
-                              </span>
-                            </div>
-                            <div>
-                              <h3 className="font-semibold text-gray-900">
-                                {currency.code}
-                              </h3>
-                              <p className="text-xs text-gray-500">
-                                vs {baseCurrency}
-                              </p>
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => toggleWatchlist(currency.code)}
-                            className="text-purple-600 hover:text-purple-800 transition-colors"
-                          >
-                            <Minus className="w-4 h-4" />
-                          </button>
-                        </div>
-                        <div className="space-y-2">
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-gray-600">Rate</span>
-                            <span className="font-semibold text-gray-900">
-                              {formatters.currency(currency.value)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-gray-600">
-                              Change
-                            </span>
-                            <div className="flex items-center">
-                              {currency.trend === "up" ? (
-                                <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
-                              ) : currency.trend === "down" ? (
-                                <TrendingDown className="w-4 h-4 text-red-500 mr-1" />
-                              ) : null}
-                              <span
-                                className={`text-sm font-medium ${currency.trend === "up"
-                                    ? "text-green-600"
-                                    : currency.trend === "down"
-                                      ? "text-red-600"
-                                      : "text-gray-600"
-                                  }`}
-                              >
-                                {formatters.percentage(currency.changePercent)}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-gray-600">
-                              Volume
-                            </span>
-                            <span className="text-sm text-gray-900">
-                              {formatters.volume(currency.volume)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              {/* Add to Watchlist */}
-              {availableCurrencies.length > 0 && (
-                <div className="p-6 border-t border-gray-200 bg-gray-50">
-                  <h3 className="font-semibold text-gray-900 mb-3">
-                    Add to Watchlist
-                  </h3>
-                  <div className="flex flex-wrap gap-2">
-                    {availableCurrencies.slice(0, 8).map((currency) => (
-                      <button
-                        key={currency.code}
-                        onClick={() => toggleWatchlist(currency.code)}
-                        className="flex items-center space-x-2 px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-all duration-200 text-sm"
-                      >
-                        <Plus className="w-4 h-4 text-blue-600" />
-                        <span className="font-medium text-gray-700">
-                          {currency.code}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-        {/* Trading View */}
-        {view === "trading" && (
-          <div className="space-y-6">
-            {/* Trading Pairs */}
-            <div className="bg-white/80 backdrop-blur rounded-2xl shadow-lg border border-gray-200">
-              <div className="p-6 border-b border-gray-200">
-                <h2 className="text-xl font-bold text-gray-900 flex items-center">
-                  <TrendingUp className="w-6 h-6 mr-2 text-green-600" />
-                  Live Trading Pairs
-                </h2>
-                <p className="text-gray-600 mt-1">
-                  Real-time rates with party-specific spreads
-                </p>
-              </div>
-              <div className="p-6">
-                {partyCurrencyPairs.length === 0 ? (
-                  <div className="text-center py-8">
-                    <TrendingUp className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500 font-medium">
-                      No trading pairs available
-                    </p>
-                    <p className="text-gray-400 text-sm">
-                      {!selectedParty
-                        ? "Select a trading party"
-                        : "Party has no configured currencies"}
+                      Try adjusting your search criteria
                     </p>
                   </div>
                 ) : (
@@ -1268,22 +1402,18 @@ const CurrencyFixing = () => {
                       <thead>
                         <tr className="border-b border-gray-200">
                           <th className="text-left py-3 px-4 font-semibold text-gray-700">
-                            Pair
+                            Name
                           </th>
-                          <th className="text-right py-3 px-4 font-semibold text-gray-700">
-                            Rate
+                      
+                          <th className="text-left py-3 px-4 font-semibold text-gray-700">
+                            Account Code
                           </th>
-                          <th className="text-right py-3 px-4 font-semibold text-gray-700">
-                            Change
+                          <th className="text-left py-3 px-4 font-semibold text-gray-700">
+                            Type
                           </th>
+                          
                           <th className="text-right py-3 px-4 font-semibold text-gray-700">
-                            Buy Rate
-                          </th>
-                          <th className="text-right py-3 px-4 font-semibold text-gray-700">
-                            Sell Rate
-                          </th>
-                          <th className="text-right py-3 px-4 font-semibold text-gray-700">
-                            Spread
+                            Currencies
                           </th>
                           <th className="text-center py-3 px-4 font-semibold text-gray-700">
                             Action
@@ -1291,84 +1421,41 @@ const CurrencyFixing = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {partyCurrencyPairs.map((pair) => (
+                        {filteredParties.map((party) => (
                           <tr
-                            key={pair.currency}
-                            className="border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
-                            onClick={() => setSelectedPair(pair.currency)}
+                            key={party.id}
+                            className={`border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer ${
+                              selectedParty?.id === party.id ? "bg-blue-50" : ""
+                            }`}
+                            onClick={() => setSelectedParty(party)}
                           >
-                            <td className="py-4 px-4">
-                              <div className="flex items-center space-x-3">
-                                <div className="w-8 h-8 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center">
-                                  <span className="text-xs font-bold text-blue-700">
-                                    {pair.currency}
-                                  </span>
-                                </div>
-                                <div>
-                                  <p className="font-semibold text-gray-900">
-                                    {pair.pairName}
-                                  </p>
-                                  <p className="text-xs text-gray-500">
-                                    {
-                                      currencyMaster.find(
-                                        (c) => c.code === pair.currency
-                                      )?.description
-                                    }
-                                  </p>
-                                </div>
-                              </div>
+                            <td className="py-4 px-4 font-semibold text-gray-900">
+                              {party.customerName}
                             </td>
-                            <td className="py-4 px-4 text-right">
-                              <span className="font-mono font-semibold text-gray-900">
-                                {formatters.currency(pair.value)}
-                              </span>
+                           
+                            <td className="py-4 px-4 font-mono text-gray-900">
+                              {party.acCode}
                             </td>
-                            <td className="py-4 px-4 text-right">
-                              <div className="flex items-center justify-end">
-                                {pair.trend === "up" ? (
-                                  <ArrowUpRight className="w-4 h-4 text-green-500 mr-1" />
-                                ) : pair.trend === "down" ? (
-                                  <ArrowDownRight className="w-4 h-4 text-red-500 mr-1" />
-                                ) : null}
-                                <span
-                                  className={`font-medium ${pair.trend === "up"
-                                      ? "text-green-600"
-                                      : pair.trend === "down"
-                                        ? "text-red-600"
-                                        : "text-gray-600"
-                                    }`}
-                                >
-                                  {formatters.percentage(pair.changePercent)}
-                                </span>
-                              </div>
+                            <td className="py-4 px-4 text-gray-900">
+                              {party.type}
                             </td>
-                            <td className="py-4 px-4 text-right">
-                              <span className="font-mono text-green-600 font-semibold">
-                                {formatters.currency(pair.buyRate)}
-                              </span>
-                            </td>
-                            <td className="py-4 px-4 text-right">
-                              <span className="font-mono text-red-600 font-semibold">
-                                {formatters.currency(pair.sellRate)}
-                              </span>
-                            </td>
-                            <td className="py-4 px-4 text-right">
-                              <span className="text-sm text-gray-600">
-                                {formatters.percentage(pair.spreadPercent)}
-                              </span>
+                           
+                            <td className="py-4 px-4 text-right font-bold text-blue-600">
+                              {party.currencies?.length || 0}
                             </td>
                             <td className="py-4 px-4 text-center">
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setSelectedPair(pair.currency);
+                                  setSelectedParty(party);
                                 }}
-                                className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${selectedPair === pair.currency
+                                className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                                  selectedParty?.id === party.id
                                     ? "bg-blue-600 text-white"
                                     : "bg-blue-100 text-blue-700 hover:bg-blue-200"
-                                  }`}
+                                }`}
                               >
-                                {selectedPair === pair.currency
+                                {selectedParty?.id === party.id
                                   ? "Selected"
                                   : "Select"}
                               </button>
@@ -1381,6 +1468,152 @@ const CurrencyFixing = () => {
                 )}
               </div>
             </div>
+            {/* Selected Party Details */}
+          {/* Selected Party Details */}
+{selectedParty && (
+  <div className="bg-white/80 backdrop-blur rounded-2xl shadow-lg border border-gray-200">
+    <div className="p-6 border-b border-gray-200">
+      <h2 className="text-xl font-bold text-gray-900">
+        {selectedParty.customerName} - Currency Configuration
+      </h2>
+      <p className="text-gray-600 mt-1">
+        Spreads and rates for available currency pairs
+      </p>
+    </div>
+    <div className="p-6">
+      {selectedParty.currencies?.length === 0 ? (
+        <div className="text-center py-8">
+          <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+          <p className="text-gray-500 font-medium">
+            No currencies configured
+          </p>
+          <p className="text-gray-400 text-sm">
+            This party has no currency configuration
+          </p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="min-w-full">
+            <thead>
+              <tr className="border-b border-gray-200">
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">
+                  Currency
+                </th>
+                <th className="text-right py-3 px-4 font-semibold text-gray-700">
+                  Current Rate
+                </th>
+                <th className="text-right py-3 px-4 font-semibold text-gray-700">
+                  Bid Spread
+                </th>
+                <th className="text-right py-3 px-4 font-semibold text-gray-700">
+                  Ask Spread
+                </th>
+                <th className="text-right py-3 px-4 font-semibold text-gray-700">
+                  Buy Rate
+                </th>
+                <th className="text-right py-3 px-4 font-semibold text-gray-700">
+                  Sell Rate
+                </th>
+                <th className="text-right py-3 px-4 font-semibold text-gray-700">
+                  Min Rate
+                </th>
+                <th className="text-right py-3 px-4 font-semibold text-gray-700">
+                  Max Rate
+                </th>
+                <th className="text-center py-3 px-4 font-semibold text-gray-700">
+                  Default
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {selectedParty.currencies.map((currency) => {
+                // Find the corresponding trading pair data
+                const tradingPair = partyCurrencyPairs.find(
+                  pair => pair.currency === currency.currency
+                );
+                
+                return (
+                  <tr
+                    key={currency.currency}
+                    className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                  >
+                    <td className="py-4 px-4">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center">
+                          <span className="text-xs font-bold text-blue-700">
+                            {currency.currency}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="font-semibold text-gray-900">
+                            {currency.currency}/{baseCurrency}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {currencyMaster.find(
+                              (c) => c.code === currency.currency
+                            )?.description || "Unknown"}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-4 px-4 text-right">
+                      <span className="font-mono font-semibold text-gray-900">
+                        {currencies[currency.currency]
+                          ? formatters.currency(
+                            currencies[currency.currency].value
+                          )
+                          : "N/A"}
+                      </span>
+                    </td>
+                    <td className="py-4 px-4 text-right">
+                      <span className="font-mono text-green-600 font-medium">
+                        {formatters.currency(currency.bid, 6)}
+                      </span>
+                    </td>
+                    <td className="py-4 px-4 text-right">
+                      <span className="font-mono text-red-600 font-medium">
+                        {formatters.currency(currency.ask, 6)}
+                      </span>
+                    </td>
+                    <td className="py-4 px-4 text-right">
+                      <span className="font-mono text-green-600 font-semibold">
+                        {tradingPair ? formatters.currency(tradingPair.buyRate) : "N/A"}
+                      </span>
+                    </td>
+                    <td className="py-4 px-4 text-right">
+                      <span className="font-mono text-red-600 font-semibold">
+                        {tradingPair ? formatters.currency(tradingPair.sellRate) : "N/A"}
+                      </span>
+                    </td>
+                    <td className="py-4 px-4 text-right">
+                      <span className="font-mono text-gray-600">
+                        {formatters.currency(currency.minRate)}
+                      </span>
+                    </td>
+                    <td className="py-4 px-4 text-right">
+                      <span className="font-mono text-gray-600">
+                        {formatters.currency(currency.maxRate)}
+                      </span>
+                    </td>
+                    <td className="py-4 px-4 text-center">
+                      {currency.isDefault && (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          <CheckCircle className="w-3 h-3 mr-1" />
+                          Default
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  </div>
+)}
+          
             {/* Trading Panel */}
             {selectedPair && currencies[selectedPair] && (
               <div className="bg-white/80 backdrop-blur rounded-2xl shadow-lg border border-gray-200">
@@ -1630,259 +1863,6 @@ const CurrencyFixing = () => {
                       </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-        {/* Parties View */}
-        {view === "parties" && (
-          <div className="space-y-6">
-            <div className="bg-white/80 backdrop-blur rounded-2xl shadow-lg border border-gray-200">
-              <div className="p-6 border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-bold text-gray-900 flex items-center">
-                    <Users className="w-6 h-6 mr-2 text-blue-600" />
-                    Trading Parties
-                  </h2>
-                  <div className="flex items-center space-x-3">
-                    <div className="relative">
-                      <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-                      <input
-                        type="text"
-                        placeholder="Search parties..."
-                        value={partySearchTerm}
-                        onChange={(e) => setPartySearchTerm(e.target.value)}
-                        className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="p-6">
-                {filteredParties.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500 font-medium">
-                      No trading parties found
-                    </p>
-                    <p className="text-gray-400 text-sm">
-                      Try adjusting your search criteria
-                    </p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {filteredParties.map((party) => (
-                      <div
-                        key={party.id}
-                        className={`p-6 rounded-xl border-2 transition-all duration-200 cursor-pointer ${selectedParty?.id === party.id
-                            ? "border-blue-500 bg-blue-50 shadow-md"
-                            : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm"
-                          }`}
-                        onClick={() => setSelectedParty(party)}
-                      >
-                        <div className="flex items-start justify-between mb-4">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center">
-                              <span className="text-lg font-bold text-blue-700">
-                                {party.shortName?.charAt(0) ||
-                                  party.customerName?.charAt(0) ||
-                                  "?"}
-                              </span>
-                            </div>
-                            <div>
-                              <h3 className="font-bold text-gray-900">
-                                {party.customerName}
-                              </h3>
-                              <p className="text-sm text-gray-600">
-                                {party.shortName}
-                              </p>
-                            </div>
-                          </div>
-                          {selectedParty?.id === party.id && (
-                            <div className="px-3 py-1 bg-blue-600 text-white rounded-full text-xs font-medium">
-                              Selected
-                            </div>
-                          )}
-                        </div>
-                        <div className="space-y-3">
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-gray-600">
-                              Account Code:
-                            </span>
-                            <span className="font-mono text-sm font-medium text-gray-900">
-                              {party.acCode}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-gray-600">Type:</span>
-                            <span className="text-sm font-medium text-gray-900">
-                              {party.type}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-gray-600">
-                              Division:
-                            </span>
-                            <span className="text-sm font-medium text-gray-900">
-                              {party.division}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-gray-600">
-                              Currencies:
-                            </span>
-                            <span className="text-sm font-bold text-blue-600">
-                              {party.currencies?.length || 0}
-                            </span>
-                          </div>
-                          {party.currencies && party.currencies.length > 0 && (
-                            <div className="mt-4">
-                              <p className="text-xs text-gray-600 mb-2">
-                                Supported Currencies:
-                              </p>
-                              <div className="flex flex-wrap gap-1">
-                                {party.currencies.slice(0, 6).map((curr) => (
-                                  <span
-                                    key={curr.currency}
-                                    className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-medium"
-                                  >
-                                    {curr.currency}
-                                  </span>
-                                ))}
-                                {party.currencies.length > 6 && (
-                                  <span className="px-2 py-1 bg-gray-200 text-gray-600 rounded text-xs">
-                                    +{party.currencies.length - 6} more
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-            {/* Selected Party Details */}
-            {selectedParty && (
-              <div className="bg-white/80 backdrop-blur rounded-2xl shadow-lg border border-gray-200">
-                <div className="p-6 border-b border-gray-200">
-                  <h2 className="text-xl font-bold text-gray-900">
-                    {selectedParty.customerName} - Currency Configuration
-                  </h2>
-                  <p className="text-gray-600 mt-1">
-                    Spreads and rates for available currency pairs
-                  </p>
-                </div>
-                <div className="p-6">
-                  {selectedParty.currencies?.length === 0 ? (
-                    <div className="text-center py-8">
-                      <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                      <p className="text-gray-500 font-medium">
-                        No currencies configured
-                      </p>
-                      <p className="text-gray-400 text-sm">
-                        This party has no currency configuration
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full">
-                        <thead>
-                          <tr className="border-b border-gray-200">
-                            <th className="text-left py-3 px-4 font-semibold text-gray-700">
-                              Currency
-                            </th>
-                            <th className="text-right py-3 px-4 font-semibold text-gray-700">
-                              Current Rate
-                            </th>
-                            <th className="text-right py-3 px-4 font-semibold text-gray-700">
-                              Bid Spread
-                            </th>
-                            <th className="text-right py-3 px-4 font-semibold text-gray-700">
-                              Ask Spread
-                            </th>
-                            <th className="text-right py-3 px-4 font-semibold text-gray-700">
-                              Min Rate
-                            </th>
-                            <th className="text-right py-3 px-4 font-semibold text-gray-700">
-                              Max Rate
-                            </th>
-                            <th className="text-center py-3 px-4 font-semibold text-gray-700">
-                              Default
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {selectedParty.currencies.map((currency) => (
-                            <tr
-                              key={currency.currency}
-                              className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
-                            >
-                              <td className="py-4 px-4">
-                                <div className="flex items-center space-x-3">
-                                  <div className="w-8 h-8 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center">
-                                    <span className="text-xs font-bold text-blue-700">
-                                      {currency.currency}
-                                    </span>
-                                  </div>
-                                  <div>
-                                    <p className="font-semibold text-gray-900">
-                                      {currency.currency}/{baseCurrency}
-                                    </p>
-                                    <p className="text-xs text-gray-500">
-                                      {currencyMaster.find(
-                                        (c) => c.code === currency.currency
-                                      )?.description || "Unknown"}
-                                    </p>
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="py-4 px-4 text-right">
-                                <span className="font-mono font-semibold text-gray-900">
-                                  {currencies[currency.currency]
-                                    ? formatters.currency(
-                                      currencies[currency.currency].value
-                                    )
-                                    : "N/A"}
-                                </span>
-                              </td>
-                              <td className="py-4 px-4 text-right">
-                                <span className="font-mono text-green-600 font-medium">
-                                  {formatters.currency(currency.bid, 6)}
-                                </span>
-                              </td>
-                              <td className="py-4 px-4 text-right">
-                                <span className="font-mono text-red-600 font-medium">
-                                  {formatters.currency(currency.ask, 6)}
-                                </span>
-                              </td>
-                              <td className="py-4 px-4 text-right">
-                                <span className="font-mono text-gray-600">
-                                  {formatters.currency(currency.minRate)}
-                                </span>
-                              </td>
-                              <td className="py-4 px-4 text-right">
-                                <span className="font-mono text-gray-600">
-                                  {formatters.currency(currency.maxRate)}
-                                </span>
-                              </td>
-                              <td className="py-4 px-4 text-center">
-                                {currency.isDefault && (
-                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                    <CheckCircle className="w-3 h-3 mr-1" />
-                                    Default
-                                  </span>
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
                 </div>
               </div>
             )}
