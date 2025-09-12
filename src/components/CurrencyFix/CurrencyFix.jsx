@@ -36,8 +36,13 @@ import {
 import axiosInstance from "../../api/axios";
 import useMarketData from "../../components/marketData";
 // Constants
+const apiKey = import.meta.env.VITE_CURRENCY_API_KEY;
+
 const API_CONFIG = {
-  KEY: "cur_live_5y5ZbNguuVDVh4afwOgiLz5wyLdtSZ1Osi2p1AJa",
+  // KEY: "cur_live_5y5ZbNguuVDVh4afwOgiLz5wyLdtSZ1Osi2p1AJa",
+  KEY: "cur_live_nNdGfEbYZadSuzztXcpIn8o0dh6bHeIyoNFQkiD4",
+  // KEY: apiKey,
+  // call the key from the .env file
   BASE_URL: "https://api.currencyapi.com/v3/latest",
   CACHE_DURATION: 5 * 60 * 1000, // 5 minutes
   REFRESH_INTERVAL: 300000, // 5 minutes
@@ -578,6 +583,7 @@ const CurrencyFixing = () => {
   useEffect(() => {
     updateGoldData(marketData);
   }, [marketData, updateGoldData]);
+
   useEffect(() => {
     const initializeData = async () => {
       setLoading(true);
@@ -587,6 +593,7 @@ const CurrencyFixing = () => {
     };
     initializeData();
   }, [fetchCurrencyMaster, fetchParties]);
+
   useEffect(() => {
     if (currencyMaster.length > 0 && baseCurrency) {
       fetchCurrencyData();
@@ -671,7 +678,7 @@ const CurrencyFixing = () => {
   );
   // Trading functions
   const executeTrade = useCallback(
-    (type, currencyCode, rate, amount) => {
+    async (type, currencyCode, rate, amount) => {
       if (!amount || !selectedParty) {
         toast.error("Please enter an amount and select a party");
         return;
@@ -683,6 +690,20 @@ const CurrencyFixing = () => {
             ? parseFloat(calculateGoldValue(amount, true))
             : amountValue * rate;
         const orderId = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+        const res = await axiosInstance.post("/currency-trading/trades", {
+          partyId: selectedParty.id,
+          type,
+          amount: amountValue,
+          currency: currencyCode,
+          rate,
+          converted,
+          orderId,
+          timestamp: formatters.timestamp(new Date()),
+        });
+        if (res.status !== 201) {
+          throw new Error("Trade API call failed");
+        }
+        setShowTradingModal(false);
         setModalContent({
           type,
           amount: amountValue,
@@ -702,6 +723,9 @@ const CurrencyFixing = () => {
           } order executed successfully`
         );
       } catch (err) {
+        console.log('====================================');
+        console.log(err);
+        console.log('====================================');
         console.error(`${type} error:`, err);
         toast.error(`Failed to execute ${type} order`);
       }
@@ -737,7 +761,7 @@ const CurrencyFixing = () => {
     );
   }
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-gray-100">
       {/* Trade Success Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
@@ -939,11 +963,12 @@ const CurrencyFixing = () => {
                           )
                         }
                         disabled={!buyAmount || parseFloat(buyAmount) <= 0}
-                        className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all duration-200 shadow-md"
+                        className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all duration-200 shadow-md hover:cursor-pointer"
                       >
                         <div className="flex items-center justify-center space-x-2">
                           <ShoppingCart className="w-5 h-5" />
-                          <span>Buy {selectedPair}</span>
+                          {/* in here selected pair is the name of the currency we want opposite */}
+                          <span>Buy {baseCurrency}</span>
                         </div>
                       </button>
                     </div>
@@ -1026,7 +1051,7 @@ const CurrencyFixing = () => {
                       >
                         <div className="flex items-center justify-center space-x-2">
                           <Wallet className="w-5 h-5" />
-                          <span>Sell {selectedPair}</span>
+                          <span>Sell {baseCurrency}</span>
                         </div>
                       </button>
                     </div>
