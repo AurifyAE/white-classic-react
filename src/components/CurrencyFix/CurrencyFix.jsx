@@ -1627,7 +1627,7 @@ const CurrencyFixing = () => {
                         <p className="text-sm text-gray-600">Current Rate</p>
                         <p className="text-lg font-bold text-gray-900">
                           {formatters.currency(currencies[selectedPair].value)}
-                        </p>
+                        </p> 
                         
                       </div>
                       <div
