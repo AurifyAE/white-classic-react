@@ -691,13 +691,18 @@ const CurrencyFixing = () => {
             : amountValue * rate;
         const orderId = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
         const res = await axiosInstance.post("/currency-trading/trades", {
-          partyId: selectedParty.id,
           type,
+          orderId,
+          baseCurrency,
+          toCurrency: currencyCode,
+          partyID: selectedParty.customerName,
           amount: amountValue,
-          currency: currencyCode,
           rate,
           converted,
-          orderId,
+          spread: rate - (currencies[currencyCode]?.value || rate),
+          spreadValue: currencies[currencyCode]?.value || rate,
+          total: converted + (rate - (currencies[currencyCode]?.value || rate)),
+          profit: (rate - (currencies[currencyCode]?.value || rate)) * amountValue,
           timestamp: formatters.timestamp(new Date()),
         });
         if (res.status !== 201) {
@@ -706,12 +711,16 @@ const CurrencyFixing = () => {
         setShowTradingModal(false);
         setModalContent({
           type,
-          amount: amountValue,
-          converted,
-          currency: currencyCode,
-          rate,
+          baseCurrency,
+          toCurrency: currencyCode,
           party: selectedParty.customerName,
-          orderId,
+          amount: amountValue,
+          rate,
+          converted,
+          spread: rate - (currencies[currencyCode]?.value || rate),
+          spreadValue: currencies[currencyCode]?.value || rate,
+          total: converted + (rate - (currencies[currencyCode]?.value || rate)),
+          profit: (rate - (currencies[currencyCode]?.value || rate)) * amountValue,
           timestamp: formatters.timestamp(new Date()),
         });
         setShowModal(true);
@@ -1051,7 +1060,7 @@ const CurrencyFixing = () => {
                       >
                         <div className="flex items-center justify-center space-x-2">
                           <Wallet className="w-5 h-5" />
-                          <span>Sell {baseCurrency}</span>
+                          <span>Sell {selectedPair}</span>
                         </div>
                       </button>
                     </div>
