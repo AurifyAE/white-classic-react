@@ -1628,6 +1628,7 @@ const CurrencyFixing = () => {
                         <p className="text-lg font-bold text-gray-900">
                           {formatters.currency(currencies[selectedPair].value)}
                         </p>
+                        
                       </div>
                       <div
                         className={`flex items-center px-3 py-1 rounded-full ${currencies[selectedPair].trend === "up"
