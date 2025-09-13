@@ -677,61 +677,82 @@ const CurrencyFixing = () => {
     [watchlist, setWatchlist, baseCurrency]
   );
   // Trading functions
-  const executeTrade = useCallback(
-    async (type, currencyCode, rate, amount) => {
-      if (!amount || !selectedParty) {
-        toast.error("Please enter an amount and select a party");
-        return;
+const executeTrade = useCallback(
+  async (type, currencyCode, rate, amount) => {
+    if (!amount || !selectedParty) {
+      toast.error("Please enter an amount and select a party");
+      return;
+    }
+    try {
+      const amountValue = parseFloat(amount);
+      const converted =
+        currencyCode === DEFAULT_CONFIG.GOLD_SYMBOL
+          ? parseFloat(calculateGoldValue(amount, true))
+          : amountValue * rate;
+      
+      const orderId = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+      
+      // Get currency data
+      const currencyData = currencies[currencyCode] || {};
+      const baseCurrencyObj = currencyMaster.find(c => c.code === baseCurrency);
+      const targetCurrencyObj = currencyMaster.find(c => c.code === currencyCode);
+      console.log('Base Currency Object:', baseCurrencyObj, 'Target Currency Object:', targetCurrencyObj);
+      
+      const tradeData = {
+        partyId: selectedParty.id,
+        type,
+        amount: amountValue,
+        currency: currencyCode,
+        rate,
+        converted,
+        orderId,
+        timestamp: formatters.timestamp(new Date()),
+        currentRate: currencyData.value,
+        bidSpread: currencyData.bidSpread,
+        askSpread: currencyData.askSpread,
+        buyRate: currencyData.buyRate,
+        sellRate: currencyData.sellRate,
+        baseCurrencyId: baseCurrencyObj?.id,
+        targetCurrencyId: targetCurrencyObj?.id,
+        baseCurrencyCode: baseCurrency,
+        targetCurrencyCode: currencyCode
+      };
+
+      const res = await axiosInstance.post("/currency-trading/trades", tradeData);
+      
+      if (res.status !== 201) {
+        throw new Error("Trade API call failed");
       }
-      try {
-        const amountValue = parseFloat(amount);
-        const converted =
-          currencyCode === DEFAULT_CONFIG.GOLD_SYMBOL
-            ? parseFloat(calculateGoldValue(amount, true))
-            : amountValue * rate;
-        const orderId = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-        const res = await axiosInstance.post("/currency-trading/trades", {
-          partyId: selectedParty.id,
-          type,
-          amount: amountValue,
-          currency: currencyCode,
-          rate,
-          converted,
-          orderId,
-          timestamp: formatters.timestamp(new Date()),
-        });
-        if (res.status !== 201) {
-          throw new Error("Trade API call failed");
-        }
-        setShowTradingModal(false);
-        setModalContent({
-          type,
-          amount: amountValue,
-          converted,
-          currency: currencyCode,
-          rate,
-          party: selectedParty.customerName,
-          orderId,
-          timestamp: formatters.timestamp(new Date()),
-        });
-        setShowModal(true);
-        // Clear input
-        if (type === "buy") setBuyAmount("");
-        else setSellAmount("");
-        toast.success(
-          `${type.charAt(0).toUpperCase() + type.slice(1)
-          } order executed successfully`
-        );
-      } catch (err) {
-        console.log('====================================');
-        console.log(err);
-        console.log('====================================');
-        console.error(`${type} error:`, err);
-        toast.error(`Failed to execute ${type} order`);
-      }
-    },
-    [selectedParty, calculateGoldValue]
-  );
+      
+      setShowTradingModal(false);
+      setModalContent({
+        type,
+        amount: amountValue,
+        converted,
+        currency: currencyCode,
+        rate,
+        party: selectedParty.customerName,
+        orderId,
+        timestamp: formatters.timestamp(new Date()),
+      });
+      setShowModal(true);
+      
+      // Clear input
+      if (type === "buy") setBuyAmount("");
+      else setSellAmount("");
+      
+      toast.success(
+        `${type.charAt(0).toUpperCase() + type.slice(1)
+        } order executed successfully`
+      );
+    } catch (err) {
+      console.log('Trade execution error:', err);
+      console.error(`${type} error:`, err);
+      toast.error(`Failed to execute ${type} order`);
+    }
+  },
+  [selectedParty, calculateGoldValue, currencies, currencyMaster, baseCurrency]
+);
   // Handle base currency change
   const handleBaseCurrencyChange = useCallback(
     (newBaseCurrency) => {
