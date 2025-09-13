@@ -977,7 +977,7 @@ const CurrencyFixing = () => {
                         <div className="flex items-center justify-center space-x-2">
                           <ShoppingCart className="w-5 h-5" />
                           {/* in here selected pair is the name of the currency we want opposite */}
-                          <span>Buy {baseCurrency}</span>
+                          <span>Buy {selectedPair}</span>
                         </div>
                       </button>
                     </div>
