@@ -695,7 +695,7 @@ const CurrencyFixing = () => {
           orderId,
           baseCurrency,
           toCurrency: currencyCode,
-          partyID: selectedParty.customerName,
+          partyID: selectedParty.id,
           amount: amountValue,
           rate,
           converted,
