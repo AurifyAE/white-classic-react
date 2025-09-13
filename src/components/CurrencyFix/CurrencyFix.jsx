@@ -339,8 +339,9 @@ const [tradeHistoryLoading, setTradeHistoryLoading] = useState(false);
     });
   }, []);
   // Enhanced currency data fetching
-  const fetchCurrencyData = useCallback(async () => {
+const fetchCurrencyData = useCallback(async () => {
     if (!baseCurrency || currencyMaster.length === 0) return;
+    
     // Check cache first
     const cachedData = getCachedData();
     if (cachedData) {
@@ -349,42 +350,54 @@ const [tradeHistoryLoading, setTradeHistoryLoading] = useState(false);
       setLoading(false);
       return;
     }
+    
     // Cancel previous request
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
     abortControllerRef.current = new AbortController();
+    
     try {
       setLoading(true);
       setError(null);
+      
       // Collect all currencies to fetch
       const currenciesToFetch = new Set([
         ...watchlist,
         ...(selectedParty?.currencies?.map((curr) => curr.currency) || []),
         ...currencyMaster.map((curr) => curr.code),
       ]);
+      
       // Always include USD for gold conversion if base is not USD
       if (baseCurrency !== "USD") {
         currenciesToFetch.add("USD");
       }
+      
       // Remove base currency and XAU from API call (XAU handled separately)
       currenciesToFetch.delete(baseCurrency);
       currenciesToFetch.delete(DEFAULT_CONFIG.GOLD_SYMBOL);
+      
       if (currenciesToFetch.size === 0) {
         setLoading(false);
         return;
       }
+      
       const currencyList = Array.from(currenciesToFetch).join(",");
       const url = `${API_CONFIG.BASE_URL}?apikey=${API_CONFIG.KEY}&currencies=${currencyList}&base_currency=${baseCurrency}`;
+      
       const response = await retryWithBackoff(() =>
         fetch(url, { signal: abortControllerRef.current.signal })
       );
+      
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
+      
       const data = await response.json();
+      
       if (data?.data) {
         const enhancedData = {};
+        
         // Process regular currencies
         Object.entries(data.data).forEach(([code, currencyData]) => {
           const apiValue = currencyData.value;
@@ -393,12 +406,14 @@ const [tradeHistoryLoading, setTradeHistoryLoading] = useState(false);
           const prevValue = prevCurrency.value || currentValue;
           const change = currentValue - prevValue;
           const changePercent = prevValue ? (change / prevValue) * 100 : 0;
+          
           // Get party-specific spreads
           const partyCurrency = selectedParty?.currencies?.find(
             (curr) => curr.currency === code
           );
           const bidSpread = partyCurrency?.bid || 0;
           const askSpread = partyCurrency?.ask || 0;
+          
           enhancedData[code] = {
             ...currencyData,
             code,
@@ -417,31 +432,43 @@ const [tradeHistoryLoading, setTradeHistoryLoading] = useState(false);
             lastUpdated: new Date().toISOString(),
           };
         });
+        
         // Add gold data (convert from USD to base currency)
         if (goldData.bid && goldData.bid > 0) {
-          const conv = baseCurrency === "USD" ? 1 : (enhancedData["USD"]?.value || 1);
+          // Get USD to base currency conversion rate
+          let usdToBaseRate = 1;
+          if (baseCurrency !== "USD") {
+            usdToBaseRate = enhancedData["USD"]?.value || 1;
+          }
+          
+          // Calculate gold price in base currency per gram
+          // Gold price is in USD per troy ounce, convert to base currency per gram
+          const goldPricePerGramInBase = (goldData.bid * usdToBaseRate) / DEFAULT_CONFIG.GOLD_CONV_FACTOR;
+          
           const goldPartyCurrency = selectedParty?.currencies?.find(
             (curr) => curr.currency === DEFAULT_CONFIG.GOLD_SYMBOL
           );
+          
           enhancedData[DEFAULT_CONFIG.GOLD_SYMBOL] = {
             code: DEFAULT_CONFIG.GOLD_SYMBOL,
-            value: (goldData.bid || 0) * conv,
-            change: (parseFloat(goldData.dailyChange) || 0) * conv,
+            value: goldPricePerGramInBase,
+            change: (parseFloat(goldData.dailyChange) || 0) * usdToBaseRate / DEFAULT_CONFIG.GOLD_CONV_FACTOR,
             changePercent: parseFloat(goldData.dailyChangePercent) || 0,
             trend: goldData.direction || "neutral",
-            high24h: (goldData.high || goldData.bid || 0) * conv,
-            low24h: (goldData.low || goldData.bid || 0) * conv,
+            high24h: ((goldData.high || goldData.bid || 0) * usdToBaseRate) / DEFAULT_CONFIG.GOLD_CONV_FACTOR,
+            low24h: ((goldData.low || goldData.bid || 0) * usdToBaseRate) / DEFAULT_CONFIG.GOLD_CONV_FACTOR,
             volume: Math.floor(Math.random() * 1000000) + 100000,
             bidSpread: goldPartyCurrency?.bid || 0,
             askSpread: goldPartyCurrency?.ask || 0,
-            buyRate: ((goldData.bid || 0) * conv) + (goldPartyCurrency?.bid || 0),
-            sellRate: ((goldData.bid || 0) * conv) - (goldPartyCurrency?.ask || 0),
-            convFactGms: goldData.convFactGms,
-            convertrate: goldData.convertrate,
+            buyRate: goldPricePerGramInBase + (goldPartyCurrency?.bid || 0),
+            sellRate: goldPricePerGramInBase - (goldPartyCurrency?.ask || 0),
+            convFactGms: DEFAULT_CONFIG.GOLD_CONV_FACTOR,
+            convertrate: usdToBaseRate,
             marketStatus: goldData.marketStatus,
             lastUpdated: new Date().toISOString(),
           };
         }
+        
         setCurrencies(enhancedData);
         setLastUpdate(data.meta?.last_updated_at || new Date().toISOString());
         setCachedData({ data: enhancedData, meta: data.meta });
@@ -465,8 +492,6 @@ const [tradeHistoryLoading, setTradeHistoryLoading] = useState(false);
     retryWithBackoff,
     goldData,
   ]);
-
-
 //trade history
 const fetchTradeHistory = useCallback(async () => {
   try {
@@ -1972,24 +1997,24 @@ const executeTrade = useCallback(
                             <th className="text-right py-3 px-4 font-semibold text-gray-700">
                               Current Rate
                             </th>
-                            <th className="text-right py-3 px-4 font-semibold text-gray-700">
+                            {/* <th className="text-right py-3 px-4 font-semibold text-gray-700">
                               Bid Spread
                             </th>
                             <th className="text-right py-3 px-4 font-semibold text-gray-700">
                               Ask Spread
-                            </th>
+                            </th> */}
                             <th className="text-right py-3 px-4 font-semibold text-gray-700">
                               Buy Rate
                             </th>
                             <th className="text-right py-3 px-4 font-semibold text-gray-700">
                               Sell Rate
                             </th>
-                            <th className="text-right py-3 px-4 font-semibold text-gray-700">
+                            {/* <th className="text-right py-3 px-4 font-semibold text-gray-700">
                               Min Rate
                             </th>
                             <th className="text-right py-3 px-4 font-semibold text-gray-700">
                               Max Rate
-                            </th>
+                            </th> */}
                             <th className="text-center py-3 px-4 font-semibold text-gray-700">
                               Default
                             </th>
@@ -2041,7 +2066,7 @@ const executeTrade = useCallback(
                                       : "N/A"}
                                   </span>
                                 </td>
-                                <td className="py-4 px-4 text-right">
+                                {/* <td className="py-4 px-4 text-right">
                                   <span className="font-mono text-green-600 font-medium">
                                     {formatters.currency(currency.bid, 6)}
                                   </span>
@@ -2050,7 +2075,7 @@ const executeTrade = useCallback(
                                   <span className="font-mono text-red-600 font-medium">
                                     {formatters.currency(currency.ask, 6)}
                                   </span>
-                                </td>
+                                </td> */}
                                 <td className="py-4 px-4 text-right">
                                   <span className="font-mono text-green-600 font-semibold">
                                     {tradingPair ? formatters.currency(tradingPair.buyRate) : "N/A"}
@@ -2061,7 +2086,7 @@ const executeTrade = useCallback(
                                     {tradingPair ? formatters.currency(tradingPair.sellRate) : "N/A"}
                                   </span>
                                 </td>
-                                <td className="py-4 px-4 text-right">
+                                {/* <td className="py-4 px-4 text-right">
                                   <span className="font-mono text-gray-600">
                                     {formatters.currency(currency.minRate)}
                                   </span>
@@ -2070,7 +2095,7 @@ const executeTrade = useCallback(
                                   <span className="font-mono text-gray-600">
                                     {formatters.currency(currency.maxRate)}
                                   </span>
-                                </td>
+                                </td> */}
                                 <td className="py-4 px-4 text-center">
                                   {currency.isDefault && (
                                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
