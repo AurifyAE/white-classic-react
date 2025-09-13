@@ -189,6 +189,7 @@ const [tradeHistoryLoading, setTradeHistoryLoading] = useState(false);
   });
   // UI state
   const [selectedPair, setSelectedPair] = useState(null);
+  const [modalSelectedParty, setModalSelectedParty] = useState(null);
   const [showTradingModal, setShowTradingModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [partySearchTerm, setPartySearchTerm] = useState("");
@@ -745,17 +746,14 @@ useEffect(() => {
   );
   // Trading functions
 const executeTrade = useCallback(
-  async (type, currencyCode, rate, amount) => {
-    if (!amount || !selectedParty) {
+  async (type, currencyCode, rate, amount, party) => {
+    if (!amount || !party) {
       toast.error("Please enter an amount and select a party");
       return;
     }
     try {
       const amountValue = parseFloat(amount);
-      const converted =
-        currencyCode === DEFAULT_CONFIG.GOLD_SYMBOL
-          ? parseFloat(calculateGoldValue(amount, true))
-          : amountValue * rate;
+      const converted = amountValue * rate;
       
       const orderId = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
       
@@ -766,8 +764,8 @@ const executeTrade = useCallback(
       console.log('Base Currency Object:', baseCurrencyObj, 'Target Currency Object:', targetCurrencyObj);
       
       const tradeData = {
-        partyId: selectedParty.id,
-        type,
+        partyId: party.id,
+        type: type.toUpperCase(),
         amount: amountValue,
         currency: currencyCode,
         rate,
@@ -798,7 +796,7 @@ const executeTrade = useCallback(
         converted,
         currency: currencyCode,
         rate,
-        party: selectedParty.customerName,
+        party: party.customerName,
         orderId,
         timestamp: formatters.timestamp(new Date()),
       });
@@ -818,7 +816,7 @@ const executeTrade = useCallback(
       toast.error(`Failed to execute ${type} order`);
     }
   },
-  [selectedParty, calculateGoldValue, currencies, currencyMaster, baseCurrency]
+  [currencies, currencyMaster, baseCurrency]
 );
   // Handle base currency change
   const handleBaseCurrencyChange = useCallback(
@@ -948,6 +946,27 @@ const executeTrade = useCallback(
               </button>
             </div>
             <div className="space-y-6">
+              {/* Party Selector */}
+              <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Trading Party
+                </label>
+                <select
+                  value={modalSelectedParty?.id || ""}
+                  onChange={(e) =>
+                    setModalSelectedParty(
+                      parties.find((p) => p.id === e.target.value)
+                    )
+                  }
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  {parties.map((party) => (
+                    <option key={party.id} value={party.id}>
+                      {party.customerName} ({party.shortName})
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div className="flex items-center justify-between bg-blue-50 p-4 rounded-xl border border-blue-200">
                 <div className="text-left">
                   <p className="text-sm text-gray-600">Current Rate</p>
@@ -977,175 +996,181 @@ const executeTrade = useCallback(
                   </span>
                 </div>
               </div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Buy Section */}
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <h3 className="text-lg font-semibold text-green-700">
-                      Buy {selectedPair}
-                    </h3>
-                  </div>
-                  <div className="bg-green-50 p-4 rounded-xl border border-green-200">
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Amount to Buy{" "}
-                          {selectedPair === DEFAULT_CONFIG.GOLD_SYMBOL
-                            ? "(grams)"
-                            : ""}
-                        </label>
-                        <input
-                          type="number"
-                          value={buyAmount}
-                          onChange={(e) => setBuyAmount(e.target.value)}
-                          placeholder={`Enter ${selectedPair} amount`}
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                          step={
-                            selectedPair === DEFAULT_CONFIG.GOLD_SYMBOL
-                              ? "0.001"
-                              : "0.01"
-                          }
-                          min="0"
-                        />
-                      </div>
-                      <div className="flex justify-between items-center py-2 px-3 bg-white rounded-lg border">
-                        <span className="text-sm text-gray-600">
-                          Buy Rate:
-                        </span>
-                        <span className="font-mono font-semibold text-green-600">
-                          {formatters.currency(
-                            currencies[selectedPair].sellRate
-                          )}
-                        </span>
-                      </div>
-                      {buyAmount && (
-                        <div className="flex justify-between items-center py-2 px-3 bg-white rounded-lg border">
-                          <span className="text-sm text-gray-600">
-                            Total Cost:
-                          </span>
-                          <span className="font-mono font-semibold text-gray-900">
-                            {selectedPair === DEFAULT_CONFIG.GOLD_SYMBOL
-                              ? formatters.currency(
-                                parseFloat(
-                                  calculateGoldValue(buyAmount, true)
-                                ),
-                                2
-                              )
-                              : formatters.currency(
-                                parseFloat(buyAmount) *
-                                currencies[selectedPair].sellRate,
-                                2
-                              )}{" "}
-                            {baseCurrency}
-                          </span>
+              {/* Dynamic rates computation */}
+              {modalSelectedParty && (
+                (() => {
+                  const currentPartyCurr = modalSelectedParty.currencies?.find(
+                    (c) => c.currency === selectedPair
+                  );
+                  const bidSpread = currentPartyCurr?.bid || 0;
+                  const askSpread = currentPartyCurr?.ask || 0;
+                  const marketValue = currencies[selectedPair]?.value || 0;
+                  const dynamicBuyRate = marketValue + bidSpread;
+                  const dynamicSellRate = marketValue - askSpread;
+                  return (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                      {/* Buy Section */}
+                      <div className="space-y-4">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                          <h3 className="text-lg font-semibold text-green-700">
+                            Buy {selectedPair}
+                          </h3>
                         </div>
-                      )}
-                      <button
-                        onClick={() =>
-                          executeTrade(
-                            "buy",
-                            selectedPair,
-                            currencies[selectedPair].sellRate,
-                            buyAmount
-                          )
-                        }
-                        disabled={!buyAmount || parseFloat(buyAmount) <= 0}
-                        className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all duration-200 shadow-md hover:cursor-pointer"
-                      >
-                        <div className="flex items-center justify-center space-x-2">
-                          <ShoppingCart className="w-5 h-5" />
-                          {/* in here selected pair is the name of the currency we want opposite */}
-                          <span>Buy {selectedPair}</span>
+                        <div className="bg-green-50 p-4 rounded-xl border border-green-200">
+                          <div className="space-y-3">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Amount to Buy{" "}
+                                {selectedPair === DEFAULT_CONFIG.GOLD_SYMBOL
+                                  ? "(grams)"
+                                  : ""}
+                              </label>
+                              <input
+                                type="number"
+                                value={buyAmount}
+                                onChange={(e) => setBuyAmount(e.target.value)}
+                                placeholder={`Enter ${selectedPair} amount`}
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                step={
+                                  selectedPair === DEFAULT_CONFIG.GOLD_SYMBOL
+                                    ? "0.001"
+                                    : "0.01"
+                                }
+                                min="0"
+                              />
+                            </div>
+                            <div className="flex justify-between items-center py-2 px-3 bg-white rounded-lg border">
+                              <span className="text-sm text-gray-600">
+                                Buy Rate:
+                              </span>
+                              <span className="font-mono font-semibold text-green-600">
+                                {formatters.currency(dynamicBuyRate)}
+                              </span>
+                            </div>
+                            {buyAmount && (
+                              <div className="flex justify-between items-center py-2 px-3 bg-white rounded-lg border">
+                                <span className="text-sm text-gray-600">
+                                  Total Cost:
+                                </span>
+                                <span className="font-mono font-semibold text-gray-900">
+                                  {formatters.currency(
+                                    parseFloat(buyAmount) * dynamicBuyRate,
+                                    2
+                                  )}{" "}
+                                  {baseCurrency}
+                                </span>
+                              </div>
+                            )}
+                            <button
+                              onClick={() =>
+                                executeTrade(
+                                  "buy",
+                                  selectedPair,
+                                  dynamicBuyRate,
+                                  buyAmount,
+                                  modalSelectedParty
+                                )
+                              }
+                              disabled={!buyAmount || parseFloat(buyAmount) <= 0}
+                              className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all duration-200 shadow-md hover:cursor-pointer"
+                            >
+                              <div className="flex items-center justify-center space-x-2">
+                                <ShoppingCart className="w-5 h-5" />
+                                {/* in here selected pair is the name of the currency we want opposite */}
+                                <span>Buy {selectedPair}</span>
+                              </div>
+                            </button>
+                          </div>
                         </div>
-                      </button>
+                      </div>
+                      {/* Sell Section */}
+                      <div className="space-y-4">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                          <h3 className="text-lg font-semibold text-red-700">
+                            Sell {selectedPair}
+                          </h3>
+                        </div>
+                        <div className="bg-red-50 p-4 rounded-xl border border-red-200">
+                          <div className="space-y-3">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Amount to Sell{" "}
+                                {selectedPair === DEFAULT_CONFIG.GOLD_SYMBOL
+                                  ? "(grams)"
+                                  : ""}
+                              </label>
+                              <input
+                                type="number"
+                                value={sellAmount}
+                                onChange={(e) => setSellAmount(e.target.value)}
+                                placeholder={`Enter ${selectedPair} amount`}
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                                step={
+                                  selectedPair === DEFAULT_CONFIG.GOLD_SYMBOL
+                                    ? "0.001"
+                                    : "0.01"
+                                }
+                                min="0"
+                              />
+                            </div>
+                            <div className="flex justify-between items-center py-2 px-3 bg-white rounded-lg border">
+                              <span className="text-sm text-gray-600">
+                                Sell Rate:
+                              </span>
+                              <span className="font-mono font-semibold text-red-600">
+                                {formatters.currency(dynamicSellRate)}
+                              </span>
+                            </div>
+                            {sellAmount && (
+                              <div className="flex justify-between items-center py-2 px-3 bg-white rounded-lg border">
+                                <span className="text-sm text-gray-600">
+                                  Total Receive:
+                                </span>
+                                <span className="font-mono font-semibold text-gray-900">
+                                  {formatters.currency(
+                                    parseFloat(sellAmount) * dynamicSellRate,
+                                    2
+                                  )}{" "}
+                                  {baseCurrency}
+                                </span>
+                              </div>
+                            )}
+                            <button
+                              onClick={() =>
+                                executeTrade(
+                                  "sell",
+                                  selectedPair,
+                                  dynamicSellRate,
+                                  sellAmount,
+                                  modalSelectedParty
+                                )
+                              }
+                              disabled={!sellAmount || parseFloat(sellAmount) <= 0}
+                              className="w-full px-4 py-3 bg-gradient-to-r from-red-600 to-rose-600 text-white rounded-lg hover:from-red-700 hover:to-rose-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all duration-200 shadow-md"
+                            >
+                              <div className="flex items-center justify-center space-x-2">
+                                <Wallet className="w-5 h-5" />
+                                <span>Sell {selectedPair}</span>
+                              </div>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  );
+                })()
+              )}
+              {/* Fallback if no party selected */}
+              {!modalSelectedParty && (
+                <div className="text-center py-8 bg-yellow-50 rounded-xl border border-yellow-200">
+                  <AlertCircle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
+                  <p className="text-yellow-800 font-medium">
+                    Please select a trading party
+                  </p>
                 </div>
-                {/* Sell Section */}
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                    <h3 className="text-lg font-semibold text-red-700">
-                      Sell {selectedPair}
-                    </h3>
-                  </div>
-                  <div className="bg-red-50 p-4 rounded-xl border border-red-200">
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Amount to Sell{" "}
-                          {selectedPair === DEFAULT_CONFIG.GOLD_SYMBOL
-                            ? "(grams)"
-                            : ""}
-                        </label>
-                        <input
-                          type="number"
-                          value={sellAmount}
-                          onChange={(e) => setSellAmount(e.target.value)}
-                          placeholder={`Enter ${selectedPair} amount`}
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                          step={
-                            selectedPair === DEFAULT_CONFIG.GOLD_SYMBOL
-                              ? "0.001"
-                              : "0.01"
-                          }
-                          min="0"
-                        />
-                      </div>
-                      <div className="flex justify-between items-center py-2 px-3 bg-white rounded-lg border">
-                        <span className="text-sm text-gray-600">
-                          Sell Rate:
-                        </span>
-                        <span className="font-mono font-semibold text-red-600">
-                          {formatters.currency(
-                            currencies[selectedPair].buyRate
-                          )}
-                        </span>
-                      </div>
-                      {sellAmount && (
-                        <div className="flex justify-between items-center py-2 px-3 bg-white rounded-lg border">
-                          <span className="text-sm text-gray-600">
-                            Total Receive:
-                          </span>
-                          <span className="font-mono font-semibold text-gray-900">
-                            {selectedPair === DEFAULT_CONFIG.GOLD_SYMBOL
-                              ? formatters.currency(
-                                parseFloat(
-                                  calculateGoldValue(sellAmount, true)
-                                ),
-                                2
-                              )
-                              : formatters.currency(
-                                parseFloat(sellAmount) *
-                                currencies[selectedPair].buyRate,
-                                2
-                              )}{" "}
-                            {baseCurrency}
-                          </span>
-                        </div>
-                      )}
-                      <button
-                        onClick={() =>
-                          executeTrade(
-                            "sell",
-                            selectedPair,
-                            currencies[selectedPair].buyRate,
-                            sellAmount
-                          )
-                        }
-                        disabled={!sellAmount || parseFloat(sellAmount) <= 0}
-                        className="w-full px-4 py-3 bg-gradient-to-r from-red-600 to-rose-600 text-white rounded-lg hover:from-red-700 hover:to-rose-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all duration-200 shadow-md"
-                      >
-                        <div className="flex items-center justify-center space-x-2">
-                          <Wallet className="w-5 h-5" />
-                          <span>Sell {selectedPair}</span>
-                        </div>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              )}
               {/* Market Details */}
               <div className="mt-8 p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl border border-gray-200">
                 <h4 className="font-semibold text-gray-900 mb-4">
@@ -1665,7 +1690,11 @@ const executeTrade = useCallback(
                             <tr
                               key={pair.currency}
                               className="border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
-                              onClick={() => setSelectedPair(pair.currency)}
+                              onClick={() => {
+                                setSelectedPair(pair.currency);
+                                setModalSelectedParty(selectedParty);
+                                setShowTradingModal(true);
+                              }}
                             >
                               <td className="py-4 px-4">
                                 <div className="flex items-center space-x-3">
@@ -2020,7 +2049,7 @@ const executeTrade = useCallback(
                             </th>
                           </tr>
                         </thead>
-                     < tbody>
+                     <tbody>
   {selectedParty.currencies
     .filter(currency => currency.currency !== baseCurrency)  
     .map((currency) => {
@@ -2035,6 +2064,7 @@ const executeTrade = useCallback(
                                 className="border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
                                 onClick={() => {
                                   setSelectedPair(currency.currency);
+                                  setModalSelectedParty(selectedParty);
                                   setShowTradingModal(true);
                                 }}
                               >
