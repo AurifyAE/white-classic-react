@@ -1804,12 +1804,14 @@ const CurrencyFixing = () => {
                             </th>
                           </tr>
                         </thead>
-                        <tbody>
-                          {selectedParty.currencies.map((currency) => {
-                            // Find the corresponding trading pair data
-                            const tradingPair = partyCurrencyPairs.find(
-                              pair => pair.currency === currency.currency
-                            );
+                     < tbody>
+  {selectedParty.currencies
+    .filter(currency => currency.currency !== baseCurrency)  
+    .map((currency) => {
+      const tradingPair = partyCurrencyPairs.find(
+        pair => pair.currency === currency.currency
+      );
+
 
                             return (
                               <tr
