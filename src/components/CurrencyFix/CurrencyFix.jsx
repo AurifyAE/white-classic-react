@@ -473,19 +473,14 @@ const fetchTradeHistory = useCallback(async () => {
     setTradeHistoryLoading(true);
     const response = await axiosInstance.get("/currency-trading/trades");
     
-    // Log the response to debug the structure
     console.log("Trade history response:", response);
     
-    // Handle different possible response structures
     let tradeData = [];
     if (response.data && Array.isArray(response.data)) {
-      // If response.data is directly the array
       tradeData = response.data;
     } else if (response.data && Array.isArray(response.data.data)) {
-      // If response.data has a data property that's the array
       tradeData = response.data.data;
     } else if (response.data && response.data.trades) {
-      // If response.data has a trades property
       tradeData = response.data.trades;
     }
     
