@@ -927,7 +927,7 @@ const CurrencyFixing = () => {
                         </span>
                         <span className="font-mono font-semibold text-green-600">
                           {formatters.currency(
-                            currencies[selectedPair].buyRate
+                            currencies[selectedPair].sellRate
                           )}
                         </span>
                       </div>
@@ -946,7 +946,7 @@ const CurrencyFixing = () => {
                               )
                               : formatters.currency(
                                 parseFloat(buyAmount) *
-                                currencies[selectedPair].buyRate,
+                                currencies[selectedPair].sellRate,
                                 2
                               )}{" "}
                             {baseCurrency}
@@ -958,7 +958,7 @@ const CurrencyFixing = () => {
                           executeTrade(
                             "buy",
                             selectedPair,
-                            currencies[selectedPair].buyRate,
+                            currencies[selectedPair].sellRate,
                             buyAmount
                           )
                         }
@@ -1011,7 +1011,7 @@ const CurrencyFixing = () => {
                         </span>
                         <span className="font-mono font-semibold text-red-600">
                           {formatters.currency(
-                            currencies[selectedPair].sellRate
+                            currencies[selectedPair].buyRate
                           )}
                         </span>
                       </div>
@@ -1030,7 +1030,7 @@ const CurrencyFixing = () => {
                               )
                               : formatters.currency(
                                 parseFloat(sellAmount) *
-                                currencies[selectedPair].sellRate,
+                                currencies[selectedPair].buyRate,
                                 2
                               )}{" "}
                             {baseCurrency}
@@ -1042,7 +1042,7 @@ const CurrencyFixing = () => {
                           executeTrade(
                             "sell",
                             selectedPair,
-                            currencies[selectedPair].sellRate,
+                            currencies[selectedPair].buyRate,
                             sellAmount
                           )
                         }
