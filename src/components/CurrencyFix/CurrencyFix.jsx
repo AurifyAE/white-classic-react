@@ -341,159 +341,188 @@ const [tradeHistoryLoading, setTradeHistoryLoading] = useState(false);
     });
   }, []);
   // Enhanced currency data fetching
+// Enhanced currency data fetching
 const fetchCurrencyData = useCallback(async () => {
-    if (!baseCurrency || currencyMaster.length === 0) return;
-    
-    // Check cache first
-    const cachedData = getCachedData();
-    if (cachedData) {
-      setCurrencies(cachedData.data);
-      setLastUpdate(cachedData.meta?.last_updated_at);
+  if (!baseCurrency || currencyMaster.length === 0) return;
+
+  // Check cache first
+  const cachedData = getCachedData();
+  if (cachedData) {
+    setCurrencies(cachedData.data);
+    setLastUpdate(cachedData.meta?.fetchedAt);
+
+    // Only proceed with API call if cache is stale (older than 5 minutes)
+    const cacheAge = Date.now() - (cachedData.timestamp || 0);
+    if (cacheAge < API_CONFIG.CACHE_DURATION) {
       setLoading(false);
-      return;
+      return; // Use cached data if still fresh
     }
-    
-    // Cancel previous request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    abortControllerRef.current = new AbortController();
-    
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // Collect all currencies to fetch
-      const currenciesToFetch = new Set([
-        ...watchlist,
-        ...(selectedParty?.currencies?.map((curr) => curr.currency) || []),
-        ...currencyMaster.map((curr) => curr.code),
-      ]);
-      
-      // Always include USD for gold conversion if base is not USD
-      if (baseCurrency !== "USD") {
-        currenciesToFetch.add("USD");
-      }
-      
-      // Remove base currency and XAU from API call (XAU handled separately)
-      currenciesToFetch.delete(baseCurrency);
-      currenciesToFetch.delete(DEFAULT_CONFIG.GOLD_SYMBOL);
-      
-      if (currenciesToFetch.size === 0) {
+  }
+
+  // Cancel previous request
+  if (abortControllerRef.current) {
+    abortControllerRef.current.abort();
+  }
+  abortControllerRef.current = new AbortController();
+
+  try {
+    setLoading(true);
+    setError(null);
+
+    // Fetch data from backend API
+    const response = await retryWithBackoff(() =>
+      axiosInstance.get("/currency-trading/live-rate", {
+        signal: abortControllerRef.current.signal,
+      })
+    );
+
+    const data = response.data;
+
+    if (!data || !data.rates) {
+      if (cachedData) {
+        toast.warn("Using cached data - API temporarily unavailable");
+        setCurrencies(cachedData.data);
+        setLastUpdate(cachedData.meta?.fetchedAt);
         setLoading(false);
         return;
       }
-      
-      const currencyList = Array.from(currenciesToFetch).join(",");
-      const url = `${API_CONFIG.BASE_URL}?apikey=${API_CONFIG.KEY}&currencies=${currencyList}&base_currency=${baseCurrency}`;
-      
-      const response = await retryWithBackoff(() =>
-        fetch(url, { signal: abortControllerRef.current.signal })
+      throw new Error("Invalid response from backend API");
+    }
+
+    const enhancedData = {};
+
+    const { rates, fetchedAt } = data;
+
+    const supportedCurrencies = ["USD", "INR", "AED"];
+    supportedCurrencies.forEach((code) => {
+      if (code === baseCurrency) return; 
+
+      let currentValue;
+      if (code === "USD" && baseCurrency === "INR") {
+        currentValue = rates.USD_TO_INR;
+      } else if (code === "USD" && baseCurrency === "AED") {
+        currentValue = rates.USD_TO_AED;
+      } else if (code === "INR" && baseCurrency === "AED") {
+        currentValue = rates.INR_TO_AED;
+      } else if (code === "AED" && baseCurrency === "INR") {
+        currentValue = rates.AED_TO_INR;
+      } else if (code === "INR" && baseCurrency === "USD") {
+        currentValue = 1 / rates.USD_TO_INR;
+      } else if (code === "AED" && baseCurrency === "USD") {
+        currentValue = 1 / rates.USD_TO_AED;
+      } else {
+        currentValue = 0; // Handle unsupported pairs
+      }
+
+      const prevCurrency = currencies[code] || {};
+      const prevValue = prevCurrency.value || currentValue;
+      const change = currentValue - prevValue;
+      const changePercent = prevValue ? (change / prevValue) * 100 : 0;
+
+      // Get party-specific spreads
+      const partyCurrency = selectedParty?.currencies?.find(
+        (curr) => curr.currency === code
       );
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      const bidSpread = partyCurrency?.bid || 0;
+      const askSpread = partyCurrency?.ask || 0;
+
+      enhancedData[code] = {
+        code,
+        value: currentValue,
+        change,
+        changePercent,
+        trend: change > 0 ? "up" : change < 0 ? "down" : "neutral",
+        high24h: currentValue * (1 + Math.random() * 0.02), // Simulated high
+        low24h: currentValue * (1 - Math.random() * 0.02), // Simulated low
+        volume: Math.floor(Math.random() * 10000000) + 1000000, // Simulated volume
+        bidSpread,
+        askSpread,
+        buyRate: currentValue + bidSpread,
+        sellRate: currentValue - askSpread,
+        lastUpdated: fetchedAt || new Date().toISOString(),
+      };
+    });
+
+    // Add gold data 
+    if (goldData.bid && goldData.bid > 0) {
+      let usdToBaseRate = 1;
+      if (baseCurrency !== "USD") {
+        usdToBaseRate =
+          baseCurrency === "INR"
+            ? rates.USD_TO_INR
+            : baseCurrency === "AED"
+            ? rates.USD_TO_AED
+            : 1;
       }
-      
-      const data = await response.json();
-      
-      if (data?.data) {
-        const enhancedData = {};
-        
-        // Process regular currencies
-        Object.entries(data.data).forEach(([code, currencyData]) => {
-          const apiValue = currencyData.value;
-          const currentValue = 1 / apiValue; // Convert to base currency rate
-          const prevCurrency = currencies[code] || {};
-          const prevValue = prevCurrency.value || currentValue;
-          const change = currentValue - prevValue;
-          const changePercent = prevValue ? (change / prevValue) * 100 : 0;
-          
-          // Get party-specific spreads
-          const partyCurrency = selectedParty?.currencies?.find(
-            (curr) => curr.currency === code
-          );
-          const bidSpread = partyCurrency?.bid || 0;
-          const askSpread = partyCurrency?.ask || 0;
-          
-          enhancedData[code] = {
-            ...currencyData,
-            code,
-            value: currentValue,
-            change,
-            changePercent,
-            trend: change > 0 ? "up" : change < 0 ? "down" : "neutral",
-            // Generate realistic market data
-            high24h: currentValue * (1 + Math.random() * 0.02),
-            low24h: currentValue * (1 - Math.random() * 0.02),
-            volume: Math.floor(Math.random() * 10000000) + 1000000,
-            bidSpread,
-            askSpread,
-            buyRate: currentValue + bidSpread,
-            sellRate: currentValue - askSpread,
-            lastUpdated: new Date().toISOString(),
-          };
-        });
-        
-        // Add gold data (convert from USD to base currency)
-        if (goldData.bid && goldData.bid > 0) {
-          // Get USD to base currency conversion rate
-          let usdToBaseRate = 1;
-          if (baseCurrency !== "USD") {
-            usdToBaseRate = enhancedData["USD"]?.value || 1;
-          }
-          
-          // Calculate gold price in base currency per gram
-          // Gold price is in USD per troy ounce, convert to base currency per gram
-          const goldPricePerGramInBase = (goldData.bid * usdToBaseRate) / DEFAULT_CONFIG.GOLD_CONV_FACTOR;
-          
-          const goldPartyCurrency = selectedParty?.currencies?.find(
-            (curr) => curr.currency === DEFAULT_CONFIG.GOLD_SYMBOL
-          );
-          
-          enhancedData[DEFAULT_CONFIG.GOLD_SYMBOL] = {
-            code: DEFAULT_CONFIG.GOLD_SYMBOL,
-            value: goldPricePerGramInBase,
-            change: (parseFloat(goldData.dailyChange) || 0) * usdToBaseRate / DEFAULT_CONFIG.GOLD_CONV_FACTOR,
-            changePercent: parseFloat(goldData.dailyChangePercent) || 0,
-            trend: goldData.direction || "neutral",
-            high24h: ((goldData.high || goldData.bid || 0) * usdToBaseRate) / DEFAULT_CONFIG.GOLD_CONV_FACTOR,
-            low24h: ((goldData.low || goldData.bid || 0) * usdToBaseRate) / DEFAULT_CONFIG.GOLD_CONV_FACTOR,
-            volume: Math.floor(Math.random() * 1000000) + 100000,
-            bidSpread: goldPartyCurrency?.bid || 0,
-            askSpread: goldPartyCurrency?.ask || 0,
-            buyRate: goldPricePerGramInBase + (goldPartyCurrency?.bid || 0),
-            sellRate: goldPricePerGramInBase - (goldPartyCurrency?.ask || 0),
-            convFactGms: DEFAULT_CONFIG.GOLD_CONV_FACTOR,
-            convertrate: usdToBaseRate,
-            marketStatus: goldData.marketStatus,
-            lastUpdated: new Date().toISOString(),
-          };
-        }
-        
-        setCurrencies(enhancedData);
-        setLastUpdate(data.meta?.last_updated_at || new Date().toISOString());
-        setCachedData({ data: enhancedData, meta: data.meta });
-      }
-    } catch (err) {
-      if (err.name !== "AbortError") {
+
+      // Calculate gold price in base currency per gram
+      const goldPricePerGramInBase =
+        (goldData.bid * usdToBaseRate) / DEFAULT_CONFIG.GOLD_CONV_FACTOR;
+
+      const goldPartyCurrency = selectedParty?.currencies?.find(
+        (curr) => curr.currency === DEFAULT_CONFIG.GOLD_SYMBOL
+      );
+
+      enhancedData[DEFAULT_CONFIG.GOLD_SYMBOL] = {
+        code: DEFAULT_CONFIG.GOLD_SYMBOL,
+        value: goldPricePerGramInBase,
+        change:
+          (parseFloat(goldData.dailyChange) || 0) *
+          usdToBaseRate /
+          DEFAULT_CONFIG.GOLD_CONV_FACTOR,
+        changePercent: parseFloat(goldData.dailyChangePercent) || 0,
+        trend: goldData.direction || "neutral",
+        high24h:
+          ((goldData.high || goldData.bid || 0) * usdToBaseRate) /
+          DEFAULT_CONFIG.GOLD_CONV_FACTOR,
+        low24h:
+          ((goldData.low || goldData.bid || 0) * usdToBaseRate) /
+          DEFAULT_CONFIG.GOLD_CONV_FACTOR,
+        volume: Math.floor(Math.random() * 1000000) + 100000,
+        bidSpread: goldPartyCurrency?.bid || 0,
+        askSpread: goldPartyCurrency?.ask || 0,
+        buyRate: goldPricePerGramInBase + (goldPartyCurrency?.bid || 0),
+        sellRate: goldPricePerGramInBase - (goldPartyCurrency?.ask || 0),
+        convFactGms: DEFAULT_CONFIG.GOLD_CONV_FACTOR,
+        convertrate: usdToBaseRate,
+        marketStatus: goldData.marketStatus,
+        lastUpdated: fetchedAt || new Date().toISOString(),
+      };
+    }
+
+    setCurrencies(enhancedData);
+    setLastUpdate(fetchedAt || new Date().toISOString());
+
+    setCachedData({
+      data: enhancedData,
+      meta: { fetchedAt },
+      timestamp: Date.now(),
+    });
+  } catch (err) {
+    if (err.name !== "AbortError") {
+      if (cachedData) {
+        toast.warn("Using cached data - Network error occurred");
+        setCurrencies(cachedData.data);
+        setLastUpdate(cachedData.meta?.fetchedAt);
+      } else {
         setError(err.message || "Failed to fetch currency data.");
         toast.error(err.message || "Failed to fetch live currency data");
         console.error("Currency fetch error:", err);
       }
-    } finally {
-      setLoading(false);
     }
-  }, [
-    baseCurrency,
-    currencyMaster,
-    watchlist,
-    selectedParty,
-    getCachedData,
-    setCachedData,
-    retryWithBackoff,
-    goldData,
-  ]);
+  } finally {
+    setLoading(false);
+  }
+}, [
+  baseCurrency,
+  currencyMaster,
+  watchlist,
+  selectedParty,
+  getCachedData,
+  setCachedData,
+  retryWithBackoff,
+  goldData,
+]);
 //trade history
 const fetchTradeHistory = useCallback(async () => {
   try {
