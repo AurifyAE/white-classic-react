@@ -40,9 +40,10 @@ const apiKey = import.meta.env.VITE_CURRENCY_API_KEY;
 
 const API_CONFIG = {
   
-  KEY: "cur_live_xiOZwQm5FXIXwwz8bZS5FLcAHaNcq5NUFlKgH62c",
+  // KEY: "cur_live_xiOZwQm5FXIXwwz8bZS5FLcAHaNcq5NUFlKgH62c",
   // KEY: "cur_live_5y5ZbNguuVDVh4afwOgiLz5wyLdtSZ1Osi2p1AJa",
   // KEY: "cur_live_nNdGfEbYZadSuzztXcpIn8o0dh6bHeIyoNFQkiD4",
+  // KEY: "cur_live_QMJhqaYU74y0E5Q64Nni4wOMLqMhLS6FTIyQuoyQ",
   // KEY: apiKey,x
   // call the key from the .env file
   BASE_URL: "https://api.currencyapi.com/v3/latest",
