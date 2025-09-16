@@ -543,8 +543,7 @@ const fetchTradeHistory = useCallback(async () => {
   try {
     setTradeHistoryLoading(true);
     const response = await axiosInstance.get("/currency-trading/trades");
-    
-    console.log("Trade history response:", response);
+
     
     let tradeData = [];
     if (response.data && Array.isArray(response.data)) {
@@ -611,7 +610,7 @@ const fetchTradeHistory = useCallback(async () => {
           setWatchlist(initialWatchlist);
         }
       }
-    } catch (err) {
+    } catch (err) { 
       setError("Failed to fetch currency master data");
       toast.error("Failed to load currency data");
       console.error("Error fetching currency master:", err);
