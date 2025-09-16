@@ -339,8 +339,8 @@ const [tradeHistoryLoading, setTradeHistoryLoading] = useState(false);
       };
     });
   }, []);
+  // Enhanced currency data fetchin
   // Enhanced currency data fetching
-// Enhanced currency data fetching
 const fetchCurrencyData = useCallback(async () => {
   if (!baseCurrency || currencyMaster.length === 0) return;
 
@@ -378,7 +378,6 @@ const fetchCurrencyData = useCallback(async () => {
     const data = response.data;
 
     if (!data || !data.rates) {
-      // If API fails but we have cached data, use that instead
       if (cachedData) {
         toast.warn("Using cached data - API temporarily unavailable");
         setCurrencies(cachedData.data);
@@ -391,16 +390,29 @@ const fetchCurrencyData = useCallback(async () => {
 
     const enhancedData = {};
 
-    // Process backend rates
     const { rates, fetchedAt } = data;
 
-    // Define supported currencies based on backend data
     const supportedCurrencies = ["USD", "INR", "AED"];
     supportedCurrencies.forEach((code) => {
-      if (code === baseCurrency) return; // Skip base currency
+      if (code === baseCurrency) return; 
 
       let currentValue;
-      if (code === "USD" && baseCurrency === "INR") {
+      if (baseCurrency === DEFAULT_CONFIG.GOLD_SYMBOL) {
+        if (!goldData.bid || goldData.bid <= 0) {
+          currentValue = 0;
+        } else {
+          let codeToUsdRate = 0;
+          if (code === "USD") {
+            codeToUsdRate = 1;
+          } else if (code === "INR") {
+            codeToUsdRate = 1 / (rates.USD_TO_INR || 1);
+          } else if (code === "AED") {
+            codeToUsdRate = 1 / (rates.USD_TO_AED || 1);
+          }
+          const gramsPerUsd = DEFAULT_CONFIG.GOLD_CONV_FACTOR / goldData.bid;
+          currentValue = gramsPerUsd * codeToUsdRate;
+        }
+      } else if (code === "USD" && baseCurrency === "INR") {
         currentValue = rates.USD_TO_INR;
       } else if (code === "USD" && baseCurrency === "AED") {
         currentValue = rates.USD_TO_AED;
@@ -445,19 +457,16 @@ const fetchCurrencyData = useCallback(async () => {
       };
     });
 
-    // Add gold data (convert from USD to base currency)
-    if (goldData.bid && goldData.bid > 0) {
+    // Add gold data 
+    if (goldData.bid && goldData.bid > 0 && baseCurrency !== DEFAULT_CONFIG.GOLD_SYMBOL) {
       let usdToBaseRate = 1;
       if (baseCurrency !== "USD") {
-        if (baseCurrency === "INR" && rates.USD_TO_INR) {
-          usdToBaseRate = rates.USD_TO_INR;
-        } else if (baseCurrency === "AED" && rates.USD_TO_AED) {
-          usdToBaseRate = rates.USD_TO_AED;
-        } else {
-          // Fallback if USD rate is missing
-          toast.warn(`USD to ${baseCurrency} rate unavailable, using default rate 1`);
-          usdToBaseRate = 1;
-        }
+        usdToBaseRate =
+          baseCurrency === "INR"
+            ? rates.USD_TO_INR
+            : baseCurrency === "AED"
+            ? rates.USD_TO_AED
+            : 1;
       }
 
       // Calculate gold price in base currency per gram
@@ -493,33 +502,11 @@ const fetchCurrencyData = useCallback(async () => {
         marketStatus: goldData.marketStatus,
         lastUpdated: fetchedAt || new Date().toISOString(),
       };
-    } else {
-      // Handle case where gold data is unavailable
-      toast.warn("Gold price data unavailable");
-      enhancedData[DEFAULT_CONFIG.GOLD_SYMBOL] = {
-        code: DEFAULT_CONFIG.GOLD_SYMBOL,
-        value: 0,
-        change: 0,
-        changePercent: 0,
-        trend: "neutral",
-        high24h: 0,
-        low24h: 0,
-        volume: 0,
-        bidSpread: 0,
-        askSpread: 0,
-        buyRate: 0,
-        sellRate: 0,
-        convFactGms: DEFAULT_CONFIG.GOLD_CONV_FACTOR,
-        convertrate: 1,
-        marketStatus: "ERROR",
-        lastUpdated: fetchedAt || new Date().toISOString(),
-      };
     }
 
     setCurrencies(enhancedData);
     setLastUpdate(fetchedAt || new Date().toISOString());
 
-    // Cache the new data with timestamp
     setCachedData({
       data: enhancedData,
       meta: { fetchedAt },
@@ -527,7 +514,6 @@ const fetchCurrencyData = useCallback(async () => {
     });
   } catch (err) {
     if (err.name !== "AbortError") {
-      // If we have cached data, use it instead of showing error
       if (cachedData) {
         toast.warn("Using cached data - Network error occurred");
         setCurrencies(cachedData.data);
