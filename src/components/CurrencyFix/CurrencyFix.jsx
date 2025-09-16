@@ -976,7 +976,7 @@ const fetchTradeHistory = useCallback(async () => {
         </div>
       )}
       {/* Trading Modal */}
- {showTradingModal && selectedPair && currencies[selectedPair] && (
+{showTradingModal && selectedPair && currencies[selectedPair] && (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
     <div className="bg-white rounded-2xl p-8 w-full max-w-4xl shadow-2xl transform transition-all duration-300 animate-in zoom-in-95">
       <div className="flex justify-between items-center mb-6">
@@ -1049,10 +1049,24 @@ const fetchTradeHistory = useCallback(async () => {
             );
             const bidSpread = currentPartyCurr?.bid || 0;
             const askSpread = currentPartyCurr?.ask || 0;
-            const marketValue = currencies[selectedPair]?.value || 0; // Rate of selectedPair in terms of baseCurrency
-            const inverseRate = marketValue > 0 ? 1 / marketValue : 0; // Inverse rate (e.g., INR per AED if AED/INR)
-            const dynamicBuyRate = inverseRate + (bidSpread / marketValue); // Adjusted buy rate for 1 unit of selectedPair
-            const dynamicSellRate = inverseRate - (askSpread / marketValue); // Adjusted sell rate for 1 unit of selectedPair
+            const marketValue = currencies[selectedPair]?.value || 0;
+            const inverseRate = marketValue > 0 ? 1 / marketValue : 0;
+            const dynamicBuyRate = inverseRate + (bidSpread / marketValue);
+            const dynamicSellRate = inverseRate - (askSpread / marketValue);
+            
+            // Helper functions for calculations
+            const calculateBuyAmount = (totalAmount) => {
+              return totalAmount && dynamicBuyRate > 0 
+                ? (parseFloat(totalAmount) / dynamicBuyRate).toFixed(2)
+                : "";
+            };
+            
+            const calculateSellAmount = (totalAmount) => {
+              return totalAmount && dynamicSellRate > 0 
+                ? (parseFloat(totalAmount) / dynamicSellRate).toFixed(2)
+                : "";
+            };
+            
             return (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Buy Section */}
@@ -1072,8 +1086,41 @@ const fetchTradeHistory = useCallback(async () => {
                         <input
                           type="number"
                           value={buyAmount}
-                          onChange={(e) => setBuyAmount(e.target.value)}
+                          onChange={(e) => {
+                            setBuyAmount(e.target.value);
+                            // Clear the corresponding amount field when changing this one
+                            setSellAmount("");
+                          }}
                           placeholder={`Enter ${baseCurrency} amount`}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                          step={
+                            selectedPair === DEFAULT_CONFIG.GOLD_SYMBOL
+                              ? "0.001"
+                              : "0.01"
+                          }
+                          min="0"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Amount to Receive ({selectedPair})
+                        </label>
+                        <input
+                          type="number"
+                          value={buyAmount && dynamicBuyRate > 0 
+                            ? (parseFloat(buyAmount) * dynamicBuyRate).toFixed(2)
+                            : ""
+                          }
+                          onChange={(e) => {
+                            const receivedAmount = e.target.value;
+                            if (receivedAmount && dynamicBuyRate > 0) {
+                              setBuyAmount((parseFloat(receivedAmount) / dynamicBuyRate).toFixed(2));
+                            } else {
+                              setBuyAmount("");
+                            }
+                            setSellAmount("");
+                          }}
+                          placeholder={`Enter ${selectedPair} amount`}
                           className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                           step={
                             selectedPair === DEFAULT_CONFIG.GOLD_SYMBOL
@@ -1085,26 +1132,12 @@ const fetchTradeHistory = useCallback(async () => {
                       </div>
                       <div className="flex justify-between items-center py-2 px-3 bg-white rounded-lg border">
                         <span className="text-sm text-gray-600">
-                          Buy Rate 
+                          Buy Rate ({selectedPair}/{baseCurrency})
                         </span>
                         <span className="font-mono font-semibold text-green-600">
                           {formatters.currency(dynamicBuyRate)}
                         </span>
                       </div>
-                      {buyAmount && (
-                        <div className="flex justify-between items-center py-2 px-3 bg-white rounded-lg border">
-                          <span className="text-sm text-gray-600">
-                            Amount Received ({selectedPair})
-                          </span>
-                          <span className="font-mono font-semibold text-gray-900">
-                            {formatters.currency(
-                              parseFloat(buyAmount) * dynamicBuyRate,
-                              2
-                            )}{" "}
-                            {selectedPair}{selectedPair === DEFAULT_CONFIG.GOLD_SYMBOL ? " (grams)" : ""}
-                          </span>
-                        </div>
-                      )}
                       <button
                         onClick={() =>
                           executeTrade(
@@ -1143,8 +1176,41 @@ const fetchTradeHistory = useCallback(async () => {
                         <input
                           type="number"
                           value={sellAmount}
-                          onChange={(e) => setSellAmount(e.target.value)}
+                          onChange={(e) => {
+                            setSellAmount(e.target.value);
+                            // Clear the corresponding amount field when changing this one
+                            setBuyAmount("");
+                          }}
                           placeholder={`Enter ${baseCurrency} amount`}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                          step={
+                            selectedPair === DEFAULT_CONFIG.GOLD_SYMBOL
+                              ? "0.001"
+                              : "0.01"
+                          }
+                          min="0"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Amount to Sell ({selectedPair})
+                        </label>
+                        <input
+                          type="number"
+                          value={sellAmount && dynamicSellRate > 0 
+                            ? (parseFloat(sellAmount) * dynamicSellRate).toFixed(2)
+                            : ""
+                          }
+                          onChange={(e) => {
+                            const sellQuantity = e.target.value;
+                            if (sellQuantity && dynamicSellRate > 0) {
+                              setSellAmount((parseFloat(sellQuantity) / dynamicSellRate).toFixed(2));
+                            } else {
+                              setSellAmount("");
+                            }
+                            setBuyAmount("");
+                          }}
+                          placeholder={`Enter ${selectedPair} amount`}
                           className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
                           step={
                             selectedPair === DEFAULT_CONFIG.GOLD_SYMBOL
@@ -1156,26 +1222,12 @@ const fetchTradeHistory = useCallback(async () => {
                       </div>
                       <div className="flex justify-between items-center py-2 px-3 bg-white rounded-lg border">
                         <span className="text-sm text-gray-600">
-                          Sell Rate 
+                          Sell Rate ({selectedPair}/{baseCurrency})
                         </span>
                         <span className="font-mono font-semibold text-red-600">
                           {formatters.currency(dynamicSellRate)}
                         </span>
                       </div>
-                      {sellAmount && (
-                        <div className="flex justify-between items-center py-2 px-3 bg-white rounded-lg border">
-                          <span className="text-sm text-gray-600">
-                            Amount Sold ({selectedPair})
-                          </span>
-                          <span className="font-mono font-semibold text-gray-900">
-                            {formatters.currency(
-                              parseFloat(sellAmount) * dynamicSellRate,
-                              2
-                            )}{" "}
-                            {selectedPair}{selectedPair === DEFAULT_CONFIG.GOLD_SYMBOL ? " (grams)" : ""}
-                          </span>
-                        </div>
-                      )}
                       <button
                         onClick={() =>
                           executeTrade(
@@ -1210,8 +1262,6 @@ const fetchTradeHistory = useCallback(async () => {
             </p>
           </div>
         )}
-        {/* Market Details */}
-       
       </div>
     </div>
   </div>
