@@ -1007,7 +1007,7 @@ const fetchTradeHistory = useCallback(async () => {
                 >
                   {parties.map((party) => (
                     <option key={party.id} value={party.id}>
-                      {party.customerName} ({party.shortName})
+                      {party.customerName} 
                     </option>
                   ))}
                 </select>
@@ -1075,7 +1075,7 @@ const fetchTradeHistory = useCallback(async () => {
                                 type="number"
                                 value={buyAmount}
                                 onChange={(e) => setBuyAmount(e.target.value)}
-                                placeholder={`Enter ${selectedPair} amount`}
+                                placeholder={`Enter ${baseCurrency} amount`}
                                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                                 step={
                                   selectedPair === DEFAULT_CONFIG.GOLD_SYMBOL
@@ -1150,7 +1150,7 @@ const fetchTradeHistory = useCallback(async () => {
                                 type="number"
                                 value={sellAmount}
                                 onChange={(e) => setSellAmount(e.target.value)}
-                                placeholder={`Enter ${selectedPair} amount`}
+                                placeholder={`Enter ${baseCurrency} amount`}
                                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
                                 step={
                                   selectedPair === DEFAULT_CONFIG.GOLD_SYMBOL
