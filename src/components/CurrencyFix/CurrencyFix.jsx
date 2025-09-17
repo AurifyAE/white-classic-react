@@ -204,7 +204,7 @@ const CurrencyFixing = () => {
   const [partySearchTerm, setPartySearchTerm] = useState("");
   const [showSettings, setShowSettings] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [view, setView] = useState("overview");
+  const [view, setView] = useState("trading");
   const [buyAmount, setBuyAmount] = useState("");
   const [sellAmount, setSellAmount] = useState("");
   const [showModal, setShowModal] = useState(false);
@@ -1182,9 +1182,10 @@ const CurrencyFixing = () => {
                   const bidSpread = currentPartyCurr?.bid || 0;
                   const askSpread = currentPartyCurr?.ask || 0;
                   const marketValue = currencies[selectedPair]?.value || 0;
-                  const inverseRate = marketValue > 0 ? 1 / marketValue : 0;
-                  const dynamicBuyRate = inverseRate + (bidSpread / marketValue);
-                  const dynamicSellRate = inverseRate - (askSpread / marketValue);
+                  // const inverseRate = marketValue > 0 ? 1 / marketValue : 0;
+                
+                  const dynamicBuyRate = marketValue + bidSpread
+                  const dynamicSellRate = marketValue - askSpread 
 
                   // Helper functions for calculations
                   const calculateBuyAmount = (totalAmount) => {
@@ -1198,7 +1199,7 @@ const CurrencyFixing = () => {
                       ? (parseFloat(totalAmount) / dynamicSellRate).toFixed(2)
                       : "";
                   };
-
+                  
                   return (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                       {/* Buy Section */}
@@ -1495,8 +1496,8 @@ const CurrencyFixing = () => {
               {/* View Selector */}
               <div className="hidden sm:flex bg-gray-100 rounded-lg p-1">
                 {[
-                  { key: "overview", label: "Overview", icon: Activity },
                   { key: "trading", label: "Trading", icon: TrendingUp },
+                  { key: "overview", label: "Overview", icon: Activity },
                 ].map(({ key, label, icon: Icon }) => (
                   <button
                     key={key}
