@@ -960,7 +960,6 @@ const handleEditTrade = useCallback((trade) => {
     showTradingModal, editingTrade, selectedPair, 'currencyObj': currencies[trade.currency]
   });
 });
-/
   // Handle base currency change
   const handleBaseCurrencyChange = useCallback(
     (newBaseCurrency) => {
