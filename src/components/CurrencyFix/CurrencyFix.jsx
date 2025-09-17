@@ -32,6 +32,7 @@ import {
   Target,
   TrendingDownIcon,
   TrendingUpIcon,
+  Edit2,
 } from "lucide-react";
 import axiosInstance from "../../api/axios";
 import useMarketData from "../../components/marketData";
@@ -164,6 +165,13 @@ const CurrencyFixing = () => {
   const [error, setError] = useState(null);
   const [tradeHistory, setTradeHistory] = useState([]);
   const [tradeHistoryLoading, setTradeHistoryLoading] = useState(false);
+  const [editingTrade, setEditingTrade] = useState(null);
+  const [voucherDetails, setVoucherDetails] = useState({
+    voucherCode: "",
+    voucherType: "",
+    prefix: "",
+  });
+  
   // Settings with localStorage
   const [baseCurrency, setBaseCurrency] = useLocalStorage(
     STORAGE_KEYS.BASE_CURRENCY,
@@ -213,7 +221,7 @@ const CurrencyFixing = () => {
           const pairKey = `${baseCurr.code}/${quoteCurr.code}`;
           const reversePairKey = `${quoteCurr.code}/${baseCurr.code}`;
           pairs.set(pairKey, {
-            base: baseCurr.code,
+            ...baseCurr,
             quote: quoteCurr.code,
             symbol: pairKey,
             baseDescription: baseCurr.description,
@@ -340,43 +348,43 @@ const CurrencyFixing = () => {
       };
     });
   }, []);
-  // Enhanced currency data fetchin
   // Enhanced currency data fetching
+// Enhanced currency data fetching
 const fetchCurrencyData = useCallback(async () => {
   if (!baseCurrency || currencyMaster.length === 0) return;
 
-    // Check cache first
-    const cachedData = getCachedData();
-    if (cachedData) {
-      setCurrencies(cachedData.data);
-      setLastUpdate(cachedData.meta?.fetchedAt);
+  // Check cache first
+  const cachedData = getCachedData();
+  if (cachedData) {
+    setCurrencies(cachedData.data);
+    setLastUpdate(cachedData.meta?.fetchedAt);
 
-      // Only proceed with API call if cache is stale (older than 5 minutes)
-      const cacheAge = Date.now() - (cachedData.timestamp || 0);
-      if (cacheAge < API_CONFIG.CACHE_DURATION) {
-        setLoading(false);
-        return; // Use cached data if still fresh
-      }
+    // Only proceed with API call if cache is stale (older than 5 minutes)
+    const cacheAge = Date.now() - (cachedData.timestamp || 0);
+    if (cacheAge < API_CONFIG.CACHE_DURATION) {
+      setLoading(false);
+      return; // Use cached data if still fresh
     }
+  }
 
-    // Cancel previous request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    abortControllerRef.current = new AbortController();
+  // Cancel previous request
+  if (abortControllerRef.current) {
+    abortControllerRef.current.abort();
+  }
+  abortControllerRef.current = new AbortController();
 
-    try {
-      setLoading(true);
-      setError(null);
+  try {
+    setLoading(true);
+    setError(null);
 
-      // Fetch data from backend API
-      const response = await retryWithBackoff(() =>
-        axiosInstance.get("/currency-trading/live-rate", {
-          signal: abortControllerRef.current.signal,
-        })
-      );
+    // Fetch data from backend API
+    const response = await retryWithBackoff(() =>
+      axiosInstance.get("/currency-trading/live-rate", {
+        signal: abortControllerRef.current.signal,
+      })
+    );
 
-      const data = response.data;
+    const data = response.data;
 
     if (!data || !data.rates) {
       if (cachedData) {
@@ -389,13 +397,12 @@ const fetchCurrencyData = useCallback(async () => {
       throw new Error("Invalid response from backend API");
     }
 
-      const enhancedData = {};
-
+    const enhancedData = {};
     const { rates, fetchedAt } = data;
 
     const supportedCurrencies = ["USD", "INR", "AED"];
     supportedCurrencies.forEach((code) => {
-      if (code === baseCurrency) return; 
+      if (code === baseCurrency) return;
 
       let currentValue;
       if (baseCurrency === DEFAULT_CONFIG.GOLD_SYMBOL) {
@@ -414,69 +421,70 @@ const fetchCurrencyData = useCallback(async () => {
           currentValue = gramsPerUsd * codeToUsdRate;
         }
       } else if (code === "USD" && baseCurrency === "INR") {
-        currentValue = rates.USD_TO_INR;
+        currentValue = rates.USD_TO_INR || 0;
       } else if (code === "USD" && baseCurrency === "AED") {
-        currentValue = rates.USD_TO_AED;
+        currentValue = rates.USD_TO_AED || 0;
       } else if (code === "INR" && baseCurrency === "AED") {
-        currentValue = rates.INR_TO_AED;
+        currentValue = rates.INR_TO_AED || 0;
       } else if (code === "AED" && baseCurrency === "INR") {
-        currentValue = rates.AED_TO_INR;
+        currentValue = rates.AED_TO_INR || 0;
       } else if (code === "INR" && baseCurrency === "USD") {
-        currentValue = 1 / rates.USD_TO_INR;
+        currentValue = rates.USD_TO_INR ? 1 / rates.USD_TO_INR : 0;
       } else if (code === "AED" && baseCurrency === "USD") {
-        currentValue = 1 / rates.USD_TO_AED;
+        currentValue = rates.USD_TO_AED ? 1 / rates.USD_TO_AED : 0;
       } else {
         currentValue = 0; // Handle unsupported pairs
       }
 
-        const prevCurrency = currencies[code] || {};
-        const prevValue = prevCurrency.value || currentValue;
-        const change = currentValue - prevValue;
-        const changePercent = prevValue ? (change / prevValue) * 100 : 0;
+      const prevCurrency = currencies[code] || {};
+      const prevValue = prevCurrency.value || currentValue;
+      const change = currentValue - prevValue;
+      const changePercent = prevValue ? (change / prevValue) * 100 : 0;
 
-        // Get party-specific spreads
-        const partyCurrency = selectedParty?.currencies?.find(
-          (curr) => curr.currency === code
-        );
-        const bidSpread = partyCurrency?.bid || 0;
-        const askSpread = partyCurrency?.ask || 0;
+      // Get party-specific spreads
+      const partyCurrency = selectedParty?.currencies?.find(
+        (curr) => curr.currency === code
+      );
+      const bidSpread = partyCurrency?.bid || 0;
+      const askSpread = partyCurrency?.ask || 0;
 
-        enhancedData[code] = {
-          code,
-          value: currentValue,
-          change,
-          changePercent,
-          trend: change > 0 ? "up" : change < 0 ? "down" : "neutral",
-          high24h: currentValue * (1 + Math.random() * 0.02), // Simulated high
-          low24h: currentValue * (1 - Math.random() * 0.02), // Simulated low
-          volume: Math.floor(Math.random() * 10000000) + 1000000, // Simulated volume
-          bidSpread,
-          askSpread,
-          buyRate: currentValue + bidSpread,
-          sellRate: currentValue - askSpread,
-          lastUpdated: fetchedAt || new Date().toISOString(),
-        };
-      });
+      // Define the currency object without referencing undefined currencyData
+      enhancedData[code] = {
+        code,
+        value: currentValue,
+        change,
+        changePercent,
+        trend: change > 0 ? "up" : change < 0 ? "down" : "neutral",
+        high24h: currentValue * (1 + Math.random() * 0.02), // Simulated high
+        low24h: currentValue * (1 - Math.random() * 0.02), // Simulated low
+        volume: Math.floor(Math.random() * 10000000) + 1000000, // Simulated volume
+        bidSpread,
+        askSpread,
+        buyRate: currentValue + bidSpread,
+        sellRate: currentValue - askSpread,
+        lastUpdated: fetchedAt || new Date().toISOString(),
+      };
+    });
 
-    // Add gold data 
+    // Add gold data
     if (goldData.bid && goldData.bid > 0 && baseCurrency !== DEFAULT_CONFIG.GOLD_SYMBOL) {
       let usdToBaseRate = 1;
       if (baseCurrency !== "USD") {
         usdToBaseRate =
           baseCurrency === "INR"
-            ? rates.USD_TO_INR
+            ? rates.USD_TO_INR || 1
             : baseCurrency === "AED"
-            ? rates.USD_TO_AED
+            ? rates.USD_TO_AED || 1
             : 1;
       }
 
-        // Calculate gold price in base currency per gram
-        const goldPricePerGramInBase =
-          (goldData.bid * usdToBaseRate) / DEFAULT_CONFIG.GOLD_CONV_FACTOR;
+      // Calculate gold price in base currency per gram
+      const goldPricePerGramInBase =
+        (goldData.bid * usdToBaseRate) / DEFAULT_CONFIG.GOLD_CONV_FACTOR;
 
-        const goldPartyCurrency = selectedParty?.currencies?.find(
-          (curr) => curr.currency === DEFAULT_CONFIG.GOLD_SYMBOL
-        );
+      const goldPartyCurrency = selectedParty?.currencies?.find(
+        (curr) => curr.currency === DEFAULT_CONFIG.GOLD_SYMBOL
+      );
 
       enhancedData[DEFAULT_CONFIG.GOLD_SYMBOL] = {
         code: DEFAULT_CONFIG.GOLD_SYMBOL,
@@ -505,8 +513,8 @@ const fetchCurrencyData = useCallback(async () => {
       };
     }
 
-      setCurrencies(enhancedData);
-      setLastUpdate(fetchedAt || new Date().toISOString());
+    setCurrencies(enhancedData);
+    setLastUpdate(fetchedAt || new Date().toISOString());
 
     setCachedData({
       data: enhancedData,
@@ -544,7 +552,7 @@ const fetchTradeHistory = useCallback(async () => {
     setTradeHistoryLoading(true);
     const response = await axiosInstance.get("/currency-trading/trades");
     
-    console.log("Trade history response:", response);
+    console.log("Raw trade history response:", response.data);
     
     let tradeData = [];
     if (response.data && Array.isArray(response.data)) {
@@ -554,6 +562,22 @@ const fetchTradeHistory = useCallback(async () => {
     } else if (response.data && response.data.trades) {
       tradeData = response.data.trades;
     }
+    
+    tradeData = tradeData.map(trade => {
+      console.log("Mapping trade:", {
+        id: trade._id,
+        voucherNumber: trade.voucherNumber,
+        voucherCode: trade.voucherCode,
+        prefix: trade.prefix,
+        voucherType: trade.voucherType
+      });
+      return {
+        ...trade,
+        prefix: trade.prefix || "CF",
+        voucherNumber: trade.voucherNumber || trade.voucherCode || "",
+        voucherType: trade.voucherType || "CUR"
+      };
+    });
     
     setTradeHistory(tradeData);
     
@@ -687,6 +711,47 @@ const fetchTradeHistory = useCallback(async () => {
       return false;
     }
   }, [selectedParty, baseCurrency]);
+  // Voucher generation
+  const generateVoucherNumber = useCallback(async () => {
+    try {
+  const module = location.pathname.replace("/", "");
+      const response = await axiosInstance.post(`/voucher/generate/${module}`, {
+        transactionType: "currency",
+      });
+      const { data } = response.data;
+      localStorage.setItem(data.prefix, "/currencyfixing");
+      return {
+        voucherCode: data.voucherNumber,
+        voucherType: data.voucherType || "CUR",
+        prefix: data.prefix || "CF",
+      };
+    } catch (error) {
+      console.error("Error generating voucher number:", error);
+      toast.error("Failed to generate voucher number");
+      return { voucherCode: "", voucherType: "CUR", prefix: "CF" };
+    }
+  }, []);
+  // Handle trading modal open/close
+  useEffect(() => {
+    if (showTradingModal && !editingTrade) {
+      // Generate new voucher for new trades
+      const fetchVoucher = async () => {
+        const voucher = await generateVoucherNumber();
+        setVoucherDetails(voucher);
+      };
+      fetchVoucher();
+    } else if (showTradingModal && editingTrade) {
+      // Load existing voucher for edit
+      setVoucherDetails({
+        voucherCode: editingTrade.voucherNumber || "",
+        voucherType: editingTrade.voucherType || "CUR",
+        prefix: editingTrade.prefix || "CF",
+      });
+    } else {
+      // Reset on close
+      setVoucherDetails({ voucherCode: "", voucherType: "", prefix: "" });
+    }
+  }, [showTradingModal, editingTrade, generateVoucherNumber]);
   // Effects
   useEffect(() => {
     updateGoldData(marketData);
@@ -790,7 +855,7 @@ const fetchTradeHistory = useCallback(async () => {
     [watchlist, setWatchlist, baseCurrency]
   );
   // Trading functions
-  const executeTrade = useCallback(
+   const executeTrade = useCallback(
     async (type, currencyCode, rate, amount, party) => {
       if (!amount || !party) {
         toast.error("Please enter an amount and select a party");
@@ -800,69 +865,99 @@ const fetchTradeHistory = useCallback(async () => {
         const amountValue = parseFloat(amount);
         const converted = amountValue * rate;
 
-        const orderId = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+        const orderId = editingTrade
+          ? editingTrade.orderId
+          : `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
         // Get currency data
         const currencyData = currencies[currencyCode] || {};
         const baseCurrencyObj = currencyMaster.find(c => c.code === baseCurrency);
         const targetCurrencyObj = currencyMaster.find(c => c.code === currencyCode);
-        console.log('Base Currency Object:', baseCurrencyObj, 'Target Currency Object:', targetCurrencyObj);
 
-        const tradeData = {
-          partyId: party.id,
-          type: type.toUpperCase(),
-          amount: amountValue,
-          currency: currencyCode,
-          rate,
-          converted,
-          orderId,
-          timestamp: formatters.timestamp(new Date()),
-          currentRate: currencyData.value,
-          bidSpread: currencyData.bidSpread,
-          askSpread: currencyData.askSpread,
-          buyRate: currencyData.buyRate,
-          sellRate: currencyData.sellRate,
-          baseCurrencyId: baseCurrencyObj?.id,
-          targetCurrencyId: targetCurrencyObj?.id,
-          baseCurrencyCode: baseCurrency,
-          targetCurrencyCode: currencyCode
-        };
+    const tradeData = {
+  partyId: party.id,
+  type: type.toUpperCase(),
+  amount: amountValue,
+  currency: currencyCode,
+  rate,
+  converted,
+  orderId,
+  timestamp: formatters.timestamp(new Date()),
+  currentRate: currencyData.value,
+  bidSpread: currencyData.bidSpread,
+  askSpread: currencyData.askSpread,
+  buyRate: currencyData.buyRate,
+  sellRate: currencyData.sellRate,
+  baseCurrencyId: baseCurrencyObj?.id,
+  targetCurrencyId: targetCurrencyObj?.id,
+  baseCurrencyCode: baseCurrency,
+  targetCurrencyCode: currencyCode,
+  voucherNumber: voucherDetails.voucherCode,
+  voucherType: voucherDetails.voucherType,
+  prefix: voucherDetails.prefix
+};
 
-        const res = await axiosInstance.post("/currency-trading/trades", tradeData);
+        let res;
+        if (editingTrade) {
+          // Update existing trade
+          res = await axiosInstance.put(`/currency-trading/trades/${editingTrade._id}`, tradeData);
+        } else {
+          // Create new trade
+          res = await axiosInstance.post("/currency-trading/trades", tradeData);
+        }
 
-        if (res.status !== 201) {
-          throw new Error("Trade API call failed");
+        if (res.status !== (editingTrade ? 200 : 201)) {
+          throw new Error(editingTrade ? "Trade update failed" : "Trade creation failed");
         }
 
         setShowTradingModal(false);
         setModalContent({
-          type,
-          amount: amountValue,
-          converted,
-          currency: currencyCode,
-          rate,
+          ...tradeData,
           party: party.customerName,
-          orderId,
-          timestamp: formatters.timestamp(new Date()),
         });
         setShowModal(true);
+        setEditingTrade(null); // Reset editing state
 
         // Clear input
         if (type === "buy") setBuyAmount("");
         else setSellAmount("");
 
         toast.success(
-          `${type.charAt(0).toUpperCase() + type.slice(1)
-          } order executed successfully`
+          editingTrade
+            ? `Trade updated successfully`
+            : `${type.charAt(0).toUpperCase() + type.slice(1)} order executed successfully`
         );
+
+        // Refresh trade history
+        fetchTradeHistory();
       } catch (err) {
-        console.log('Trade execution error:', err);
-        console.error(`${type} error:`, err);
-        toast.error(`Failed to execute ${type} order`);
+        console.error(`${editingTrade ? 'Update' : type} error:`, err);
+        toast.error(`Failed to ${editingTrade ? 'update' : 'execute'} ${type} order`);
       }
     },
-    [currencies, currencyMaster, baseCurrency]
+    [currencies, currencyMaster, baseCurrency, editingTrade, fetchTradeHistory, voucherDetails]
   );
+
+
+const handleEditTrade = useCallback((trade) => {
+  console.log("Editing trade - Voucher Data:", {
+    voucherNumber: trade.voucherNumber,
+    voucherCode: trade.voucherCode,
+    prefix: trade.prefix,
+    voucherType: trade.voucherType
+  });
+  setEditingTrade(trade);
+  setSelectedPair(trade.currency || trade.toCurrency?.currencyCode || "");
+  setModalSelectedParty(parties.find(p => p.id === trade.partyId?.id));
+  setBuyAmount(trade.type.toLowerCase() === "buy" ? trade.amount.toString() : "");
+  setSellAmount(trade.type.toLowerCase() === "sell" ? trade.amount.toString() : "");
+  setVoucherDetails({
+    voucherCode: trade.voucherNumber || trade.voucherCode || "",
+    voucherType: trade.voucherType || "CUR",
+    prefix: trade.prefix || "CF"
+  });
+  setShowTradingModal(true);
+}, [parties]);
   // Handle base currency change
   const handleBaseCurrencyChange = useCallback(
     (newBaseCurrency) => {
@@ -915,6 +1010,12 @@ const fetchTradeHistory = useCallback(async () => {
             </div>
             <div className="space-y-4 bg-gradient-to-r from-gray-50 to-blue-50 p-6 rounded-xl border border-gray-200">
               <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-600 font-medium">Voucher</span>
+                  <p className="font-mono text-xs text-gray-800">
+                    {modalContent.prefix}-{modalContent.voucherNumber}
+                  </p>
+                </div>
                 <div>
                   <span className="text-gray-600 font-medium">Order ID</span>
                   <p className="font-mono text-xs text-gray-800">
@@ -980,17 +1081,45 @@ const fetchTradeHistory = useCallback(async () => {
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
     <div className="bg-white rounded-2xl p-8 w-full max-w-4xl shadow-2xl transform transition-all duration-300 animate-in zoom-in-95">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">
-          Trade {selectedPair}/{baseCurrency}
-        </h2>
-        <button
-          onClick={() => setShowTradingModal(false)}
-          className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-        >
-          <X className="w-5 h-5 text-gray-500" />
-        </button>
-      </div>
+          <h2 className="text-2xl font-bold text-gray-900">
+            {editingTrade ? `Edit Trade ${selectedPair}/${baseCurrency}` : `Trade ${selectedPair}/${baseCurrency}`}
+          </h2>
+          <button
+            onClick={() => {
+              setShowTradingModal(false);
+              setEditingTrade(null); // Reset editing state on close
+            }}
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+          >
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
       <div className="space-y-6">
+        {/* Voucher Display */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Voucher Prefix
+            </label>
+            <input
+              type="text"
+              value={voucherDetails.prefix}
+              readOnly
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 cursor-not-allowed"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Voucher Number
+            </label>
+            <input
+              type="text"
+              value={voucherDetails.voucherCode}
+              readOnly
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 cursor-not-allowed"
+            />
+          </div>
+        </div>
         {/* Party Selector */}
         <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1088,7 +1217,7 @@ const fetchTradeHistory = useCallback(async () => {
                           value={buyAmount}
                           onChange={(e) => {
                             setBuyAmount(e.target.value);
-                            // Clear the corresponding amount field when changing this one
+                            // Clear the corresponding amount field when changing this
                             setSellAmount("");
                           }}
                           placeholder={`Enter ${baseCurrency} amount`}
@@ -1148,7 +1277,7 @@ const fetchTradeHistory = useCallback(async () => {
                             modalSelectedParty
                           )
                         }
-                        disabled={!buyAmount || parseFloat(buyAmount) <= 0}
+                        disabled={!buyAmount || parseFloat(buyAmount) <= 0 || !voucherDetails.voucherCode}
                         className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all duration-200 shadow-md hover:cursor-pointer"
                       >
                         <div className="flex items-center justify-center space-x-2">
@@ -1178,7 +1307,7 @@ const fetchTradeHistory = useCallback(async () => {
                           value={sellAmount}
                           onChange={(e) => {
                             setSellAmount(e.target.value);
-                            // Clear the corresponding amount field when changing this one
+                            // Clear the corresponding amount field when changing this
                             setBuyAmount("");
                           }}
                           placeholder={`Enter ${baseCurrency} amount`}
@@ -1238,7 +1367,7 @@ const fetchTradeHistory = useCallback(async () => {
                             modalSelectedParty
                           )
                         }
-                        disabled={!sellAmount || parseFloat(sellAmount) <= 0}
+                        disabled={!sellAmount || parseFloat(sellAmount) <= 0 || !voucherDetails.voucherCode}
                         className="w-full px-4 py-3 bg-gradient-to-r from-red-600 to-rose-600 text-white rounded-lg hover:from-red-700 hover:to-rose-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all duration-200 shadow-md"
                       >
                         <div className="flex items-center justify-center space-x-2">
@@ -1760,11 +1889,9 @@ const fetchTradeHistory = useCallback(async () => {
                                       {pair.pairName}
                                     </p>
                                     <p className="text-xs text-gray-500">
-                                      {
-                                        currencyMaster.find(
-                                          (c) => c.code === pair.currency
-                                        )?.description
-                                      }
+                                      {currencyMaster.find(
+                                        (c) => c.code === pair.currency
+                                      )?.description}
                                     </p>
                                   </div>
                                 </div>
@@ -1809,129 +1936,142 @@ const fetchTradeHistory = useCallback(async () => {
                 </div>
               </div>
             </div>
-            <div className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-200">
-              <div className="p-6 border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                    <Clock className="w-7 h-7 text-blue-600" />
-                    Recent Trades
-                  </h2>
-                  <button
-                    onClick={fetchTradeHistory}
-                    disabled={tradeHistoryLoading}
-                    className="flex items-center gap-2 px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition text-sm font-medium"
+        <div className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-200">
+      <div className="p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <Clock className="w-7 h-7 text-blue-600" />
+            Recent Trades
+          </h2>
+          <button
+            onClick={fetchTradeHistory}
+            disabled={tradeHistoryLoading}
+            className="flex items-center gap-2 px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition text-sm font-medium"
+          >
+            <RefreshCw className={`w-4 h-4 ${tradeHistoryLoading ? "animate-spin" : ""}`} />
+            Refresh
+          </button>
+        </div>
+      </div>
+      <div className="p-6">
+        {tradeHistoryLoading ? (
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="text-gray-500 mt-4">Loading trade history...</p>
+          </div>
+        ) : tradeHistory.length === 0 ? (
+          <div className="text-center py-12">
+            <Activity className="w-14 h-14 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500 font-medium">No trade history found</p>
+            <p className="text-gray-400 text-sm">
+              Your recent trades will appear here
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Date</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Voucher</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Type</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Party</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Pair</th>
+                  <th className="text-right py-3 px-4 font-semibold text-gray-700">Amount</th>
+                  <th className="text-right py-3 px-4 font-semibold text-gray-700">Rate</th>
+                  <th className="text-right py-3 px-4 font-semibold text-gray-700">Total</th>
+                  <th className="text-center py-3 px-4 font-semibold text-gray-700">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tradeHistory.map((trade) => (
+                  <tr
+                    key={trade._id}
+                    className="border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
+                    onClick={() => handleEditTrade(trade)}
                   >
-                    <RefreshCw className={`w-4 h-4 ${tradeHistoryLoading ? "animate-spin" : ""}`} />
-                    Refresh
-                  </button>
-                </div>
-              </div>
-
-              <div className="p-6">
-                {tradeHistoryLoading ? (
-                  <div className="text-center py-8">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                    <p className="text-gray-500 mt-4">Loading trade history...</p>
-                  </div>
-                ) : tradeHistory.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Activity className="w-14 h-14 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500 font-medium">No trade history found</p>
-                    <p className="text-gray-400 text-sm">
-                      Your recent trades will appear here
-                    </p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full">
-                      <thead>
-                        <tr className="border-b border-gray-200">
-                          <th className="text-left py-3 px-4 font-semibold text-gray-700">Date</th>
-                          <th className="text-left py-3 px-4 font-semibold text-gray-700">Type</th>
-                          <th className="text-left py-3 px-4 font-semibold text-gray-700">Party</th>
-                          <th className="text-left py-3 px-4 font-semibold text-gray-700">Pair</th>
-                          <th className="text-right py-3 px-4 font-semibold text-gray-700">Amount</th>
-                          <th className="text-right py-3 px-4 font-semibold text-gray-700">Rate</th>
-                          <th className="text-right py-3 px-4 font-semibold text-gray-700">Total</th>
-                          <th className="text-center py-3 px-4 font-semibold text-gray-700">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {tradeHistory.map((trade) => (
-                          <tr key={trade._id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                            <td className="py-4 px-4">
-                              <div className="text-sm text-gray-900">
-                                {new Date(trade.createdAt).toLocaleDateString()}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {new Date(trade.createdAt).toLocaleTimeString()}
-                              </div>
-                            </td>
-                            <td className="py-4 px-4">
-                              <span
-                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${trade.type === "BUY" || trade.type === "buy"
-                                  ? "bg-green-100 text-green-800"
-                                  : "bg-red-100 text-red-800"
-                                  }`}
-                              >
-                                {trade.type}
-                              </span>
-                            </td>
-                            <td className="py-4 px-4">
-                              <div className="text-sm font-medium text-gray-900">
-                                {trade.partyId?.customerName || "Unknown"}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {trade.partyId?.accountCode || ""}
-                              </div>
-                            </td>
-                            <td className="py-4 px-4">
-                              <div className="text-sm font-medium text-gray-900">
-                                {trade.toCurrency?.currencyCode || "Unknown"}/
-                                {trade.baseCurrency?.currencyCode || "Unknown"}
-                              </div>
-                            </td>
-                            <td className="py-4 px-4 text-right">
-                              <div className="text-sm font-medium text-gray-900">
-                                {formatters.currency(trade.amount, 2)}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {trade.toCurrency?.currencyCode}
-                              </div>
-                            </td>
-                            <td className="py-4 px-4 text-right">
-                              <div className="text-sm font-medium text-gray-900">
-                                {formatters.currency(trade.rate, 6)}
-                              </div>
-                            </td>
-                            <td className="py-4 px-4 text-right">
-                              <div className="text-sm font-bold text-gray-900">
-                                {formatters.currency(trade.total, 2)}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {trade.baseCurrency?.currencyCode}
-                              </div>
-                            </td>
-                            <td className="py-4 px-4 text-center">
-                              <span
-                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${trade.status === "COMPLETED"
-                                  ? "bg-green-100 text-green-800"
-                                  : trade.status === "PENDING"
-                                    ? "bg-yellow-100 text-yellow-800"
-                                    : "bg-red-100 text-red-800"
-                                  }`}
-                              >
-                                {trade.status}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            </div>
+                    <td className="py-4 px-4">
+                      <div className="text-sm text-gray-900">
+                        {new Date(trade.createdAt).toLocaleDateString()}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {new Date(trade.createdAt).toLocaleTimeString()}
+                      </div>
+                    </td>
+               <td className="py-4 px-4">
+  <span className="font-mono text-gray-900">
+    {trade.prefix || trade.voucherNumber
+      ? `${trade.prefix || "CF"}-${trade.voucherNumber || "N/A"}`
+      : "N/A"}
+  </span>
+</td>
+                    <td className="py-4 px-4">
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          trade.type === "BUY" || trade.type === "buy"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-red-100 text-red-800"
+                        }`}
+                      >
+                        {trade.type}
+                      </span>
+                    </td>
+                    <td className="py-4 px-4">
+                      <div className="text-sm font-medium text-gray-900">
+                        {trade.partyId?.customerName || "Unknown"}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {trade.partyId?.accountCode || ""}
+                      </div>
+                    </td>
+                    <td className="py-4 px-4">
+                      <div className="text-sm font-medium text-gray-900">
+                        {trade.toCurrency?.currencyCode || "Unknown"}/
+                        {trade.baseCurrency?.currencyCode || "Unknown"}
+                      </div>
+                    </td>
+                    <td className="py-4 px-4 text-right">
+                      <div className="text-sm font-medium text-gray-900">
+                        {formatters.currency(trade.amount, 2)}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {trade.toCurrency?.currencyCode}
+                      </div>
+                    </td>
+                    <td className="py-4 px-4 text-right">
+                      <div className="text-sm font-medium text-gray-900">
+                        {formatters.currency(trade.rate, 6)}
+                      </div>
+                    </td>
+                    <td className="py-4 px-4 text-right">
+                      <div className="text-sm font-bold text-gray-900">
+                        {formatters.currency(trade.total, 2)}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {trade.baseCurrency?.currencyCode}
+                      </div>
+                    </td>
+                    <td className="py-4 px-4 text-center">
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          trade.status === "COMPLETED"
+                            ? "bg-green-100 text-green-800"
+                            : trade.status === "PENDING"
+                            ? "bg-yellow-100 text-yellow-800"
+                            : "bg-red-100 text-red-800"
+                        }`}
+                      >
+                        {trade.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
 
 
 
@@ -2055,14 +2195,14 @@ const fetchTradeHistory = useCallback(async () => {
                   </p>
                 </div>
                 <div className="p-6">
-                  {selectedParty.currencies?.length === 0 ? (
+                  {selectedParty.currencies.length === 0 ? (
                     <div className="text-center py-8">
                       <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                       <p className="text-gray-500 font-medium">
                         No currencies configured
                       </p>
                       <p className="text-gray-400 text-sm">
-                        This party has no currency configuration
+                        This party has no currency currency configuration
                       </p>
                     </div>
                   ) : (
