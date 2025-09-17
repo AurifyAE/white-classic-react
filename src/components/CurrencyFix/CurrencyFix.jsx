@@ -1241,13 +1241,13 @@ const CurrencyFixing = () => {
                               <input
                                 type="number"
                                 value={buyAmount && dynamicBuyRate > 0
-                                  ? (parseFloat(buyAmount) * dynamicBuyRate).toFixed(2)
+                                  ? (buyAmount* dynamicBuyRate)
                                   : ""
                                 }
                                 onChange={(e) => {
                                   const receivedAmount = e.target.value;
                                   if (receivedAmount && dynamicBuyRate > 0) {
-                                    setBuyAmount((parseFloat(receivedAmount) / dynamicBuyRate).toFixed(2));
+                                    setBuyAmount((receivedAmount / dynamicBuyRate));
                                   } else {
                                     setBuyAmount("");
                                   }
