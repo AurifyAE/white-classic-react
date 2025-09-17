@@ -342,8 +342,8 @@ const CurrencyFixing = () => {
   }, []);
   // Enhanced currency data fetchin
   // Enhanced currency data fetching
-const fetchCurrencyData = useCallback(async () => {
-  if (!baseCurrency || currencyMaster.length === 0) return;
+  const fetchCurrencyData = useCallback(async () => {
+    if (!baseCurrency || currencyMaster.length === 0) return;
 
     // Check cache first
     const cachedData = getCachedData();
@@ -378,56 +378,57 @@ const fetchCurrencyData = useCallback(async () => {
 
       const data = response.data;
 
-    if (!data || !data.rates) {
-      if (cachedData) {
-        toast.warn("Using cached data - API temporarily unavailable");
-        setCurrencies(cachedData.data);
-        setLastUpdate(cachedData.meta?.fetchedAt);
-        setLoading(false);
-        return;
+      if (!data || !data.rates) {
+        if (cachedData) {
+          toast.warn("Using cached data - API temporarily unavailable");
+          setCurrencies(cachedData.data);
+          setLastUpdate(cachedData.meta?.fetchedAt);
+          setLoading(false);
+          return;
+        }
+        throw new Error("Invalid response from backend API");
       }
-      throw new Error("Invalid response from backend API");
-    }
 
       const enhancedData = {};
 
-    const { rates, fetchedAt } = data;
+      const { rates, fetchedAt } = data;
 
-    const supportedCurrencies = ["USD", "INR", "AED"];
-    supportedCurrencies.forEach((code) => {
-      if (code === baseCurrency) return; 
+      const supportedCurrencies = ["USD", "INR", "AED"];
+      supportedCurrencies.forEach((code) => {
+        if (code === baseCurrency) return;
 
-      let currentValue;
-      if (baseCurrency === DEFAULT_CONFIG.GOLD_SYMBOL) {
-        if (!goldData.bid || goldData.bid <= 0) {
-          currentValue = 0;
-        } else {
-          let codeToUsdRate = 0;
-          if (code === "USD") {
-            codeToUsdRate = 1;
-          } else if (code === "INR") {
-            codeToUsdRate = 1 / (rates.USD_TO_INR || 1);
-          } else if (code === "AED") {
-            codeToUsdRate = 1 / (rates.USD_TO_AED || 1);
+        let currentValue;
+        if (baseCurrency === DEFAULT_CONFIG.GOLD_SYMBOL) {
+
+          if (!goldData.bid || goldData.bid <= 0) {
+            currentValue = 0;
+          } else {
+            let codeToUsdRate = 0;
+            if (code === "USD") {
+              codeToUsdRate = 1;
+            } else if (code === "INR") {
+              codeToUsdRate = 1 / (rates.USD_TO_INR || 1);
+            } else if (code === "AED") {
+              codeToUsdRate = 1 / (rates.USD_TO_AED || 1);
+            }
+            const gramsPerUsd = DEFAULT_CONFIG.GOLD_CONV_FACTOR / goldData.bid;
+            currentValue = gramsPerUsd * codeToUsdRate;
           }
-          const gramsPerUsd = DEFAULT_CONFIG.GOLD_CONV_FACTOR / goldData.bid;
-          currentValue = gramsPerUsd * codeToUsdRate;
+        } else if (code === "USD" && baseCurrency === "INR") {
+          currentValue = rates.USD_TO_INR;
+        } else if (code === "USD" && baseCurrency === "AED") {
+          currentValue = rates.USD_TO_AED;
+        } else if (code === "INR" && baseCurrency === "AED") {
+          currentValue = 1 / rates.INR_TO_AED;
+        } else if (code === "AED" && baseCurrency === "INR") {
+          currentValue = 1 / rates.AED_TO_INR;
+        } else if (code === "INR" && baseCurrency === "USD") {
+          currentValue = 1 / rates.USD_TO_INR;
+        } else if (code === "AED" && baseCurrency === "USD") {
+          currentValue = 1 / rates.USD_TO_AED;
+        } else {
+          currentValue = 0; // Handle unsupported pairs
         }
-      } else if (code === "USD" && baseCurrency === "INR") {
-        currentValue = rates.USD_TO_INR;
-      } else if (code === "USD" && baseCurrency === "AED") {
-        currentValue = rates.USD_TO_AED;
-      } else if (code === "INR" && baseCurrency === "AED") {
-        currentValue = rates.INR_TO_AED;
-      } else if (code === "AED" && baseCurrency === "INR") {
-        currentValue = rates.AED_TO_INR;
-      } else if (code === "INR" && baseCurrency === "USD") {
-        currentValue = 1 / rates.USD_TO_INR;
-      } else if (code === "AED" && baseCurrency === "USD") {
-        currentValue = 1 / rates.USD_TO_AED;
-      } else {
-        currentValue = 0; // Handle unsupported pairs
-      }
 
         const prevCurrency = currencies[code] || {};
         const prevValue = prevCurrency.value || currentValue;
@@ -458,17 +459,17 @@ const fetchCurrencyData = useCallback(async () => {
         };
       });
 
-    // Add gold data 
-    if (goldData.bid && goldData.bid > 0 && baseCurrency !== DEFAULT_CONFIG.GOLD_SYMBOL) {
-      let usdToBaseRate = 1;
-      if (baseCurrency !== "USD") {
-        usdToBaseRate =
-          baseCurrency === "INR"
-            ? rates.USD_TO_INR
-            : baseCurrency === "AED"
-            ? rates.USD_TO_AED
-            : 1;
-      }
+      // Add gold data 
+      if (goldData.bid && goldData.bid > 0 && baseCurrency !== DEFAULT_CONFIG.GOLD_SYMBOL) {
+        let usdToBaseRate = 1;
+        if (baseCurrency !== "USD") {
+          usdToBaseRate =
+            baseCurrency === "INR"
+              ? rates.USD_TO_INR
+              : baseCurrency === "AED"
+                ? rates.USD_TO_AED
+                : 1;
+        }
 
         // Calculate gold price in base currency per gram
         const goldPricePerGramInBase =
@@ -478,94 +479,94 @@ const fetchCurrencyData = useCallback(async () => {
           (curr) => curr.currency === DEFAULT_CONFIG.GOLD_SYMBOL
         );
 
-      enhancedData[DEFAULT_CONFIG.GOLD_SYMBOL] = {
-        code: DEFAULT_CONFIG.GOLD_SYMBOL,
-        value: goldPricePerGramInBase,
-        change:
-          (parseFloat(goldData.dailyChange) || 0) *
-          usdToBaseRate /
-          DEFAULT_CONFIG.GOLD_CONV_FACTOR,
-        changePercent: parseFloat(goldData.dailyChangePercent) || 0,
-        trend: goldData.direction || "neutral",
-        high24h:
-          ((goldData.high || goldData.bid || 0) * usdToBaseRate) /
-          DEFAULT_CONFIG.GOLD_CONV_FACTOR,
-        low24h:
-          ((goldData.low || goldData.bid || 0) * usdToBaseRate) /
-          DEFAULT_CONFIG.GOLD_CONV_FACTOR,
-        volume: Math.floor(Math.random() * 1000000) + 100000,
-        bidSpread: goldPartyCurrency?.bid || 0,
-        askSpread: goldPartyCurrency?.ask || 0,
-        buyRate: goldPricePerGramInBase + (goldPartyCurrency?.bid || 0),
-        sellRate: goldPricePerGramInBase - (goldPartyCurrency?.ask || 0),
-        convFactGms: DEFAULT_CONFIG.GOLD_CONV_FACTOR,
-        convertrate: usdToBaseRate,
-        marketStatus: goldData.marketStatus,
-        lastUpdated: fetchedAt || new Date().toISOString(),
-      };
-    }
+        enhancedData[DEFAULT_CONFIG.GOLD_SYMBOL] = {
+          code: DEFAULT_CONFIG.GOLD_SYMBOL,
+          value: goldPricePerGramInBase,
+          change:
+            (parseFloat(goldData.dailyChange) || 0) *
+            usdToBaseRate /
+            DEFAULT_CONFIG.GOLD_CONV_FACTOR,
+          changePercent: parseFloat(goldData.dailyChangePercent) || 0,
+          trend: goldData.direction || "neutral",
+          high24h:
+            ((goldData.high || goldData.bid || 0) * usdToBaseRate) /
+            DEFAULT_CONFIG.GOLD_CONV_FACTOR,
+          low24h:
+            ((goldData.low || goldData.bid || 0) * usdToBaseRate) /
+            DEFAULT_CONFIG.GOLD_CONV_FACTOR,
+          volume: Math.floor(Math.random() * 1000000) + 100000,
+          bidSpread: goldPartyCurrency?.bid || 0,
+          askSpread: goldPartyCurrency?.ask || 0,
+          buyRate: goldPricePerGramInBase + (goldPartyCurrency?.bid || 0),
+          sellRate: goldPricePerGramInBase - (goldPartyCurrency?.ask || 0),
+          convFactGms: DEFAULT_CONFIG.GOLD_CONV_FACTOR,
+          convertrate: usdToBaseRate,
+          marketStatus: goldData.marketStatus,
+          lastUpdated: fetchedAt || new Date().toISOString(),
+        };
+      }
 
       setCurrencies(enhancedData);
       setLastUpdate(fetchedAt || new Date().toISOString());
 
-    setCachedData({
-      data: enhancedData,
-      meta: { fetchedAt },
-      timestamp: Date.now(),
-    });
-  } catch (err) {
-    if (err.name !== "AbortError") {
-      if (cachedData) {
-        toast.warn("Using cached data - Network error occurred");
-        setCurrencies(cachedData.data);
-        setLastUpdate(cachedData.meta?.fetchedAt);
-      } else {
-        setError(err.message || "Failed to fetch currency data.");
-        toast.error(err.message || "Failed to fetch live currency data");
-        console.error("Currency fetch error:", err);
+      setCachedData({
+        data: enhancedData,
+        meta: { fetchedAt },
+        timestamp: Date.now(),
+      });
+    } catch (err) {
+      if (err.name !== "AbortError") {
+        if (cachedData) {
+          toast.warn("Using cached data - Network error occurred");
+          setCurrencies(cachedData.data);
+          setLastUpdate(cachedData.meta?.fetchedAt);
+        } else {
+          setError(err.message || "Failed to fetch currency data.");
+          toast.error(err.message || "Failed to fetch live currency data");
+          console.error("Currency fetch error:", err);
+        }
       }
+    } finally {
+      setLoading(false);
     }
-  } finally {
-    setLoading(false);
-  }
-}, [
-  baseCurrency,
-  currencyMaster,
-  watchlist,
-  selectedParty,
-  getCachedData,
-  setCachedData,
-  retryWithBackoff,
-  goldData,
-]);
-//trade history
-const fetchTradeHistory = useCallback(async () => {
-  try {
-    setTradeHistoryLoading(true);
-    const response = await axiosInstance.get("/currency-trading/trades");
+  }, [
+    baseCurrency,
+    currencyMaster,
+    watchlist,
+    selectedParty,
+    getCachedData,
+    setCachedData,
+    retryWithBackoff,
+    goldData,
+  ]);
+  //trade history
+  const fetchTradeHistory = useCallback(async () => {
+    try {
+      setTradeHistoryLoading(true);
+      const response = await axiosInstance.get("/currency-trading/trades");
 
-    
-    let tradeData = [];
-    if (response.data && Array.isArray(response.data)) {
-      tradeData = response.data;
-    } else if (response.data && Array.isArray(response.data.data)) {
-      tradeData = response.data.data;
-    } else if (response.data && response.data.trades) {
-      tradeData = response.data.trades;
+
+      let tradeData = [];
+      if (response.data && Array.isArray(response.data)) {
+        tradeData = response.data;
+      } else if (response.data && Array.isArray(response.data.data)) {
+        tradeData = response.data.data;
+      } else if (response.data && response.data.trades) {
+        tradeData = response.data.trades;
+      }
+
+      setTradeHistory(tradeData);
+
+      if (tradeData.length === 0) {
+        toast.info("No trade history found");
+      }
+    } catch (err) {
+      console.error("Error fetching trade history:", err);
+      toast.error("Failed to load trade history");
+    } finally {
+      setTradeHistoryLoading(false);
     }
-    
-    setTradeHistory(tradeData);
-    
-    if (tradeData.length === 0) {
-      toast.info("No trade history found");
-    }
-  } catch (err) {
-    console.error("Error fetching trade history:", err);
-    toast.error("Failed to load trade history");
-  } finally {
-    setTradeHistoryLoading(false);
-  }
-}, []);
+  }, []);
 
 
   // Fetch currency master
@@ -610,7 +611,7 @@ const fetchTradeHistory = useCallback(async () => {
           setWatchlist(initialWatchlist);
         }
       }
-    } catch (err) { 
+    } catch (err) {
       setError("Failed to fetch currency master data");
       toast.error("Failed to load currency data");
       console.error("Error fetching currency master:", err);
@@ -1006,7 +1007,7 @@ const fetchTradeHistory = useCallback(async () => {
                 >
                   {parties.map((party) => (
                     <option key={party.id} value={party.id}>
-                      {party.customerName} 
+                      {party.customerName}
                     </option>
                   ))}
                 </select>
