@@ -32,6 +32,7 @@ import {
   Target,
   TrendingDownIcon,
   TrendingUpIcon,
+  Edit2,
 } from "lucide-react";
 import axiosInstance from "../../api/axios";
 import useMarketData from "../../components/marketData";
@@ -164,6 +165,13 @@ const CurrencyFixing = () => {
   const [error, setError] = useState(null);
   const [tradeHistory, setTradeHistory] = useState([]);
   const [tradeHistoryLoading, setTradeHistoryLoading] = useState(false);
+  const [editingTrade, setEditingTrade] = useState(null);
+  const [voucherDetails, setVoucherDetails] = useState({
+    voucherCode: "",
+    voucherType: "",
+    prefix: "",
+  });
+  
   // Settings with localStorage
   const [baseCurrency, setBaseCurrency] = useLocalStorage(
     STORAGE_KEYS.BASE_CURRENCY,
@@ -213,7 +221,7 @@ const CurrencyFixing = () => {
           const pairKey = `${baseCurr.code}/${quoteCurr.code}`;
           const reversePairKey = `${quoteCurr.code}/${baseCurr.code}`;
           pairs.set(pairKey, {
-            base: baseCurr.code,
+            ...baseCurr,
             quote: quoteCurr.code,
             symbol: pairKey,
             baseDescription: baseCurr.description,
@@ -340,43 +348,43 @@ const CurrencyFixing = () => {
       };
     });
   }, []);
-  // Enhanced currency data fetchin
   // Enhanced currency data fetching
-  const fetchCurrencyData = useCallback(async () => {
-    if (!baseCurrency || currencyMaster.length === 0) return;
+// Enhanced currency data fetching
+const fetchCurrencyData = useCallback(async () => {
+  if (!baseCurrency || currencyMaster.length === 0) return;
 
-    // Check cache first
-    const cachedData = getCachedData();
-    if (cachedData) {
-      setCurrencies(cachedData.data);
-      setLastUpdate(cachedData.meta?.fetchedAt);
+  // Check cache first
+  const cachedData = getCachedData();
+  if (cachedData) {
+    setCurrencies(cachedData.data);
+    setLastUpdate(cachedData.meta?.fetchedAt);
 
-      // Only proceed with API call if cache is stale (older than 5 minutes)
-      const cacheAge = Date.now() - (cachedData.timestamp || 0);
-      if (cacheAge < API_CONFIG.CACHE_DURATION) {
-        setLoading(false);
-        return; // Use cached data if still fresh
-      }
+    // Only proceed with API call if cache is stale (older than 5 minutes)
+    const cacheAge = Date.now() - (cachedData.timestamp || 0);
+    if (cacheAge < API_CONFIG.CACHE_DURATION) {
+      setLoading(false);
+      return; // Use cached data if still fresh
     }
+  }
 
-    // Cancel previous request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    abortControllerRef.current = new AbortController();
+  // Cancel previous request
+  if (abortControllerRef.current) {
+    abortControllerRef.current.abort();
+  }
+  abortControllerRef.current = new AbortController();
 
-    try {
-      setLoading(true);
-      setError(null);
+  try {
+    setLoading(true);
+    setError(null);
 
-      // Fetch data from backend API
-      const response = await retryWithBackoff(() =>
-        axiosInstance.get("/currency-trading/live-rate", {
-          signal: abortControllerRef.current.signal,
-        })
-      );
+    // Fetch data from backend API
+    const response = await retryWithBackoff(() =>
+      axiosInstance.get("/currency-trading/live-rate", {
+        signal: abortControllerRef.current.signal,
+      })
+    );
 
-      const data = response.data;
+    const data = response.data;
 
       if (!data || !data.rates) {
         if (cachedData) {
@@ -389,95 +397,94 @@ const CurrencyFixing = () => {
         throw new Error("Invalid response from backend API");
       }
 
-      const enhancedData = {};
+    const enhancedData = {};
+    const { rates, fetchedAt } = data;
 
-      const { rates, fetchedAt } = data;
+    const supportedCurrencies = ["USD", "INR", "AED"];
+    supportedCurrencies.forEach((code) => {
+      if (code === baseCurrency) return;
 
-      const supportedCurrencies = ["USD", "INR", "AED"];
-      supportedCurrencies.forEach((code) => {
-        if (code === baseCurrency) return;
-
-        let currentValue;
-        if (baseCurrency === DEFAULT_CONFIG.GOLD_SYMBOL) {
-
-          if (!goldData.bid || goldData.bid <= 0) {
-            currentValue = 0;
-          } else {
-            let codeToUsdRate = 0;
-            if (code === "USD") {
-              codeToUsdRate = 1;
-            } else if (code === "INR") {
-              codeToUsdRate = 1 / (rates.USD_TO_INR || 1);
-            } else if (code === "AED") {
-              codeToUsdRate = 1 / (rates.USD_TO_AED || 1);
-            }
-            const gramsPerUsd = DEFAULT_CONFIG.GOLD_CONV_FACTOR / goldData.bid;
-            currentValue = gramsPerUsd * codeToUsdRate;
-          }
-        } else if (code === "USD" && baseCurrency === "INR") {
-          currentValue = rates.USD_TO_INR;
-        } else if (code === "USD" && baseCurrency === "AED") {
-          currentValue = rates.USD_TO_AED;
-        } else if (code === "INR" && baseCurrency === "AED") {
-          currentValue = 1 / rates.INR_TO_AED;
-        } else if (code === "AED" && baseCurrency === "INR") {
-          currentValue = 1 / rates.AED_TO_INR;
-        } else if (code === "INR" && baseCurrency === "USD") {
-          currentValue = 1 / rates.USD_TO_INR;
-        } else if (code === "AED" && baseCurrency === "USD") {
-          currentValue = 1 / rates.USD_TO_AED;
+      let currentValue;
+      if (baseCurrency === DEFAULT_CONFIG.GOLD_SYMBOL) {
+        if (!goldData.bid || goldData.bid <= 0) {
+          currentValue = 0;
         } else {
-          currentValue = 0; // Handle unsupported pairs
+          let codeToUsdRate = 0;
+          if (code === "USD") {
+            codeToUsdRate = 1;
+          } else if (code === "INR") {
+            codeToUsdRate = 1 / (rates.USD_TO_INR || 1);
+          } else if (code === "AED") {
+            codeToUsdRate = 1 / (rates.USD_TO_AED || 1);
+          }
+          const gramsPerUsd = DEFAULT_CONFIG.GOLD_CONV_FACTOR / goldData.bid;
+          currentValue = gramsPerUsd * codeToUsdRate;
         }
+      } else if (code === "USD" && baseCurrency === "INR") {
+        currentValue = rates.USD_TO_INR || 0;
+      } else if (code === "USD" && baseCurrency === "AED") {
+        currentValue = rates.USD_TO_AED || 0;
+      } else if (code === "INR" && baseCurrency === "AED") {
+        currentValue = rates.INR_TO_AED || 0;
+      } else if (code === "AED" && baseCurrency === "INR") {
+        currentValue = rates.AED_TO_INR || 0;
+      } else if (code === "INR" && baseCurrency === "USD") {
+        currentValue = rates.USD_TO_INR ? 1 / rates.USD_TO_INR : 0;
+      } else if (code === "AED" && baseCurrency === "USD") {
+        currentValue = rates.USD_TO_AED ? 1 / rates.USD_TO_AED : 0;
+      } else {
+        currentValue = 0; // Handle unsupported pairs
+      }
 
-        const prevCurrency = currencies[code] || {};
-        const prevValue = prevCurrency.value || currentValue;
-        const change = currentValue - prevValue;
-        const changePercent = prevValue ? (change / prevValue) * 100 : 0;
+      const prevCurrency = currencies[code] || {};
+      const prevValue = prevCurrency.value || currentValue;
+      const change = currentValue - prevValue;
+      const changePercent = prevValue ? (change / prevValue) * 100 : 0;
 
-        // Get party-specific spreads
-        const partyCurrency = selectedParty?.currencies?.find(
-          (curr) => curr.currency === code
-        );
-        const bidSpread = partyCurrency?.bid || 0;
-        const askSpread = partyCurrency?.ask || 0;
+      // Get party-specific spreads
+      const partyCurrency = selectedParty?.currencies?.find(
+        (curr) => curr.currency === code
+      );
+      const bidSpread = partyCurrency?.bid || 0;
+      const askSpread = partyCurrency?.ask || 0;
 
-        enhancedData[code] = {
-          code,
-          value: currentValue,
-          change,
-          changePercent,
-          trend: change > 0 ? "up" : change < 0 ? "down" : "neutral",
-          high24h: currentValue * (1 + Math.random() * 0.02), // Simulated high
-          low24h: currentValue * (1 - Math.random() * 0.02), // Simulated low
-          volume: Math.floor(Math.random() * 10000000) + 1000000, // Simulated volume
-          bidSpread,
-          askSpread,
-          buyRate: currentValue + bidSpread,
-          sellRate: currentValue - askSpread,
-          lastUpdated: fetchedAt || new Date().toISOString(),
-        };
-      });
+      // Define the currency object without referencing undefined currencyData
+      enhancedData[code] = {
+        code,
+        value: currentValue,
+        change,
+        changePercent,
+        trend: change > 0 ? "up" : change < 0 ? "down" : "neutral",
+        high24h: currentValue * (1 + Math.random() * 0.02), // Simulated high
+        low24h: currentValue * (1 - Math.random() * 0.02), // Simulated low
+        volume: Math.floor(Math.random() * 10000000) + 1000000, // Simulated volume
+        bidSpread,
+        askSpread,
+        buyRate: currentValue + bidSpread,
+        sellRate: currentValue - askSpread,
+        lastUpdated: fetchedAt || new Date().toISOString(),
+      };
+    });
 
-      // Add gold data 
-      if (goldData.bid && goldData.bid > 0 && baseCurrency !== DEFAULT_CONFIG.GOLD_SYMBOL) {
-        let usdToBaseRate = 1;
-        if (baseCurrency !== "USD") {
-          usdToBaseRate =
-            baseCurrency === "INR"
-              ? rates.USD_TO_INR
-              : baseCurrency === "AED"
-                ? rates.USD_TO_AED
-                : 1;
-        }
+    // Add gold data
+    if (goldData.bid && goldData.bid > 0 && baseCurrency !== DEFAULT_CONFIG.GOLD_SYMBOL) {
+      let usdToBaseRate = 1;
+      if (baseCurrency !== "USD") {
+        usdToBaseRate =
+          baseCurrency === "INR"
+            ? rates.USD_TO_INR || 1
+            : baseCurrency === "AED"
+            ? rates.USD_TO_AED || 1
+            : 1;
+      }
 
-        // Calculate gold price in base currency per gram
-        const goldPricePerGramInBase =
-          (goldData.bid * usdToBaseRate) / DEFAULT_CONFIG.GOLD_CONV_FACTOR;
+      // Calculate gold price in base currency per gram
+      const goldPricePerGramInBase =
+        (goldData.bid * usdToBaseRate) / DEFAULT_CONFIG.GOLD_CONV_FACTOR;
 
-        const goldPartyCurrency = selectedParty?.currencies?.find(
-          (curr) => curr.currency === DEFAULT_CONFIG.GOLD_SYMBOL
-        );
+      const goldPartyCurrency = selectedParty?.currencies?.find(
+        (curr) => curr.currency === DEFAULT_CONFIG.GOLD_SYMBOL
+      );
 
         enhancedData[DEFAULT_CONFIG.GOLD_SYMBOL] = {
           code: DEFAULT_CONFIG.GOLD_SYMBOL,
@@ -506,67 +513,90 @@ const CurrencyFixing = () => {
         };
       }
 
-      setCurrencies(enhancedData);
-      setLastUpdate(fetchedAt || new Date().toISOString());
+    setCurrencies(enhancedData);
+    setLastUpdate(fetchedAt || new Date().toISOString());
 
-      setCachedData({
-        data: enhancedData,
-        meta: { fetchedAt },
-        timestamp: Date.now(),
+    setCachedData({
+      data: enhancedData,
+      meta: { fetchedAt },
+      timestamp: Date.now(),
+    });
+  } catch (err) {
+    if (err.name !== "AbortError") {
+      if (cachedData) {
+        toast.warn("Using cached data - Network error occurred");
+        setCurrencies(cachedData.data);
+        setLastUpdate(cachedData.meta?.fetchedAt);
+      } else {
+        setError(err.message || "Failed to fetch currency data.");
+        toast.error(err.message || "Failed to fetch live currency data");
+        console.error("Currency fetch error:", err);
+      }
+    }
+  } finally {
+    setLoading(false);
+  }
+}, [
+  baseCurrency,
+  currencyMaster,
+  watchlist,
+  selectedParty,
+  getCachedData,
+  setCachedData,
+  retryWithBackoff,
+  goldData,
+]);
+//trade history
+const fetchTradeHistory = useCallback(async () => {
+  try {
+    setTradeHistoryLoading(true);
+    const response = await axiosInstance.get("/currency-trading/trades");
+    
+    let tradeData = [];
+    if (response.data && Array.isArray(response.data)) {
+      tradeData = response.data;
+    } else if (response.data && Array.isArray(response.data.data)) {
+      tradeData = response.data.data;
+    } else if (response.data && response.data.trades) {
+      tradeData = response.data.trades;
+    }
+    
+    tradeData = tradeData.map(trade => {
+      console.log("Mapping trade:", {
+        id: trade._id,
+        voucherNumber: trade.voucherNumber,
+        voucherCode: trade.voucherCode,
+        prefix: trade.prefix,
+        voucherType: trade.voucherType,
+        partyId: trade.partyId,
+        currency: trade.currency || trade.toCurrency?.currencyCode,
+        type: trade.type,
+        amount: trade.amount,
       });
-    } catch (err) {
-      if (err.name !== "AbortError") {
-        if (cachedData) {
-          toast.warn("Using cached data - Network error occurred");
-          setCurrencies(cachedData.data);
-          setLastUpdate(cachedData.meta?.fetchedAt);
-        } else {
-          setError(err.message || "Failed to fetch currency data.");
-          toast.error(err.message || "Failed to fetch live currency data");
-          console.error("Currency fetch error:", err);
-        }
-      }
-    } finally {
-      setLoading(false);
+      return {
+        ...trade,
+        prefix: trade.prefix || "CF",
+        voucherNumber: trade.voucherNumber || trade.voucherCode || "",
+        voucherType: trade.voucherType || "CUR",
+        currency: trade.currency || trade.toCurrency?.currencyCode || "Unknown",
+        partyId: trade.partyId || { id: null, customerName: "Unknown" },
+        type: trade.type || "Unknown",
+        amount: trade.amount || 0,
+      };
+    });
+    
+    setTradeHistory(tradeData);
+    
+    if (tradeData.length === 0) {
+      toast.info("No trade history found");
     }
-  }, [
-    baseCurrency,
-    currencyMaster,
-    watchlist,
-    selectedParty,
-    getCachedData,
-    setCachedData,
-    retryWithBackoff,
-    goldData,
-  ]);
-  //trade history
-  const fetchTradeHistory = useCallback(async () => {
-    try {
-      setTradeHistoryLoading(true);
-      const response = await axiosInstance.get("/currency-trading/trades");
-
-
-      let tradeData = [];
-      if (response.data && Array.isArray(response.data)) {
-        tradeData = response.data;
-      } else if (response.data && Array.isArray(response.data.data)) {
-        tradeData = response.data.data;
-      } else if (response.data && response.data.trades) {
-        tradeData = response.data.trades;
-      }
-
-      setTradeHistory(tradeData);
-
-      if (tradeData.length === 0) {
-        toast.info("No trade history found");
-      }
-    } catch (err) {
-      console.error("Error fetching trade history:", err);
-      toast.error("Failed to load trade history");
-    } finally {
-      setTradeHistoryLoading(false);
-    }
-  }, []);
+  } catch (err) {
+    console.error("Error fetching trade history:", err);
+    toast.error("Failed to load trade history");
+  } finally {
+    setTradeHistoryLoading(false);
+  }
+}, []);
 
 
   // Fetch currency master
@@ -687,6 +717,51 @@ const CurrencyFixing = () => {
       return false;
     }
   }, [selectedParty, baseCurrency]);
+  // Voucher generation
+  const generateVoucherNumber = useCallback(async () => {
+    try {
+  const module = location.pathname.replace("/", "");
+      const response = await axiosInstance.post(`/voucher/generate/${module}`, {
+        transactionType: "currency",
+      });
+      const { data } = response.data;
+      localStorage.setItem(data.prefix, "/currencyfixing");
+      return {
+        voucherCode: data.voucherNumber,
+        voucherType: data.voucherType || "CUR",
+        prefix: data.prefix || "CF",
+      };
+    } catch (error) {
+      console.error("Error generating voucher number:", error);
+      toast.error("Failed to generate voucher number");
+      return { voucherCode: "", voucherType: "CUR", prefix: "CF" };
+    }
+  }, []);
+  // Handle trading modal open/close
+useEffect(() => {
+  if (showTradingModal && !editingTrade) {
+    // Generate new voucher for new trades
+    const fetchVoucher = async () => {
+      const voucher = await generateVoucherNumber();
+      setVoucherDetails(voucher);
+      console.log("New voucher generated:", voucher);
+    };
+    fetchVoucher();
+  } else if (showTradingModal && editingTrade) {
+    // Load existing voucher for edit
+    const voucher = {
+      voucherCode: editingTrade.voucherNumber || "",
+      voucherType: editingTrade.voucherType || "CUR",
+      prefix: editingTrade.prefix || "CF",
+    };
+    setVoucherDetails(voucher);
+    console.log("Editing voucher set:", voucher);
+  } else {
+    // Reset on close
+    setVoucherDetails({ voucherCode: "", voucherType: "", prefix: "" });
+    console.log("Voucher details reset");
+  }
+}, [showTradingModal, editingTrade, generateVoucherNumber]);
   // Effects
   useEffect(() => {
     updateGoldData(marketData);
@@ -790,7 +865,7 @@ const CurrencyFixing = () => {
     [watchlist, setWatchlist, baseCurrency]
   );
   // Trading functions
-  const executeTrade = useCallback(
+   const executeTrade = useCallback(
     async (type, currencyCode, rate, amount, party) => {
       if (!amount || !party) {
         toast.error("Please enter an amount and select a party");
@@ -800,69 +875,92 @@ const CurrencyFixing = () => {
         const amountValue = parseFloat(amount);
         const converted = amountValue * rate;
 
-        const orderId = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+        const orderId = editingTrade
+          ? editingTrade.orderId
+          : `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
         // Get currency data
         const currencyData = currencies[currencyCode] || {};
         const baseCurrencyObj = currencyMaster.find(c => c.code === baseCurrency);
         const targetCurrencyObj = currencyMaster.find(c => c.code === currencyCode);
-        console.log('Base Currency Object:', baseCurrencyObj, 'Target Currency Object:', targetCurrencyObj);
 
-        const tradeData = {
-          partyId: party.id,
-          type: type.toUpperCase(),
-          amount: amountValue,
-          currency: currencyCode,
-          rate,
-          converted,
-          orderId,
-          timestamp: formatters.timestamp(new Date()),
-          currentRate: currencyData.value,
-          bidSpread: currencyData.bidSpread,
-          askSpread: currencyData.askSpread,
-          buyRate: currencyData.buyRate,
-          sellRate: currencyData.sellRate,
-          baseCurrencyId: baseCurrencyObj?.id,
-          targetCurrencyId: targetCurrencyObj?.id,
-          baseCurrencyCode: baseCurrency,
-          targetCurrencyCode: currencyCode
-        };
+    const tradeData = {
+  partyId: party.id,
+  type: type.toUpperCase(),
+  amount: amountValue,
+  currency: currencyCode,
+  rate,
+  converted,
+  orderId,
+  timestamp: formatters.timestamp(new Date()),
+  currentRate: currencyData.value,
+  bidSpread: currencyData.bidSpread,
+  askSpread: currencyData.askSpread,
+  buyRate: currencyData.buyRate,
+  sellRate: currencyData.sellRate,
+  baseCurrencyId: baseCurrencyObj?.id,
+  targetCurrencyId: targetCurrencyObj?.id,
+  baseCurrencyCode: baseCurrency,
+  targetCurrencyCode: currencyCode,
+  voucherNumber: voucherDetails.voucherCode,
+  voucherType: voucherDetails.voucherType,
+  prefix: voucherDetails.prefix
+};
 
-        const res = await axiosInstance.post("/currency-trading/trades", tradeData);
+        let res;
+        if (editingTrade) {
+          // Update existing trade
+          res = await axiosInstance.put(`/currency-trading/trades/${editingTrade._id}`, tradeData);
+        } else {
+          // Create new trade
+          res = await axiosInstance.post("/currency-trading/trades", tradeData);
+        }
 
-        if (res.status !== 201) {
-          throw new Error("Trade API call failed");
+        if (res.status !== (editingTrade ? 200 : 201)) {
+          throw new Error(editingTrade ? "Trade update failed" : "Trade creation failed");
         }
 
         setShowTradingModal(false);
         setModalContent({
-          type,
-          amount: amountValue,
-          converted,
-          currency: currencyCode,
-          rate,
+          ...tradeData,
           party: party.customerName,
-          orderId,
-          timestamp: formatters.timestamp(new Date()),
         });
         setShowModal(true);
+        setEditingTrade(null); // Reset editing state
 
         // Clear input
         if (type === "buy") setBuyAmount("");
         else setSellAmount("");
 
         toast.success(
-          `${type.charAt(0).toUpperCase() + type.slice(1)
-          } order executed successfully`
+          editingTrade
+            ? `Trade updated successfully`
+            : `${type.charAt(0).toUpperCase() + type.slice(1)} order executed successfully`
         );
+
+        // Refresh trade history
+        fetchTradeHistory();
       } catch (err) {
-        console.log('Trade execution error:', err);
-        console.error(`${type} error:`, err);
-        toast.error(`Failed to execute ${type} order`);
+        console.error(`${editingTrade ? 'Update' : type} error:`, err);
+        toast.error(`Failed to ${editingTrade ? 'update' : 'execute'} ${type} order`);
       }
     },
-    [currencies, currencyMaster, baseCurrency]
+    [currencies, currencyMaster, baseCurrency, editingTrade, fetchTradeHistory, voucherDetails]
   );
+
+
+const handleEditTrade = useCallback((trade) => {
+  setEditingTrade(trade);
+  setSelectedPair(trade.currency); // or trade.toCurrency?.currencyCode as appropriate
+  setModalSelectedParty(parties.find(p => p.id === trade.partyId?.id));
+  setBuyAmount(trade.type.toLowerCase() === 'buy' ? trade.amount.toString() : '');
+  setSellAmount(trade.type.toLowerCase() === 'sell' ? trade.amount.toString() : '');
+  setShowTradingModal(true);
+  console.log('Final States:', {
+    showTradingModal, editingTrade, selectedPair, 'currencyObj': currencies[trade.currency]
+  });
+});
+/
   // Handle base currency change
   const handleBaseCurrencyChange = useCallback(
     (newBaseCurrency) => {
@@ -915,6 +1013,12 @@ const CurrencyFixing = () => {
             </div>
             <div className="space-y-4 bg-gradient-to-r from-gray-50 to-blue-50 p-6 rounded-xl border border-gray-200">
               <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-600 font-medium">Voucher</span>
+                  <p className="font-mono text-xs text-gray-800">
+                    {modalContent.prefix}-{modalContent.voucherNumber}
+                  </p>
+                </div>
                 <div>
                   <span className="text-gray-600 font-medium">Order ID</span>
                   <p className="font-mono text-xs text-gray-800">
@@ -976,289 +1080,324 @@ const CurrencyFixing = () => {
         </div>
       )}
       {/* Trading Modal */}
-      {showTradingModal && selectedPair && currencies[selectedPair] && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl p-8 w-full max-w-4xl shadow-2xl transform transition-all duration-300 animate-in zoom-in-95">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">
-                Trade {selectedPair}/{baseCurrency}
-              </h2>
-              <button
-                onClick={() => setShowTradingModal(false)}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-              >
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
-            <div className="space-y-6">
-              {/* Party Selector */}
-              <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Trading Party
-                </label>
-                <select
-                  value={modalSelectedParty?.id || ""}
-                  onChange={(e) =>
-                    setModalSelectedParty(
-                      parties.find((p) => p.id === e.target.value)
-                    )
-                  }
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  {parties.map((party) => (
-                    <option key={party.id} value={party.id}>
-                      {party.customerName}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex items-center justify-between bg-blue-50 p-4 rounded-xl border border-blue-200">
-                <div className="text-left">
-                  <p className="text-sm text-gray-600">Current Rate</p>
-                  <p className="text-xl font-bold text-gray-900">
-                    {formatters.currency(currencies[selectedPair].value)}
-                  </p>
-                </div>
-                <div
-                  className={`flex items-center px-4 py-2 rounded-full ${currencies[selectedPair].trend === "up"
-                    ? "bg-green-100 text-green-700"
-                    : currencies[selectedPair].trend === "down"
-                      ? "bg-red-100 text-red-700"
-                      : "bg-gray-100 text-gray-700"
-                    }`}
-                >
-                  {currencies[selectedPair].trend === "up" ? (
-                    <TrendingUp className="w-5 h-5 mr-2" />
-                  ) : currencies[selectedPair].trend === "down" ? (
-                    <TrendingDown className="w-5 h-5 mr-2" />
-                  ) : (
-                    <Activity className="w-5 h-5 mr-2" />
-                  )}
-                  <span className="text-base font-medium">
-                    {formatters.percentage(
-                      currencies[selectedPair].changePercent
-                    )}
-                  </span>
-                </div>
-              </div>
-              {/* Dynamic rates computation */}
-              {modalSelectedParty && (
-                (() => {
-                  const currentPartyCurr = modalSelectedParty.currencies?.find(
-                    (c) => c.currency === selectedPair
-                  );
-                  const bidSpread = currentPartyCurr?.bid || 0;
-                  const askSpread = currentPartyCurr?.ask || 0;
-                  const marketValue = currencies[selectedPair]?.value || 0;
-                  const dynamicBuyRate = marketValue + bidSpread;
-                  const dynamicSellRate = marketValue - askSpread;
-                  return (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                      {/* Buy Section */}
-                      <div className="space-y-4">
-                        <div className="flex items-center space-x-2">
-                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                          <h3 className="text-lg font-semibold text-green-700">
-                            Buy {selectedPair}
-                          </h3>
-                        </div>
-                        <div className="bg-green-50 p-4 rounded-xl border border-green-200">
-                          <div className="space-y-3">
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Amount to Buy{" "}
-                                {selectedPair === DEFAULT_CONFIG.GOLD_SYMBOL
-                                  ? "(grams)"
-                                  : ""}
-                              </label>
-                              <input
-                                type="number"
-                                value={buyAmount}
-                                onChange={(e) => setBuyAmount(e.target.value)}
-                                placeholder={`Enter ${baseCurrency} amount`}
-                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                step={
-                                  selectedPair === DEFAULT_CONFIG.GOLD_SYMBOL
-                                    ? "0.001"
-                                    : "0.01"
-                                }
-                                min="0"
-                              />
-                            </div>
-                            <div className="flex justify-between items-center py-2 px-3 bg-white rounded-lg border">
-                              <span className="text-sm text-gray-600">
-                                Buy Rate:
-                              </span>
-                              <span className="font-mono font-semibold text-green-600">
-                                {formatters.currency(dynamicBuyRate)}
-                              </span>
-                            </div>
-                            {buyAmount && (
-                              <div className="flex justify-between items-center py-2 px-3 bg-white rounded-lg border">
-                                <span className="text-sm text-gray-600">
-                                  Total Cost:
-                                </span>
-                                <span className="font-mono font-semibold text-gray-900">
-                                  {formatters.currency(
-                                    parseFloat(buyAmount) * dynamicBuyRate,
-                                    2
-                                  )}{" "}
-                                  {baseCurrency}
-                                </span>
-                              </div>
-                            )}
-                            <button
-                              onClick={() =>
-                                executeTrade(
-                                  "buy",
-                                  selectedPair,
-                                  dynamicBuyRate,
-                                  buyAmount,
-                                  modalSelectedParty
-                                )
-                              }
-                              disabled={!buyAmount || parseFloat(buyAmount) <= 0}
-                              className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all duration-200 shadow-md hover:cursor-pointer"
-                            >
-                              <div className="flex items-center justify-center space-x-2">
-                                <ShoppingCart className="w-5 h-5" />
-                                {/* in here selected pair is the name of the currency we want opposite */}
-                                <span>Buy {selectedPair}</span>
-                              </div>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                      {/* Sell Section */}
-                      <div className="space-y-4">
-                        <div className="flex items-center space-x-2">
-                          <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                          <h3 className="text-lg font-semibold text-red-700">
-                            Sell {selectedPair}
-                          </h3>
-                        </div>
-                        <div className="bg-red-50 p-4 rounded-xl border border-red-200">
-                          <div className="space-y-3">
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Amount to Sell{" "}
-                                {selectedPair === DEFAULT_CONFIG.GOLD_SYMBOL
-                                  ? "(grams)"
-                                  : ""}
-                              </label>
-                              <input
-                                type="number"
-                                value={sellAmount}
-                                onChange={(e) => setSellAmount(e.target.value)}
-                                placeholder={`Enter ${baseCurrency} amount`}
-                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                                step={
-                                  selectedPair === DEFAULT_CONFIG.GOLD_SYMBOL
-                                    ? "0.001"
-                                    : "0.01"
-                                }
-                                min="0"
-                              />
-                            </div>
-                            <div className="flex justify-between items-center py-2 px-3 bg-white rounded-lg border">
-                              <span className="text-sm text-gray-600">
-                                Sell Rate:
-                              </span>
-                              <span className="font-mono font-semibold text-red-600">
-                                {formatters.currency(dynamicSellRate)}
-                              </span>
-                            </div>
-                            {sellAmount && (
-                              <div className="flex justify-between items-center py-2 px-3 bg-white rounded-lg border">
-                                <span className="text-sm text-gray-600">
-                                  Total Receive:
-                                </span>
-                                <span className="font-mono font-semibold text-gray-900">
-                                  {formatters.currency(
-                                    parseFloat(sellAmount) * dynamicSellRate,
-                                    2
-                                  )}{" "}
-                                  {baseCurrency}
-                                </span>
-                              </div>
-                            )}
-                            <button
-                              onClick={() =>
-                                executeTrade(
-                                  "sell",
-                                  selectedPair,
-                                  dynamicSellRate,
-                                  sellAmount,
-                                  modalSelectedParty
-                                )
-                              }
-                              disabled={!sellAmount || parseFloat(sellAmount) <= 0}
-                              className="w-full px-4 py-3 bg-gradient-to-r from-red-600 to-rose-600 text-white rounded-lg hover:from-red-700 hover:to-rose-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all duration-200 shadow-md"
-                            >
-                              <div className="flex items-center justify-center space-x-2">
-                                <Wallet className="w-5 h-5" />
-                                <span>Sell {selectedPair}</span>
-                              </div>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })()
-              )}
-              {/* Fallback if no party selected */}
-              {!modalSelectedParty && (
-                <div className="text-center py-8 bg-yellow-50 rounded-xl border border-yellow-200">
-                  <AlertCircle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-                  <p className="text-yellow-800 font-medium">
-                    Please select a trading party
-                  </p>
-                </div>
-              )}
-              {/* Market Details */}
-              <div className="mt-8 p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl border border-gray-200">
-                <h4 className="font-semibold text-gray-900 mb-4">
-                  Market Details
-                </h4>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div>
-                    <p className="text-xs text-gray-600">24h High</p>
-                    <p className="font-mono font-semibold text-gray-900">
-                      {formatters.currency(
-                        currencies[selectedPair].high24h
-                      )}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-600">24h Low</p>
-                    <p className="font-mono font-semibold text-gray-900">
-                      {formatters.currency(currencies[selectedPair].low24h)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-600">Volume</p>
-                    <p className="font-semibold text-gray-900">
-                      {formatters.volume(currencies[selectedPair].volume)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-600">Spread</p>
-                    <p className="font-semibold text-gray-900">
-                      {formatters.percentage(
-                        ((currencies[selectedPair].bidSpread +
-                          currencies[selectedPair].askSpread) /
-                          currencies[selectedPair].value) *
-                        100
-                      )}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
+{showTradingModal && selectedPair && currencies[selectedPair] && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+    <div className="bg-white rounded-2xl p-8 w-full max-w-4xl shadow-2xl transform transition-all duration-300 animate-in zoom-in-95">
+    <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold text-gray-900">
+            {editingTrade ? `Edit Trade ${selectedPair}/${baseCurrency}` : `Trade ${selectedPair}/${baseCurrency}`}
+          </h2>
+          <button
+            onClick={() => {
+              setShowTradingModal(false);
+              setEditingTrade(null); // Reset editing 
+            }}
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+          >
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
+      <div className="space-y-6">
+        {/* Voucher Display */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Voucher Prefix
+            </label>
+            <input
+              type="text"
+              value={voucherDetails.prefix}
+              readOnly
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 cursor-not-allowed"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Voucher Number
+            </label>
+            <input
+              type="text"
+              value={voucherDetails.voucherCode}
+              readOnly
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 cursor-not-allowed"
+            />
           </div>
         </div>
-      )}
+        {/* Party Selector */}
+        <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Trading Party
+          </label>
+          <select
+            value={modalSelectedParty?.id || ""}
+            onChange={(e) =>
+              setModalSelectedParty(
+                parties.find((p) => p.id === e.target.value)
+              )
+            }
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            {parties.map((party) => (
+              <option key={party.id} value={party.id}>
+                {party.customerName} 
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex items-center justify-between bg-blue-50 p-4 rounded-xl border border-blue-200">
+          <div className="text-left">
+            <p className="text-sm text-gray-600">Current Rate</p>
+            <p className="text-xl font-bold text-gray-900">
+              {formatters.currency(currencies[selectedPair].value)}
+            </p>
+          </div>
+          <div
+            className={`flex items-center px-4 py-2 rounded-full ${currencies[selectedPair].trend === "up"
+              ? "bg-green-100 text-green-700"
+              : currencies[selectedPair].trend === "down"
+                ? "bg-red-100 text-red-700"
+                : "bg-gray-100 text-gray-700"
+              }`}
+          >
+            {currencies[selectedPair].trend === "up" ? (
+              <TrendingUp className="w-5 h-5 mr-2" />
+            ) : currencies[selectedPair].trend === "down" ? (
+              <TrendingDown className="w-5 h-5 mr-2" />
+            ) : (
+              <Activity className="w-5 h-5 mr-2" />
+            )}
+            <span className="text-base font-medium">
+              {formatters.percentage(
+                currencies[selectedPair].changePercent
+              )}
+            </span>
+          </div>
+        </div>
+        {/* Dynamic rates computation */}
+        {modalSelectedParty && (
+          (() => {
+            const currentPartyCurr = modalSelectedParty.currencies?.find(
+              (c) => c.currency === selectedPair
+            );
+            const bidSpread = currentPartyCurr?.bid || 0;
+            const askSpread = currentPartyCurr?.ask || 0;
+            const marketValue = currencies[selectedPair]?.value || 0;
+            const inverseRate = marketValue > 0 ? 1 / marketValue : 0;
+            const dynamicBuyRate = inverseRate + (bidSpread / marketValue);
+            const dynamicSellRate = inverseRate - (askSpread / marketValue);
+            
+            // Helper functions for calculations
+            const calculateBuyAmount = (totalAmount) => {
+              return totalAmount && dynamicBuyRate > 0 
+                ? (parseFloat(totalAmount) / dynamicBuyRate).toFixed(2)
+                : "";
+            };
+            
+            const calculateSellAmount = (totalAmount) => {
+              return totalAmount && dynamicSellRate > 0 
+                ? (parseFloat(totalAmount) / dynamicSellRate).toFixed(2)
+                : "";
+            };
+            
+            return (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Buy Section */}
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <h3 className="text-lg font-semibold text-green-700">
+                      Buy {selectedPair}
+                    </h3>
+                  </div>
+                  <div className="bg-green-50 p-4 rounded-xl border border-green-200">
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Amount to Pay ({baseCurrency})
+                        </label>
+                        <input
+                          type="number"
+                          value={buyAmount}
+                          onChange={(e) => {
+                            setBuyAmount(e.target.value);
+                            // Clear the corresponding amount field when changing this
+                            setSellAmount("");
+                          }}
+                          placeholder={`Enter ${baseCurrency} amount`}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                          step={
+                            selectedPair === DEFAULT_CONFIG.GOLD_SYMBOL
+                              ? "0.001"
+                              : "0.01"
+                          }
+                          min="0"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Amount to Receive ({selectedPair})
+                        </label>
+                        <input
+                          type="number"
+                          value={buyAmount && dynamicBuyRate > 0 
+                            ? (parseFloat(buyAmount) * dynamicBuyRate).toFixed(2)
+                            : ""
+                          }
+                          onChange={(e) => {
+                            const receivedAmount = e.target.value;
+                            if (receivedAmount && dynamicBuyRate > 0) {
+                              setBuyAmount((parseFloat(receivedAmount) / dynamicBuyRate).toFixed(2));
+                            } else {
+                              setBuyAmount("");
+                            }
+                            setSellAmount("");
+                          }}
+                          placeholder={`Enter ${selectedPair} amount`}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                          step={
+                            selectedPair === DEFAULT_CONFIG.GOLD_SYMBOL
+                              ? "0.001"
+                              : "0.01"
+                          }
+                          min="0"
+                        />
+                      </div>
+                      <div className="flex justify-between items-center py-2 px-3 bg-white rounded-lg border">
+                        <span className="text-sm text-gray-600">
+                          Buy Rate ({selectedPair}/{baseCurrency})
+                        </span>
+                        <span className="font-mono font-semibold text-green-600">
+                          {formatters.currency(dynamicBuyRate)}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() =>
+                          executeTrade(
+                            "buy",
+                            selectedPair,
+                            dynamicBuyRate,
+                            buyAmount,
+                            modalSelectedParty
+                          )
+                        }
+                        disabled={!buyAmount || parseFloat(buyAmount) <= 0 || !voucherDetails.voucherCode}
+                        className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all duration-200 shadow-md hover:cursor-pointer"
+                      >
+                        <div className="flex items-center justify-center space-x-2">
+                          <ShoppingCart className="w-5 h-5" />
+                          <span>Buy {selectedPair}</span>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                {/* Sell Section */}
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                    <h3 className="text-lg font-semibold text-red-700">
+                      Sell {selectedPair}
+                    </h3>
+                  </div>
+                  <div className="bg-red-50 p-4 rounded-xl border border-red-200">
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Amount to Receive ({baseCurrency})
+                        </label>
+                        <input
+                          type="number"
+                          value={sellAmount}
+                          onChange={(e) => {
+                            setSellAmount(e.target.value);
+                            // Clear the corresponding amount field when changing this
+                            setBuyAmount("");
+                          }}
+                          placeholder={`Enter ${baseCurrency} amount`}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                          step={
+                            selectedPair === DEFAULT_CONFIG.GOLD_SYMBOL
+                              ? "0.001"
+                              : "0.01"
+                          }
+                          min="0"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Amount to Sell ({selectedPair})
+                        </label>
+                        <input
+                          type="number"
+                          value={sellAmount && dynamicSellRate > 0 
+                            ? (parseFloat(sellAmount) * dynamicSellRate).toFixed(2)
+                            : ""
+                          }
+                          onChange={(e) => {
+                            const sellQuantity = e.target.value;
+                            if (sellQuantity && dynamicSellRate > 0) {
+                              setSellAmount((parseFloat(sellQuantity) / dynamicSellRate).toFixed(2));
+                            } else {
+                              setSellAmount("");
+                            }
+                            setBuyAmount("");
+                          }}
+                          placeholder={`Enter ${selectedPair} amount`}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                          step={
+                            selectedPair === DEFAULT_CONFIG.GOLD_SYMBOL
+                              ? "0.001"
+                              : "0.01"
+                          }
+                          min="0"
+                        />
+                      </div>
+                      <div className="flex justify-between items-center py-2 px-3 bg-white rounded-lg border">
+                        <span className="text-sm text-gray-600">
+                          Sell Rate ({selectedPair}/{baseCurrency})
+                        </span>
+                        <span className="font-mono font-semibold text-red-600">
+                          {formatters.currency(dynamicSellRate)}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() =>
+                          executeTrade(
+                            "sell",
+                            selectedPair,
+                            dynamicSellRate,
+                            sellAmount,
+                            modalSelectedParty
+                          )
+                        }
+                        disabled={!sellAmount || parseFloat(sellAmount) <= 0 || !voucherDetails.voucherCode}
+                        className="w-full px-4 py-3 bg-gradient-to-r from-red-600 to-rose-600 text-white rounded-lg hover:from-red-700 hover:to-rose-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all duration-200 shadow-md"
+                      >
+                        <div className="flex items-center justify-center space-x-2">
+                          <Wallet className="w-5 h-5" />
+                          <span>Sell {selectedPair}</span>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()
+        )}
+        {/* Fallback if no party selected */}
+        {!modalSelectedParty && (
+          <div className="text-center py-8 bg-yellow-50 rounded-xl border border-yellow-200">
+            <AlertCircle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
+            <p className="text-yellow-800 font-medium">
+              Please select a trading party
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+)}
       {/* Mobile Sidebar */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-40 lg:hidden">
@@ -1753,11 +1892,9 @@ const CurrencyFixing = () => {
                                       {pair.pairName}
                                     </p>
                                     <p className="text-xs text-gray-500">
-                                      {
-                                        currencyMaster.find(
-                                          (c) => c.code === pair.currency
-                                        )?.description
-                                      }
+                                      {currencyMaster.find(
+                                        (c) => c.code === pair.currency
+                                      )?.description}
                                     </p>
                                   </div>
                                 </div>
@@ -1802,129 +1939,142 @@ const CurrencyFixing = () => {
                 </div>
               </div>
             </div>
-            <div className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-200">
-              <div className="p-6 border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                    <Clock className="w-7 h-7 text-blue-600" />
-                    Recent Trades
-                  </h2>
-                  <button
-                    onClick={fetchTradeHistory}
-                    disabled={tradeHistoryLoading}
-                    className="flex items-center gap-2 px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition text-sm font-medium"
-                  >
-                    <RefreshCw className={`w-4 h-4 ${tradeHistoryLoading ? "animate-spin" : ""}`} />
-                    Refresh
-                  </button>
-                </div>
-              </div>
-
-              <div className="p-6">
-                {tradeHistoryLoading ? (
-                  <div className="text-center py-8">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                    <p className="text-gray-500 mt-4">Loading trade history...</p>
-                  </div>
-                ) : tradeHistory.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Activity className="w-14 h-14 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500 font-medium">No trade history found</p>
-                    <p className="text-gray-400 text-sm">
-                      Your recent trades will appear here
-                    </p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full">
-                      <thead>
-                        <tr className="border-b border-gray-200">
-                          <th className="text-left py-3 px-4 font-semibold text-gray-700">Date</th>
-                          <th className="text-left py-3 px-4 font-semibold text-gray-700">Type</th>
-                          <th className="text-left py-3 px-4 font-semibold text-gray-700">Party</th>
-                          <th className="text-left py-3 px-4 font-semibold text-gray-700">Pair</th>
-                          <th className="text-right py-3 px-4 font-semibold text-gray-700">Amount</th>
-                          <th className="text-right py-3 px-4 font-semibold text-gray-700">Rate</th>
-                          <th className="text-right py-3 px-4 font-semibold text-gray-700">Total</th>
-                          <th className="text-center py-3 px-4 font-semibold text-gray-700">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {tradeHistory.map((trade) => (
-                          <tr key={trade._id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                            <td className="py-4 px-4">
-                              <div className="text-sm text-gray-900">
-                                {new Date(trade.createdAt).toLocaleDateString()}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {new Date(trade.createdAt).toLocaleTimeString()}
-                              </div>
-                            </td>
-                            <td className="py-4 px-4">
-                              <span
-                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${trade.type === "BUY" || trade.type === "buy"
-                                  ? "bg-green-100 text-green-800"
-                                  : "bg-red-100 text-red-800"
-                                  }`}
-                              >
-                                {trade.type}
-                              </span>
-                            </td>
-                            <td className="py-4 px-4">
-                              <div className="text-sm font-medium text-gray-900">
-                                {trade.partyId?.customerName || "Unknown"}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {trade.partyId?.accountCode || ""}
-                              </div>
-                            </td>
-                            <td className="py-4 px-4">
-                              <div className="text-sm font-medium text-gray-900">
-                                {trade.toCurrency?.currencyCode || "Unknown"}/
-                                {trade.baseCurrency?.currencyCode || "Unknown"}
-                              </div>
-                            </td>
-                            <td className="py-4 px-4 text-right">
-                              <div className="text-sm font-medium text-gray-900">
-                                {formatters.currency(trade.amount, 2)}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {trade.toCurrency?.currencyCode}
-                              </div>
-                            </td>
-                            <td className="py-4 px-4 text-right">
-                              <div className="text-sm font-medium text-gray-900">
-                                {formatters.currency(trade.rate, 6)}
-                              </div>
-                            </td>
-                            <td className="py-4 px-4 text-right">
-                              <div className="text-sm font-bold text-gray-900">
-                                {formatters.currency(trade.total, 2)}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {trade.baseCurrency?.currencyCode}
-                              </div>
-                            </td>
-                            <td className="py-4 px-4 text-center">
-                              <span
-                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${trade.status === "COMPLETED"
-                                  ? "bg-green-100 text-green-800"
-                                  : trade.status === "PENDING"
-                                    ? "bg-yellow-100 text-yellow-800"
-                                    : "bg-red-100 text-red-800"
-                                  }`}
-                              >
-                                {trade.status}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            </div>
+        <div className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-200">
+      <div className="p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <Clock className="w-7 h-7 text-blue-600" />
+            Recent Trades
+          </h2>
+          <button
+            onClick={fetchTradeHistory}
+            disabled={tradeHistoryLoading}
+            className="flex items-center gap-2 px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition text-sm font-medium"
+          >
+            <RefreshCw className={`w-4 h-4 ${tradeHistoryLoading ? "animate-spin" : ""}`} />
+            Refresh
+          </button>
+        </div>
+      </div>
+      <div className="p-6">
+        {tradeHistoryLoading ? (
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="text-gray-500 mt-4">Loading trade history...</p>
+          </div>
+        ) : tradeHistory.length === 0 ? (
+          <div className="text-center py-12">
+            <Activity className="w-14 h-14 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500 font-medium">No trade history found</p>
+            <p className="text-gray-400 text-sm">
+              Your recent trades will appear here
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Date</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Voucher</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Type</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Party</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Pair</th>
+                  <th className="text-right py-3 px-4 font-semibold text-gray-700">Amount</th>
+                  <th className="text-right py-3 px-4 font-semibold text-gray-700">Rate</th>
+                  <th className="text-right py-3 px-4 font-semibold text-gray-700">Total</th>
+                  <th className="text-center py-3 px-4 font-semibold text-gray-700">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tradeHistory.map((trade) => (
+               <tr
+  key={trade._id}
+  className="border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
+  onClick={() => handleEditTrade(trade)}
+>
+                    <td className="py-4 px-4">
+                      <div className="text-sm text-gray-900">
+                        {new Date(trade.createdAt).toLocaleDateString()}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {new Date(trade.createdAt).toLocaleTimeString()}
+                      </div>
+                    </td>
+               <td className="py-4 px-4">
+  <span className="font-mono text-gray-900">
+    {trade.prefix || trade.voucherNumber
+      ? `${trade.prefix || "CF"}-${trade.voucherNumber || "N/A"}`
+      : "N/A"}
+  </span>
+</td>
+                    <td className="py-4 px-4">
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          trade.type === "BUY" || trade.type === "buy"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-red-100 text-red-800"
+                        }`}
+                      >
+                        {trade.type}
+                      </span>
+                    </td>
+                    <td className="py-4 px-4">
+                      <div className="text-sm font-medium text-gray-900">
+                        {trade.partyId?.customerName || "Unknown"}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {trade.partyId?.accountCode || ""}
+                      </div>
+                    </td>
+                    <td className="py-4 px-4">
+                      <div className="text-sm font-medium text-gray-900">
+                        {trade.toCurrency?.currencyCode || "Unknown"}/
+                        {trade.baseCurrency?.currencyCode || "Unknown"}
+                      </div>
+                    </td>
+                    <td className="py-4 px-4 text-right">
+                      <div className="text-sm font-medium text-gray-900">
+                        {formatters.currency(trade.amount, 2)}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {trade.toCurrency?.currencyCode}
+                      </div>
+                    </td>
+                    <td className="py-4 px-4 text-right">
+                      <div className="text-sm font-medium text-gray-900">
+                        {formatters.currency(trade.rate, 6)}
+                      </div>
+                    </td>
+                    <td className="py-4 px-4 text-right">
+                      <div className="text-sm font-bold text-gray-900">
+                        {formatters.currency(trade.total, 2)}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {trade.baseCurrency?.currencyCode}
+                      </div>
+                    </td>
+                    <td className="py-4 px-4 text-center">
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          trade.status === "COMPLETED"
+                            ? "bg-green-100 text-green-800"
+                            : trade.status === "PENDING"
+                            ? "bg-yellow-100 text-yellow-800"
+                            : "bg-red-100 text-red-800"
+                        }`}
+                      >
+                        {trade.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
 
 
 
@@ -2048,14 +2198,14 @@ const CurrencyFixing = () => {
                   </p>
                 </div>
                 <div className="p-6">
-                  {selectedParty.currencies?.length === 0 ? (
+                  {selectedParty.currencies.length === 0 ? (
                     <div className="text-center py-8">
                       <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                       <p className="text-gray-500 font-medium">
                         No currencies configured
                       </p>
                       <p className="text-gray-400 text-sm">
-                        This party has no currency configuration
+                        This party has no currency currency configuration
                       </p>
                     </div>
                   ) : (
