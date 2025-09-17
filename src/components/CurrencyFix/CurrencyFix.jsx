@@ -580,6 +580,7 @@ const fetchTradeHistory = useCallback(async () => {
     setTradeHistory(tradeData);
     
     if (tradeData.length === 0) {
+      
       toast.info("No trade history found");
     }
   } catch (err) {
