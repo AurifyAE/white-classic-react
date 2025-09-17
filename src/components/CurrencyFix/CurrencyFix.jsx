@@ -902,7 +902,7 @@ const executeTrade = useCallback(
         targetCurrencyId: targetCurrencyObj?.id,
         baseCurrencyCode: baseCurrency,
         targetCurrencyCode: currencyCode,
-        reference: editingTrade ? editingTrade.reference : voucherDetails.voucherCode // Use reference for editing, voucherCode for new trades
+        reference: editingTrade ? editingTrade.reference : voucherDetails.voucherCode 
       };
 
       let res;
@@ -920,7 +920,7 @@ const executeTrade = useCallback(
       setModalContent({
         ...tradeData,
         party: party.customerName,
-        reference: tradeData.reference // Include reference in modal content
+        reference: tradeData.reference 
       });
       setShowModal(true);
       setEditingTrade(null);
@@ -947,7 +947,7 @@ const executeTrade = useCallback(
 const handleEditTrade = useCallback((trade) => {
   setEditingTrade({
     ...trade,
-    reference: trade.reference || "N/A" // Ensure reference is set
+    reference: trade.reference || "N/A" 
   });
   setSelectedPair(trade.currency || trade.toCurrency?.currencyCode);
   setModalSelectedParty(parties.find(p => p.id === trade.partyId?.id));
@@ -955,7 +955,7 @@ const handleEditTrade = useCallback((trade) => {
   setSellAmount(trade.type.toLowerCase() === 'sell' ? trade.amount.toString() : '');
   setShowTradingModal(true);
   setVoucherDetails({
-    voucherCode: trade.reference || "", // Use reference as voucherCode
+    voucherCode: trade.reference || "", 
     voucherType: trade.voucherType || "CUR",
     prefix: trade.prefix || "CF"
   });
