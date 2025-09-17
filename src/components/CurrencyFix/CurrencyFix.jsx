@@ -567,20 +567,27 @@ const fetchTradeHistory = useCallback(async () => {
         voucherNumber: trade.voucherNumber,
         voucherCode: trade.voucherCode,
         prefix: trade.prefix,
-        voucherType: trade.voucherType
+        voucherType: trade.voucherType,
+        partyId: trade.partyId,
+        currency: trade.currency || trade.toCurrency?.currencyCode,
+        type: trade.type,
+        amount: trade.amount,
       });
       return {
         ...trade,
         prefix: trade.prefix || "CF",
         voucherNumber: trade.voucherNumber || trade.voucherCode || "",
-        voucherType: trade.voucherType || "CUR"
+        voucherType: trade.voucherType || "CUR",
+        currency: trade.currency || trade.toCurrency?.currencyCode || "Unknown",
+        partyId: trade.partyId || { id: null, customerName: "Unknown" },
+        type: trade.type || "Unknown",
+        amount: trade.amount || 0,
       };
     });
     
     setTradeHistory(tradeData);
     
     if (tradeData.length === 0) {
-      
       toast.info("No trade history found");
     }
   } catch (err) {
@@ -731,26 +738,30 @@ const fetchTradeHistory = useCallback(async () => {
     }
   }, []);
   // Handle trading modal open/close
-  useEffect(() => {
-    if (showTradingModal && !editingTrade) {
-      // Generate new voucher for new trades
-      const fetchVoucher = async () => {
-        const voucher = await generateVoucherNumber();
-        setVoucherDetails(voucher);
-      };
-      fetchVoucher();
-    } else if (showTradingModal && editingTrade) {
-      // Load existing voucher for edit
-      setVoucherDetails({
-        voucherCode: editingTrade.voucherNumber || "",
-        voucherType: editingTrade.voucherType || "CUR",
-        prefix: editingTrade.prefix || "CF",
-      });
-    } else {
-      // Reset on close
-      setVoucherDetails({ voucherCode: "", voucherType: "", prefix: "" });
-    }
-  }, [showTradingModal, editingTrade, generateVoucherNumber]);
+useEffect(() => {
+  if (showTradingModal && !editingTrade) {
+    // Generate new voucher for new trades
+    const fetchVoucher = async () => {
+      const voucher = await generateVoucherNumber();
+      setVoucherDetails(voucher);
+      console.log("New voucher generated:", voucher);
+    };
+    fetchVoucher();
+  } else if (showTradingModal && editingTrade) {
+    // Load existing voucher for edit
+    const voucher = {
+      voucherCode: editingTrade.voucherNumber || "",
+      voucherType: editingTrade.voucherType || "CUR",
+      prefix: editingTrade.prefix || "CF",
+    };
+    setVoucherDetails(voucher);
+    console.log("Editing voucher set:", voucher);
+  } else {
+    // Reset on close
+    setVoucherDetails({ voucherCode: "", voucherType: "", prefix: "" });
+    console.log("Voucher details reset");
+  }
+}, [showTradingModal, editingTrade, generateVoucherNumber]);
   // Effects
   useEffect(() => {
     updateGoldData(marketData);
@@ -939,24 +950,17 @@ const fetchTradeHistory = useCallback(async () => {
 
 
 const handleEditTrade = useCallback((trade) => {
-  console.log("Editing trade - Voucher Data:", {
-    voucherNumber: trade.voucherNumber,
-    voucherCode: trade.voucherCode,
-    prefix: trade.prefix,
-    voucherType: trade.voucherType
-  });
   setEditingTrade(trade);
-  setSelectedPair(trade.currency || trade.toCurrency?.currencyCode || "");
+  setSelectedPair(trade.currency); // or trade.toCurrency?.currencyCode as appropriate
   setModalSelectedParty(parties.find(p => p.id === trade.partyId?.id));
-  setBuyAmount(trade.type.toLowerCase() === "buy" ? trade.amount.toString() : "");
-  setSellAmount(trade.type.toLowerCase() === "sell" ? trade.amount.toString() : "");
-  setVoucherDetails({
-    voucherCode: trade.voucherNumber || trade.voucherCode || "",
-    voucherType: trade.voucherType || "CUR",
-    prefix: trade.prefix || "CF"
-  });
+  setBuyAmount(trade.type.toLowerCase() === 'buy' ? trade.amount.toString() : '');
+  setSellAmount(trade.type.toLowerCase() === 'sell' ? trade.amount.toString() : '');
   setShowTradingModal(true);
-}, [parties]);
+  console.log('Final States:', {
+    showTradingModal, editingTrade, selectedPair, 'currencyObj': currencies[trade.currency]
+  });
+});
+/
   // Handle base currency change
   const handleBaseCurrencyChange = useCallback(
     (newBaseCurrency) => {
@@ -1079,14 +1083,14 @@ const handleEditTrade = useCallback((trade) => {
 {showTradingModal && selectedPair && currencies[selectedPair] && (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
     <div className="bg-white rounded-2xl p-8 w-full max-w-4xl shadow-2xl transform transition-all duration-300 animate-in zoom-in-95">
-      <div className="flex justify-between items-center mb-6">
+    <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-gray-900">
             {editingTrade ? `Edit Trade ${selectedPair}/${baseCurrency}` : `Trade ${selectedPair}/${baseCurrency}`}
           </h2>
           <button
             onClick={() => {
               setShowTradingModal(false);
-              setEditingTrade(null); // Reset editing state on close
+              setEditingTrade(null); // Reset editing 
             }}
             className="p-2 hover:bg-gray-100 rounded-full transition-colors"
           >
@@ -1984,11 +1988,11 @@ const handleEditTrade = useCallback((trade) => {
               </thead>
               <tbody>
                 {tradeHistory.map((trade) => (
-                  <tr
-                    key={trade._id}
-                    className="border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
-                    onClick={() => handleEditTrade(trade)}
-                  >
+               <tr
+  key={trade._id}
+  className="border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
+  onClick={() => handleEditTrade(trade)}
+>
                     <td className="py-4 px-4">
                       <div className="text-sm text-gray-900">
                         {new Date(trade.createdAt).toLocaleDateString()}
