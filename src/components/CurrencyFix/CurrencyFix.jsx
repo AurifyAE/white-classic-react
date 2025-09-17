@@ -576,7 +576,7 @@ const CurrencyFixing = () => {
         return {
           ...trade,
           prefix: trade.prefix || "CF",
-          voucherNumber: trade.voucherNumber || trade.voucherCode || "",
+          voucherNumber: trade.voucherNumber || trade.refrence || "",
           voucherType: trade.voucherType || "CUR",
           currency: trade.currency || trade.toCurrency?.currencyCode || "Unknown",
           partyId: trade.partyId || { id: null, customerName: "Unknown" },
@@ -865,101 +865,101 @@ const CurrencyFixing = () => {
     [watchlist, setWatchlist, baseCurrency]
   );
   // Trading functions
-  const executeTrade = useCallback(
-    async (type, currencyCode, rate, amount, party) => {
-      if (!amount || !party) {
-        toast.error("Please enter an amount and select a party");
-        return;
+const executeTrade = useCallback(
+  async (type, currencyCode, rate, amount, party) => {
+    if (!amount || !party) {
+      toast.error("Please enter an amount and select a party");
+      return;
+    }
+    try {
+      const amountValue = parseFloat(amount);
+      const converted = amountValue * rate;
+
+      const orderId = editingTrade
+        ? editingTrade.orderId
+        : `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+      // Get currency data
+      const currencyData = currencies[currencyCode] || {};
+      const baseCurrencyObj = currencyMaster.find(c => c.code === baseCurrency);
+      const targetCurrencyObj = currencyMaster.find(c => c.code === currencyCode);
+
+      const tradeData = {
+        partyId: party.id,
+        type: type.toUpperCase(),
+        amount: amountValue,
+        currency: currencyCode,
+        rate,
+        converted,
+        orderId,
+        timestamp: formatters.timestamp(new Date()),
+        currentRate: currencyData.value,
+        bidSpread: currencyData.bidSpread,
+        askSpread: currencyData.askSpread,
+        buyRate: currencyData.buyRate,
+        sellRate: currencyData.sellRate,
+        baseCurrencyId: baseCurrencyObj?.id,
+        targetCurrencyId: targetCurrencyObj?.id,
+        baseCurrencyCode: baseCurrency,
+        targetCurrencyCode: currencyCode,
+        reference: editingTrade ? editingTrade.reference : voucherDetails.voucherCode // Use reference for editing, voucherCode for new trades
+      };
+
+      let res;
+      if (editingTrade) {
+        res = await axiosInstance.put(`/currency-trading/trades/${editingTrade._id}`, tradeData);
+      } else {
+        res = await axiosInstance.post("/currency-trading/trades", tradeData);
       }
-      try {
-        const amountValue = parseFloat(amount);
-        const converted = amountValue * rate;
 
-        const orderId = editingTrade
-          ? editingTrade.orderId
-          : `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-
-        // Get currency data
-        const currencyData = currencies[currencyCode] || {};
-        const baseCurrencyObj = currencyMaster.find(c => c.code === baseCurrency);
-        const targetCurrencyObj = currencyMaster.find(c => c.code === currencyCode);
-
-        const tradeData = {
-          partyId: party.id,
-          type: type.toUpperCase(),
-          amount: amountValue,
-          currency: currencyCode,
-          rate,
-          converted,
-          orderId,
-          timestamp: formatters.timestamp(new Date()),
-          currentRate: currencyData.value,
-          bidSpread: currencyData.bidSpread,
-          askSpread: currencyData.askSpread,
-          buyRate: currencyData.buyRate,
-          sellRate: currencyData.sellRate,
-          baseCurrencyId: baseCurrencyObj?.id,
-          targetCurrencyId: targetCurrencyObj?.id,
-          baseCurrencyCode: baseCurrency,
-          targetCurrencyCode: currencyCode,
-          voucherNumber: voucherDetails.voucherCode,
-          voucherType: voucherDetails.voucherType,
-          prefix: voucherDetails.prefix
-        };
-
-        let res;
-        if (editingTrade) {
-          // Update existing trade
-          res = await axiosInstance.put(`/currency-trading/trades/${editingTrade._id}`, tradeData);
-        } else {
-          // Create new trade
-          res = await axiosInstance.post("/currency-trading/trades", tradeData);
-        }
-
-        if (res.status !== (editingTrade ? 200 : 201)) {
-          throw new Error(editingTrade ? "Trade update failed" : "Trade creation failed");
-        }
-
-        setShowTradingModal(false);
-        setModalContent({
-          ...tradeData,
-          party: party.customerName,
-        });
-        setShowModal(true);
-        setEditingTrade(null); // Reset editing state
-
-        // Clear input
-        if (type === "buy") setBuyAmount("");
-        else setSellAmount("");
-
-        toast.success(
-          editingTrade
-            ? `Trade updated successfully`
-            : `${type.charAt(0).toUpperCase() + type.slice(1)} order executed successfully`
-        );
-
-        // Refresh trade history
-        fetchTradeHistory();
-      } catch (err) {
-        console.error(`${editingTrade ? 'Update' : type} error:`, err);
-        toast.error(`Failed to ${editingTrade ? 'update' : 'execute'} ${type} order`);
+      if (res.status !== (editingTrade ? 200 : 201)) {
+        throw new Error(editingTrade ? "Trade update failed" : "Trade creation failed");
       }
-    },
-    [currencies, currencyMaster, baseCurrency, editingTrade, fetchTradeHistory, voucherDetails]
-  );
+
+      setShowTradingModal(false);
+      setModalContent({
+        ...tradeData,
+        party: party.customerName,
+        reference: tradeData.reference // Include reference in modal content
+      });
+      setShowModal(true);
+      setEditingTrade(null);
+
+      if (type === "buy") setBuyAmount("");
+      else setSellAmount("");
+
+      toast.success(
+        editingTrade
+          ? `Trade updated successfully`
+          : `${type.charAt(0).toUpperCase() + type.slice(1)} order executed successfully`
+      );
+
+      fetchTradeHistory();
+    } catch (err) {
+      console.error(`${editingTrade ? 'Update' : type} error:`, err);
+      toast.error(`Failed to ${editingTrade ? 'update' : 'execute'} ${type} order`);
+    }
+  },
+  [currencies, currencyMaster, baseCurrency, editingTrade, fetchTradeHistory, voucherDetails]
+);
 
 
-  const handleEditTrade = useCallback((trade) => {
-    setEditingTrade(trade);
-    setSelectedPair(trade.currency); // or trade.toCurrency?.currencyCode as appropriate
-    setModalSelectedParty(parties.find(p => p.id === trade.partyId?.id));
-    setBuyAmount(trade.type.toLowerCase() === 'buy' ? trade.amount.toString() : '');
-    setSellAmount(trade.type.toLowerCase() === 'sell' ? trade.amount.toString() : '');
-    setShowTradingModal(true);
-    console.log('Final States:', {
-      showTradingModal, editingTrade, selectedPair, 'currencyObj': currencies[trade.currency]
-    });
+const handleEditTrade = useCallback((trade) => {
+  setEditingTrade({
+    ...trade,
+    reference: trade.reference || "N/A" // Ensure reference is set
   });
+  setSelectedPair(trade.currency || trade.toCurrency?.currencyCode);
+  setModalSelectedParty(parties.find(p => p.id === trade.partyId?.id));
+  setBuyAmount(trade.type.toLowerCase() === 'buy' ? trade.amount.toString() : '');
+  setSellAmount(trade.type.toLowerCase() === 'sell' ? trade.amount.toString() : '');
+  setShowTradingModal(true);
+  setVoucherDetails({
+    voucherCode: trade.reference || "", // Use reference as voucherCode
+    voucherType: trade.voucherType || "CUR",
+    prefix: trade.prefix || "CF"
+  });
+}, [parties, currencies]);
 
   // Handle base currency change
   const handleBaseCurrencyChange = useCallback(
@@ -1117,7 +1117,7 @@ const CurrencyFixing = () => {
                   </label>
                   <input
                     type="text"
-                    value={voucherDetails.voucherCode}
+              value={editingTrade ? editingTrade.reference : voucherDetails.voucherCode}
                     readOnly
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 cursor-not-allowed"
                   />
@@ -1940,140 +1940,138 @@ const CurrencyFixing = () => {
                 </div>
               </div>
             </div>
-            <div className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-200">
-              <div className="p-6 border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                    <Clock className="w-7 h-7 text-blue-600" />
-                    Recent Trades
-                  </h2>
-                  <button
-                    onClick={fetchTradeHistory}
-                    disabled={tradeHistoryLoading}
-                    className="flex items-center gap-2 px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition text-sm font-medium"
+         <div className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-200">
+  <div className="p-6 border-b border-gray-200">
+    <div className="flex items-center justify-between">
+      <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+        <Clock className="w-7 h-7 text-blue-600" />
+        Recent Trades
+      </h2>
+      <button
+        onClick={fetchTradeHistory}
+        disabled={tradeHistoryLoading}
+        className="flex items-center gap-2 px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition text-sm font-medium"
+      >
+        <RefreshCw className={`w-4 h-4 ${tradeHistoryLoading ? "animate-spin" : ""}`} />
+        Refresh
+      </button>
+    </div>
+  </div>
+  <div className="p-6">
+    {tradeHistoryLoading ? (
+      <div className="text-center py-8">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+        <p className="text-gray-500 mt-4">Loading trade history...</p>
+      </div>
+    ) : tradeHistory.length === 0 ? (
+      <div className="text-center py-12">
+        <Activity className="w-14 h-14 text-gray-300 mx-auto mb-4" />
+        <p className="text-gray-500 font-medium">No trade history found</p>
+        <p className="text-gray-400 text-sm">
+          Your recent trades will appear here
+        </p>
+      </div>
+    ) : (
+      <div className="overflow-x-auto">
+        <table className="min-w-full">
+          <thead>
+            <tr className="border-b border-gray-200">
+              <th className="text-left py-3 px-4 font-semibold text-gray-700">Date</th>
+              <th className="text-left py-3 px-4 font-semibold text-gray-700">Voucher</th>
+              <th className="text-left py-3 px-4 font-semibold text-gray-700">Type</th>
+              <th className="text-left py-3 px-4 font-semibold text-gray-700">Party</th>
+              <th className="text-left py-3 px-4 font-semibold text-gray-700">Pair</th>
+              <th className="text-right py-3 px-4 font-semibold text-gray-700">Amount</th>
+              <th className="text-right py-3 px-4 font-semibold text-gray-700">Rate</th>
+              <th className="text-right py-3 px-4 font-semibold text-gray-700">Total</th>
+              <th className="text-center py-3 px-4 font-semibold text-gray-700">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {tradeHistory.map((trade) => (
+              <tr
+                key={trade._id}
+                className="border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
+                onClick={() => handleEditTrade(trade)}
+              >
+                <td className="py-4 px-4">
+                  <div className="text-sm text-gray-900">
+                    {new Date(trade.createdAt).toLocaleDateString()}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {new Date(trade.createdAt).toLocaleTimeString()}
+                  </div>
+                </td>
+                <td className="py-4 px-4">
+                  <span className="font-mono text-gray-900">
+                    {trade.reference || "N/A"}
+                  </span>
+                </td>
+                <td className="py-4 px-4">
+                  <span
+                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${trade.type === "BUY" || trade.type === "buy"
+                      ? "bg-green-100 text-green-800"
+                      : "bg-red-100 text-red-800"
+                      }`}
                   >
-                    <RefreshCw className={`w-4 h-4 ${tradeHistoryLoading ? "animate-spin" : ""}`} />
-                    Refresh
-                  </button>
-                </div>
-              </div>
-              <div className="p-6">
-                {tradeHistoryLoading ? (
-                  <div className="text-center py-8">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                    <p className="text-gray-500 mt-4">Loading trade history...</p>
+                    {trade.type}
+                  </span>
+                </td>
+                <td className="py-4 px-4">
+                  <div className="text-sm font-medium text-gray-900">
+                    {trade.partyId?.customerName || "Unknown"}
                   </div>
-                ) : tradeHistory.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Activity className="w-14 h-14 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500 font-medium">No trade history found</p>
-                    <p className="text-gray-400 text-sm">
-                      Your recent trades will appear here
-                    </p>
+                  <div className="text-xs text-gray-500">
+                    {trade.partyId?.accountCode || ""}
                   </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full">
-                      <thead>
-                        <tr className="border-b border-gray-200">
-                          <th className="text-left py-3 px-4 font-semibold text-gray-700">Date</th>
-                          <th className="text-left py-3 px-4 font-semibold text-gray-700">Voucher</th>
-                          <th className="text-left py-3 px-4 font-semibold text-gray-700">Type</th>
-                          <th className="text-left py-3 px-4 font-semibold text-gray-700">Party</th>
-                          <th className="text-left py-3 px-4 font-semibold text-gray-700">Pair</th>
-                          <th className="text-right py-3 px-4 font-semibold text-gray-700">Amount</th>
-                          <th className="text-right py-3 px-4 font-semibold text-gray-700">Rate</th>
-                          <th className="text-right py-3 px-4 font-semibold text-gray-700">Total</th>
-                          <th className="text-center py-3 px-4 font-semibold text-gray-700">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {tradeHistory.map((trade) => (
-                          <tr
-                            key={trade._id}
-                            className="border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
-                            onClick={() => handleEditTrade(trade)}
-                          >
-                            <td className="py-4 px-4">
-                              <div className="text-sm text-gray-900">
-                                {new Date(trade.createdAt).toLocaleDateString()}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {new Date(trade.createdAt).toLocaleTimeString()}
-                              </div>
-                            </td>
-                            <td className="py-4 px-4">
-                              <span className="font-mono text-gray-900">
-                                {trade.prefix || trade.voucherNumber
-                                  ? `${trade.prefix || "CF"}-${trade.voucherNumber || "N/A"}`
-                                  : "N/A"}
-                              </span>
-                            </td>
-                            <td className="py-4 px-4">
-                              <span
-                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${trade.type === "BUY" || trade.type === "buy"
-                                  ? "bg-green-100 text-green-800"
-                                  : "bg-red-100 text-red-800"
-                                  }`}
-                              >
-                                {trade.type}
-                              </span>
-                            </td>
-                            <td className="py-4 px-4">
-                              <div className="text-sm font-medium text-gray-900">
-                                {trade.partyId?.customerName || "Unknown"}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {trade.partyId?.accountCode || ""}
-                              </div>
-                            </td>
-                            <td className="py-4 px-4">
-                              <div className="text-sm font-medium text-gray-900">
-                                {trade.toCurrency?.currencyCode || "Unknown"}/
-                                {trade.baseCurrency?.currencyCode || "Unknown"}
-                              </div>
-                            </td>
-                            <td className="py-4 px-4 text-right">
-                              <div className="text-sm font-medium text-gray-900">
-                                {formatters.currency(trade.amount, 2)}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {trade.toCurrency?.currencyCode}
-                              </div>
-                            </td>
-                            <td className="py-4 px-4 text-right">
-                              <div className="text-sm font-medium text-gray-900">
-                                {formatters.currency(trade.rate, 6)}
-                              </div>
-                            </td>
-                            <td className="py-4 px-4 text-right">
-                              <div className="text-sm font-bold text-gray-900">
-                                {formatters.currency(trade.total, 2)}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {trade.baseCurrency?.currencyCode}
-                              </div>
-                            </td>
-                            <td className="py-4 px-4 text-center">
-                              <span
-                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${trade.status === "COMPLETED"
-                                  ? "bg-green-100 text-green-800"
-                                  : trade.status === "PENDING"
-                                    ? "bg-yellow-100 text-yellow-800"
-                                    : "bg-red-100 text-red-800"
-                                  }`}
-                              >
-                                {trade.status}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                </td>
+                <td className="py-4 px-4">
+                  <div className="text-sm font-medium text-gray-900">
+                    {trade.toCurrency?.currencyCode || "Unknown"}/
+                    {trade.baseCurrency?.currencyCode || "Unknown"}
                   </div>
-                )}
-              </div>
-            </div>
+                </td>
+                <td className="py-4 px-4 text-right">
+                  <div className="text-sm font-medium text-gray-900">
+                    {formatters.currency(trade.amount, 2)}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {trade.toCurrency?.currencyCode}
+                  </div>
+                </td>
+                <td className="py-4 px-4 text-right">
+                  <div className="text-sm font-medium text-gray-900">
+                    {formatters.currency(trade.rate, 6)}
+                  </div>
+                </td>
+                <td className="py-4 px-4 text-right">
+                  <div className="text-sm font-bold text-gray-900">
+                    {formatters.currency(trade.total, 2)}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {trade.baseCurrency?.currencyCode}
+                  </div>
+                </td>
+                <td className="py-4 px-4 text-center">
+                  <span
+                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${trade.status === "COMPLETED"
+                      ? "bg-green-100 text-green-800"
+                      : trade.status === "PENDING"
+                        ? "bg-yellow-100 text-yellow-800"
+                        : "bg-red-100 text-red-800"
+                      }`}
+                  >
+                    {trade.status}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+  </div>
+</div>
 
 
 
