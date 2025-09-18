@@ -33,6 +33,7 @@ import {
   TrendingDownIcon,
   TrendingUpIcon,
   Edit2,
+  Trash2,
 } from "lucide-react";
 import axiosInstance from "../../api/axios";
 import useMarketData from "../../components/marketData";
@@ -352,7 +353,7 @@ const CurrencyFixing = () => {
   // Enhanced currency data fetching
   const fetchCurrencyData = useCallback(async () => {
     if (!baseCurrency || currencyMaster.length === 0) return;
-
+console.log("on here")
     // Check cache first
     const cachedData = getCachedData();
     if (cachedData) {
@@ -387,6 +388,7 @@ const CurrencyFixing = () => {
       const data = response.data;
 
       if (!data || !data.rates) {
+        alert("on here")
         if (cachedData) {
           toast.warn("Using cached data - API temporarily unavailable");
           setCurrencies(cachedData.data);
@@ -396,16 +398,21 @@ const CurrencyFixing = () => {
         }
         throw new Error("Invalid response from backend API");
       }
+      console.log('====================================');
+      console.log(data);
+      console.log('====================================');
 
       const enhancedData = {};
       const { rates, fetchedAt } = data;
-
+      console.log('====================================');
+      console.log(rates);
+      console.log('====================================');
       const supportedCurrencies = ["USD", "INR", "AED"];
       supportedCurrencies.forEach((code) => {
         if (code === baseCurrency) return;
 
         let currentValue;
-        if (baseCurrency === DEFAULT_CONFIG.GOLD_SYMBOL) {
+         if (baseCurrency === DEFAULT_CONFIG.GOLD_SYMBOL) {
           if (!goldData.bid || goldData.bid <= 0) {
             currentValue = 0;
           } else {
@@ -434,6 +441,11 @@ const CurrencyFixing = () => {
           currentValue = rates.USD_TO_AED ? 1 / rates.USD_TO_AED : 0;
         } else {
           currentValue = 0; // Handle unsupported pairs
+        }
+
+        if (!currentValue || isNaN(currentValue)) {
+          console.warn(`Invalid rate for ${baseCurrency}/${code}, using 0`);
+          currentValue = 0;
         }
 
         const prevCurrency = currencies[code] || {};
@@ -466,51 +478,64 @@ const CurrencyFixing = () => {
         };
       });
 
-      // Add gold data
+      // Add gold data with improved fallback for rates
       if (goldData.bid && goldData.bid > 0 && baseCurrency !== DEFAULT_CONFIG.GOLD_SYMBOL) {
         let usdToBaseRate = 1;
-        if (baseCurrency !== "USD") {
-          usdToBaseRate =
-            baseCurrency === "INR"
-              ? rates.USD_TO_INR || 1
-              : baseCurrency === "AED"
-                ? rates.USD_TO_AED || 1
-                : 1;
+        let usdToBaseRateValid = true; // Flag for validation
+
+        // Improved rate fetching with fallbacks and logging
+        if (baseCurrency === "USD") {
+          usdToBaseRate = 1;
+        } else if (baseCurrency === "INR") {
+          usdToBaseRate = rates.USD_TO_INR || 83.5;
+          if (!rates.USD_TO_INR) console.warn("USD_TO_INR missing, using fallback:", usdToBaseRate);
+        } else if (baseCurrency === "AED") {
+          usdToBaseRate = rates.USD_TO_AED || 3.67;
+          if (!rates.USD_TO_AED) console.warn("USD_TO_AED missing, using fallback:", usdToBaseRate);
+        } else {
+          usdToBaseRateValid = false;
+          console.error("Unsupported base currency for gold:", baseCurrency);
         }
 
-        // Calculate gold price in base currency per gram
-        const goldPricePerGramInBase =
-          (goldData.bid * usdToBaseRate) / DEFAULT_CONFIG.GOLD_CONV_FACTOR;
+        if (usdToBaseRateValid) {
+          // Calculate gold price in base currency per gram
+          const goldPricePerGramInBase =
+            (goldData.bid * usdToBaseRate) / DEFAULT_CONFIG.GOLD_CONV_FACTOR;
 
-        const goldPartyCurrency = selectedParty?.currencies?.find(
-          (curr) => curr.currency === DEFAULT_CONFIG.GOLD_SYMBOL
-        );
+          const goldPartyCurrency = selectedParty?.currencies?.find(
+            (curr) => curr.currency === DEFAULT_CONFIG.GOLD_SYMBOL
+          );
 
-        enhancedData[DEFAULT_CONFIG.GOLD_SYMBOL] = {
-          code: DEFAULT_CONFIG.GOLD_SYMBOL,
-          value: goldPricePerGramInBase,
-          change:
-            (parseFloat(goldData.dailyChange) || 0) *
-            usdToBaseRate /
-            DEFAULT_CONFIG.GOLD_CONV_FACTOR,
-          changePercent: parseFloat(goldData.dailyChangePercent) || 0,
-          trend: goldData.direction || "neutral",
-          high24h:
-            ((goldData.high || goldData.bid || 0) * usdToBaseRate) /
-            DEFAULT_CONFIG.GOLD_CONV_FACTOR,
-          low24h:
-            ((goldData.low || goldData.bid || 0) * usdToBaseRate) /
-            DEFAULT_CONFIG.GOLD_CONV_FACTOR,
-          volume: Math.floor(Math.random() * 1000000) + 100000,
-          bidSpread: goldPartyCurrency?.bid || 0,
-          askSpread: goldPartyCurrency?.ask || 0,
-          buyRate: goldPricePerGramInBase + (goldPartyCurrency?.bid || 0),
-          sellRate: goldPricePerGramInBase - (goldPartyCurrency?.ask || 0),
-          convFactGms: DEFAULT_CONFIG.GOLD_CONV_FACTOR,
-          convertrate: usdToBaseRate,
-          marketStatus: goldData.marketStatus,
-          lastUpdated: fetchedAt || new Date().toISOString(),
-        };
+          enhancedData[DEFAULT_CONFIG.GOLD_SYMBOL] = {
+            code: DEFAULT_CONFIG.GOLD_SYMBOL,
+            value: goldPricePerGramInBase,
+            change:
+              (parseFloat(goldData.dailyChange) || 0) *
+              usdToBaseRate /
+              DEFAULT_CONFIG.GOLD_CONV_FACTOR,
+            changePercent: parseFloat(goldData.dailyChangePercent) || 0,
+            trend: goldData.direction || "neutral",
+            high24h:
+              ((goldData.high || goldData.bid || 0) * usdToBaseRate) /
+              DEFAULT_CONFIG.GOLD_CONV_FACTOR,
+            low24h:
+              ((goldData.low || goldData.bid || 0) * usdToBaseRate) /
+              DEFAULT_CONFIG.GOLD_CONV_FACTOR,
+            volume: Math.floor(Math.random() * 1000000) + 100000,
+            bidSpread: goldPartyCurrency?.bid || 0,
+            askSpread: goldPartyCurrency?.ask || 0,
+            buyRate: goldPricePerGramInBase + (goldPartyCurrency?.bid || 0),
+            sellRate: goldPricePerGramInBase - (goldPartyCurrency?.ask || 0),
+            convFactGms: DEFAULT_CONFIG.GOLD_CONV_FACTOR,
+            convertrate: usdToBaseRate,
+            marketStatus: goldData.marketStatus,
+            lastUpdated: fetchedAt || new Date().toISOString(),
+          };
+          console.log(`Gold updated for ${baseCurrency}:`, enhancedData[DEFAULT_CONFIG.GOLD_SYMBOL]);
+        } else {
+          console.error("Failed to calculate gold for base:", baseCurrency);
+          toast.warn(`Gold rates unavailable for ${baseCurrency} base`);
+        }
       }
 
       setCurrencies(enhancedData);
@@ -522,6 +547,7 @@ const CurrencyFixing = () => {
         timestamp: Date.now(),
       });
     } catch (err) {
+      console.error(`Error fetching data for base ${baseCurrency}:`, err);
       if (err.name !== "AbortError") {
         if (cachedData) {
           toast.warn("Using cached data - Network error occurred");
@@ -562,17 +588,7 @@ const CurrencyFixing = () => {
       }
 
       tradeData = tradeData.map(trade => {
-        console.log("Mapping trade:", {
-          id: trade._id,
-          voucherNumber: trade.voucherNumber,
-          voucherCode: trade.voucherCode,
-          prefix: trade.prefix,
-          voucherType: trade.voucherType,
-          partyId: trade.partyId,
-          currency: trade.currency || trade.toCurrency?.currencyCode,
-          type: trade.type,
-          amount: trade.amount,
-        });
+        
         return {
           ...trade,
           prefix: trade.prefix || "CF",
@@ -750,7 +766,7 @@ const CurrencyFixing = () => {
     } else if (showTradingModal && editingTrade) {
       // Load existing voucher for edit
       const voucher = {
-        voucherCode: editingTrade.voucherNumber || "",
+        voucherCode: editingTrade.reference || editingTrade.voucherNumber || "",
         voucherType: editingTrade.voucherType || "CUR",
         prefix: editingTrade.prefix || "CF",
       };
@@ -849,6 +865,29 @@ const CurrencyFixing = () => {
     },
     [goldData]
   );
+
+  const handleDeleteTrade = async (id) => {
+    if (!id) {
+      toast.error("Invalid trade ID");
+      return;
+    }
+    // delete from backend
+    try {
+      const response = await axiosInstance.delete(`/currency-trading/trades/${id}`);
+      if (response.status === 200) {
+        toast.success("Trade deleted from history");
+        setTradeHistory((prev) => prev.filter((trade) => trade._id !== id));
+        // close modal
+        setShowTradingModal(false);
+      } else {
+        throw new Error("Delete failed");
+      }
+    } catch (error) {
+      console.error("Error deleting trade:", error);
+      toast.error("Failed to delete trade");
+    }
+
+  }
   // Watchlist management
   const toggleWatchlist = useCallback(
     (currencyCode) => {
@@ -945,21 +984,57 @@ const CurrencyFixing = () => {
 
 
   const handleEditTrade = useCallback((trade) => {
-    setEditingTrade({
+    console.log("handleEditTrade called with:", trade);
+
+    // Ensure trade has necessary fields
+    const safeTrade = {
       ...trade,
-      reference: trade.reference || "N/A"
-    });
-    setSelectedPair(trade.currency || trade.toCurrency?.currencyCode);
-    setModalSelectedParty(parties.find(p => p.id === trade.partyId?.id));
-    setBuyAmount(trade.type.toLowerCase() === 'buy' ? trade.amount.toString() : '');
-    setSellAmount(trade.type.toLowerCase() === 'sell' ? trade.amount.toString() : '');
-    setShowTradingModal(true);
+      currency: trade.currency || trade.toCurrency?.currencyCode || "Unknown",
+      partyId: trade.partyId || { id: null, customerName: "Unknown" },
+      reference: trade.reference || trade.voucherNumber || "N/A",
+      type: (trade.type || "Unknown").toLowerCase(),
+      amount: trade.amount || 0,
+    };
+
+    // Validate currency
+    const validCurrency = currencyMaster.find(c => c.code === safeTrade.currency);
+    if (!validCurrency && safeTrade.currency !== "Unknown") {
+      console.error(`Invalid currency: ${safeTrade.currency} for base ${baseCurrency}`);
+      toast.error(`Invalid currency: ${safeTrade.currency}`);
+      return;
+    }
+
+    // Find party
+    const safeParty = parties.find(p => p.id === safeTrade.partyId?.id) || null;
+    if (!safeParty) {
+      console.warn(`Party not found for ID: ${safeTrade.partyId?.id}, base: ${baseCurrency}`);
+      toast.warn("Selected party not found");
+    }
+
+    // Validate currency data
+    if (!currencies[safeTrade.currency]) {
+      console.error(`Currency data missing for ${safeTrade.currency}, triggering refresh`);
+      fetchCurrencyData();
+      toast.warn(`Currency data for ${safeTrade.currency} is missing, refreshing...`);
+      return;
+    }
+
+    // Set states
+    setEditingTrade(safeTrade);
+    setSelectedPair(safeTrade.currency);
+    setModalSelectedParty(safeParty);
+    setBuyAmount(safeTrade.type === 'buy' ? safeTrade.amount.toString() : '');
+    setSellAmount(safeTrade.type === 'sell' ? safeTrade.amount.toString() : '');
     setVoucherDetails({
-      voucherCode: trade.reference || "",
-      voucherType: trade.voucherType || "CUR",
-      prefix: trade.prefix || "CF"
+      voucherCode: safeTrade.reference || "",
+      voucherType: safeTrade.voucherType || "CUR",
+      prefix: safeTrade.prefix || "CF",
     });
-  }, [parties]);
+
+    // Open modal
+    setShowTradingModal(true);
+    console.log("Edit modal opened for trade:", safeTrade);
+  }, [parties, currencyMaster, currencies, fetchCurrencyData, baseCurrency]);
 
   // Handle base currency change
   const handleBaseCurrencyChange = useCallback(
@@ -1079,23 +1154,34 @@ const CurrencyFixing = () => {
           </div>
         </div>
       )}
-      {/* Trading Modal */}
-      {showTradingModal  && currencies[selectedPair] && (
+      {/* Trading Modal - Improved condition check */}
+      {showTradingModal && selectedPair && currencies[selectedPair] && modalSelectedParty && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="bg-white rounded-2xl p-8 w-full max-w-4xl shadow-2xl transform transition-all duration-300 animate-in zoom-in-95">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold text-gray-900">
                 {editingTrade ? `Edit Trade ${selectedPair}/${baseCurrency}` : `Trade ${selectedPair}/${baseCurrency}`}
               </h2>
-              <button
-                onClick={() => {
-                  setShowTradingModal(false);
-                  setEditingTrade(null); // Reset editing 
-                }}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-              >
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
+              <div className="flex items-center space-x-2">
+                {editingTrade && (
+                  <button
+                    onClick={() => handleDeleteTrade(editingTrade._id)} // Add delete handler
+                    className="p-2 hover:bg-red-100 rounded-full transition-colors"
+                    title="Delete Trade"
+                  >
+                    <Trash2 className="w-5 h-5 text-red-500" /> {/* Assuming Trash2 icon from an icon library like Lucide */}
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    setShowTradingModal(false);
+                    setEditingTrade(null); // Reset editing
+                  }}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
             </div>
             <div className="space-y-6">
               {/* Voucher Display */}
@@ -1148,7 +1234,7 @@ const CurrencyFixing = () => {
                 <div className="text-left">
                   <p className="text-sm text-gray-600">Current Rate</p>
                   <p className="text-xl font-bold text-gray-900">
-                    {formatters.currency(currencies[selectedPair].value)||0}
+                    {formatters.currency(currencies[selectedPair].value) || 0}
                   </p>
                 </div>
                 <div
@@ -1167,9 +1253,7 @@ const CurrencyFixing = () => {
                     <Activity className="w-5 h-5 mr-2" />
                   )}
                   <span className="text-base font-medium">
-                    {formatters.percentage(
-                      currencies[selectedPair].changePercent
-                    )}
+                    {formatters.percentage(currencies[selectedPair].changePercent)}
                   </span>
                 </div>
               </div>
@@ -1182,10 +1266,9 @@ const CurrencyFixing = () => {
                   const bidSpread = currentPartyCurr?.bid || 0;
                   const askSpread = currentPartyCurr?.ask || 0;
                   const marketValue = currencies[selectedPair]?.value || 0;
-                  // const inverseRate = marketValue > 0 ? 1 / marketValue : 0;
 
-                  const dynamicBuyRate = marketValue + bidSpread
-                  const dynamicSellRate = marketValue - askSpread
+                  const dynamicBuyRate = marketValue + bidSpread;
+                  const dynamicSellRate = marketValue - askSpread;
 
                   // Helper functions for calculations
                   const calculateBuyAmount = (totalAmount) => {
@@ -1221,7 +1304,6 @@ const CurrencyFixing = () => {
                                 value={buyAmount}
                                 onChange={(e) => {
                                   setBuyAmount(e.target.value);
-                                  // Clear the corresponding amount field when changing this
                                   setSellAmount("");
                                 }}
                                 placeholder={`Enter ${baseCurrency} amount`}
@@ -1240,14 +1322,15 @@ const CurrencyFixing = () => {
                               </label>
                               <input
                                 type="number"
-                                value={buyAmount && dynamicBuyRate > 0
-                                  ? (buyAmount * dynamicBuyRate)
-                                  : ""
+                                value={
+                                  buyAmount && dynamicBuyRate > 0
+                                    ? (buyAmount * dynamicBuyRate)
+                                    : ""
                                 }
                                 onChange={(e) => {
                                   const receivedAmount = e.target.value;
                                   if (receivedAmount && dynamicBuyRate > 0) {
-                                    setBuyAmount((receivedAmount / dynamicBuyRate));
+                                    setBuyAmount(receivedAmount / dynamicBuyRate);
                                   } else {
                                     setBuyAmount("");
                                   }
@@ -1281,7 +1364,11 @@ const CurrencyFixing = () => {
                                   modalSelectedParty
                                 )
                               }
-                              disabled={!buyAmount || parseFloat(buyAmount) <= 0 || !voucherDetails.voucherCode}
+                              disabled={
+                                !buyAmount ||
+                                parseFloat(buyAmount) <= 0 ||
+                                !voucherDetails.voucherCode
+                              }
                               className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all duration-200 shadow-md hover:cursor-pointer"
                             >
                               <div className="flex items-center justify-center space-x-2">
@@ -1311,7 +1398,6 @@ const CurrencyFixing = () => {
                                 value={sellAmount}
                                 onChange={(e) => {
                                   setSellAmount(e.target.value);
-                                  // Clear the corresponding amount field when changing this
                                   setBuyAmount("");
                                 }}
                                 placeholder={`Enter ${baseCurrency} amount`}
@@ -1330,14 +1416,17 @@ const CurrencyFixing = () => {
                               </label>
                               <input
                                 type="number"
-                                value={sellAmount && dynamicSellRate > 0
-                                  ? (parseFloat(sellAmount) * dynamicSellRate).toFixed(2)
-                                  : ""
+                                value={
+                                  sellAmount && dynamicSellRate > 0
+                                    ? (parseFloat(sellAmount) * dynamicSellRate).toFixed(2)
+                                    : ""
                                 }
                                 onChange={(e) => {
                                   const sellQuantity = e.target.value;
                                   if (sellQuantity && dynamicSellRate > 0) {
-                                    setSellAmount((parseFloat(sellQuantity) / dynamicSellRate).toFixed(2));
+                                    setSellAmount(
+                                      (parseFloat(sellQuantity) / dynamicSellRate).toFixed(2)
+                                    );
                                   } else {
                                     setSellAmount("");
                                   }
@@ -1371,7 +1460,11 @@ const CurrencyFixing = () => {
                                   modalSelectedParty
                                 )
                               }
-                              disabled={!sellAmount || parseFloat(sellAmount) <= 0 || !voucherDetails.voucherCode}
+                              disabled={
+                                !sellAmount ||
+                                parseFloat(sellAmount) <= 0 ||
+                                !voucherDetails.voucherCode
+                              }
                               className="w-full px-4 py-3 bg-gradient-to-r from-red-600 to-rose-600 text-white rounded-lg hover:from-red-700 hover:to-rose-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all duration-200 shadow-md"
                             >
                               <div className="flex items-center justify-center space-x-2">
@@ -1399,6 +1492,7 @@ const CurrencyFixing = () => {
           </div>
         </div>
       )}
+      {/* Rest of the JSX remains the same... */}
       {/* Mobile Sidebar */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-40 lg:hidden">
