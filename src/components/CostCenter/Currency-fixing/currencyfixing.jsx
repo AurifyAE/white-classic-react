@@ -438,7 +438,7 @@ const CurrencyTradingRegistry = () => {
                         Voucher
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Customer
+                        Parties
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Base Currency
@@ -446,9 +446,9 @@ const CurrencyTradingRegistry = () => {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         To Currency
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Amount
-                      </th>
+                      </th> */}
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Rate
                       </th>
@@ -479,7 +479,7 @@ const CurrencyTradingRegistry = () => {
                             </div>
                           </div>
                         </td> */}
-                        
+
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             {getTypeIcon(transaction.type)}
@@ -519,11 +519,11 @@ const CurrencyTradingRegistry = () => {
                             )}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        {/* <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-semibold text-gray-900">
                             {formatCurrency(transaction.amount, transaction.baseCurrency.currencyCode)}
                           </div>
-                        </td>
+                        </td> */}
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
                             {transaction.rate.toFixed(6)}
