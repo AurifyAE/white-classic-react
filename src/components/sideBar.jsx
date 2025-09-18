@@ -149,6 +149,8 @@ const Sidebar = () => {
         { icon: <CircleFadingPlusIcon strokeWidth={1.5} size={20} />, text: 'Others', to: '/others' },
         { icon: <Send strokeWidth={1.5} size={20} />, text: 'Sales Fix', to: '/sales-fix-management' },
         { icon: <ShoppingCart strokeWidth={1.5} size={20} />, text: 'Purchase Fix', to: '/purchase-fix-management' },
+        { icon: <BanknoteIcon strokeWidth={1.5} size={20} />, text: 'currency Fix', to: '/currencyfix-management' },
+
         // { icon: <FileText strokeWidth={1.5} size={20} />, text: 'Expense', to: '/expense' },
 
       ]
