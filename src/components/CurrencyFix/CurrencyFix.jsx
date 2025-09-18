@@ -1080,7 +1080,7 @@ const CurrencyFixing = () => {
         </div>
       )}
       {/* Trading Modal */}
-      {showTradingModal && selectedPair && currencies[selectedPair] && (
+      {showTradingModal  && currencies[selectedPair] && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="bg-white rounded-2xl p-8 w-full max-w-4xl shadow-2xl transform transition-all duration-300 animate-in zoom-in-95">
             <div className="flex justify-between items-center mb-6">
@@ -1148,7 +1148,7 @@ const CurrencyFixing = () => {
                 <div className="text-left">
                   <p className="text-sm text-gray-600">Current Rate</p>
                   <p className="text-xl font-bold text-gray-900">
-                    {formatters.currency(currencies[selectedPair].value)}
+                    {formatters.currency(currencies[selectedPair].value)||0}
                   </p>
                 </div>
                 <div
