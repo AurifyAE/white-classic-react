@@ -37,6 +37,7 @@ import {
 } from "lucide-react";
 import axiosInstance from "../../api/axios";
 import useMarketData from "../../components/marketData";
+import { useNavigate } from "react-router-dom";
 // Constants
 const apiKey = import.meta.env.VITE_CURRENCY_API_KEY;
 
@@ -65,6 +66,8 @@ const DEFAULT_CONFIG = {
   GOLD_SYMBOL: "XAU",
   GOLD_CONV_FACTOR: 31.1035, // Troy ounce to grams
 };
+
+
 // Custom Hooks
 const useLocalStorage = (key, defaultValue) => {
   const [value, setValue] = useState(() => {
@@ -88,6 +91,7 @@ const useLocalStorage = (key, defaultValue) => {
   );
   return [value, setStoredValue];
 };
+
 const useCurrencyCache = (baseCurrency) => {
   const cacheKey = `${STORAGE_KEYS.CACHE}_${baseCurrency}`;
   const getCachedData = useCallback(() => {
@@ -210,6 +214,7 @@ const CurrencyFixing = () => {
   const [sellAmount, setSellAmount] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [modalContent, setModalContent] = useState({});
+  const navigate = useNavigate();
   // Cache management
   const { getCachedData, setCachedData } = useCurrencyCache(baseCurrency);
   // Dynamic currency pairs generation
@@ -299,6 +304,55 @@ const CurrencyFixing = () => {
     },
     []
   );
+
+  useEffect(() => {
+    const checkVoucher = async () => {
+      const queryParams = new URLSearchParams(location.search);
+      const voucher = queryParams.get("voucher");
+      alert(voucher)
+
+      if (voucher) {
+        try {
+          const transactionSuccess = await fetchCurrencyData();
+          console.log(transactionSuccess);
+          
+          if (transactionSuccess) {
+            console.log('====================================');
+            console.log(transactionSuccess);
+            console.log('====================================');
+            const transaction = transactionSuccess.find((p) => p.vocNo === voucher);
+
+            if (transaction) {
+              handleEditTrade(transaction)
+            } else {
+              console.warn(`No transaction found for voucher: ${voucher}`);
+              toast.error(`No transaction found for voucher: ${voucher}`, {
+                style: {
+                  background: "white",
+                  color: "red",
+                  border: "1px solid red",
+                },
+              });
+            }
+          }
+        } catch (err) {
+          console.error("Error fetching metal transactions:", err);
+          toast.error("Failed to fetch transactions", {
+            style: {
+              background: "white",
+              color: "red",
+              border: "1px solid red",
+            },
+          });
+        }
+
+        // Clear query parameter to prevent re-triggering
+        navigate(location.pathname, { replace: true });
+      }
+    };
+
+    checkVoucher();
+  }, [location, , navigate]);
   // Gold data update handler
   const updateGoldData = useCallback((newMarketData) => {
     if (!newMarketData) {
@@ -353,7 +407,7 @@ const CurrencyFixing = () => {
   // Enhanced currency data fetching
   const fetchCurrencyData = useCallback(async () => {
     if (!baseCurrency || currencyMaster.length === 0) return;
-console.log("on here")
+    console.log("on here")
     // Check cache first
     const cachedData = getCachedData();
     if (cachedData) {
@@ -364,7 +418,7 @@ console.log("on here")
       const cacheAge = Date.now() - (cachedData.timestamp || 0);
       if (cacheAge < API_CONFIG.CACHE_DURATION) {
         setLoading(false);
-        return; // Use cached data if still fresh
+        return true; // Use cached data if still fresh
       }
     }
 
@@ -398,21 +452,17 @@ console.log("on here")
         }
         throw new Error("Invalid response from backend API");
       }
-      console.log('====================================');
-      console.log(data);
-      console.log('====================================');
+     
 
       const enhancedData = {};
       const { rates, fetchedAt } = data;
-      console.log('====================================');
-      console.log(rates);
-      console.log('====================================');
+   
       const supportedCurrencies = ["USD", "INR", "AED"];
       supportedCurrencies.forEach((code) => {
         if (code === baseCurrency) return;
 
         let currentValue;
-         if (baseCurrency === DEFAULT_CONFIG.GOLD_SYMBOL) {
+        if (baseCurrency === DEFAULT_CONFIG.GOLD_SYMBOL) {
           if (!goldData.bid || goldData.bid <= 0) {
             currentValue = 0;
           } else {
@@ -546,6 +596,7 @@ console.log("on here")
         meta: { fetchedAt },
         timestamp: Date.now(),
       });
+      return enhancedData;
     } catch (err) {
       console.error(`Error fetching data for base ${baseCurrency}:`, err);
       if (err.name !== "AbortError") {
@@ -588,7 +639,7 @@ console.log("on here")
       }
 
       tradeData = tradeData.map(trade => {
-        
+
         return {
           ...trade,
           prefix: trade.prefix || "CF",
@@ -601,7 +652,9 @@ console.log("on here")
         };
       });
 
+
       setTradeHistory(tradeData);
+      return tradeData
 
       if (tradeData.length === 0) {
         toast.info("No trade history found");
