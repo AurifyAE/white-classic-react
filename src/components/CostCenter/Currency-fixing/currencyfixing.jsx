@@ -479,6 +479,7 @@ const CurrencyTradingRegistry = () => {
                             </div>
                           </div>
                         </td> */}
+                        
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             {getTypeIcon(transaction.type)}
