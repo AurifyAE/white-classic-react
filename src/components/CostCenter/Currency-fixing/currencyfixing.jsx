@@ -152,7 +152,11 @@ const CurrencyTradingRegistry = () => {
       timeZone: "Asia/Dubai",
     });
 
-  const formatCurrency = (amount, currencyCode, colorClass = "text-gray-900") => {
+  const formatCurrency = (
+    amount,
+    currencyCode,
+    colorClass = "text-gray-900"
+  ) => {
     const numAmount = Number(amount) || 0;
     const absAmount = Math.abs(numAmount).toFixed(2);
     const isNegative = numAmount < 0;
@@ -219,7 +223,9 @@ const CurrencyTradingRegistry = () => {
         <div className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-xl p-6 shadow-lg">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold mb-2">Currency Trading Registry</h1>
+              <h1 className="text-3xl font-bold mb-2">
+                Currency Trading Registry
+              </h1>
               <p className="text-blue-100">
                 Monitor and manage currency trading transactions
               </p>
@@ -269,13 +275,12 @@ const CurrencyTradingRegistry = () => {
                         alt="AED"
                         className="w-8 h-8 mr-1"
                       />
-                      {Math.abs(parseFloat(summaryTotals.totalBuy || 0)).toLocaleString(
-                        undefined,
-                        {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        }
-                      )}
+                      {Math.abs(
+                        parseFloat(summaryTotals.totalBuy || 0)
+                      ).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
                     </p>
                     <p className="text-sm text-gray-500">Total Buy Amount</p>
                   </div>
@@ -302,13 +307,12 @@ const CurrencyTradingRegistry = () => {
                         alt="AED"
                         className="w-8 h-8 mr-1"
                       />
-                      {Math.abs(parseFloat(summaryTotals.totalSell || 0)).toLocaleString(
-                        undefined,
-                        {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        }
-                      )}
+                      {Math.abs(
+                        parseFloat(summaryTotals.totalSell || 0)
+                      ).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
                     </p>
                     <p className="text-sm text-gray-500">Total Sell Amount</p>
                   </div>
@@ -491,31 +495,41 @@ const CurrencyTradingRegistry = () => {
                         <td className="px-6 py-4 whitespace-nowrap font-semibold">
                           <div
                             className="flex items-center text-blue-600 cursor-pointer hover:underline"
-                            onClick={() => navigateToVoucher(transaction.reference)}
+                            onClick={() =>
+                              navigateToVoucher(transaction.reference)
+                            }
                           >
                             {transaction.reference}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
-                            {transaction.partyId.customerName} ({transaction.partyId.accountCode})
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {formatCurrency(
-                              transaction.amount,
-                              transaction.baseCurrency.currencyCode,
-                              transaction.type === "BUY" ? "text-green-700" : "text-red-700"
-                            )}
+                            {transaction.partyId.customerName} (
+                            {transaction.partyId.accountCode})
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
                             {formatCurrency(
                               transaction.converted,
-                              transaction.toCurrency.currencyCode,
-                              transaction.type === "BUY" ? "text-green-700" : "text-red-700"
+                              transaction.targetCurrencyCode === "XAU"
+                                ? "XAU"
+                                : transaction.toCurrency?.currencyCode || "N/A",
+                              transaction.type === "BUY"
+                                ? "text-green-700"
+                                : "text-red-700"
+                            )}
+                          </div>
+                        </td>
+
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            {formatCurrency(
+                              transaction.converted,
+                              transaction.toCurrency?.currencyCode,
+                              transaction.type === "BUY"
+                                ? "text-green-700"
+                                : "text-red-700"
                             )}
                           </div>
                         </td>
@@ -531,9 +545,15 @@ const CurrencyTradingRegistry = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-semibold text-gray-900">
-                            {formatCurrency(transaction.converted, transaction.toCurrency.currencyCode)}
+                            {formatCurrency(
+                              transaction.converted,
+                              transaction.targetCurrencyCode === "XAU"
+                                ? "XAU"
+                                : transaction.toCurrency?.currencyCode || "N/A"
+                            )}
                           </div>
                         </td>
+
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-semibold text-gray-900">
                             {formatCurrency(transaction.profit, "AED")}
@@ -551,7 +571,8 @@ const CurrencyTradingRegistry = () => {
                   <div className="text-center py-12">
                     <DollarSign className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                     <p className="text-gray-500">
-                      No currency trading transactions found matching your criteria.
+                      No currency trading transactions found matching your
+                      criteria.
                     </p>
                   </div>
                 )}
@@ -567,7 +588,9 @@ const CurrencyTradingRegistry = () => {
                 </div>
                 <div className="flex items-center space-x-2">
                   <button
-                    onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                    onClick={() =>
+                      handlePageChange(Math.max(1, currentPage - 1))
+                    }
                     disabled={currentPage === 1}
                     className="px-3 py-1 text-sm border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
                   >
@@ -604,7 +627,9 @@ const CurrencyTradingRegistry = () => {
                     })}
                   </div>
                   <button
-                    onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                    onClick={() =>
+                      handlePageChange(Math.min(totalPages, currentPage + 1))
+                    }
                     disabled={currentPage === totalPages}
                     className="px-3 py-1 text-sm border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
                   >
