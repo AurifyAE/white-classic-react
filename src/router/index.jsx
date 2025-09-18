@@ -71,7 +71,7 @@ import PurchaseFixManagementPage from "../pages/PurchaseFixManagement.jsx";
 import FixingRegistryPage from "../pages/FixingResgitry.jsx";
 import StatementofAccountsPage from "../pages/statementofaccount.jsx";
 import CurrencyFixing from "../components/CurrencyFix/CurrencyFix.jsx";
-
+import CurrencyFix from "../pages/currencyfixing.jsx";
 export default function UserRouter() {
   return (
     <Routes>
@@ -113,6 +113,8 @@ export default function UserRouter() {
           path="/purchase-fix-management"
           element={<PurchaseFixManagementPage />}
         />
+                <Route path="currencyfix-management" element={<CurrencyFix />} />
+
 
         {/* <Route path="/metal-stock-ledger" element={<MetalStockLedgerPage />} />
         <Route path="/stock-movement" element={<StockMovement />} />
