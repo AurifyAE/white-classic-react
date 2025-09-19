@@ -210,15 +210,16 @@ export default function ModeReceipt() {
     }
   };
 
-  const fetchAllCashType = async () => {
-    try {
-      const response = await axiosInstance.get("/account");
-      setCashTypes(response.data);
-      console.log("Cash Types:", response.data);
-    } catch (error) {
-      console.error("Error fetching cash types:", error);
-    }
-  };
+const fetchAllCashType = async () => {
+  try {
+    const response = await axiosInstance.get("/account");
+    console.log("=== DEBUG: fetchAllCashType ===");
+    console.log("Cash Types API Response:", response.data);
+    setCashTypes(response.data);
+  } catch (error) {
+    console.error("Error fetching cash types:", error);
+  }
+};
   // const checkForNegativeBalance = (cashTypeId) => {
   //   const selectedAccount = cashTypes.find(account => account._id === cashTypeId);
   //   if (selectedAccount && selectedAccount.openingBalance < 0) {
@@ -1150,10 +1151,43 @@ export default function ModeReceipt() {
   }));
 
   // Cash type select options
-  const cashTypeOptions = cashTypes.map((cashType) => ({
-    value: cashType._id,
-    label: `${cashType.name} - ${cashType.uniqId}`,
-  }));
+ // Inside ModeReceipt component
+const cashTypeOptions = useMemo(() => {
+  console.log("=== DEBUG: Computing cashTypeOptions ===");
+  console.log("Selected Currency:", selectedCurrency);
+  console.log("Cash Types:", cashTypes);
+
+  if (!selectedCurrency?.value) {
+    console.log("No currency selected, returning empty cashTypeOptions");
+    return [];
+  }
+
+  const filteredCashTypes = cashTypes
+    .filter((cashType) => {
+      // Handle both string and object currencyId
+      const cashTypeCurrencyId =
+        typeof cashType.currencyId === "object" && cashType.currencyId?._id
+          ? cashType.currencyId._id
+          : cashType.currencyId;
+      const matchesCurrency = cashTypeCurrencyId === selectedCurrency.value;
+      console.log(
+        `Checking cashType ${cashType.name}:`,
+        cashTypeCurrencyId,
+        "matches",
+        selectedCurrency.value,
+        "?",
+        matchesCurrency
+      );
+      return matchesCurrency;
+    })
+    .map((cashType) => ({
+      value: cashType._id,
+      label: `${cashType.name} - ${cashType.uniqId}`,
+    }));
+
+  console.log("Filtered Cash Types:", filteredCashTypes);
+  return filteredCashTypes;
+}, [cashTypes, selectedCurrency]);
 
   // Handlers
   const handleAdd = async () => {
@@ -1227,45 +1261,53 @@ export default function ModeReceipt() {
     setIsModalOpen(true);
   };
 
-  const handleEditProduct = (index) => {
-    const product = productList[index];
-    setEditingProductIndex(index);
-    setCashType(product.cashType);
-    setAmount(
-      typeof product.amount === "string"
-        ? product.amount
-        : formatNumber(product.amount, 2)
-    );
-    setAmountWithTnr(
-      typeof product.amountWithTnr === "string"
-        ? product.amountWithTnr
-        : formatNumber(product.amountWithTnr, 2)
-    );
-    setCurrency(product.currency);
-    setRemarks(product.remarks);
+const handleEditProduct = (index) => {
+  console.log("=== DEBUG: handleEditProduct ===");
+  console.log("Editing product at index:", index);
+  const product = productList[index];
+  console.log("Product data:", product);
 
-    // Load VAT details if they exist
-    if (product.vatDetails) {
-      setIncludeVat(true);
-      setVatPercentage(product.vatDetails.percentage);
-      setVatTotal(product.vatDetails.amount);
-      const amountNum = parseFloat(product.amountWithTnr.replace(/,/g, ""));
-      const vatNum = parseFloat(product.vatDetails.amount.replace(/,/g, ""));
-      setTotalWithVat(
-        (amountNum + vatNum).toLocaleString("en-US", {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })
-      );
-    } else {
-      setIncludeVat(false);
-      setVatPercentage("");
-      setVatTotal("");
-      setTotalWithVat("");
-    }
+  setEditingProductIndex(index);
+  const validCashType = cashTypeOptions.find(
+    (option) => option.value === product.cashType?.value
+  );
+  console.log("Valid Cash Type for edit:", validCashType);
+  setCashType(validCashType || null); // Reset if not valid for current currency
+  setAmount(
+    typeof product.amount === "string"
+      ? product.amount
+      : formatNumber(product.amount, 2)
+  );
+  setAmountWithTnr(
+    typeof product.amountWithTnr === "string"
+      ? product.amountWithTnr
+      : formatNumber(product.amountWithTnr, 2)
+  );
+  setCurrency(product.currency);
+  setRemarks(product.remarks);
 
-    setIsProductModalOpen(true);
-  };
+  // Load VAT details if they exist
+  if (product.vatDetails) {
+    setIncludeVat(true);
+    setVatPercentage(product.vatDetails.percentage);
+    setVatTotal(product.vatDetails.amount);
+    const amountNum = parseFloat(product.amountWithTnr.replace(/,/g, ""));
+    const vatNum = parseFloat(product.vatDetails.amount.replace(/,/g, ""));
+    setTotalWithVat(
+      (amountNum + vatNum).toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })
+    );
+  } else {
+    setIncludeVat(false);
+    setVatPercentage("");
+    setVatTotal("");
+    setTotalWithVat("");
+  }
+
+  setIsProductModalOpen(true);
+};
 
   const handleSaveProduct = () => {
     if (!ArrayValidateForm()) return;
@@ -1346,19 +1388,20 @@ export default function ModeReceipt() {
   };
 
   // In your modal close handler
-  const handleCloseProductModal = () => {
-    setIsProductModalOpen(false);
-    setEditingProductIndex(-1);
-    setCashType(null);
-    setAmount("");
-    setAmountWithTnr("");
-    setRemarks("");
-    setIncludeVat(false);
-    setVatPercentage("");
-    setVatTotal("");
-    setTotalWithVat("");
-    setArrayError({ cashType: "", amount: "", amountWithTnr: "" });
-  };
+const handleCloseProductModal = () => {
+  console.log("=== DEBUG: Closing product modal ===");
+  setIsProductModalOpen(false);
+  setEditingProductIndex(-1);
+  setCashType(null);
+  setAmount("");
+  setAmountWithTnr("");
+  setRemarks("");
+  setIncludeVat(false);
+  setVatPercentage("");
+  setVatTotal("");
+  setTotalWithVat("");
+  setArrayError({ cashType: "", amount: "", amountWithTnr: "" });
+};
 
   const handleDelete = (id) => {
     setDeletePaymentId(id);
@@ -1397,30 +1440,40 @@ export default function ModeReceipt() {
     clearError("voucher");
   };
 
-  const handlePartyChange = (option) => {
-    setMainRemarks(`Currency receipt for ${option.label}`);
-    setSelectedParty(option);
-    clearError("party");
-    clearError("balance");
+const handlePartyChange = (option) => {
+  console.log("=== DEBUG: handlePartyChange ===");
+  console.log("Selected Party:", option);
 
-    const currencies = option?.party?.acDefinition?.currencies || [];
-    const mappedCurrencies = currencies
-      .map((c) => ({
-        value: c.currency?._id,
-        label: `${c.currency?.currencyCode} - ${c.currency?.description}`,
-        currency: c.currency,
-        isDefault: c.isDefault,
-      }));
+  setMainRemarks(`Currency receipt for ${option.label}`);
+  setSelectedParty(option);
+  clearError("party");
+  clearError("balance");
 
-    setCurrencyOptions(mappedCurrencies);
-    const defaultCurrency = mappedCurrencies.find((c) => c.isDefault);
-    if (defaultCurrency) {
-      setSelectedCurrency(defaultCurrency);
-      clearError("currency");
-    } else {
-      setSelectedCurrency(null);
-    }
-  };
+  const currencies = option?.party?.acDefinition?.currencies || [];
+  const mappedCurrencies = currencies
+    .map((c) => ({
+      value: c.currency?._id,
+      label: `${c.currency?.currencyCode} - ${c.currency?.description}`,
+      currency: c.currency,
+      isDefault: c.isDefault,
+    }));
+
+  console.log("Mapped Currencies:", mappedCurrencies);
+  setCurrencyOptions(mappedCurrencies);
+  const defaultCurrency = mappedCurrencies.find((c) => c.isDefault);
+  if (defaultCurrency) {
+    console.log("Setting default currency:", defaultCurrency);
+    setSelectedCurrency(defaultCurrency);
+    clearError("currency");
+  } else {
+    console.log("No default currency found, clearing selectedCurrency");
+    setSelectedCurrency(null);
+  }
+
+  // Reset cashType and product modal state when currency changes
+  setCashType(null);
+  setArrayError((prev) => ({ ...prev, cashType: "" }));
+};
 
   // Product modal logic
   const handleProductModalOpen = () => {
@@ -2520,49 +2573,55 @@ export default function ModeReceipt() {
                     disabled
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Cash Type
-                  </label>
-                  <Select
-                    options={cashTypeOptions}
-                    value={cashType}
-                    onChange={(selectedOption) => {
-                      setCashType(selectedOption);
-                      // Clear cashType error when a selection is made
-                      setArrayError((prev) => ({ ...prev, cashType: "" }));
-                    }}
-                    isSearchable
-                    placeholder="Select cash type..."
-                  />
-                  {cashType && (
-                    <p className="text-sm mt-2 text-gray-600">
-                      Balance:{" "}
-                      <span
-                        className={`font-medium ${
-                          cashTypes.find(
-                            (account) => account._id === cashType.value
-                          )?.openingBalance < 0
-                            ? "text-red-600"
-                            : "text-green-600"
-                        }`}
-                      >
-                        {formatNumber(
-                          cashTypes.find(
-                            (account) => account._id === cashType.value
-                          )?.openingBalance || 0,
-                          2
-                        )}{" "}
-                        {currency?.label || "AED"}
-                      </span>
-                    </p>
-                  )}
-                  {arrayError.cashType && (
-                    <p className="text-red-500 text-sm mt-1">
-                      {arrayError.cashType}
-                    </p>
-                  )}
-                </div>
+<div>
+  <label className="block text-sm font-medium text-gray-700 mb-2">
+    Cash Type <span className="text-red-500">*</span>
+  </label>
+  <Select
+    options={cashTypeOptions}
+    value={cashType}
+    onChange={(selectedOption) => {
+      console.log("Selected Cash Type:", selectedOption);
+      setCashType(selectedOption);
+      setArrayError((prev) => ({ ...prev, cashType: "" }));
+    }}
+    isSearchable
+    placeholder={
+      cashTypeOptions.length > 0
+        ? "Select cash type..."
+        : "No cash types available for selected currency"
+    }
+    isDisabled={!selectedCurrency || cashTypeOptions.length === 0}
+  />
+  {cashType && (
+    <p className="text-sm mt-2 text-gray-600">
+      Balance:{" "}
+      <span
+        className={`font-medium ${
+          cashTypes.find((account) => account._id === cashType.value)
+            ?.openingBalance < 0
+            ? "text-red-600"
+            : "text-green-600"
+        }`}
+      >
+        {formatNumber(
+          cashTypes.find((account) => account._id === cashType.value)
+            ?.openingBalance || 0,
+          2
+        )}{" "}
+        {selectedCurrency?.label || "AED"}
+      </span>
+    </p>
+  )}
+  {arrayError.cashType && (
+    <p className="text-red-500 text-sm mt-1">{arrayError.cashType}</p>
+  )}
+  {!selectedCurrency && (
+    <p className="text-red-500 text-sm mt-1">
+      Please select a party currency first
+    </p>
+  )}
+</div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Amount
