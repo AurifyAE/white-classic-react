@@ -310,7 +310,6 @@ const CurrencyFixing = () => {
     const checkVoucher = async () => {
       const queryParams = new URLSearchParams(location.search);
       const voucher = queryParams.get("voucher");
-      alert(voucher);
 
       if (voucher) {
         try {
@@ -318,9 +317,7 @@ const CurrencyFixing = () => {
           console.log(transactionSuccess);
 
           if (transactionSuccess) {
-            console.log("====================================");
-            console.log(transactionSuccess);
-            console.log("====================================");
+       
             const transaction = transactionSuccess.find(
               (p) => p.vocNo === voucher
             );
