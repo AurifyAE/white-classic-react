@@ -1499,7 +1499,7 @@ const handleMainSave = async () => {
                   className="px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-lg hover:from-blue-700 hover:to-cyan-600 flex items-center gap-2"
                 >
                   <Plus className="w-4 h-4" />
-                  Add Cash receipt
+                  Add Cash Payment
                 </button>
                 <button
                   onClick={handleExportAllToPDF}
