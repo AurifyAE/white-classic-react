@@ -1,20 +1,55 @@
-import React from "react";
-import { Users, Search, CheckCircle } from "lucide-react";
+import React, { useMemo } from "react";
+import { Users, Search, TrendingUp, AlertCircle, CheckCircle } from "lucide-react";
+import { formatters } from "../../utils/currencyUtils";
 
-const TradingPage = ({
-  filteredParties,
+const TradingView = ({
+  parties,
   selectedParty,
   setSelectedParty,
-  partyCurrencyPairs,
-  currencies,
+  partySearchTerm,
+  setPartySearchTerm,
   currencyMaster,
-  baseCurrency,
-  formatters,
-  selectedPair,
+  currencies,
   setSelectedPair,
   setModalSelectedParty,
   setShowTradingModal,
+  baseCurrency, // Added baseCurrency prop
 }) => {
+  const filteredParties = useMemo(() => {
+    return parties.filter(
+      (party) =>
+        party.customerName
+          .toLowerCase()
+          .includes(partySearchTerm.toLowerCase()) ||
+        party.shortName.toLowerCase().includes(partySearchTerm.toLowerCase())
+    );
+  }, [parties, partySearchTerm]);
+
+  const partyCurrencyPairs = useMemo(() => {
+    if (!selectedParty?.currencies) return [];
+    return selectedParty.currencies
+      .filter(
+        (curr) => currencies[curr.currency] && curr.currency !== baseCurrency
+      )
+      .map((partyCurr) => {
+        const currencyData = currencies[partyCurr.currency];
+        return {
+          ...currencyData,
+          ...partyCurr,
+          pairName: `${baseCurrency}/${partyCurr.currency}`,
+          buyRate: currencyData.value + (partyCurr.bid || 0),
+          sellRate: currencyData.value - (partyCurr.ask || 0),
+          spread: (partyCurr.bid || 0) + (partyCurr.ask || 0),
+          spreadPercent:
+            currencyData.value > 0
+              ? (((partyCurr.bid || 0) + (partyCurr.ask || 0)) /
+                currencyData.value) *
+              100
+              : 0,
+        };
+      });
+  }, [selectedParty, currencies, baseCurrency]);
+
   return (
     <div className="space-y-6">
       {/* Trading Parties */}
@@ -31,7 +66,8 @@ const TradingPage = ({
                 <input
                   type="text"
                   placeholder="Search parties..."
-                  // value and onChange passed from props if needed
+                  value={partySearchTerm}
+                  onChange={(e) => setPartySearchTerm(e.target.value)}
                   className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
@@ -42,41 +78,28 @@ const TradingPage = ({
           {filteredParties.length === 0 ? (
             <div className="text-center py-8">
               <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500 font-medium">
-                No trading parties found
-              </p>
-              <p className="text-gray-400 text-sm">
-                Try adjusting your search criteria
-              </p>
+              <p className="text-gray-500 font-medium">No trading parties found</p>
+              <p className="text-gray-400 text-sm">Try adjusting your search criteria</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full">
                 <thead>
                   <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700">
-                      Name
-                    </th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700">
-                      Account Code
-                    </th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700">
-                      Type
-                    </th>
-                    <th className="text-right py-3 px-4 font-semibold text-gray-700">
-                      Currencies
-                    </th>
-                    <th className="text-center py-3 px-4 font-semibold text-gray-700">
-                      Action
-                    </th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Name</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Account Code</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Type</th>
+                    <th className="text-right py-3 px-4 font-semibold text-gray-700">Currencies</th>
+                    <th className="text-center py-3 px-4 font-semibold text-gray-700">Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredParties.map((party) => (
                     <tr
                       key={party.id}
-                      className={`border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer ${selectedParty?.id === party.id ? "bg-blue-50" : ""
-                        }`}
+                      className={`border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer ${
+                        selectedParty?.id === party.id ? "bg-blue-50" : ""
+                      }`}
                       onClick={() => setSelectedParty(party)}
                     >
                       <td className="py-4 px-4 font-semibold text-gray-900">
@@ -97,14 +120,13 @@ const TradingPage = ({
                             e.stopPropagation();
                             setSelectedParty(party);
                           }}
-                          className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${selectedParty?.id === party.id
-                            ? "bg-blue-600 text-white"
-                            : "bg-blue-100 text-blue-700 hover:bg-blue-200"
-                            }`}
+                          className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                            selectedParty?.id === party.id
+                              ? "bg-blue-600 text-white"
+                              : "bg-blue-100 text-blue-700 hover:bg-blue-200"
+                          }`}
                         >
-                          {selectedParty?.id === party.id
-                            ? "Selected"
-                            : "Select"}
+                          {selectedParty?.id === party.id ? "Selected" : "Select"}
                         </button>
                       </td>
                     </tr>
@@ -115,6 +137,7 @@ const TradingPage = ({
           )}
         </div>
       </div>
+
       {/* Selected Party Details */}
       {selectedParty && (
         <div className="bg-white/80 backdrop-blur rounded-2xl shadow-lg border border-gray-200">
@@ -122,19 +145,15 @@ const TradingPage = ({
             <h2 className="text-xl font-bold text-gray-900">
               {selectedParty.customerName} - Currency Configuration
             </h2>
-            <p className="text-gray-600 mt-1">
-              Spreads and rates for available currency pairs
-            </p>
+            <p className="text-gray-600 mt-1">Spreads and rates for available currency pairs</p>
           </div>
           <div className="p-6">
             {selectedParty.currencies.length === 0 ? (
               <div className="text-center py-8">
                 <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-500 font-medium">
-                  No currencies configured
-                </p>
+                <p className="text-gray-500 font-medium">No currencies configured</p>
                 <p className="text-gray-400 text-sm">
-                  This party has no currency currency configuration
+                  This party has no currency configuration
                 </p>
               </div>
             ) : (
@@ -142,31 +161,20 @@ const TradingPage = ({
                 <table className="min-w-full">
                   <thead>
                     <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 font-semibold text-gray-700">
-                        Currency
-                      </th>
-                      <th className="text-right py-3 px-4 font-semibold text-gray-700">
-                        Current Rate
-                      </th>
-                      <th className="text-right py-3 px-4 font-semibold text-gray-700">
-                        Buy Rate
-                      </th>
-                      <th className="text-right py-3 px-4 font-semibold text-gray-700">
-                        Sell Rate
-                      </th>
-                      <th className="text-center py-3 px-4 font-semibold text-gray-700">
-                        Default
-                      </th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-700">Currency</th>
+                      <th className="text-right py-3 px-4 font-semibold text-gray-700">Current Rate</th>
+                      <th className="text-right py-3 px-4 font-semibold text-gray-700">Buy Rate</th>
+                      <th className="text-right py-3 px-4 font-semibold text-gray-700">Sell Rate</th>
+                      <th className="text-center py-3 px-4 font-semibold text-gray-700">Default</th>
                     </tr>
                   </thead>
                   <tbody>
                     {selectedParty.currencies
-                      .filter(currency => currency.currency !== baseCurrency)
+                      .filter((currency) => currency.currency !== baseCurrency)
                       .map((currency) => {
                         const tradingPair = partyCurrencyPairs.find(
-                          pair => pair.currency === currency.currency
+                          (pair) => pair.currency === currency.currency
                         );
-
                         return (
                           <tr
                             key={currency.currency}
@@ -174,7 +182,7 @@ const TradingPage = ({
                             onClick={() => {
                               setSelectedPair(currency.currency);
                               setModalSelectedParty(selectedParty);
-                              // Trigger modal open in parent
+                              setShowTradingModal(true);
                             }}
                           >
                             <td className="py-4 px-4">
@@ -200,8 +208,8 @@ const TradingPage = ({
                               <span className="font-mono font-semibold text-gray-900">
                                 {currencies[currency.currency]
                                   ? formatters.currency(
-                                    currencies[currency.currency].value
-                                  )
+                                      currencies[currency.currency].value
+                                    )
                                   : "N/A"}
                               </span>
                             </td>
@@ -237,4 +245,4 @@ const TradingPage = ({
   );
 };
 
-export default TradingPage;
+export default TradingView;

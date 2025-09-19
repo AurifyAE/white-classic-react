@@ -1,7 +1,8 @@
 import React from "react";
 import { X, CheckCircle } from "lucide-react";
+import { formatters } from "../../utils/currencyUtils";
 
-const TradeSuccessModal = ({ showModal, setShowModal, modalContent, baseCurrency, formatters }) => {
+const TradeSuccessModal = ({ showModal, setShowModal, modalContent, baseCurrency }) => {
   if (!showModal) return null;
 
   return (
@@ -12,9 +13,7 @@ const TradeSuccessModal = ({ showModal, setShowModal, modalContent, baseCurrency
             <div className="p-2 bg-emerald-100 rounded-full">
               <CheckCircle className="w-6 h-6 text-emerald-600" />
             </div>
-            <h3 className="text-2xl font-bold text-gray-900">
-              Trade Executed
-            </h3>
+            <h3 className="text-2xl font-bold text-gray-900">Trade Executed</h3>
           </div>
           <button
             onClick={() => setShowModal(false)}
@@ -33,17 +32,14 @@ const TradeSuccessModal = ({ showModal, setShowModal, modalContent, baseCurrency
             </div>
             <div>
               <span className="text-gray-600 font-medium">Order ID</span>
-              <p className="font-mono text-xs text-gray-800">
-                {modalContent.orderId}
-              </p>
+              <p className="font-mono text-xs text-gray-800">{modalContent.orderId}</p>
             </div>
             <div>
               <span className="text-gray-600 font-medium">Type</span>
               <p
-                className={`font-bold capitalize ${modalContent.type === "buy"
-                  ? "text-emerald-600"
-                  : "text-red-600"
-                  }`}
+                className={`font-bold capitalize ${
+                  modalContent.type === "buy" ? "text-emerald-600" : "text-red-600"
+                }`}
               >
                 {modalContent.type}
               </p>
@@ -51,8 +47,7 @@ const TradeSuccessModal = ({ showModal, setShowModal, modalContent, baseCurrency
             <div>
               <span className="text-gray-600 font-medium">Amount</span>
               <p className="font-semibold text-gray-800">
-                {formatters.currency(modalContent.amount, 2)}{" "}
-                {modalContent.currency}
+                {formatters.currency(modalContent.amount, 2)} {modalContent.currency}
               </p>
             </div>
             <div>
@@ -64,21 +59,16 @@ const TradeSuccessModal = ({ showModal, setShowModal, modalContent, baseCurrency
             <div className="col-span-2">
               <span className="text-gray-600 font-medium">Total Value</span>
               <p className="font-bold text-lg text-gray-900">
-                {formatters.currency(modalContent.converted, 2)}{" "}
-                {baseCurrency}
+                {formatters.currency(modalContent.converted, 2)} {baseCurrency}
               </p>
             </div>
             <div className="col-span-2">
               <span className="text-gray-600 font-medium">Party</span>
-              <p className="font-semibold text-gray-800">
-                {modalContent.party}
-              </p>
+              <p className="font-semibold text-gray-800">{modalContent.party}</p>
             </div>
             <div className="col-span-2">
               <span className="text-gray-600 font-medium">Executed At</span>
-              <p className="text-xs text-gray-600">
-                {modalContent.timestamp}
-              </p>
+              <p className="text-xs text-gray-600">{modalContent.timestamp}</p>
             </div>
           </div>
         </div>
