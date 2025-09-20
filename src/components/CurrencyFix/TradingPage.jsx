@@ -1,23 +1,20 @@
+// TradingPage.jsx
+import React from 'react';
+import { Users, Search, TrendingUp, AlertCircle, CheckCircle } from 'lucide-react';
+import { formatters } from './utils'; // Assuming formatters is exported from a utils file
 
-// TradingView.jsx (New component for trading view)
-import React from "react";
-import { Users, AlertCircle, Search } from "lucide-react";
-
-const TradingView = ({
-  parties,
-  selectedParty,
-  setSelectedParty,
-  partySearchTerm,
-  setPartySearchTerm,
-  filteredParties,
-  currencyMaster,
-  currencies,
-  baseCurrency,
+const TradingPage = ({
   partyCurrencyPairs,
+  selectedParty,
   setSelectedPair,
   setModalSelectedParty,
   setShowTradingModal,
-  formatters,
+  currencies,
+  currencyMaster,
+  baseCurrency,
+  filteredParties,
+  partySearchTerm,
+  setPartySearchTerm,
 }) => {
   return (
     <div className="space-y-6">
@@ -66,25 +63,30 @@ const TradingView = ({
                   {filteredParties.map((party) => (
                     <tr
                       key={party.id}
-                      className={`border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer ${selectedParty?.id === party.id ? "bg-blue-50" : ""}`}
+                      className={`border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer ${
+                        selectedParty?.id === party.id ? 'bg-blue-50' : ''
+                      }`}
                       onClick={() => setSelectedParty(party)}
                     >
                       <td className="py-4 px-4 font-semibold text-gray-900">{party.customerName}</td>
                       <td className="py-4 px-4 font-mono text-gray-900">{party.acCode}</td>
                       <td className="py-4 px-4 text-gray-900">{party.type}</td>
-                      <td className="py-4 px-4 text-right font-bold text-blue-600">{party.currencies?.length || 0}</td>
+                      <td className="py-4 px-4 text-right font-bold text-blue-600">
+                        {party.currencies?.length || 0}
+                      </td>
                       <td className="py-4 px-4 text-center">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             setSelectedParty(party);
                           }}
-                          className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${selectedParty?.id === party.id
-                            ? "bg-blue-600 text-white"
-                            : "bg-blue-100 text-blue-700 hover:bg-blue-200"
-                            }`}
+                          className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                            selectedParty?.id === party.id
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                          }`}
                         >
-                          {selectedParty?.id === party.id ? "Selected" : "Select"}
+                          {selectedParty?.id === party.id ? 'Selected' : 'Select'}
                         </button>
                       </td>
                     </tr>
@@ -95,6 +97,7 @@ const TradingView = ({
           )}
         </div>
       </div>
+
       {/* Selected Party Details */}
       {selectedParty && (
         <div className="bg-white/80 backdrop-blur rounded-2xl shadow-lg border border-gray-200">
@@ -102,16 +105,16 @@ const TradingView = ({
             <h2 className="text-xl font-bold text-gray-900">
               {selectedParty.customerName} - Currency Configuration
             </h2>
-            <p className="text-gray-600 mt-1">
-              Spreads and rates for available currency pairs
-            </p>
+            <p className="text-gray-600 mt-1">Spreads and rates for available currency pairs</p>
           </div>
           <div className="p-6">
             {selectedParty.currencies.length === 0 ? (
               <div className="text-center py-8">
                 <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                 <p className="text-gray-500 font-medium">No currencies configured</p>
-                <p className="text-gray-400 text-sm">This party has no currency configuration</p>
+                <p className="text-gray-400 text-sm">
+                  This party has no currency configuration
+                </p>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -127,10 +130,10 @@ const TradingView = ({
                   </thead>
                   <tbody>
                     {selectedParty.currencies
-                      .filter(currency => currency.currency !== baseCurrency)
+                      .filter((currency) => currency.currency !== baseCurrency)
                       .map((currency) => {
                         const tradingPair = partyCurrencyPairs.find(
-                          pair => pair.currency === currency.currency
+                          (pair) => pair.currency === currency.currency
                         );
                         return (
                           <tr
@@ -154,9 +157,7 @@ const TradingView = ({
                                     {currency.currency}/{baseCurrency}
                                   </p>
                                   <p className="text-xs text-gray-500">
-                                    {currencyMaster.find(
-                                      (c) => c.code === currency.currency
-                                    )?.description || "Unknown"}
+                                    {currencyMaster.find((c) => c.code === currency.currency)?.description || 'Unknown'}
                                   </p>
                                 </div>
                               </div>
@@ -164,20 +165,18 @@ const TradingView = ({
                             <td className="py-4 px-4 text-right">
                               <span className="font-mono font-semibold text-gray-900">
                                 {currencies[currency.currency]
-                                  ? formatters.currency(
-                                      currencies[currency.currency].value
-                                    )
-                                  : "N/A"}
+                                  ? formatters.currency(currencies[currency.currency].value)
+                                  : 'N/A'}
                               </span>
                             </td>
                             <td className="py-4 px-4 text-right">
                               <span className="font-mono text-green-600 font-semibold">
-                                {tradingPair ? formatters.currency(tradingPair.buyRate) : "N/A"}
+                                {tradingPair ? formatters.currency(tradingPair.buyRate) : 'N/A'}
                               </span>
                             </td>
                             <td className="py-4 px-4 text-right">
                               <span className="font-mono text-red-600 font-semibold">
-                                {tradingPair ? formatters.currency(tradingPair.sellRate) : "N/A"}
+                                {tradingPair ? formatters.currency(tradingPair.sellRate) : 'N/A'}
                               </span>
                             </td>
                             <td className="py-4 px-4 text-center">
@@ -202,4 +201,4 @@ const TradingView = ({
   );
 };
 
-export default TradingView;
+export default TradingPage;
