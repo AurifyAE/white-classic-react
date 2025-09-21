@@ -19,7 +19,8 @@ const OrderStatementsTab = ({
   const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(false);
   const [summary, setSummary] = useState({
-    cash: { credit: 0, debit: 0, balance: 0 },
+    AED: { credit: 0, debit: 0, balance: 0 },
+    INR: { credit: 0, debit: 0, balance: 0 },
     gold: { credit: 0, debit: 0, balance: 0 },
   });
   const [searchQuery, setSearchQuery] = useState("");
@@ -36,6 +37,8 @@ const OrderStatementsTab = ({
     docRef: "Doc Ref",
     debitAED: "Debit (AED)",
     creditAED: "Credit (AED)",
+    debitINR: "Debit (INR)",
+    creditINR: "Credit (INR)",
     debitGold: "Debit (Gold)",
     creditGold: "Credit (Gold)",
   };
@@ -73,7 +76,6 @@ const OrderStatementsTab = ({
           "PREMIUM",
           "DISCOUNT",
           "OTHER_CHARGES",
-          // "VAT_AMOUNT"
         ];
 
         const filteredData = data.filter(
@@ -87,19 +89,25 @@ const OrderStatementsTab = ({
           (a, b) => new Date(a.transactionDate) - new Date(b.transactionDate)
         );
 
-        let cashRunningBalance = 0;
+        let aedRunningBalance = 0;
+        let inrRunningBalance = 0;
         let goldRunningBalance = 0;
 
         const mappedRegistry = chronologicalData.map((txn) => {
           const type = txn.type;
           const debit = txn.debit || 0;
           const credit = txn.credit || 0;
+          const currency = txn.partyCurrency?.currencyCode || "AED"; // Default to AED if not specified
 
           // Calculate balance: credit (+) and debit (-)
           if (goldTypes.includes(type)) {
             goldRunningBalance = goldRunningBalance + credit - debit;
           } else if (cashTypes.includes(type)) {
-            cashRunningBalance = cashRunningBalance + credit - debit;
+            if (currency === "AED") {
+              aedRunningBalance = aedRunningBalance + credit - debit;
+            } else if (currency === "INR") {
+              inrRunningBalance = inrRunningBalance + credit - debit;
+            }
           }
 
           return {
@@ -110,13 +118,19 @@ const OrderStatementsTab = ({
             type,
             debit,
             credit,
-            balance: cashRunningBalance, // For backward compatibility
+            currency,
+            balance: currency === "AED" ? aedRunningBalance : inrRunningBalance, // For backward compatibility
             goldInGMS: goldTypes.includes(type)
               ? { debit, credit, balance: goldRunningBalance }
               : { debit: 0, credit: 0, balance: 0 },
-            cash: cashTypes.includes(type)
-              ? { debit, credit, balance: cashRunningBalance }
-              : { debit: 0, credit: 0, balance: 0 },
+            aed:
+              cashTypes.includes(type) && currency === "AED"
+                ? { debit, credit, balance: aedRunningBalance }
+                : { debit: 0, credit: 0, balance: 0 },
+            inr:
+              cashTypes.includes(type) && currency === "INR"
+                ? { debit, credit, balance: inrRunningBalance }
+                : { debit: 0, credit: 0, balance: 0 },
           };
         });
 
@@ -143,33 +157,52 @@ const OrderStatementsTab = ({
         );
         const goldBalance = goldCredit - goldDebit;
 
-        const cashTxns = mappedRegistry.filter((txn) =>
-          cashTypes.includes(txn.type)
+        const aedTxns = mappedRegistry.filter(
+          (txn) => cashTypes.includes(txn.type) && txn.currency === "AED"
         );
-        const cashCredit = cashTxns.reduce(
-          (sum, txn) => sum + (txn.cash.credit || 0),
+        const aedCredit = aedTxns.reduce(
+          (sum, txn) => sum + (txn.aed.credit || 0),
           0
         );
-        const cashDebit = cashTxns.reduce(
-          (sum, txn) => sum + (txn.cash.debit || 0),
+        const aedDebit = aedTxns.reduce(
+          (sum, txn) => sum + (txn.aed.debit || 0),
           0
         );
-        const cashBalance = cashCredit - cashDebit;
+        const aedBalance = aedCredit - aedDebit;
+
+        const inrTxns = mappedRegistry.filter(
+          (txn) => cashTypes.includes(txn.type) && txn.currency === "INR"
+        );
+        const inrCredit = inrTxns.reduce(
+          (sum, txn) => sum + (txn.inr.credit || 0),
+          0
+        );
+        const inrDebit = inrTxns.reduce(
+          (sum, txn) => sum + (txn.inr.debit || 0),
+          0
+        );
+        const inrBalance = inrCredit - inrDebit;
 
         console.log("Summary gold:", {
           debit: goldDebit,
           credit: goldCredit,
           balance: goldBalance,
         });
-        console.log("Summary cash:", {
-          debit: cashDebit,
-          credit: cashCredit,
-          balance: cashBalance,
+        console.log("Summary AED:", {
+          debit: aedDebit,
+          credit: aedCredit,
+          balance: aedBalance,
+        });
+        console.log("Summary INR:", {
+          debit: inrDebit,
+          credit: inrCredit,
+          balance: inrBalance,
         });
 
         setSummary({
           gold: { debit: goldDebit, credit: goldCredit, balance: goldBalance },
-          cash: { debit: cashDebit, credit: cashCredit, balance: cashBalance },
+          AED: { debit: aedDebit, credit: aedCredit, balance: aedBalance },
+          INR: { debit: inrDebit, credit: inrCredit, balance: inrBalance },
         });
       } catch (error) {
         console.error("Error fetching registry:", error);
@@ -195,9 +228,13 @@ const OrderStatementsTab = ({
           case "docRef":
             return txn.docRef && txn.docRef.trim() !== "";
           case "debitAED":
-            return txn.cash.debit > 0;
+            return txn.aed.debit > 0;
           case "creditAED":
-            return txn.cash.credit > 0;
+            return txn.aed.credit > 0;
+          case "debitINR":
+            return txn.inr.debit > 0;
+          case "creditINR":
+            return txn.inr.credit > 0;
           case "debitGold":
             return txn.goldInGMS.debit > 0;
           case "creditGold":
@@ -225,9 +262,12 @@ const OrderStatementsTab = ({
       if (key.includes("goldInGMS")) {
         aValue = a.goldInGMS[key.split(".")[1]] || 0;
         bValue = b.goldInGMS[key.split(".")[1]] || 0;
-      } else if (key.includes("cash")) {
-        aValue = a.cash[key.split(".")[1]] || 0;
-        bValue = b.cash[key.split(".")[1]] || 0;
+      } else if (key.includes("aed")) {
+        aValue = a.aed[key.split(".")[1]] || 0;
+        bValue = b.aed[key.split(".")[1]] || 0;
+      } else if (key.includes("inr")) {
+        aValue = a.inr[key.split(".")[1]] || 0;
+        bValue = b.inr[key.split(".")[1]] || 0;
       } else {
         aValue = a[key] || "";
         bValue = b[key] || "";
@@ -250,15 +290,16 @@ const OrderStatementsTab = ({
       return 0;
     });
 
-    setFilteredRegistries(sorted); // No reversal here
+    setFilteredRegistries(sorted);
     setCurrentPage(1); // Reset to first page on sort
   };
 
-  const formatWithCRDR = (amount) => {
+  const formatWithCRDR = (amount, currency) => {
     const isCredit = amount >= 0;
     const absAmount = Math.abs(amount);
     const formatted = formatIndianAmount(absAmount);
-    return `${formatted} ${isCredit ? "CR" : "DR"}`;
+    const symbol = currency === "INR" ? "₹" : "AED";
+    return `${formatted} ${symbol} ${isCredit ? "CR" : "DR"}`;
   };
 
   const formatIndianAmount = (value) => {
@@ -284,9 +325,12 @@ const OrderStatementsTab = ({
       "Doc Ref": txn.docRef,
       Branch: txn.branch,
       Particulars: txn.particulars,
-      "Debit (AED)": txn.cash.debit || "--",
-      "Credit (AED)": txn.cash.credit || "--",
-      "Balance (AED)": txn.cash.balance || "",
+      "Debit (AED)": txn.aed.debit || "--",
+      "Credit (AED)": txn.aed.credit || "--",
+      "Balance (AED)": txn.aed.balance || "",
+      "Debit (INR)": txn.inr.debit || "--",
+      "Credit (INR)": txn.inr.credit || "--",
+      "Balance (INR)": txn.inr.balance || "",
       "Debit (Gold in GMS)": txn.goldInGMS.debit || "--",
       "Credit (Gold in GMS)": txn.goldInGMS.credit || "--",
       "Balance (Gold in GMS)": txn.goldInGMS.balance || "",
@@ -302,9 +346,6 @@ const OrderStatementsTab = ({
     const code = userData.acCode;
     const email = userData.address?.[0]?.email || "Not Mentioned";
     const phone = userData.address?.[0]?.phoneNumber1 || "Not Mentioned";
-    console.log("mail", email);
-    console.log("code", code);
-    console.log("name", name);
 
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.width;
@@ -322,7 +363,6 @@ const OrderStatementsTab = ({
       align: "right",
     });
     doc.text("Branch: HO", pageWidth - margin, 35, { align: "right" });
-    doc.text("Currency: AED", pageWidth - margin, 40, { align: "right" });
 
     // Table data
     const tableData = filteredRegistries.map((txn) => [
@@ -330,9 +370,12 @@ const OrderStatementsTab = ({
       txn.docRef,
       txn.branch,
       txn.particulars,
-      txn.cash.debit ? txn.cash.debit.toFixed(2) : "0.00",
-      txn.cash.credit ? txn.cash.credit.toFixed(2) : "0.00",
-      txn.cash.balance ? txn.cash.balance.toFixed(2) : "",
+      txn.aed.debit ? txn.aed.debit.toFixed(2) : "0.00",
+      txn.aed.credit ? txn.aed.credit.toFixed(2) : "0.00",
+      txn.aed.balance ? txn.aed.balance.toFixed(2) : "",
+      txn.inr.debit ? txn.inr.debit.toFixed(2) : "0.00",
+      txn.inr.credit ? txn.inr.credit.toFixed(2) : "0.00",
+      txn.inr.balance ? txn.inr.balance.toFixed(2) : "",
       txn.goldInGMS.debit ? txn.goldInGMS.debit.toFixed(2) : "0.00",
       txn.goldInGMS.credit ? txn.goldInGMS.credit.toFixed(2) : "0.00",
       txn.goldInGMS.balance ? txn.goldInGMS.balance.toFixed(2) : "",
@@ -343,9 +386,12 @@ const OrderStatementsTab = ({
       "",
       "",
       "",
-      summary.cash.debit.toFixed(2),
-      summary.cash.credit.toFixed(2),
-      summary.cash.balance.toFixed(2),
+      summary.AED.debit.toFixed(2),
+      summary.AED.credit.toFixed(2),
+      summary.AED.balance.toFixed(2),
+      summary.INR.debit.toFixed(2),
+      summary.INR.credit.toFixed(2),
+      summary.INR.balance.toFixed(2),
       summary.gold.debit.toFixed(2),
       summary.gold.credit.toFixed(2),
       summary.gold.balance.toFixed(2),
@@ -358,6 +404,7 @@ const OrderStatementsTab = ({
         [
           { content: "", colSpan: 4 },
           { content: "Amount in AED", colSpan: 3, halign: "center" },
+          { content: "Amount in INR", colSpan: 3, halign: "center" },
           { content: "Gold in GMS", colSpan: 3, halign: "center" },
         ],
         [
@@ -365,6 +412,9 @@ const OrderStatementsTab = ({
           { content: "Doc Ref", halign: "center" },
           { content: "Branch", halign: "center" },
           { content: "Particulars", halign: "center" },
+          "Debit",
+          "Credit",
+          "Balance",
           "Debit",
           "Credit",
           "Balance",
@@ -391,6 +441,9 @@ const OrderStatementsTab = ({
         7: { cellWidth: 15, halign: "center" },
         8: { cellWidth: 15, halign: "center" },
         9: { cellWidth: 15, halign: "center" },
+        10: { cellWidth: 15, halign: "center" },
+        11: { cellWidth: 15, halign: "center" },
+        12: { cellWidth: 15, halign: "center" },
       },
       bodyStyles: { fontSize: 6, halign: "center" },
       didDrawPage: (data) => {
@@ -428,12 +481,14 @@ const OrderStatementsTab = ({
   return (
     <div className="p-6">
       <div className="flex flex-wrap gap-4 mb-6">
-        <div className="flex flex-col justify-between p-5 bg-gradient-to-br from-green-50 to-green-100 border border-green-300 rounded-2xl w-full sm:w-[calc(33.333%-1rem)] shadow hover:shadow-md transition-shadow duration-200">
+        <div className="flex flex-col justify-between p-5 bg-gradient-to-br from-green-50 to-green-100 border border-green-300 rounded-2xl w-full sm:w-[calc(25%-1rem)] shadow hover:shadow-md transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-green-800 font-semibold text-lg">Credit</h2>
+              <h2 className="text-green-800 font-semibold text-lg">
+                Credit (AED)
+              </h2>
               <p className="text-3xl font-bold text-green-800">
-                {summary.cash.credit.toLocaleString("en-US", {
+                {summary.AED.credit.toLocaleString("en-US", {
                   minimumFractionDigits: 3,
                   maximumFractionDigits: 3,
                 })}
@@ -446,12 +501,14 @@ const OrderStatementsTab = ({
           </p>
         </div>
 
-        <div className="flex flex-col justify-between p-5 bg-gradient-to-br from-red-50 to-red-100 border border-red-300 rounded-2xl w-full sm:w-[calc(33.333%-1rem)] shadow hover:shadow-md transition-shadow duration-200">
+        <div className="flex flex-col justify-between p-5 bg-gradient-to-br from-red-50 to-red-100 border border-red-300 rounded-2xl w-full sm:w-[calc(25%-1rem)] shadow hover:shadow-md transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-red-800 font-semibold text-lg">Debit</h2>
+              <h2 className="text-red-800 font-semibold text-lg">
+                Debit (AED)
+              </h2>
               <p className="text-3xl font-bold text-red-800">
-                {summary.cash.debit.toLocaleString("en-US", {
+                {summary.AED.debit.toLocaleString("en-US", {
                   minimumFractionDigits: 3,
                   maximumFractionDigits: 3,
                 })}
@@ -464,81 +521,44 @@ const OrderStatementsTab = ({
           </p>
         </div>
 
-        <div
-          className={`flex flex-col justify-between p-5 bg-gradient-to-br 
-    ${summary.cash.balance > 0
-              ? "from-green-50 to-green-100 border-green-300"
-              : summary.cash.balance < 0
-                ? "from-red-50 to-red-100 border-red-300"
-                : "from-gray-50 to-gray-100 border-gray-300"
-            } 
-    border rounded-2xl w-full sm:w-[calc(33.333%-1rem)] shadow hover:shadow-md transition-shadow duration-200`}
-        >
+        <div className="flex flex-col justify-between p-5 bg-gradient-to-br from-green-50 to-green-100 border border-green-300 rounded-2xl w-full sm:w-[calc(25%-1rem)] shadow hover:shadow-md transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
-              <h2
-                className={`${summary.cash.balance > 0
-                  ? "text-green-800"
-                  : summary.cash.balance < 0
-                    ? "text-red-800"
-                    : "text-gray-800"
-                  } font-semibold text-lg`}
-              >
-                Balance
+              <h2 className="text-green-800 font-semibold text-lg">
+                Credit (INR)
               </h2>
-
-              <div className="flex items-center gap-2">
-                <p
-                  className={`text-3xl font-bold ${summary.cash.balance > 0
-                    ? "text-green-800"
-                    : summary.cash.balance < 0
-                      ? "text-red-800"
-                      : "text-gray-800"
-                    }`}
-                >
-                  {Math.abs(summary.cash.balance).toLocaleString("en-US", {
-                    minimumFractionDigits: 3,
-                    maximumFractionDigits: 3,
-                  })}
-                </p>
-
-                <span
-                  className={`text-xs font-medium px-2 py-0.5 rounded-full ${summary.cash.balance > 0
-                    ? "text-green-800 bg-white border border-green-400"
-                    : summary.cash.balance < 0
-                      ? "text-red-800 bg-white border border-red-400"
-                      : "text-gray-600 bg-white border border-gray-300"
-                    }`}
-                >
-                  {summary.cash.balance > 0
-                    ? "CR"
-                    : summary.cash.balance < 0
-                      ? "DR"
-                      : ""}
-                </span>
-              </div>
+              <p className="text-3xl font-bold text-green-800">
+                {summary.INR.credit.toLocaleString("en-US", {
+                  minimumFractionDigits: 3,
+                  maximumFractionDigits: 3,
+                })}
+              </p>
             </div>
-
-            <img
-              src={DirhamIcon}
-              alt="AED"
-              className="w-9 h-9"
-              style={{
-                filter:
-                  summary.cash.balance > 0
-                    ? "invert(34%) sepia(74%) saturate(1575%) hue-rotate(90deg) brightness(95%) contrast(85%)"
-                    : summary.cash.balance < 0
-                      ? "invert(30%) sepia(90%) saturate(1900%) hue-rotate(350deg) brightness(90%) contrast(90%)"
-                      : "invert(20%) sepia(0%) saturate(0%) hue-rotate(0deg) brightness(95%) contrast(90%)",
-              }}
-            />
+            <ArrowDownCircle className="w-8 h-8 text-green-600" />
           </div>
+          <p className="mt-3 text-sm text-green-700 bg-green-200/40 px-3 py-1 rounded-md w-fit">
+            Total received
+          </p>
+        </div>
 
-          {summary.cash.balance === 0 && (
-            <p className="mt-3 text-sm text-gray-700 bg-gray-200/40 px-3 py-1 rounded-md w-fit">
-              No Balance
-            </p>
-          )}
+        <div className="flex flex-col justify-between p-5 bg-gradient-to-br from-red-50 to-red-100 border border-red-300 rounded-2xl w-full sm:w-[calc(25%-1rem)] shadow hover:shadow-md transition-shadow duration-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-red-800 font-semibold text-lg">
+                Debit (INR)
+              </h2>
+              <p className="text-3xl font-bold text-red-800">
+                {summary.INR.debit.toLocaleString("en-US", {
+                  minimumFractionDigits: 3,
+                  maximumFractionDigits: 3,
+                })}
+              </p>
+            </div>
+            <ArrowUpCircle className="w-8 h-8 text-red-600" />
+          </div>
+          <p className="mt-3 text-sm text-red-700 bg-red-200/40 px-3 py-1 rounded-md w-fit">
+            Total spent
+          </p>
         </div>
       </div>
 
@@ -569,8 +589,9 @@ const OrderStatementsTab = ({
                         setFilterType(key);
                         setIsFilterOpen(false);
                       }}
-                      className={`w-full text-left px-4 py-2 hover:bg-gray-100 ${filterType === key ? "bg-gray-100 font-semibold" : ""
-                        }`}
+                      className={`w-full text-left px-4 py-2 hover:bg-gray-100 ${
+                        filterType === key ? "bg-gray-100 font-semibold" : ""
+                      }`}
                     >
                       {filterOptions[key]}
                     </button>
@@ -608,193 +629,261 @@ const OrderStatementsTab = ({
         </div>
       ) : filteredRegistries.length > 0 ? (
         <>
-        <div className="overflow-x-auto rounded-2xl border border-gray-100 shadow-md">
-  <table className="min-w-full divide-y divide-gray-100 bg-white">
-    <thead className="bg-gradient-to-r from-gray-50 to-gray-100 text-xs text-gray-600 uppercase tracking-wider font-semibold">
-      <tr>
-        <th className="px-6 py-4 text-left" colSpan="3"></th>
-        <th
-          className="px-6 py-4 text-center border-l border-gray-200"
-          colSpan="3"
-        >
-          Amount in AED
-        </th>
-        <th
-          className="px-6 py-4 text-center border-l border-gray-200"
-          colSpan="3"
-        >
-          Gold in GMS
-        </th>
-      </tr>
-      <tr className="border-b border-gray-200">
-        <th
-          className="px-6 py-3 text-left cursor-pointer"
-          onClick={() => handleSort("docDate")}
-        >
-          Doc Date{" "}
-          {sortConfig.key === "docDate" &&
-            (sortConfig.direction === "asc" ? "↑" : "↓")}
-        </th>
-        <th
-          className="px-6 py-3 text-left cursor-pointer"
-          onClick={() => handleSort("docRef")}
-        >
-          Doc Ref{" "}
-          {sortConfig.key === "docRef" &&
-            (sortConfig.direction === "asc" ? "↑" : "↓")}
-        </th>
-        <th
-          className="px-6 py-3 text-left cursor-pointer"
-          onClick={() => handleSort("particulars")}
-        >
-          Particulars{" "}
-          {sortConfig.key === "particulars" &&
-            (sortConfig.direction === "asc" ? "↑" : "↓")}
-        </th>
-        <th
-          className="px-6 py-3 text-center border-l border-gray-200 cursor-pointer"
-          onClick={() => handleSort("cash.debit")}
-        >
-          Debit{" "}
-          {sortConfig.key === "cash.debit" &&
-            (sortConfig.direction === "asc" ? "↑" : "↓")}
-        </th>
-        <th
-          className="px-6 py-3 text-center cursor-pointer"
-          onClick={() => handleSort("cash.credit")}
-        >
-          Credit{" "}
-          {sortConfig.key === "cash.credit" &&
-            (sortConfig.direction === "asc" ? "↑" : "↓")}
-        </th>
-        <th
-          className="px-6 py-3 text-center cursor-pointer"
-          onClick={() => handleSort("cash.balance")}
-        >
-          Balance{" "}
-          {sortConfig.key === "cash.balance" &&
-            (sortConfig.direction === "asc" ? "↑" : "↓")}
-        </th>
-        <th
-          className="px-6 py-3 text-center border-l border-gray-200 cursor-pointer"
-          onClick={() => handleSort("goldInGMS.debit")}
-        >
-          Debit{" "}
-          {sortConfig.key === "goldInGMS.debit" &&
-            (sortConfig.direction === "asc" ? "↑" : "↓")}
-        </th>
-        <th
-          className="px-6 py-3 text-center cursor-pointer"
-          onClick={() => handleSort("goldInGMS.credit")}
-        >
-          Credit{" "}
-          {sortConfig.key === "goldInGMS.credit" &&
-            (sortConfig.direction === "asc" ? "↑" : "↓")}
-        </th>
-        <th
-          className="px-6 py-3 text-center cursor-pointer"
-          onClick={() => handleSort("goldInGMS.balance")}
-        >
-          Balance{" "}
-          {sortConfig.key === "goldInGMS.balance" &&
-            (sortConfig.direction === "asc" ? "↑" : "↓")}
-        </th>
-      </tr>
-    </thead>
+          <div className="overflow-x-auto rounded-2xl border border-gray-100 shadow-md">
+            <table className="min-w-full divide-y divide-gray-100 bg-white">
+              <thead className="bg-gradient-to-r from-gray-50 to-gray-100 text-xs text-gray-600 uppercase tracking-wider font-semibold">
+                <tr>
+                  <th className="px-6 py-4 text-left" colSpan="3"></th>
+                  <th
+                    className="px-6 py-4 text-center border-l border-gray-200"
+                    colSpan="3"
+                  >
+                    Amount in AED
+                  </th>
+                  <th
+                    className="px-6 py-4 text-center border-l border-gray-200"
+                    colSpan="3"
+                  >
+                    Amount in INR
+                  </th>
+                  <th
+                    className="px-6 py-4 text-center border-l border-gray-200"
+                    colSpan="3"
+                  >
+                    Gold in GMS
+                  </th>
+                </tr>
+                <tr className="border-b border-gray-200">
+                  <th
+                    className="px-6 py-3 text-left cursor-pointer"
+                    onClick={() => handleSort("docDate")}
+                  >
+                    Doc Date{" "}
+                    {sortConfig.key === "docDate" &&
+                      (sortConfig.direction === "asc" ? "↑" : "↓")}
+                  </th>
+                  <th
+                    className="px-6 py-3 text-left cursor-pointer"
+                    onClick={() => handleSort("docRef")}
+                  >
+                    Doc Ref{" "}
+                    {sortConfig.key === "docRef" &&
+                      (sortConfig.direction === "asc" ? "↑" : "↓")}
+                  </th>
+                  <th
+                    className="px-6 py-3 text-left cursor-pointer"
+                    onClick={() => handleSort("particulars")}
+                  >
+                    Particulars{" "}
+                    {sortConfig.key === "particulars" &&
+                      (sortConfig.direction === "asc" ? "↑" : "↓")}
+                  </th>
+                  <th
+                    className="px-6 py-3 text-center border-l border-gray-200 cursor-pointer"
+                    onClick={() => handleSort("aed.debit")}
+                  >
+                    Debit{" "}
+                    {sortConfig.key === "aed.debit" &&
+                      (sortConfig.direction === "asc" ? "↑" : "↓")}
+                  </th>
+                  <th
+                    className="px-6 py-3 text-center cursor-pointer"
+                    onClick={() => handleSort("aed.credit")}
+                  >
+                    Credit{" "}
+                    {sortConfig.key === "aed.credit" &&
+                      (sortConfig.direction === "asc" ? "↑" : "↓")}
+                  </th>
+                  <th
+                    className="px-6 py-3 text-center cursor-pointer"
+                    onClick={() => handleSort("aed.balance")}
+                  >
+                    Balance{" "}
+                    {sortConfig.key === "aed.balance" &&
+                      (sortConfig.direction === "asc" ? "↑" : "↓")}
+                  </th>
+                  <th
+                    className="px-6 py-3 text-center border-l border-gray-200 cursor-pointer"
+                    onClick={() => handleSort("inr.debit")}
+                  >
+                    Debit{" "}
+                    {sortConfig.key === "inr.debit" &&
+                      (sortConfig.direction === "asc" ? "↑" : "↓")}
+                  </th>
+                  <th
+                    className="px-6 py-3 text-center cursor-pointer"
+                    onClick={() => handleSort("inr.credit")}
+                  >
+                    Credit{" "}
+                    {sortConfig.key === "inr.credit" &&
+                      (sortConfig.direction === "asc" ? "↑" : "↓")}
+                  </th>
+                  <th
+                    className="px-6 py-3 text-center cursor-pointer"
+                    onClick={() => handleSort("inr.balance")}
+                  >
+                    Balance{" "}
+                    {sortConfig.key === "inr.balance" &&
+                      (sortConfig.direction === "asc" ? "↑" : "↓")}
+                  </th>
+                  <th
+                    className="px-6 py-3 text-center border-l border-gray-200 cursor-pointer"
+                    onClick={() => handleSort("goldInGMS.debit")}
+                  >
+                    Debit{" "}
+                    {sortConfig.key === "goldInGMS.debit" &&
+                      (sortConfig.direction === "asc" ? "↑" : "↓")}
+                  </th>
+                  <th
+                    className="px-6 py-3 text-center cursor-pointer"
+                    onClick={() => handleSort("goldInGMS.credit")}
+                  >
+                    Credit{" "}
+                    {sortConfig.key === "goldInGMS.credit" &&
+                      (sortConfig.direction === "asc" ? "↑" : "↓")}
+                  </th>
+                  <th
+                    className="px-6 py-3 text-center cursor-pointer"
+                    onClick={() => handleSort("goldInGMS.balance")}
+                  >
+                    Balance{" "}
+                    {sortConfig.key === "goldInGMS.balance" &&
+                      (sortConfig.direction === "asc" ? "↑" : "↓")}
+                  </th>
+                </tr>
+              </thead>
 
-    <tbody className="divide-y divide-gray-100 text-sm">
-      {currentStatements.map((txn, i) => (
-        <tr
-          key={i}
-          className="hover:bg-gray-50 transition-all duration-200"
-        >
-          <td className="px-6 py-4 text-gray-700">{txn.docDate}</td>
-          <td
-            onClick={() => navigateToVoucher(txn.docRef)}
-            className="px-6 py-4 text-blue-700 font-semibold hover:underline cursor-pointer"
-          >
-            {txn.docRef}
-          </td>
-          <td className="px-6 py-4 text-gray-700">{txn.particulars}</td>
-          <td className="px-6 py-4 text-center border-l border-gray-200">
-            {txn.cash.debit > 0 ? (
-              <span className="text-red-600 font-semibold">
-                {formatIndianAmount(txn.cash.debit)}
-              </span>
-            ) : (
-              <span className="text-gray-400">--</span>
-            )}
-          </td>
-          <td className="px-6 py-4 text-center">
-            {txn.cash.credit > 0 ? (
-              <span className="text-green-600 font-semibold">
-                {formatIndianAmount(txn.cash.credit)}
-              </span>
-            ) : (
-              <span className="text-gray-400">--</span>
-            )}
-          </td>
-          <td className="px-6 py-4 text-center text-blue-700 font-bold">
-            {txn.cash.balance !== 0 ? (
-              <span>{formatWithCRDR(txn.cash.balance)}</span>
-            ) : (
-              <span className="text-gray-400">--</span>
-            )}
-          </td>
-          <td className="px-6 py-4 text-center border-l border-gray-200">
-            {txn.goldInGMS.debit > 0 ? (
-              <span className="text-red-600 font-semibold">
-                {formatIndianAmount(txn.goldInGMS.debit)}
-              </span>
-            ) : (
-              <span className="text-gray-400">--</span>
-            )}
-          </td>
-          <td className="px-6 py-4 text-center">
-            {txn.goldInGMS.credit > 0 ? (
-              <span className="text-green-600 font-semibold">
-                {formatIndianAmount(txn.goldInGMS.credit)}
-              </span>
-            ) : (
-              <span className="text-gray-400">--</span>
-            )}
-          </td>
-          <td className="px-6 py-4 text-center font-bold text-amber-700">
-            {txn.goldInGMS.balance !== 0 ? (
-              <span>{formatWithCRDR(txn.goldInGMS.balance)}</span>
-            ) : (
-              <span className="text-gray-400">--</span>
-            )}
-          </td>
-        </tr>
-      ))}
+              <tbody className="divide-y divide-gray-100 text-sm">
+                {currentStatements.map((txn, i) => (
+                  <tr
+                    key={i}
+                    className="hover:bg-gray-50 transition-all duration-200"
+                  >
+                    <td className="px-6 py-4 text-gray-700">{txn.docDate}</td>
+                    <td
+                      onClick={() => navigateToVoucher(txn.docRef)}
+                      className="px-6 py-4 text-blue-700 font-semibold hover:underline cursor-pointer"
+                    >
+                      {txn.docRef}
+                    </td>
+                    <td className="px-6 py-4 text-gray-700">
+                      {txn.particulars}
+                    </td>
+                    <td className="px-6 py-4 text-center border-l border-gray-200">
+                      {txn.aed.debit > 0 ? (
+                        <span className="text-red-600 font-semibold">
+                          {formatIndianAmount(txn.aed.debit)}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">--</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      {txn.aed.credit > 0 ? (
+                        <span className="text-green-600 font-semibold">
+                          {formatIndianAmount(txn.aed.credit)}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">--</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-center text-blue-700 font-bold">
+                      {txn.aed.balance !== 0 ? (
+                        <span>{formatWithCRDR(txn.aed.balance, "AED")}</span>
+                      ) : (
+                        <span className="text-gray-400">--</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-center border-l border-gray-200">
+                      {txn.inr.debit > 0 ? (
+                        <span className="text-red-600 font-semibold">
+                          {formatIndianAmount(txn.inr.debit)}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">--</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      {txn.inr.credit > 0 ? (
+                        <span className="text-green-600 font-semibold">
+                          {formatIndianAmount(txn.inr.credit)}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">--</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-center font-bold text-purple-700">
+                      {txn.inr.balance !== 0 ? (
+                        <span>{formatWithCRDR(txn.inr.balance, "INR")}</span>
+                      ) : (
+                        <span className="text-gray-400">--</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-center border-l border-gray-200">
+                      {txn.goldInGMS.debit > 0 ? (
+                        <span className="text-red-600 font-semibold">
+                          {formatIndianAmount(txn.goldInGMS.debit)}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">--</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      {txn.goldInGMS.credit > 0 ? (
+                        <span className="text-green-600 font-semibold">
+                          {formatIndianAmount(txn.goldInGMS.credit)}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">--</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-center font-bold text-amber-700">
+                      {txn.goldInGMS.balance !== 0 ? (
+                        <span>
+                          {formatWithCRDR(txn.goldInGMS.balance, "GMS")}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">--</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
 
-      <tr className="bg-gradient-to-r from-gray-50 to-gray-100 font-semibold border-t-2 border-gray-300">
-        <td colSpan="3" className="px-6 py-4 text-gray-800">
-          Balance Carried Forward
-        </td>
-        <td className="px-6 py-4 text-center text-red-600 border-l border-gray-200">
-          {formatIndianAmount(summary.cash.debit)}
-        </td>
-        <td className="px-6 py-4 text-center text-green-600">
-          {formatIndianAmount(summary.cash.credit)}
-        </td>
-        <td className="px-6 py-4 text-center text-blue-700 font-bold">
-          {formatWithCRDR(summary.cash.balance)}
-        </td>
-        <td className="px-6 py-4 text-center text-red-600 border-l border-gray-200">
-          {formatIndianAmount(summary.gold.debit)}
-        </td>
-        <td className="px-6 py-4 text-center text-green-600">
-          {formatIndianAmount(summary.gold.credit)}
-        </td>
-        <td className="px-6 py-4 text-center text-amber-700 font-bold">
-          {formatWithCRDR(summary.gold.balance)}
-        </td>
-      </tr>
-    </tbody>
-  </table>
-</div>
+                <tr className="bg-gradient-to-r from-gray-50 to-gray-100 font-semibold border-t-2 border-gray-300">
+                  <td colSpan="3" className="px-6 py-4 text-gray-800">
+                    Balance Carried Forward
+                  </td>
+                  <td className="px-6 py-4 text-center text-red-600 border-l border-gray-200">
+                    {formatIndianAmount(summary.AED.debit)}
+                  </td>
+                  <td className="px-6 py-4 text-center text-green-600">
+                    {formatIndianAmount(summary.AED.credit)}
+                  </td>
+                  <td className="px-6 py-4 text-center text-blue-700 font-bold">
+                    {formatWithCRDR(summary.AED.balance, "AED")}
+                  </td>
+                  <td className="px-6 py-4 text-center text-red-600 border-l border-gray-200">
+                    {formatIndianAmount(summary.INR.debit)}
+                  </td>
+                  <td className="px-6 py-4 text-center text-green-600">
+                    {formatIndianAmount(summary.INR.credit)}
+                  </td>
+                  <td className="px-6 py-4 text-center text-purple-700 font-bold">
+                    {formatWithCRDR(summary.INR.balance, "INR")}
+                  </td>
+                  <td className="px-6 py-4 text-center text-red-600 border-l border-gray-200">
+                    {formatIndianAmount(summary.gold.debit)}
+                  </td>
+                  <td className="px-6 py-4 text-center text-green-600">
+                    {formatIndianAmount(summary.gold.credit)}
+                  </td>
+                  <td className="px-6 py-4 text-center text-amber-700 font-bold">
+                    {formatWithCRDR(summary.gold.balance, "GMS")}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
           {totalPages > 1 && (
             <div className="bg-white rounded-lg shadow-md p-4 mt-6">
@@ -817,10 +906,11 @@ const OrderStatementsTab = ({
                       <button
                         key={page}
                         onClick={() => goToPage(page)}
-                        className={`px-3 py-2 rounded transition-colors ${currentPage === page
-                          ? "bg-blue-600 text-white"
-                          : "bg-gray-200 text-gray-600 hover:bg-gray-300"
-                          }`}
+                        className={`px-3 py-2 rounded transition-colors ${
+                          currentPage === page
+                            ? "bg-blue-600 text-white"
+                            : "bg-gray-200 text-gray-600 hover:bg-gray-300"
+                        }`}
                       >
                         {page}
                       </button>

@@ -70,7 +70,15 @@ const initialGoldData = {
   priceUpdateTimestamp: null,
 };
 
-const ProductDetailsModal = ({ isOpen, onClose, onSave, editingItem }) => {
+const ProductDetailsModal = ({
+  isOpen,
+  onClose,
+  partyCurrency,
+  party,
+  onSave,
+  fixed,
+  editingItem,
+}) => {
   const [productData, setProductData] = useState(initialProductData);
   const [goldData, setGoldData] = useState(initialGoldData);
   const [metalRates, setMetalRates] = useState([]);
@@ -90,6 +98,37 @@ const ProductDetailsModal = ({ isOpen, onClose, onSave, editingItem }) => {
   const premiumRateRef = useRef(null);
   const premiumAmountRef = useRef(null);
 
+  const partyCurrDetails = useMemo(() => {
+    if (
+      !party ||
+      !party.acDefinition?.currencies ||
+      !Array.isArray(party.acDefinition.currencies) ||
+      !partyCurrency ||
+      !partyCurrency.currencyCode
+    ) {
+      return { bid: 0, ask: 0, isDefault: true, currencyCode: "AED" };
+    }
+    const currencyDetails = party.acDefinition.currencies.find(
+      (c) => c.currency?.currencyCode === partyCurrency.currencyCode
+    ) ||
+      party.acDefinition.currencies.find((c) => c.isDefault) || {
+        bid: 0,
+        ask: 0,
+        isDefault: true,
+        currencyCode: "AED",
+      };
+    return {
+      ...currencyDetails,
+      currencyCode: currencyDetails.currency?.currencyCode || "AED",
+    };
+  }, [party, partyCurrency]);
+
+  const spread = parseFloat(partyCurrDetails.ask) || 0;
+  const conversionRate = parseFloat(partyCurrency?.conversionRate) || 1;
+  const effectiveRate =
+    partyCurrDetails.currencyCode === "AED" ? 1 : conversionRate;
+  const currencyCode = partyCurrDetails.currencyCode || "AED";
+
   // Reset form when modal opens/closes or editingItem changes
   useEffect(() => {
     if (isOpen) {
@@ -98,9 +137,13 @@ const ProductDetailsModal = ({ isOpen, onClose, onSave, editingItem }) => {
           ...initialProductData,
           ...editingItem,
           metalTypeId: editingItem.metalType || "",
+          baseCurrency: currencyCode,
         });
       } else {
-        setProductData(initialProductData);
+        setProductData({
+          ...initialProductData,
+          baseCurrency: currencyCode,
+        });
       }
       setErrors({});
       setFetchError("");
@@ -141,24 +184,67 @@ const ProductDetailsModal = ({ isOpen, onClose, onSave, editingItem }) => {
       const parsedPureWeight = parseFloat(pureWeight) || 0;
       const parsedWeightInOz = parseFloat(weightInOz) || 0;
 
+      let metalAmount = "0.00";
       if (metalRateUnit === "GOZ" && parsedRate && parsedWeightInOz) {
-        return (parsedWeightInOz * parsedRate).toFixed(2);
+        metalAmount = (parsedWeightInOz * parsedRate).toFixed(2);
       } else if (
         parsedRate &&
         parsedConvFactGms &&
         parsedConvertrate &&
         parsedPureWeight
       ) {
-        return (
+        metalAmount = (
           (parsedRate / parsedConvFactGms) *
           parsedConvertrate *
           parsedPureWeight
         ).toFixed(2);
       }
-      return "0.00";
+
+      // Apply effectiveRate for INR
+      const convertedMetalAmount =
+        currencyCode === "AED"
+          ? metalAmount
+          : (parseFloat(metalAmount) * effectiveRate).toFixed(2);
+      return convertedMetalAmount;
     },
-    []
+    [currencyCode, effectiveRate]
   );
+
+  // Updated profit calculation
+  const calculateProfit = useCallback(() => {
+    if (currencyCode === "AED") {
+      return "0.00"; // No profit for AED
+    }
+
+    const premiumAmount = parseFloat(productData.premium.amount) || 0;
+    const otherChargesAmount = parseFloat(productData.otherCharges.amount) || 0;
+
+    if (fixed) {
+      // When fixed is true, use base, premium, other charges, and VAT
+      const baseAmount = parseFloat(productData.itemTotal.baseAmount) || 0;
+      const vatAmount = parseFloat(productData.itemTotal.vatAmount) || 0;
+      const totalExcludingMaking =
+        baseAmount + premiumAmount + otherChargesAmount + vatAmount;
+      const totalWithSpread = totalExcludingMaking * effectiveRate;
+      const totalWithoutSpread = totalExcludingMaking * conversionRate;
+      return (totalWithoutSpread - totalWithSpread).toFixed(2);
+    } else {
+      // When fixed is false, use only premium and otherCharges
+      const addedValue = premiumAmount + otherChargesAmount;
+      const totalWithSpread = addedValue * effectiveRate;
+      const totalWithoutSpread = addedValue * conversionRate;
+      return (totalWithoutSpread - totalWithSpread).toFixed(2);
+    }
+  }, [
+    productData.itemTotal.baseAmount,
+    productData.premium.amount,
+    productData.otherCharges.amount,
+    productData.itemTotal.vatAmount,
+    effectiveRate,
+    conversionRate,
+    fixed,
+    currencyCode,
+  ]);
 
   // Update gold data from market data
   const updateGoldData = useCallback(
@@ -284,7 +370,7 @@ const ProductDetailsModal = ({ isOpen, onClose, onSave, editingItem }) => {
     const pcsCount = parseFloat(productData.pcsCount) || 0;
     const totalValue = parseFloat(productData.totalValue) || 1000; // Default to 1000 grams per piece
     const grossWeight = parseFloat(productData.grossWeight) || 0;
-  
+
     if (productData.pcs) {
       // User edited pcsCount: calculate grossWeight
       if (pcsCount > 0 && focusedFields.pcsCount) {
@@ -295,7 +381,11 @@ const ProductDetailsModal = ({ isOpen, onClose, onSave, editingItem }) => {
         }));
       }
       // User edited grossWeight: calculate pcsCount
-      else if (grossWeight >= 0 && focusedFields.grossWeight && totalValue > 0) {
+      else if (
+        grossWeight >= 0 &&
+        focusedFields.grossWeight &&
+        totalValue > 0
+      ) {
         const calculatedPcsCount = (grossWeight / totalValue).toFixed(2);
         setProductData((prev) => ({
           ...prev,
@@ -330,16 +420,17 @@ const ProductDetailsModal = ({ isOpen, onClose, onSave, editingItem }) => {
     debounce((newData) => {
       setProductData((prev) => {
         const updated = typeof newData === "function" ? newData(prev) : newData;
-      const metalAmount = editingItem && !initialRenderWeights.current 
-  ? productData.metalRateRequirements.amount // Preserve original value in edit mode
-  : calculateMetalAmount({
-      rate: updated.metalRateRequirements.rate,
-      convFactGms: updated.convFactGms,
-      convertrate: updated.convertrate,
-      pureWeight,
-      metalRateUnit: updated.metalRateUnit,
-      weightInOz,
-    });
+        const metalAmount =
+          editingItem && !initialRenderWeights.current
+            ? productData.metalRateRequirements.amount
+            : calculateMetalAmount({
+                rate: updated.metalRateRequirements.rate,
+                convFactGms: updated.convFactGms,
+                convertrate: updated.convertrate,
+                pureWeight,
+                metalRateUnit: updated.metalRateUnit,
+                weightInOz,
+              });
 
         const grossWeight = parseFloat(updated.grossWeight) || 0;
         const subTotal = parseFloat(updated.itemTotal.subTotal) || 0;
@@ -361,25 +452,26 @@ const ProductDetailsModal = ({ isOpen, onClose, onSave, editingItem }) => {
             : "0.00";
         }
 
-        // Premium - Allow negative values
+        // Premium - Apply effectiveRate for INR
         let premiumRateStr = updated.premium.rate;
         let premiumAmountStr = updated.premium.amount;
         const convFactGms = parseFloat(updated.convFactGms) || 1;
         const convertrate = parseFloat(updated.convertrate) || 1;
         const divisor = (parseFloat(purityWeight) / convFactGms) * convertrate;
+        const appliedRate = currencyCode === "AED" ? 1 : effectiveRate;
         if (lastEditedFields.premium === "rate") {
-          const parsedRate = parseFloat(premiumRateStr);
+          const parsedRate = parseFloat(premiumRateStr) || 0;
           premiumAmountStr = isNaN(parsedRate)
             ? "0.00"
             : divisor > 0
-            ? (divisor * parsedRate).toFixed(2)
+            ? (divisor * parsedRate * appliedRate).toFixed(2)
             : "0.00";
         } else {
-          const parsedAmount = parseFloat(premiumAmountStr);
+          const parsedAmount = parseFloat(premiumAmountStr) || 0;
           premiumRateStr = isNaN(parsedAmount)
             ? "0.00"
             : divisor > 0
-            ? (parsedAmount / divisor).toFixed(2)
+            ? (parsedAmount / (divisor * appliedRate)).toFixed(2)
             : "0.00";
         }
 
@@ -396,7 +488,7 @@ const ProductDetailsModal = ({ isOpen, onClose, onSave, editingItem }) => {
             ? sumForSubTotal.toFixed(4)
             : "0.0000";
 
-        // Other Charges
+        // Other Charges - Apply effectiveRate for INR
         let otherChargesRateStr = updated.otherCharges.rate;
         let otherChargesAmountStr = updated.otherCharges.amount;
         if (lastEditedFields.otherCharges === "rate") {
@@ -404,14 +496,20 @@ const ProductDetailsModal = ({ isOpen, onClose, onSave, editingItem }) => {
           otherChargesAmountStr = isNaN(parsedRate)
             ? "0.00"
             : isFinite(subTotalCalc)
-            ? ((parseFloat(subTotalCalc) * parsedRate) / 100).toFixed(2)
+            ? (
+                ((parseFloat(subTotalCalc) * parsedRate) / 100) *
+                appliedRate
+              ).toFixed(2)
             : "0.00";
         } else {
           const parsedAmount = parseFloat(otherChargesAmountStr);
           otherChargesRateStr = isNaN(parsedAmount)
             ? "0.00"
             : parseFloat(subTotalCalc) > 0
-            ? ((parsedAmount / parseFloat(subTotalCalc)) * 100).toFixed(2)
+            ? (
+                (parsedAmount / (parseFloat(subTotalCalc) * appliedRate)) *
+                100
+              ).toFixed(2)
             : "0.00";
         }
         const totalAfterOtherCharges = isFinite(subTotalCalc)
@@ -420,7 +518,7 @@ const ProductDetailsModal = ({ isOpen, onClose, onSave, editingItem }) => {
             ).toFixed(4)
           : "0.0000";
 
-        // VAT
+        // VAT - Apply effectiveRate for INR
         let vatPercentageStr = updated.itemTotal.vatPercentage;
         let vatAmountStr = updated.itemTotal.vatAmount;
         if (lastEditedFields.vat === "percentage") {
@@ -429,8 +527,9 @@ const ProductDetailsModal = ({ isOpen, onClose, onSave, editingItem }) => {
             ? "0.0000"
             : isFinite(totalAfterOtherCharges)
             ? (
-                (parseFloat(totalAfterOtherCharges) * parsedPercentage) /
-                100
+                ((parseFloat(totalAfterOtherCharges) * parsedPercentage) /
+                  100) *
+                appliedRate
               ).toFixed(4)
             : "0.0000";
         } else {
@@ -439,7 +538,8 @@ const ProductDetailsModal = ({ isOpen, onClose, onSave, editingItem }) => {
             ? "0.00"
             : parseFloat(totalAfterOtherCharges) > 0
             ? (
-                (parsedAmount / parseFloat(totalAfterOtherCharges)) *
+                (parsedAmount /
+                  (parseFloat(totalAfterOtherCharges) * appliedRate)) *
                 100
               ).toFixed(4)
             : "0.00";
@@ -490,6 +590,8 @@ const ProductDetailsModal = ({ isOpen, onClose, onSave, editingItem }) => {
       purityWeight,
       weightInOz,
       lastEditedFields,
+      effectiveRate,
+      currencyCode,
     ]
   );
 
@@ -515,6 +617,8 @@ const ProductDetailsModal = ({ isOpen, onClose, onSave, editingItem }) => {
     productData.itemTotal.vatPercentage,
     productData.itemTotal.vatAmount,
     lastEditedFields,
+    effectiveRate,
+    currencyCode,
     debouncedSetProductData,
   ]);
 
@@ -636,195 +740,213 @@ const ProductDetailsModal = ({ isOpen, onClose, onSave, editingItem }) => {
   };
 
   const getDisplayValue = (value, fieldName, isPurity = false) => {
-  if (focusedFields[fieldName]) {
-    if (value === "0.00" && focusedFields[fieldName]) return "";
-    return value;
-  }
-  if (isPurity) {
-    return formatPurity(value);
-  }
-  return formatNumber(value);
-};
-
-  const handleInputChange = useCallback((e) => {
-    const { name, value, selectionStart } = e.target;
-
-    // For text fields
-    if (name === "otherCharges.description" || name === "description") {
-      setProductData((prev) => {
-        if (name.includes(".")) {
-          const [parent, child] = name.split(".");
-          return {
-            ...prev,
-            [parent]: {
-              ...prev[parent],
-              [child]: value,
-            },
-          };
-        } else {
-          return {
-            ...prev,
-            [name]: value,
-          };
-        }
-      });
-      setErrors((prev) => ({ ...prev, [name]: "" }));
-      return;
+    if (focusedFields[fieldName]) {
+      if (value === "0.00" && focusedFields[fieldName]) return "";
+      return value;
     }
-
-    // Allow negative values for premium fields
-    const isPremiumField = name.includes("premium");
-    const pattern = isPremiumField ? /^-?\d*\.?\d*$/ : /^\d*\.?\d*$/;
-
-    const rawValue = value.replace(/,/g, "");
-    if (rawValue !== "" && !pattern.test(rawValue)) {
-      return;
+    if (isPurity) {
+      return formatPurity(value);
     }
+    return formatNumber(value);
+  };
 
-    if (name.includes(".")) {
-      const [parent, child] = name.split(".");
-      setProductData((prev) => {
-        let updatedParent = { ...prev[parent], [child]: rawValue };
-        let updatedItemTotal = { ...prev.itemTotal };
-        const grossWeight = parseFloat(getRawValue(prev.grossWeight)) || 0;
-        const subTotal = parseFloat(getRawValue(prev.itemTotal.subTotal)) || 0;
-        const purityWeight = parseFloat(getRawValue(prev.purityWeight)) || 0;
-        const convFactGms = parseFloat(getRawValue(prev.convFactGms)) || 1;
-        const convertrate = parseFloat(getRawValue(prev.convertrate)) || 1;
-        const totalAfterOtherCharges =
-          parseFloat(getRawValue(prev.otherCharges.totalAfterOtherCharges)) ||
-          0;
+  const handleInputChange = useCallback(
+    (e) => {
+      const { name, value, selectionStart } = e.target;
 
-        if (parent === "makingCharges") {
-          setLastEditedFields((prevFields) => ({
-            ...prevFields,
-            makingCharges: child,
-          }));
-          if (child === "rate") {
-            const rate = parseFloat(rawValue) || 0;
-            updatedParent.amount = (rate * grossWeight).toFixed(2);
-          } else if (child === "amount") {
-            const amount = parseFloat(rawValue) || 0;
-            updatedParent.rate =
-              grossWeight > 0 ? (amount / grossWeight).toFixed(2) : "0.00";
+      // For text fields
+      if (name === "otherCharges.description" || name === "description") {
+        setProductData((prev) => {
+          if (name.includes(".")) {
+            const [parent, child] = name.split(".");
+            return {
+              ...prev,
+              [parent]: {
+                ...prev[parent],
+                [child]: value,
+              },
+            };
+          } else {
+            return {
+              ...prev,
+              [name]: value,
+            };
           }
-        }
+        });
+        setErrors((prev) => ({ ...prev, [name]: "" }));
+        return;
+      }
 
-        if (parent === "premium") {
-          setLastEditedFields((prevFields) => ({
-            ...prevFields,
-            premium: child,
-          }));
-          if (child === "rate") {
-            const rate = parseFloat(rawValue) || 0;
-            const divisor = (purityWeight / convFactGms) * convertrate;
-            updatedParent.amount =
-              divisor > 0 ? (divisor * rate).toFixed(2) : "0.00";
-          } else if (child === "amount") {
-            const amount = parseFloat(rawValue) || 0;
-            const divisor = (purityWeight / convFactGms) * convertrate;
-            updatedParent.rate =
-              divisor > 0 ? (amount / divisor).toFixed(2) : "0.00";
+      // Allow negative values for premium fields
+      const isPremiumField = name.includes("premium");
+      const pattern = isPremiumField ? /^-?\d*\.?\d*$/ : /^\d*\.?\d*$/;
+
+      const rawValue = value.replace(/,/g, "");
+      if (rawValue !== "" && !pattern.test(rawValue)) {
+        return;
+      }
+
+      if (name.includes(".")) {
+        const [parent, child] = name.split(".");
+        setProductData((prev) => {
+          let updatedParent = { ...prev[parent], [child]: rawValue };
+          let updatedItemTotal = { ...prev.itemTotal };
+          const grossWeight = parseFloat(getRawValue(prev.grossWeight)) || 0;
+          const subTotal =
+            parseFloat(getRawValue(prev.itemTotal.subTotal)) || 0;
+          const purityWeight = parseFloat(getRawValue(prev.purityWeight)) || 0;
+          const convFactGms = parseFloat(getRawValue(prev.convFactGms)) || 1;
+          const convertrate = parseFloat(getRawValue(prev.convertrate)) || 1;
+          const totalAfterOtherCharges =
+            parseFloat(getRawValue(prev.otherCharges.totalAfterOtherCharges)) ||
+            0;
+          const appliedRate = currencyCode === "AED" ? 1 : effectiveRate;
+
+          if (parent === "makingCharges") {
+            setLastEditedFields((prevFields) => ({
+              ...prevFields,
+              makingCharges: child,
+            }));
+            if (child === "rate") {
+              const rate = parseFloat(rawValue) || 0;
+              updatedParent.amount = (rate * grossWeight).toFixed(2);
+            } else if (child === "amount") {
+              const amount = parseFloat(rawValue) || 0;
+              updatedParent.rate =
+                grossWeight > 0 ? (amount / grossWeight).toFixed(2) : "0.00";
+            }
           }
-        }
 
-        if (parent === "otherCharges") {
-          setLastEditedFields((prevFields) => ({
-            ...prevFields,
-            otherCharges: child,
-          }));
-          if (child === "rate") {
-            const rate = parseFloat(rawValue) || 0;
-            updatedParent.amount = isFinite(subTotal)
-              ? ((subTotal * rate) / 100).toFixed(2)
-              : "0.00";
-          } else if (child === "amount") {
-            const amount = parseFloat(rawValue) || 0;
-            updatedParent.rate =
-              subTotal > 0 ? ((amount / subTotal) * 100).toFixed(2) : "0.00";
+          if (parent === "premium") {
+            setLastEditedFields((prevFields) => ({
+              ...prevFields,
+              premium: child,
+            }));
+            if (child === "rate") {
+              const rate = parseFloat(rawValue) || 0;
+              const divisor = (purityWeight / convFactGms) * convertrate;
+              updatedParent.amount =
+                divisor > 0
+                  ? (divisor * rate * appliedRate).toFixed(2)
+                  : "0.00";
+            } else if (child === "amount") {
+              const amount = parseFloat(rawValue) || 0;
+              updatedParent.rate =
+                divisor > 0
+                  ? (amount / (divisor * appliedRate)).toFixed(2)
+                  : "0.00";
+            }
           }
-          const otherChargesAmount = parseFloat(updatedParent.amount) || 0;
-          updatedParent.totalAfterOtherCharges = isFinite(subTotal)
-            ? (subTotal + otherChargesAmount).toFixed(2)
-            : "0.00";
-          const vatPercentage =
-            parseFloat(getRawValue(updatedItemTotal.vatPercentage)) || 0;
-          const vatAmount = isFinite(updatedParent.totalAfterOtherCharges)
-            ? (
-                (parseFloat(updatedParent.totalAfterOtherCharges) *
-                  vatPercentage) /
-                100
-              ).toFixed(2)
-            : "0.00";
-          updatedItemTotal.vatAmount = vatAmount;
-          updatedItemTotal.itemTotalAmount = isFinite(
-            updatedParent.totalAfterOtherCharges
-          )
-            ? (
-                parseFloat(updatedParent.totalAfterOtherCharges) +
-                parseFloat(vatAmount)
-              ).toFixed(2)
-            : "0.00";
-        }
 
-        if (parent === "itemTotal") {
-          setLastEditedFields((prevFields) => ({
-            ...prevFields,
-            vat: child === "vatPercentage" ? "percentage" : "amount",
-          }));
-          if (child === "vatPercentage") {
-            const vatPercentage = parseFloat(rawValue) || 0;
-            updatedParent.vatAmount = isFinite(totalAfterOtherCharges)
-              ? ((totalAfterOtherCharges * vatPercentage) / 100).toFixed(2)
-              : "0.00";
-            updatedParent.vatPercentage = vatPercentage.toString();
-          } else if (child === "vatAmount") {
-            const vatAmount = parseFloat(rawValue) || 0;
-            updatedParent.vatPercentage =
-              totalAfterOtherCharges > 0
-                ? ((vatAmount / totalAfterOtherCharges) * 100).toFixed(2)
+          if (parent === "otherCharges") {
+            setLastEditedFields((prevFields) => ({
+              ...prevFields,
+              otherCharges: child,
+            }));
+            if (child === "rate") {
+              const rate = parseFloat(rawValue) || 0;
+              updatedParent.amount = isFinite(subTotal)
+                ? (((subTotal * rate) / 100) * appliedRate).toFixed(2)
                 : "0.00";
-            updatedParent.vatAmount = vatAmount.toString();
+            } else if (child === "amount") {
+              const amount = parseFloat(rawValue) || 0;
+              updatedParent.rate =
+                subTotal > 0
+                  ? ((amount / (subTotal * appliedRate)) * 100).toFixed(2)
+                  : "0.00";
+            }
+            const otherChargesAmount = parseFloat(updatedParent.amount) || 0;
+            updatedParent.totalAfterOtherCharges = isFinite(subTotal)
+              ? (subTotal + otherChargesAmount).toFixed(2)
+              : "0.00";
+            const vatPercentage =
+              parseFloat(getRawValue(updatedItemTotal.vatPercentage)) || 0;
+            const vatAmount = isFinite(updatedParent.totalAfterOtherCharges)
+              ? (
+                  ((parseFloat(updatedParent.totalAfterOtherCharges) *
+                    vatPercentage) /
+                    100) *
+                  appliedRate
+                ).toFixed(2)
+              : "0.00";
+            updatedItemTotal.vatAmount = vatAmount;
+            updatedItemTotal.itemTotalAmount = isFinite(
+              updatedParent.totalAfterOtherCharges
+            )
+              ? (
+                  parseFloat(updatedParent.totalAfterOtherCharges) +
+                  parseFloat(vatAmount)
+                ).toFixed(2)
+              : "0.00";
           }
 
-          const vatAmountVal =
-            parseFloat(getRawValue(updatedParent.vatAmount)) || 0;
-          updatedParent.itemTotalAmount = isFinite(totalAfterOtherCharges)
-            ? (totalAfterOtherCharges + vatAmountVal).toFixed(2)
-            : "0.00";
-        }
+          if (parent === "itemTotal") {
+            setLastEditedFields((prevFields) => ({
+              ...prevFields,
+              vat: child === "vatPercentage" ? "percentage" : "amount",
+            }));
+            if (child === "vatPercentage") {
+              const vatPercentage = parseFloat(rawValue) || 0;
+              updatedParent.vatAmount = isFinite(totalAfterOtherCharges)
+                ? (
+                    ((totalAfterOtherCharges * vatPercentage) / 100) *
+                    appliedRate
+                  ).toFixed(2)
+                : "0.00";
+              updatedParent.vatPercentage = vatPercentage.toString();
+            } else if (child === "vatAmount") {
+              const vatAmount = parseFloat(rawValue) || 0;
+              updatedParent.vatPercentage =
+                totalAfterOtherCharges > 0
+                  ? (
+                      (vatAmount / (totalAfterOtherCharges * appliedRate)) *
+                      100
+                    ).toFixed(2)
+                  : "0.00";
+              updatedParent.vatAmount = vatAmount.toString();
+            }
 
-        return {
+            const vatAmountVal =
+              parseFloat(getRawValue(updatedParent.vatAmount)) || 0;
+            updatedParent.itemTotalAmount = isFinite(totalAfterOtherCharges)
+              ? (totalAfterOtherCharges + vatAmountVal).toFixed(2)
+              : "0.00";
+          }
+
+          return {
+            ...prev,
+            [parent]: updatedParent,
+            itemTotal:
+              parent === "itemTotal" ? updatedParent : updatedItemTotal,
+          };
+        });
+      } else {
+        setProductData((prev) => ({
           ...prev,
-          [parent]: updatedParent,
-          itemTotal: parent === "itemTotal" ? updatedParent : updatedItemTotal,
-        };
-      });
-    } else {
-      setProductData((prev) => ({
-        ...prev,
-        [name]: rawValue,
-      }));
-    }
-    setErrors((prev) => ({ ...prev, [name]: "" }));
+          [name]: rawValue,
+        }));
+      }
+      setErrors((prev) => ({ ...prev, [name]: "" }));
 
-    // Preserve cursor position for premium fields
-    if (isPremiumField) {
-      setTimeout(() => {
-        if (name === "premium.rate" && premiumRateRef.current) {
-          premiumRateRef.current.setSelectionRange(
-            selectionStart,
-            selectionStart
-          );
-        } else if (name === "premium.amount" && premiumAmountRef.current) {
-          premiumAmountRef.current.setSelectionRange(
-            selectionStart,
-            selectionStart
-          );
-        }
-      }, 0);
-    }
-  }, []);
+      // Preserve cursor position for premium fields
+      if (isPremiumField) {
+        setTimeout(() => {
+          if (name === "premium.rate" && premiumRateRef.current) {
+            premiumRateRef.current.setSelectionRange(
+              selectionStart,
+              selectionStart
+            );
+          } else if (name === "premium.amount" && premiumAmountRef.current) {
+            premiumAmountRef.current.setSelectionRange(
+              selectionStart,
+              selectionStart
+            );
+          }
+        }, 0);
+      }
+    },
+    [effectiveRate, currencyCode]
+  );
 
   const handlePremiumInput = useCallback(
     (e, field) => {
@@ -852,12 +974,29 @@ const ProductDetailsModal = ({ isOpen, onClose, onSave, editingItem }) => {
     const transformedData = {
       ...productData,
       stockCode: productData.stockCode,
-      baseCurrency: productData.baseCurrencyId,
+      baseCurrency: productData.baseCurrencyId || currencyCode,
       metalType: productData.metalTypeId,
+      profit: calculateProfit(),
+      convertedAmounts: {
+        metalAmount: parseFloat(productData.metalRateRequirements.amount) || 0,
+        premiumAmount: parseFloat(productData.premium.amount) || 0,
+        otherChargesAmount: parseFloat(productData.otherCharges.amount) || 0,
+        vatAmount: parseFloat(productData.itemTotal.vatAmount) || 0,
+        itemTotalAmount: parseFloat(productData.itemTotal.itemTotalAmount) || 0,
+        currencyCode,
+        effectiveRate: currencyCode === "AED" ? 1 : effectiveRate,
+      },
     };
 
     onSave(transformedData);
-  }, [validate, productData, errors, onSave]);
+  }, [
+    validate,
+    productData,
+    onSave,
+    currencyCode,
+    calculateProfit,
+    effectiveRate,
+  ]);
 
   if (!isOpen) return null;
 
@@ -975,17 +1114,17 @@ const ProductDetailsModal = ({ isOpen, onClose, onSave, editingItem }) => {
                     productData.grossWeight,
                     "grossWeight"
                   )}
-              onChange={(e) => {
-  const value = e.target.value.replace(/,/g, "");
-  
-  // Allow empty value during editing
-  if (value === "" || (!isNaN(value) && parseFloat(value) >= 0)) {
-    handleInputChange({
-      target: { name: "grossWeight", value },
-    });
-  }
-}}
-
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/,/g, "");
+                    if (
+                      value === "" ||
+                      (!isNaN(value) && parseFloat(value) >= 0)
+                    ) {
+                      handleInputChange({
+                        target: { name: "grossWeight", value },
+                      });
+                    }
+                  }}
                   onFocus={() => handleFocus("grossWeight")}
                   onBlur={() => handleBlur("grossWeight")}
                   className="w-full px-4 py-3 border-0 rounded-xl focus:ring-4 focus:ring-blue-100 bg-gray-50 hover:bg-white focus:bg-white shadow-sm hover:shadow-md focus:shadow-lg transition-all duration-300"
@@ -1144,7 +1283,7 @@ const ProductDetailsModal = ({ isOpen, onClose, onSave, editingItem }) => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Metal Amount
+                    Metal Amount ({currencyCode})
                   </label>
                   <input
                     type="text"
@@ -1198,7 +1337,7 @@ const ProductDetailsModal = ({ isOpen, onClose, onSave, editingItem }) => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Total Amount
+                    Total Amount ({currencyCode})
                   </label>
                   <input
                     type="text"
@@ -1211,7 +1350,7 @@ const ProductDetailsModal = ({ isOpen, onClose, onSave, editingItem }) => {
                     onFocus={() => handleFocus("makingChargesAmount")}
                     onBlur={() => handleBlur("makingChargesAmount")}
                     className="w-full px-4 py-3 border-0 rounded-xl focus:ring-4 focus:ring-blue-100 bg-gray-50 hover:bg-white focus:bg-white shadow-sm hover:shadow-md focus:shadow-lg transition-all duration-300"
-                    placeholder="Enter total making charges (e.g., 100.00)"
+                    placeholder={`Enter total making charges in ${currencyCode} (e.g., 100.00)`}
                   />
                 </div>
               </div>
@@ -1219,7 +1358,7 @@ const ProductDetailsModal = ({ isOpen, onClose, onSave, editingItem }) => {
 
             <div className="border border-gray-200 rounded-xl p-4">
               <h3 className="text-md font-semibold text-gray-800 mb-4">
-                Premium / Discount
+                Premium / Discount ({currencyCode})
               </h3>
               <div className="grid grid-cols-1 gap-4">
                 <div className="relative">
@@ -1261,12 +1400,12 @@ const ProductDetailsModal = ({ isOpen, onClose, onSave, editingItem }) => {
                     onFocus={() => handleFocus("premiumRate")}
                     onBlur={() => handleBlur("premiumRate")}
                     className="w-full px-4 py-3 border-0 rounded-xl focus:ring-4 focus:ring-blue-100 bg-gray-50 hover:bg-white focus:bg-white shadow-sm hover:shadow-md focus:shadow-lg transition-all duration-300"
-                    placeholder="Enter rate (e.g., 5.50 or -5.50)"
+                    placeholder={`Enter rate in ${currencyCode} (e.g., 5.50 or -5.50)`}
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Amount
+                    Amount ({currencyCode})
                   </label>
                   <input
                     ref={premiumAmountRef}
@@ -1284,7 +1423,7 @@ const ProductDetailsModal = ({ isOpen, onClose, onSave, editingItem }) => {
                         ? "text-red-500"
                         : ""
                     }`}
-                    placeholder="Enter amount (e.g., 50.00 or -50.00)"
+                    placeholder={`Enter amount in ${currencyCode} (e.g., 50.00 or -50.00)`}
                   />
                 </div>
               </div>
@@ -1328,7 +1467,7 @@ const ProductDetailsModal = ({ isOpen, onClose, onSave, editingItem }) => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Amount (AED)
+                    Amount ({currencyCode})
                   </label>
                   <input
                     type="text"
@@ -1341,7 +1480,7 @@ const ProductDetailsModal = ({ isOpen, onClose, onSave, editingItem }) => {
                     onFocus={() => handleFocus("otherChargesAmount")}
                     onBlur={() => handleBlur("otherChargesAmount")}
                     className="w-full px-4 py-3 border-0 rounded-xl focus:ring-4 focus:ring-blue-100 bg-gray-50 hover:bg-white focus:bg-white shadow-sm hover:shadow-md focus:shadow-lg transition-all duration-300"
-                    placeholder="Enter amount in AED (e.g., 25.00)"
+                    placeholder={`Enter amount in ${currencyCode} (e.g., 25.00)`}
                   />
                 </div>
               </div>
@@ -1374,7 +1513,7 @@ const ProductDetailsModal = ({ isOpen, onClose, onSave, editingItem }) => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    VAT Amount (AED)
+                    VAT Amount ({currencyCode})
                   </label>
                   <input
                     type="text"
@@ -1387,17 +1526,30 @@ const ProductDetailsModal = ({ isOpen, onClose, onSave, editingItem }) => {
                     onFocus={() => handleFocus("vatAmount")}
                     onBlur={() => handleBlur("vatAmount")}
                     className="w-full px-4 py-3 border-0 rounded-xl focus:ring-4 focus:ring-blue-100 bg-gray-50 hover:bg-white focus:bg-white shadow-sm hover:shadow-md focus:shadow-lg transition-all duration-300"
-                    placeholder="Enter VAT amount in AED (e.g., 50.00)"
+                    placeholder={`Enter VAT amount in ${currencyCode} (e.g., 50.00)`}
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Total Amount (AED)
+                    Total Amount ({currencyCode})
                   </label>
                   <input
                     type="text"
                     name="itemTotal.itemTotalAmount"
                     value={formatNumber(productData.itemTotal.itemTotalAmount)}
+                    readOnly
+                    className="w-full px-4 py-3 border-0 rounded-xl bg-gray-100 text-gray-500 shadow-sm transition-all duration-300"
+                    placeholder="Calculated automatically"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Profit ({currencyCode})
+                  </label>
+                  <input
+                    type="text"
+                    name="profit"
+                    value={formatNumber(calculateProfit())}
                     readOnly
                     className="w-full px-4 py-3 border-0 rounded-xl bg-gray-100 text-gray-500 shadow-sm transition-all duration-300"
                     placeholder="Calculated automatically"
@@ -1449,5 +1601,4 @@ const ProductDetailsModal = ({ isOpen, onClose, onSave, editingItem }) => {
     </div>
   );
 };
-
 export default ProductDetailsModal;

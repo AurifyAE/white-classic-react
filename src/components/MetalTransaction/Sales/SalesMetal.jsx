@@ -1,5 +1,10 @@
-
-import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useMemo,
+} from "react";
 import {
   Package,
   Plus,
@@ -22,7 +27,7 @@ import autoTable from "jspdf-autotable";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import Select from "react-select";
-import { useLocation } from 'react-router-dom';
+import { useLocation } from "react-router-dom";
 
 // Custom hook for debounced toast notifications
 const useDebouncedToast = () => {
@@ -189,7 +194,6 @@ export default function SalesMetal() {
   const [newlyCreatedSale, setNewlyCreatedSale] = useState(null);
   const navigate = useNavigate();
 
-
   const [currentPage, setCurrentPage] = useState(1);
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
   const [selectedPurchase, setSelectedPurchase] = useState(null);
@@ -212,6 +216,7 @@ export default function SalesMetal() {
     itemCurrencyId: "",
     itemCurrencyCode: "",
     itemCurrencyValue: "",
+    baseCurrency: null,
     metalRateUnit: "GOZ",
     metalRate: "",
     crDays: "",
@@ -220,6 +225,7 @@ export default function SalesMetal() {
     spp: "",
     fixed: false,
     internalUnfix: false,
+    partyCurrency: [],
   });
 
   useEffect(() => {
@@ -239,20 +245,82 @@ export default function SalesMetal() {
 
       const salesTransactions = Array.isArray(data)
         ? data
-          .filter((transaction) => transaction.transactionType === "sale")
-          .map((transaction, index) => ({
-            id: transaction._id || "",
-            sl: index + 1,
-            branch: transaction.branch || "Default Branch",
-            vocType: transaction.voucherType || "SAL",
-            vocNo: transaction.voucherNumber || "",
-            vocDate:
-              transaction.formattedVoucherDate ||
-              new Date(transaction.voucherDate).toISOString().split("T")[0],
-            partyCode: transaction.partyCode?.accountCode || "N/A",
-            partyName: transaction.partyCode?.customerName || "Unknown Party",
-            stockItems: Array.isArray(transaction.stockItems)
-              ? transaction.stockItems.map((item) => ({
+            .filter((transaction) => transaction.transactionType === "sale")
+            .map((transaction, index) => ({
+              id: transaction._id || "",
+              sl: index + 1,
+              branch: transaction.branch || "Default Branch",
+              vocType: transaction.voucherType || "SAL",
+              vocNo: transaction.voucherNumber || "",
+              vocDate:
+                transaction.formattedVoucherDate ||
+                new Date(transaction.voucherDate).toISOString().split("T")[0],
+              partyCode: transaction.partyCode?.accountCode || "N/A",
+              partyName: transaction.partyCode?.customerName || "Unknown Party",
+              stockItems: Array.isArray(transaction.stockItems)
+                ? transaction.stockItems.map((item) => ({
+                    stockId: item.stockCode || "",
+                    description: item.description || "N/A",
+                    pcs: item.pieces || 0,
+                    grossWeight: item.grossWeight || 0,
+                    purity: item.purity || 0,
+                    pureWeight: item.pureWeight || 0,
+                    purityWeight: item.purityWeight || 0,
+                    weightInOz: item.weightInOz || 0,
+                    metalRate: item.metalRate || "0",
+                    metalRateRequirements: {
+                      amount: item.metalRateRequirements?.amount || 0,
+                      rate: item.metalRateRequirements?.rate || 0,
+                    },
+                    makingCharges: {
+                      amount: item.makingCharges?.amount || 0,
+                      rate: item.makingCharges?.rate || 0,
+                    },
+                    premium: {
+                      amount: item.premium?.amount || 0,
+                      rate: item.premium?.rate || 0,
+                    },
+                    otherCharges: {
+                      amount: item.otherCharges?.amount || 0,
+                      rate: item.otherCharges?.rate || 0,
+                      description: item.otherCharges?.description || "",
+                    },
+                    itemTotal: {
+                      baseAmount: item.itemTotal?.baseAmount || 0,
+                      makingChargesTotal:
+                        item.itemTotal?.makingChargesTotal || 0,
+                      premiumTotal: item.itemTotal?.premiumTotal || 0,
+                      subTotal: item.itemTotal?.subTotal || 0,
+                      vatAmount: item.itemTotal?.vatAmount || 0,
+                      itemTotalAmount: item.itemTotal?.itemTotalAmount || 0,
+                    },
+                    vatPercentage: item.vatPercentage || 0,
+                    metalType: item.metalType || "N/A",
+                  }))
+                : [],
+            }))
+        : [];
+
+      setMetalSales(salesTransactions);
+      return salesTransactions;
+    } catch (err) {
+      showToast("Failed to fetch metal sales transactions", "error");
+      return [];
+    }
+  }, [showToast]);
+
+  useEffect(() => {
+    fetchMetalTransactions();
+  }, [fetchMetalTransactions]);
+
+  const fetchTransactionData = async () => {
+    try {
+      const response = await axiosInstance.get("/metal-transaction");
+      const { data } = response.data;
+      if (Array.isArray(data)) {
+        const allStockItems = data.flatMap((transaction) =>
+          Array.isArray(transaction.stockItems)
+            ? transaction.stockItems.map((item) => ({
                 stockId: item.stockCode || "",
                 description: item.description || "N/A",
                 pcs: item.pieces || 0,
@@ -281,8 +349,7 @@ export default function SalesMetal() {
                 },
                 itemTotal: {
                   baseAmount: item.itemTotal?.baseAmount || 0,
-                  makingChargesTotal:
-                    item.itemTotal?.makingChargesTotal || 0,
+                  makingChargesTotal: item.itemTotal?.makingChargesTotal || 0,
                   premiumTotal: item.itemTotal?.premiumTotal || 0,
                   subTotal: item.itemTotal?.subTotal || 0,
                   vatAmount: item.itemTotal?.vatAmount || 0,
@@ -290,70 +357,9 @@ export default function SalesMetal() {
                 },
                 vatPercentage: item.vatPercentage || 0,
                 metalType: item.metalType || "N/A",
+                transactionId: transaction._id,
+                voucherNumber: transaction.voucherNumber,
               }))
-              : [],
-          }))
-        : [];
-
-      setMetalSales(salesTransactions);
-      return salesTransactions;
-    } catch (err) {
-      showToast("Failed to fetch metal sales transactions", "error");
-      return [];
-    }
-  }, [showToast]);
-
-  useEffect(() => {
-    fetchMetalTransactions();
-  }, [fetchMetalTransactions]);
-
-  const fetchTransactionData = async () => {
-    try {
-      const response = await axiosInstance.get("/metal-transaction");
-      const { data } = response.data;
-      if (Array.isArray(data)) {
-        const allStockItems = data.flatMap((transaction) =>
-          Array.isArray(transaction.stockItems)
-            ? transaction.stockItems.map((item) => ({
-              stockId: item.stockCode || "",
-              description: item.description || "N/A",
-              pcs: item.pieces || 0,
-              grossWeight: item.grossWeight || 0,
-              purity: item.purity || 0,
-              pureWeight: item.pureWeight || 0,
-              purityWeight: item.purityWeight || 0,
-              weightInOz: item.weightInOz || 0,
-              metalRate: item.metalRate || "0",
-              metalRateRequirements: {
-                amount: item.metalRateRequirements?.amount || 0,
-                rate: item.metalRateRequirements?.rate || 0,
-              },
-              makingCharges: {
-                amount: item.makingCharges?.amount || 0,
-                rate: item.makingCharges?.rate || 0,
-              },
-              premium: {
-                amount: item.premium?.amount || 0,
-                rate: item.premium?.rate || 0,
-              },
-              otherCharges: {
-                amount: item.otherCharges?.amount || 0,
-                rate: item.otherCharges?.rate || 0,
-                description: item.otherCharges?.description || "",
-              },
-              itemTotal: {
-                baseAmount: item.itemTotal?.baseAmount || 0,
-                makingChargesTotal: item.itemTotal?.makingChargesTotal || 0,
-                premiumTotal: item.itemTotal?.premiumTotal || 0,
-                subTotal: item.itemTotal?.subTotal || 0,
-                vatAmount: item.itemTotal?.vatAmount || 0,
-                itemTotalAmount: item.itemTotal?.itemTotalAmount || 0,
-              },
-              vatPercentage: item.vatPercentage || 0,
-              metalType: item.metalType || "N/A",
-              transactionId: transaction._id,
-              voucherNumber: transaction.voucherNumber,
-            }))
             : []
         );
         setStockItems(allStockItems);
@@ -369,51 +375,47 @@ export default function SalesMetal() {
     }
   };
 
-  const fetchTradeDebtors = async () => {
+  const fetchTradeDebtors = useCallback(async () => {
     try {
       const response = await axiosInstance.get("/account-type");
       const { data } = response.data;
+      console.log(data);
+      if (!Array.isArray(data)) {
+        setError("Invalid trade debtors data format");
+        return false;
+      }
 
-      if (!Array.isArray(data)) return false;
-
-      const creditorData = data;
-      const mappedTradeDebtors = creditorData.map((debtor) => {
-        const defaultCurrency =
-          debtor.acDefinition?.currencies?.find((curr) => curr.isDefault) ||
-          debtor.acDefinition?.currencies?.[0] ||
-          {};
-
-        return {
-          id: debtor._id || "",
-          customerName: debtor.customerName || "",
-          accountCode: debtor.accountCode || "",
-          acDefinition: {
-            currencies: debtor.acDefinition?.currencies || [],
-          },
-          creditLimit: {
-            netAmount: debtor.limitsMargins?.[0]?.netAmountLC || 0,
-          },
-          currency: {
-            no: defaultCurrency.currency?._id || "",
-            currencyCode: defaultCurrency.currency?.currencyCode || "N/A",
-          },
-        };
-      });
+      const creditorData = data.filter((debtor) => debtor.isSupplier == true);
+      const mappedTradeDebtors = creditorData.map((debtor) => ({
+        id: debtor._id || debtor.id,
+        customerName: debtor.customerName || "Unknown",
+        acCode: debtor.accountCode || "",
+        acDefinition: {
+          currencies: debtor.acDefinition?.currencies || [],
+        },
+        creditLimit: {
+          netAmount: debtor.limitsMargins?.[0]?.netAmountLC || 0,
+        },
+      }));
 
       setTradeDebtors(mappedTradeDebtors);
       return true;
     } catch (error) {
-      showToast("Failed to fetch trade debtors", "error");
+      setError("Failed to fetch trade debtors");
+      console.error("Error fetching trade debtors:", error);
       return false;
     }
-  };
+  }, []);
 
   const currentModule = location.pathname.split("/")[1] || "";
   const generateVoucherNumber = useCallback(async () => {
     try {
-      const response = await axiosInstance.post(`/voucher/generate/${currentModule}`, {
-        transactionType: "sale",
-      });
+      const response = await axiosInstance.post(
+        `/voucher/generate/${currentModule}`,
+        {
+          transactionType: "sale",
+        }
+      );
 
       const { data } = response.data;
 
@@ -439,25 +441,25 @@ export default function SalesMetal() {
     return metalSales.filter((sale) => {
       const dateString = sale.vocDate
         ? new Date(sale.vocDate).toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-        })
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+          })
         : "";
       const selectedDateString = dateSearch
         ? dateSearch.toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-        })
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+          })
         : "";
 
       const matchesSearchTerm = searchTerm
         ? sale.sl.toString().includes(searchTerm.toLowerCase()) ||
-        sale.partyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        sale.partyCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        sale.vocNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        sale.branch.toLowerCase().includes(searchTerm.toLowerCase())
+          sale.partyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          sale.partyCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          sale.vocNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          sale.branch.toLowerCase().includes(searchTerm.toLowerCase())
         : true;
 
       const matchesDate = dateSearch ? dateString === selectedDateString : true;
@@ -471,19 +473,32 @@ export default function SalesMetal() {
 
   const fetchPartyDetails = useCallback(
     (partyName) => {
-      if (!partyName || !partyName.trim()) {
+      // Handle cases where partyName is an object (from react-select) or undefined
+      const partyNameStr =
+        typeof partyName === "object" && partyName !== null
+          ? partyName.value || ""
+          : partyName || "";
+
+      // Return early if no party name provided
+      if (!partyNameStr) {
         return {
           partyName: "",
           partyCode: "",
           partyCurrencyId: "",
           partyCurrencyCode: "",
           partyCurrencyValue: "",
+          itemCurrencyId: "",
+          itemCurrencyCode: "",
+          itemCurrencyValue: "",
           partyId: "",
           error: null,
         };
       }
 
-      const normalizedPartyName = partyName.trim().toLowerCase();
+      // Normalize the search term
+      const normalizedPartyName = partyNameStr.trim().toLowerCase();
+
+      // Find creditor
       let creditor = tradeDebtors.find(
         (creditor) =>
           creditor.customerName.trim().toLowerCase() === normalizedPartyName
@@ -499,20 +514,22 @@ export default function SalesMetal() {
 
       if (!creditor) {
         return {
-          partyName: partyName,
+          partyName: partyNameStr,
           partyCode: "",
           partyCurrencyId: "",
           partyCurrencyCode: "",
           partyCurrencyValue: "",
+          itemCurrencyId: "",
+          itemCurrencyCode: "",
+          itemCurrencyValue: "",
           partyId: "",
           error: "No matching creditor found",
         };
       }
 
       const defaultCurrency =
-        creditor.acDefinition?.currencies?.find(
-          (curr) => curr.isDefault === true
-        ) || creditor.acDefinition?.currencies?.[0];
+        creditor.acDefinition?.currencies?.find((c) => c.isDefault) ||
+        creditor.acDefinition?.currencies?.[0];
 
       if (!defaultCurrency) {
         return {
@@ -521,7 +538,11 @@ export default function SalesMetal() {
           partyCurrencyId: "",
           partyCurrencyCode: "",
           partyCurrencyValue: "",
+          itemCurrencyId: "",
+          itemCurrencyCode: "",
+          itemCurrencyValue: "",
           partyId: creditor.id,
+          partyCurrency: [],
           error: "No default currency found for this party",
         };
       }
@@ -530,9 +551,13 @@ export default function SalesMetal() {
         partyName: creditor.customerName,
         partyCode: creditor.id,
         partyCurrencyId: defaultCurrency.currency?._id || "",
-        partyCurrencyCode: defaultCurrency.currency?.currencyCode || "",
+        partyCurrencyCode: defaultCurrency.currency?.currencyCode || "AED",
         partyCurrencyValue: creditor.creditLimit?.netAmount || "",
+        itemCurrencyId: defaultCurrency.currency?._id || "",
+        itemCurrencyCode: defaultCurrency.currency?.currencyCode || "AED",
+        itemCurrencyValue: creditor.creditLimit?.netAmount || "",
         partyId: creditor.id,
+        partyCurrency: defaultCurrency?.currency || [],
         error: null,
       };
     },
@@ -545,7 +570,9 @@ export default function SalesMetal() {
       return null;
     }
     try {
-      const response = await axiosInstance.get(`/currency-master/${currencyId}`);
+      const response = await axiosInstance.get(
+        `/currency-master/${currencyId}`
+      );
       const data = response.data.data;
       setFormData((prev) => ({
         ...prev,
@@ -584,7 +611,10 @@ export default function SalesMetal() {
     }
     if (!formData.fixed && !formData.internalUnfix) {
       setError("Please select either Fixed or Internal Unfix option.");
-      showToast("Please select either Fixed or Internal Unfix option.", "error");
+      showToast(
+        "Please select either Fixed or Internal Unfix option.",
+        "error"
+      );
       return false;
     }
     return true;
@@ -596,6 +626,7 @@ export default function SalesMetal() {
       if (typeof e === "object" && e && e.target) {
         ({ name, value, type, checked } = e.target);
       } else {
+        // Handle react-select input
         name = "partyName";
         value = e ? e.value : "";
       }
@@ -627,6 +658,7 @@ export default function SalesMetal() {
             itemCurrencyId: partyDetails.partyCurrencyId,
             itemCurrencyCode: partyDetails.partyCurrencyCode,
             itemCurrencyValue: partyDetails.partyCurrencyValue,
+            partyCurrency: partyDetails.partyCurrency,
           };
           setError(partyDetails.error || null);
         } else {
@@ -662,7 +694,8 @@ export default function SalesMetal() {
     setError(null);
     setTempStockItems([]);
     try {
-      const { voucherCode, voucherType, prefix } = await generateVoucherNumber();
+      const { voucherCode, voucherType, prefix } =
+        await generateVoucherNumber();
       setFormData({
         transactionType: "sale",
         voucherCode,
@@ -699,7 +732,9 @@ export default function SalesMetal() {
       setError(null);
 
       try {
-        const response = await axiosInstance.get(`/metal-transaction/${stock.id}`);
+        const response = await axiosInstance.get(
+          `/metal-transaction/${stock.id}`
+        );
         const transaction = response.data.data;
 
         let partyName = "Unknown Party";
@@ -727,7 +762,8 @@ export default function SalesMetal() {
         }
 
         const mappedStockItems = (transaction.stockItems || []).map((item) => {
-            const calculatedVatPercentage = item.vat?.percentage || item.vatPercentage || 0;
+          const calculatedVatPercentage =
+            item.vat?.percentage || item.vatPercentage || 0;
 
           return {
             stockId: item.stockCode?._id || item.stockCode || "",
@@ -757,12 +793,16 @@ export default function SalesMetal() {
             },
             otherCharges: {
               amount: Number(item.otherCharges?.amount) || 0,
-              rate: Number(item.otherCharges?.percentage || item.otherCharges?.rate) || 0, // Ensure rate is properly mapped
+              rate:
+                Number(
+                  item.otherCharges?.percentage || item.otherCharges?.rate
+                ) || 0, // Ensure rate is properly mapped
               description: item.otherCharges?.description || "",
             },
             itemTotal: {
               baseAmount: Number(item.itemTotal?.baseAmount) || 0,
-              makingChargesTotal: Number(item.itemTotal?.makingChargesTotal) || 0,
+              makingChargesTotal:
+                Number(item.itemTotal?.makingChargesTotal) || 0,
               premiumTotal: Number(item.itemTotal?.premiumTotal) || 0,
               subTotal: Number(item.itemTotal?.subTotal) || 0,
               vatAmount: Number(item.itemTotal?.vatAmount) || 0,
@@ -793,7 +833,9 @@ export default function SalesMetal() {
           partyCode: partyDetails.partyCode || transaction.partyCode?._id || "",
           partyName: partyDetails.partyName || partyName,
           partyCurrencyId:
-            partyDetails.partyCurrencyId || transaction.partyCurrency?._id || "",
+            partyDetails.partyCurrencyId ||
+            transaction.partyCurrency?._id ||
+            "",
           partyCurrencyCode:
             partyDetails.partyCurrencyCode ||
             transaction.partyCurrency?.symbol ||
@@ -842,10 +884,12 @@ export default function SalesMetal() {
         try {
           const transactionSuccess = await fetchMetalTransactions();
           if (transactionSuccess) {
-            const transaction = transactionSuccess.find((p) => p.vocNo === voucher);
+            const transaction = transactionSuccess.find(
+              (p) => p.vocNo === voucher
+            );
 
             if (transaction) {
-              handleEdit(transaction)
+              handleEdit(transaction);
             } else {
               console.warn(`No transaction found for voucher: ${voucher}`);
               toast.error(`No transaction found for voucher: ${voucher}`, {
@@ -876,157 +920,175 @@ export default function SalesMetal() {
     checkVoucher();
   }, [location, navigate, fetchMetalTransactions]);
 
-const handleSave = useCallback(async () => {
-  if (
-    !formData.voucherCode ||
-    !formData.partyCode ||
-    tempStockItems.length === 0
-  ) {
-    setError("Voucher Code, Party Code, and at least one Stock Item are required");
-    showToast("Missing required fields: Voucher Code, Party Code, or Stock Items", "error");
-    return;
-  }
-
-  setIsSaving(true); 
-  const transactionData = {
-    transactionType: "sale",
-    fix: formData.fixed ? formData.fixed : false,
-    unfix: formData.internalUnfix ? formData.internalUnfix : false,
-    voucherType: formData.voucherType,
-    voucherDate: formData.voucherDate,
-    voucherNumber: formData.voucherCode,
-    partyCode: formData.partyCode,
-    partyCurrency: formData.partyCurrencyId,
-    itemCurrency: formData.itemCurrencyId,
-    baseCurrency: formData.itemCurrencyId,
-    stockItems: tempStockItems.map((item) => ({
-      stockCode: item.stockId,
-      description: item.description,
-      pieces: Number(item.pcsCount) || 0,
-      grossWeight: Number(item.grossWeight) || 0,
-      purity: Number(item.purity) || 0,
-      pureWeight: Number(item.pureWeight) || 0,
-      purityWeight: Number(item.purityWeight) || 0,
-      weightInOz: Number(item.weightInOz) || 0,
-      metalRate: item.metalRate || "0",
-      metalRateRequirements: {
-        amount: Number(item.metalRateRequirements.amount) || 0,
-        rate: Number(item.metalRateRequirements.rate) || 0,
-      },
-      makingCharges: {
-        amount: Number(item.makingCharges.amount) || 0,
-        rate: Number(item.makingCharges.rate) || 0,
-      },
-      otherCharges: {
-        percentage: item.otherCharges.rate || item.otherCharges.percentage,
-        amount: Number(item.otherCharges.amount) || 0,
-        description: item.otherCharges.description || "",
-        totalAfterOtherCharges: Number(item.otherCharges.totalAfterOtherCharges) || 0,
-      },
-      vat: {
-        vatPercentage: Number(item.itemTotal.vatPercentage) || 0,
-        vatAmount: Number(item.itemTotal.vatAmount) || 0,
-      },
-      premium: {
-        amount: Number(item.premium.amount) || 0,
-        rate: Number(item.premium.rate) || 0,
-      },
-      itemTotal: {
-        baseAmount: Number(item.itemTotal.baseAmount) || 0,
-        makingChargesTotal: Number(item.itemTotal.makingChargesTotal) || 0,
-        premiumTotal: Number(item.itemTotal.premiumTotal) || 0,
-        subTotal: Number(item.itemTotal.subTotal) || 0,
-        vatAmount: Number(item.itemTotal.vatAmount) || 0,
-        itemTotalAmount: Number(item.itemTotal.itemTotalAmount) || 0,
-      },
-      itemNotes: "",
-      itemStatus: "active",
-    })),
-    totalAmountSession: {
-      totalAmountAED: tempStockItems.reduce(
-        (sum, item) => sum + (Number(item.itemTotal.itemTotalAmount) || 0),
-        0
-      ),
-      netAmountAED: tempStockItems.reduce(
-        (sum, item) => sum + (Number(item.itemTotal.subTotal) || 0),
-        0
-      ),
-      vatAmount: tempStockItems.reduce(
-        (sum, item) => sum + (Number(item.itemTotal.vatAmount) || 0),
-        0
-      ),
-      vatPercentage: Number(tempStockItems[0]?.vatPercentage) || 0,
-    },
-    status: "draft",
-    notes: "",
-  };
-
-  // Debug: Log what we're sending to backend
-  console.log('Sending to backend:', JSON.stringify(transactionData, null, 2));
-
-  try {
-    if (editingStock) {
-      await axiosInstance.put(`/metal-transaction/${editingStock.id}`, transactionData);
-      showToast("Metal sale updated successfully!", "success");
-      setIsModalOpen(false);
-      fetchMetalTransactions();
-    } else {
-      const response = await axiosInstance.post("/metal-transaction", transactionData);
-      const newTransaction = response.data.data;
-
-      const newStock = {
-        id: newTransaction._id || "",
-        sl: editingStock
-          ? editingStock.sl
-          : Math.max(...metalSales.map((s) => s.sl), 0) + 1,
-        branch: "Main Branch",
-        vocType: formData.voucherType,
-        vocNo: formData.voucherCode,
-        vocDate: formData.voucherDate,
-        partyCode: formData.partyCode,
-        partyName: formData.partyName,
-        stockItems: tempStockItems,
-      };
-
-      setMetalSales((prev) =>
-        editingStock
-          ? prev.map((stock) =>
-              stock.sl === editingStock.sl ? newStock : stock
-            )
-          : [...prev, newStock]
+  const handleSave = useCallback(async () => {
+    if (
+      !formData.voucherCode ||
+      !formData.partyCode ||
+      tempStockItems.length === 0
+    ) {
+      setError(
+        "Voucher Code, Party Code, and at least one Stock Item are required"
       );
-
-      setStockItems((prev) => [
-        ...prev,
-        ...newTransaction.stockItems.map((item) => ({
-          ...item,
-          stockId: item.stockCode,
-          transactionId: newTransaction._id,
-          voucherNumber: newTransaction.voucherNumber,
-        })),
-      ]);
-      setNewlyCreatedSale(newStock);
-      // Show preview after save
-      setShowPreviewAfterSave(true);
-
-      showToast("Metal sale created successfully!", "success");
-      setIsModalOpen(false);
-      fetchMetalTransactions();
+      showToast(
+        "Missing required fields: Voucher Code, Party Code, or Stock Items",
+        "error"
+      );
+      return;
     }
-  } catch (error) {
-    setError(error.response?.data?.message || "Failed to save metal sale");
-    showToast(error.response?.data?.message || "Failed to save metal sale", "error");
-  } finally {
-    setIsSaving(false);
-  }
-}, [
-  formData,
-  tempStockItems,
-  editingStock,
-  metalSales,
-  fetchMetalTransactions,
-  showToast,
-]);
+
+    setIsSaving(true);
+    const transactionData = {
+      transactionType: "sale",
+      fix: formData.fixed ? formData.fixed : false,
+      unfix: formData.internalUnfix ? formData.internalUnfix : false,
+      voucherType: formData.voucherType,
+      voucherDate: formData.voucherDate,
+      voucherNumber: formData.voucherCode,
+      partyCode: formData.partyCode,
+      partyCurrency: formData.partyCurrencyId,
+      itemCurrency: formData.partyCurrencyId,
+      baseCurrency: formData.partyCurrencyId,
+      stockItems: tempStockItems.map((item) => ({
+        stockCode: item.stockId,
+        description: item.description,
+        pieces: Number(item.pcsCount) || 0,
+        grossWeight: Number(item.grossWeight) || 0,
+        purity: Number(item.purity) || 0,
+        pureWeight: Number(item.pureWeight) || 0,
+        purityWeight: Number(item.purityWeight) || 0,
+        weightInOz: Number(item.weightInOz) || 0,
+        metalRate: item.metalRate || "0",
+        metalRateRequirements: {
+          amount: Number(item.metalRateRequirements.amount) || 0,
+          rate: Number(item.metalRateRequirements.rate) || 0,
+        },
+        makingCharges: {
+          amount: Number(item.makingCharges.amount) || 0,
+          rate: Number(item.makingCharges.rate) || 0,
+        },
+        otherCharges: {
+          percentage: item.otherCharges.rate || item.otherCharges.percentage,
+          amount: Number(item.otherCharges.amount) || 0,
+          description: item.otherCharges.description || "",
+          totalAfterOtherCharges:
+            Number(item.otherCharges.totalAfterOtherCharges) || 0,
+        },
+        vat: {
+          vatPercentage: Number(item.itemTotal.vatPercentage) || 0,
+          vatAmount: Number(item.itemTotal.vatAmount) || 0,
+        },
+        premium: {
+          amount: Number(item.premium.amount) || 0,
+          rate: Number(item.premium.rate) || 0,
+        },
+        itemTotal: {
+          baseAmount: Number(item.itemTotal.baseAmount) || 0,
+          makingChargesTotal: Number(item.itemTotal.makingChargesTotal) || 0,
+          premiumTotal: Number(item.itemTotal.premiumTotal) || 0,
+          subTotal: Number(item.itemTotal.subTotal) || 0,
+          vatAmount: Number(item.itemTotal.vatAmount) || 0,
+          itemTotalAmount: Number(item.itemTotal.itemTotalAmount) || 0,
+        },
+        itemNotes: "",
+        itemStatus: "active",
+      })),
+      totalAmountSession: {
+        totalAmountAED: tempStockItems.reduce(
+          (sum, item) => sum + (Number(item.itemTotal.itemTotalAmount) || 0),
+          0
+        ),
+        netAmountAED: tempStockItems.reduce(
+          (sum, item) => sum + (Number(item.itemTotal.subTotal) || 0),
+          0
+        ),
+        vatAmount: tempStockItems.reduce(
+          (sum, item) => sum + (Number(item.itemTotal.vatAmount) || 0),
+          0
+        ),
+        vatPercentage: Number(tempStockItems[0]?.vatPercentage) || 0,
+      },
+      status: "draft",
+      notes: "",
+    };
+
+    // Debug: Log what we're sending to backend
+    console.log(
+      "Sending to backend:",
+      JSON.stringify(transactionData, null, 2)
+    );
+
+    try {
+      if (editingStock) {
+        await axiosInstance.put(
+          `/metal-transaction/${editingStock.id}`,
+          transactionData
+        );
+        showToast("Metal sale updated successfully!", "success");
+        setIsModalOpen(false);
+        fetchMetalTransactions();
+      } else {
+        const response = await axiosInstance.post(
+          "/metal-transaction",
+          transactionData
+        );
+        const newTransaction = response.data.data;
+
+        const newStock = {
+          id: newTransaction._id || "",
+          sl: editingStock
+            ? editingStock.sl
+            : Math.max(...metalSales.map((s) => s.sl), 0) + 1,
+          branch: "Main Branch",
+          vocType: formData.voucherType,
+          vocNo: formData.voucherCode,
+          vocDate: formData.voucherDate,
+          partyCode: formData.partyCode,
+          partyName: formData.partyName,
+          stockItems: tempStockItems,
+        };
+
+        setMetalSales((prev) =>
+          editingStock
+            ? prev.map((stock) =>
+                stock.sl === editingStock.sl ? newStock : stock
+              )
+            : [...prev, newStock]
+        );
+
+        setStockItems((prev) => [
+          ...prev,
+          ...newTransaction.stockItems.map((item) => ({
+            ...item,
+            stockId: item.stockCode,
+            transactionId: newTransaction._id,
+            voucherNumber: newTransaction.voucherNumber,
+          })),
+        ]);
+        setNewlyCreatedSale(newStock);
+        // Show preview after save
+        setShowPreviewAfterSave(true);
+
+        showToast("Metal sale created successfully!", "success");
+        setIsModalOpen(false);
+        fetchMetalTransactions();
+      }
+    } catch (error) {
+      setError(error.response?.data?.message || "Failed to save metal sale");
+      showToast(
+        error.response?.data?.message || "Failed to save metal sale",
+        "error"
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  }, [
+    formData,
+    tempStockItems,
+    editingStock,
+    metalSales,
+    fetchMetalTransactions,
+    showToast,
+  ]);
 
   const handleProductModalOpen = () => {
     if (validateMainModal()) setIsProductModalOpen(true);
@@ -1050,6 +1112,28 @@ const handleSave = useCallback(async () => {
     setError(null);
     setTempStockItems([]);
   };
+
+  const handleCurrencyChange = (option) => {
+    console.log(option);
+    console.log("option data", option);
+    setFormData((prev) => ({
+      ...prev,
+      partyCurrencyCode: option?.value,
+      itemCurrencyCode: option?.value,
+      partyCurrency: option?.data,
+      partyCurrencyId: option?.data?._id,
+    }));
+  };
+  const selectedParty = tradeDebtors.find(
+    (d) => d.customerName === formData.partyName
+  );
+
+  const currencyOptions =
+    selectedParty?.acDefinition?.currencies?.map((c) => ({
+      value: c.currency?.currencyCode,
+      label: c.currency?.currencyCode,
+      data: c.currency,
+    })) || [];
 
   const generatePDF = (purchase, doc, isSingle = true) => {
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -1134,44 +1218,91 @@ const handleSave = useCallback(async () => {
     doc.line(centerX, boxTopY, centerX, boxBottomY);
 
     // === MAIN TABLE ===
-    const tableData = (isSingle ? purchase.stockItems : purchase).map((item) => ({
-      description: item.description || "N/A",
-      grossWt: formatNumber(item.grossWeight || 0, 3),
-      purity: formatNumber(item.purity || 0, 6),
-      pureWt: formatNumber(item.pureWeight || 0, 3),
-      makingRate: formatNumber(item.makingCharges?.rate || 0, 2),
-      makingAmount: formatNumber(item.makingCharges?.amount || 0, 2),
-      taxableAmt: formatNumber(item.taxableAmt || item.itemTotal?.subTotal || 0, 2),
-      vatPercent: formatNumber(item.itemTotal?.vatPercentage || 0, 2),
-      vatAmt: formatNumber(item.itemTotal?.vatAmount || 0, 2),
-      totalAmt: purchase.fixed ? formatNumber(item.itemTotal?.itemTotalAmount || 0, 2) : '0.00',
-      rate: formatNumber(item.makingCharges?.rate || 0, 2),
-      amount: formatNumber(item.makingCharges?.amount || 0, 2),
-    }));
+    const tableData = (isSingle ? purchase.stockItems : purchase).map(
+      (item) => ({
+        description: item.description || "N/A",
+        grossWt: formatNumber(item.grossWeight || 0, 3),
+        purity: formatNumber(item.purity || 0, 6),
+        pureWt: formatNumber(item.pureWeight || 0, 3),
+        makingRate: formatNumber(item.makingCharges?.rate || 0, 2),
+        makingAmount: formatNumber(item.makingCharges?.amount || 0, 2),
+        taxableAmt: formatNumber(
+          item.taxableAmt || item.itemTotal?.subTotal || 0,
+          2
+        ),
+        vatPercent: formatNumber(item.itemTotal?.vatPercentage || 0, 2),
+        vatAmt: formatNumber(item.itemTotal?.vatAmount || 0, 2),
+        totalAmt: purchase.fixed
+          ? formatNumber(item.itemTotal?.itemTotalAmount || 0, 2)
+          : "0.00",
+        rate: formatNumber(item.makingCharges?.rate || 0, 2),
+        amount: formatNumber(item.makingCharges?.amount || 0, 2),
+      })
+    );
 
     const itemCount = tableData.length;
-    const totalAmt = purchase.fixed ? formatNumber(
-      tableData.reduce((acc, curr) => acc + parseFloat(curr.totalAmt.replace(/,/g, "") || 0), 0), 2
-    ) : '0.00';
+    const totalAmt = purchase.fixed
+      ? formatNumber(
+          tableData.reduce(
+            (acc, curr) =>
+              acc + parseFloat(curr.totalAmt.replace(/,/g, "") || 0),
+            0
+          ),
+          2
+        )
+      : "0.00";
     const totalGrossWt = formatNumber(
-      tableData.reduce((acc, curr) => acc + parseFloat(curr.grossWt.replace(/,/g, "") || 0), 0), 3
+      tableData.reduce(
+        (acc, curr) => acc + parseFloat(curr.grossWt.replace(/,/g, "") || 0),
+        0
+      ),
+      3
     );
     const totalPureWt = formatNumber(
-      tableData.reduce((acc, curr) => acc + parseFloat(curr.pureWt.replace(/,/g, "") || 0), 0), 3
+      tableData.reduce(
+        (acc, curr) => acc + parseFloat(curr.pureWt.replace(/,/g, "") || 0),
+        0
+      ),
+      3
     );
-    const totalVAT = purchase.fixed ? formatNumber(
-      tableData.reduce((acc, curr) => acc + parseFloat(curr.vatAmt.replace(/,/g, "") || 0), 0), 2
-    ) : '0.00';
-    const totalRate = purchase.fixed ? formatNumber(
-      tableData.reduce((acc, curr) => acc + parseFloat(curr.rate.replace(/,/g, "") || 0), 0), 2
-    ) : '0.00';
-    const totalAmount = purchase.fixed ? formatNumber(
-      tableData.reduce((acc, curr) => acc + parseFloat(curr.amount.replace(/,/g, "") || 0), 0), 2
-    ) : '0.00';
-    const avgVATPercent = purchase.fixed && tableData.length > 0 ?
-      formatNumber(
-        tableData.reduce((acc, curr) => acc + parseFloat(curr.vatPercent.replace(/,/g, "") || 0), 0) / tableData.length, 2
-      ) : '0.00';
+    const totalVAT = purchase.fixed
+      ? formatNumber(
+          tableData.reduce(
+            (acc, curr) => acc + parseFloat(curr.vatAmt.replace(/,/g, "") || 0),
+            0
+          ),
+          2
+        )
+      : "0.00";
+    const totalRate = purchase.fixed
+      ? formatNumber(
+          tableData.reduce(
+            (acc, curr) => acc + parseFloat(curr.rate.replace(/,/g, "") || 0),
+            0
+          ),
+          2
+        )
+      : "0.00";
+    const totalAmount = purchase.fixed
+      ? formatNumber(
+          tableData.reduce(
+            (acc, curr) => acc + parseFloat(curr.amount.replace(/,/g, "") || 0),
+            0
+          ),
+          2
+        )
+      : "0.00";
+    const avgVATPercent =
+      purchase.fixed && tableData.length > 0
+        ? formatNumber(
+            tableData.reduce(
+              (acc, curr) =>
+                acc + parseFloat(curr.vatPercent.replace(/,/g, "") || 0),
+              0
+            ) / tableData.length,
+            2
+          )
+        : "0.00";
 
     autoTable(doc, {
       startY: boxBottomY + 6,
@@ -1297,37 +1428,69 @@ const handleSave = useCallback(async () => {
     let totalBoxHeight = 0;
     let totalBoxTopY = totalsStartY;
 
-    const totalsBody = purchase.fixed ? [
-      [
-        { content: "VAT %", styles: { fontStyle: 'bold', halign: 'center' } },
-        { content: avgVATPercent, styles: { fontStyle: 'bold', halign: 'center' } },
-      ],
-      [
-        { content: "VAT Amount (AED)", styles: { fontStyle: 'bold', halign: 'center' } },
-        { content: totalVAT, styles: { fontStyle: 'bold', halign: 'center' } },
-      ],
-      [
-        { content: "Taxable Amount (AED)", styles: { fontStyle: 'bold', halign: 'center' } },
-        { content: totalAmount, styles: { fontStyle: 'bold', halign: 'center' } },
-      ],
-      [
-        { content: "Total Amount (AED)", styles: { fontStyle: 'bold', halign: 'center' } },
-        { content: totalAmt, styles: { fontStyle: 'bold', halign: 'center' } },
-      ],
-    ] : [
-      [
-        { content: "Total Gross Wt.", styles: { fontStyle: 'bold', halign: 'center' } },
-        { content: totalGrossWt, styles: { fontStyle: 'bold', halign: 'center' } },
-      ],
-    ];
+    const totalsBody = purchase.fixed
+      ? [
+          [
+            {
+              content: "VAT %",
+              styles: { fontStyle: "bold", halign: "center" },
+            },
+            {
+              content: avgVATPercent,
+              styles: { fontStyle: "bold", halign: "center" },
+            },
+          ],
+          [
+            {
+              content: "VAT Amount (AED)",
+              styles: { fontStyle: "bold", halign: "center" },
+            },
+            {
+              content: totalVAT,
+              styles: { fontStyle: "bold", halign: "center" },
+            },
+          ],
+          [
+            {
+              content: "Taxable Amount (AED)",
+              styles: { fontStyle: "bold", halign: "center" },
+            },
+            {
+              content: totalAmount,
+              styles: { fontStyle: "bold", halign: "center" },
+            },
+          ],
+          [
+            {
+              content: "Total Amount (AED)",
+              styles: { fontStyle: "bold", halign: "center" },
+            },
+            {
+              content: totalAmt,
+              styles: { fontStyle: "bold", halign: "center" },
+            },
+          ],
+        ]
+      : [
+          [
+            {
+              content: "Total Gross Wt.",
+              styles: { fontStyle: "bold", halign: "center" },
+            },
+            {
+              content: totalGrossWt,
+              styles: { fontStyle: "bold", halign: "center" },
+            },
+          ],
+        ];
 
     autoTable(doc, {
       startY: totalsStartY,
       body: totalsBody,
-      theme: 'plain',
+      theme: "plain",
       styles: {
         fontSize: 8,
-        font: 'helvetica',
+        font: "helvetica",
         textColor: 0,
         lineWidth: 0,
         cellPadding: { top: 1, bottom: 4, left: 2, right: 2 },
@@ -1338,14 +1501,29 @@ const handleSave = useCallback(async () => {
       },
       margin: { left: leftMargin, right: 14 },
       tableWidth: tableWidth,
-      showHead: 'never',
+      showHead: "never",
       didDrawPage: (data) => {
         totalBoxHeight = data.cursor.y - totalBoxTopY;
         doc.setDrawColor(205, 205, 205);
         doc.setLineWidth(0.3);
-        doc.line(leftMargin, totalBoxTopY, leftMargin + tableWidth, totalBoxTopY);
-        doc.line(leftMargin, totalBoxTopY, leftMargin, totalBoxTopY + totalBoxHeight);
-        doc.line(leftMargin, totalBoxTopY + totalBoxHeight, leftMargin + tableWidth, totalBoxTopY + totalBoxHeight);
+        doc.line(
+          leftMargin,
+          totalBoxTopY,
+          leftMargin + tableWidth,
+          totalBoxTopY
+        );
+        doc.line(
+          leftMargin,
+          totalBoxTopY,
+          leftMargin,
+          totalBoxTopY + totalBoxHeight
+        );
+        doc.line(
+          leftMargin,
+          totalBoxTopY + totalBoxHeight,
+          leftMargin + tableWidth,
+          totalBoxTopY + totalBoxHeight
+        );
       },
     });
 
@@ -1377,7 +1555,9 @@ const handleSave = useCallback(async () => {
       body: [
         [
           {
-            content: `${creditAmount} ${purchase.fixed ? "CREDITED" : "DEBITED"}`,
+            content: `${creditAmount} ${
+              purchase.fixed ? "CREDITED" : "DEBITED"
+            }`,
             styles: { ...sharedStyles, fontStyle: "bold", halign: "left" },
           },
           {
@@ -1404,7 +1584,9 @@ const handleSave = useCallback(async () => {
       body: [
         [
           {
-            content: `${pureWeightGrams} GMS ${purchase.fixed ? "CREDITED" : "DEBITED"}`,
+            content: `${pureWeightGrams} GMS ${
+              purchase.fixed ? "CREDITED" : "DEBITED"
+            }`,
             styles: { ...sharedStyles, fontStyle: "bold", halign: "left" },
           },
           {
@@ -1431,7 +1613,9 @@ const handleSave = useCallback(async () => {
       body: [
         [
           {
-            content: `${purchase.fixed ? "fix" : "unfix"} buy pure gold ${pureWeightGrams} gm @`,
+            content: `${
+              purchase.fixed ? "fix" : "unfix"
+            } buy pure gold ${pureWeightGrams} gm @`,
             colSpan: 2,
             styles: { ...sharedStyles, halign: "left" },
           },
@@ -1477,7 +1661,10 @@ const handleSave = useCallback(async () => {
       const doc = new jsPDF();
       generatePDF(purchase, doc);
       doc.save(`transaction-${purchase.voucherNumber || "N/A"}.pdf`);
-      showToast(`PDF generated for transaction ${purchase.voucherNumber}`, "success");
+      showToast(
+        `PDF generated for transaction ${purchase.voucherNumber}`,
+        "success"
+      );
     } catch (error) {
       showToast("Failed to generate PDF", "error");
     }
@@ -1591,13 +1778,13 @@ const handleSave = useCallback(async () => {
     const avgVATPercent =
       tableData.length > 0
         ? formatNumber(
-          tableData.reduce(
-            (acc, curr) =>
-              acc + parseFloat(curr.vatPercent.replace(/,/g, "") || 0),
-            0
-          ) / tableData.length,
-          2
-        )
+            tableData.reduce(
+              (acc, curr) =>
+                acc + parseFloat(curr.vatPercent.replace(/,/g, "") || 0),
+              0
+            ) / tableData.length,
+            2
+          )
         : "0.00";
 
     autoTable(doc, {
@@ -1811,7 +1998,9 @@ const handleSave = useCallback(async () => {
       body: [
         [
           {
-            content: `AED ${creditAmount} ${totalAmtValue >= 0 ? "CREDITED" : "DEBITED"}`,
+            content: `AED ${creditAmount} ${
+              totalAmtValue >= 0 ? "CREDITED" : "DEBITED"
+            }`,
             styles: { halign: "left", fontStyle: "bold" },
           },
           {
@@ -1852,7 +2041,10 @@ const handleSave = useCallback(async () => {
     doc.text("AUTHORISED SIGNATORY", 170, sigY, null, null, "center");
 
     doc.save("filtered-metal-sales.pdf");
-    showToast("Filtered sales transactions exported to PDF successfully!", "success");
+    showToast(
+      "Filtered sales transactions exported to PDF successfully!",
+      "success"
+    );
   };
 
   const totalPages = Math.ceil(filteredSales.length / itemsPerPage);
@@ -1868,27 +2060,31 @@ const handleSave = useCallback(async () => {
     setIsDeleteModalOpen(true);
   }, [editingStock]);
 
-const confirmDeleteSale = useCallback(async () => {
-  if (!saleToDelete) return;
+  const confirmDeleteSale = useCallback(async () => {
+    if (!saleToDelete) return;
 
-  setIsDeleting(true); // Set deleting state
-  try {
-    const response = await axiosInstance.delete(`/metal-transaction/${saleToDelete}`);
-    if (response.data.success) {
-      setMetalSales((prev) => prev.filter((stock) => stock.id !== saleToDelete));
-      showToast("Metal sale deleted successfully", "success");
-    } else {
+    setIsDeleting(true); // Set deleting state
+    try {
+      const response = await axiosInstance.delete(
+        `/metal-transaction/${saleToDelete}`
+      );
+      if (response.data.success) {
+        setMetalSales((prev) =>
+          prev.filter((stock) => stock.id !== saleToDelete)
+        );
+        showToast("Metal sale deleted successfully", "success");
+      } else {
+        showToast("Failed to delete sale", "error");
+      }
+    } catch (error) {
       showToast("Failed to delete sale", "error");
+    } finally {
+      setIsDeleting(false); // Reset deleting state
+      setIsDeleteModalOpen(false);
+      setSaleToDelete(null);
+      setIsModalOpen(false);
     }
-  } catch (error) {
-    showToast("Failed to delete sale", "error");
-  } finally {
-    setIsDeleting(false); // Reset deleting state
-    setIsDeleteModalOpen(false);
-    setSaleToDelete(null);
-    setIsModalOpen(false);
-  }
-}, [saleToDelete, showToast]);
+  }, [saleToDelete, showToast]);
 
   return (
     <div className="min-h-screen w-full">
@@ -2049,7 +2245,6 @@ const confirmDeleteSale = useCallback(async () => {
                           {sale.partyName}
                         </td>
                         <td className="px-6 py-4 flex space-x-2">
-
                           <button
                             onClick={(e) => {
                               setSelectedPurchase(sale);
@@ -2107,10 +2302,11 @@ const confirmDeleteSale = useCallback(async () => {
                             <button
                               key={page}
                               onClick={() => setCurrentPage(page)}
-                              className={`px-3 py-2 text-sm font-medium rounded-lg ${currentPage === page
-                                ? "bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg"
-                                : "text-gray-700 bg-white border border-gray-300 hover:bg-gray-50"
-                                }`}
+                              className={`px-3 py-2 text-sm font-medium rounded-lg ${
+                                currentPage === page
+                                  ? "bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg"
+                                  : "text-gray-700 bg-white border border-gray-300 hover:bg-gray-50"
+                              }`}
                             >
                               {page}
                             </button>
@@ -2145,86 +2341,89 @@ const confirmDeleteSale = useCallback(async () => {
               </div>
             )}
           </div>
-{isDeleteModalOpen && (
-  <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-100">
-    <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-800">Confirm Deletion</h3>
-        <button
-          onClick={() => {
-            setIsDeleteModalOpen(false);
-            setSaleToDelete(null);
-          }}
-          className="text-gray-500 hover:text-gray-700"
-          disabled={isDeleting}
-        >
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-        </button>
-      </div>
-      <p className="text-sm text-gray-600 mb-6">
-        Are you sure you want to delete this metal sale? This action cannot be undone.
-      </p>
-      <div className="flex justify-end gap-3">
-        <button
-          onClick={() => {
-            setIsDeleteModalOpen(false);
-            setSaleToDelete(null);
-          }}
-          className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
-          disabled={isDeleting}
-        >
-          Cancel
-        </button>
-        <button
-          onClick={confirmDeleteSale}
-          className="px-6 py-2 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-lg hover:from-blue-700 hover:to-cyan-600 disabled:opacity-50 flex items-center gap-2"
-          disabled={isDeleting}
-        >
-          {isDeleting ? (
-            <>
-              <svg
-                className="animate-spin h-5 w-5 text-white"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                />
-              </svg>
-              Deleting...
-            </>
-          ) : (
-            "Confirm"
+          {isDeleteModalOpen && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-100">
+              <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-800">
+                    Confirm Deletion
+                  </h3>
+                  <button
+                    onClick={() => {
+                      setIsDeleteModalOpen(false);
+                      setSaleToDelete(null);
+                    }}
+                    className="text-gray-500 hover:text-gray-700"
+                    disabled={isDeleting}
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+                <p className="text-sm text-gray-600 mb-6">
+                  Are you sure you want to delete this metal sale? This action
+                  cannot be undone.
+                </p>
+                <div className="flex justify-end gap-3">
+                  <button
+                    onClick={() => {
+                      setIsDeleteModalOpen(false);
+                      setSaleToDelete(null);
+                    }}
+                    className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
+                    disabled={isDeleting}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={confirmDeleteSale}
+                    className="px-6 py-2 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-lg hover:from-blue-700 hover:to-cyan-600 disabled:opacity-50 flex items-center gap-2"
+                    disabled={isDeleting}
+                  >
+                    {isDeleting ? (
+                      <>
+                        <svg
+                          className="animate-spin h-5 w-5 text-white"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                          />
+                        </svg>
+                        Deleting...
+                      </>
+                    ) : (
+                      "Confirm"
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
-        </button>
-      </div>
-    </div>
-  </div>
-)}
 
           {isModalOpen && (
             <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center p-4 z-50">
@@ -2264,18 +2463,16 @@ const confirmDeleteSale = useCallback(async () => {
                         </div>
                       </div>
 
-                      {
-                        editingStock ? (
-                          <button
-                            onClick={handleDelete}
-                            className="px-4 py-2 rounded-lg text-white bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 transition-all duration-200 flex items-center gap-2 shadow-sm hover:shadow-md"
-                          >
-                            Delete
-                          </button>
-                        ) : (
-                          <div className="h-10" />
-                        )
-                      }
+                      {editingStock ? (
+                        <button
+                          onClick={handleDelete}
+                          className="px-4 py-2 rounded-lg text-white bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 transition-all duration-200 flex items-center gap-2 shadow-sm hover:shadow-md"
+                        >
+                          Delete
+                        </button>
+                      ) : (
+                        <div className="h-10" />
+                      )}
                     </div>
                     {error && (
                       <div className="bg-red-100 text-red-700 px-4 py-2 rounded-lg mb-4">
@@ -2371,9 +2568,9 @@ const confirmDeleteSale = useCallback(async () => {
                                 value={
                                   formData.partyName
                                     ? {
-                                      value: formData.partyName,
-                                      label: formData.partyName,
-                                    }
+                                        value: formData.partyName,
+                                        label: formData.partyName,
+                                      }
                                     : null
                                 }
                                 onChange={(selectedOption) =>
@@ -2385,48 +2582,45 @@ const confirmDeleteSale = useCallback(async () => {
                           </div>
                         </div>
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-                          <div className="space-y-2">
-                            <label className="block text-sm font-semibold text-slate-700">
-                              Party Currency{" "}
-                              <span className="text-red-500">*</span>
-                            </label>
-                            <div className="flex">
-                              <input
-                                type="text"
-                                name="partyCurrencyCode"
-                                value={formData.partyCurrencyCode}
-                                className="w-20 px-3 py-3 bg-slate-100 border border-slate-200 rounded-xl text-center font-mono text-sm focus:outline-none"
-                              />
-                              <input
-                                type="text"
-                                name="partyCurrencyValue"
-                                value={formData.partyCurrencyValue}
-                                onChange={handleInputChange}
-                                className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none"
+                          {currencyOptions.length > 0 && (
+                            <div className="space-y-2">
+                              <label className="block text-sm font-semibold text-slate-700">
+                                Party Currency{" "}
+                                <span className="text-red-500">*</span>
+                              </label>
+                              <Select
+                                placeholder="Select currency"
+                                options={currencyOptions}
+                                value={{
+                                  value: formData?.partyCurrencyCode,
+                                  label: formData?.partyCurrencyCode,
+                                }}
+                                onChange={handleCurrencyChange}
+                                isClearable
                               />
                             </div>
-                          </div>
-                          <div className="space-y-2">
-                            <label className="block text-sm font-semibold text-slate-700">
-                              Item Currency{" "}
-                              <span className="text-red-500">*</span>
-                            </label>
-                            <div className="flex">
-                              <input
-                                type="text"
-                                name="itemCurrencyCode"
-                                value={formData.itemCurrencyCode}
-                                className="w-20 px-3 py-3 bg-slate-100 border border-slate-200 rounded-xl text-center font-mono text-sm focus:outline-none"
-                              />
-                              <input
-                                type="text"
-                                name="itemCurrencyValue"
-                                value={formData.itemCurrencyValue}
-                                onChange={handleInputChange}
-                                className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none"
+                          )}
+
+                          {currencyOptions.length > 0 && (
+                            <div className="space-y-2">
+                              <label className="block text-sm font-semibold text-slate-700">
+                                Item Currency{" "}
+                                <span className="text-red-500">*</span>
+                              </label>
+                              <Select
+                                placeholder="Select currency"
+                                options={currencyOptions}
+                                value={{
+                                  value: formData?.partyCurrencyCode,
+                                  label: formData?.partyCurrencyCode,
+                                }}
+                                onChange={handleCurrencyChange}
+                                isClearable
                               />
                             </div>
-                          </div>
+                          )}
+
+                          <div></div>
                         </div>
                       </div>
                       <div className="p-6">
@@ -2599,19 +2793,34 @@ const confirmDeleteSale = useCallback(async () => {
                                       {item.metalType || "N/A"}
                                     </td>
                                     <td className="px-4 py-3 text-sm">
-                                      {formatNumber(item.metalRateRequirements?.rate || 0, 2)}
+                                      {formatNumber(
+                                        item.metalRateRequirements?.rate || 0,
+                                        2
+                                      )}
                                     </td>
                                     <td className="px-4 py-3 text-sm">
-                                      {formatNumber(item.itemTotal?.makingChargesTotal || 0, 2)}
+                                      {formatNumber(
+                                        item.itemTotal?.makingChargesTotal || 0,
+                                        2
+                                      )}
                                     </td>
                                     <td className="px-4 py-3 text-sm">
-                                      {formatNumber(item.premium?.amount || 0, 2)}
+                                      {formatNumber(
+                                        item.premium?.amount || 0,
+                                        2
+                                      )}
                                     </td>
                                     <td className="px-4 py-3 text-sm">
-                                      {formatNumber(item.itemTotal?.vatAmount || 0, 2)}
+                                      {formatNumber(
+                                        item.itemTotal?.vatAmount || 0,
+                                        2
+                                      )}
                                     </td>
                                     <td className="px-4 py-3 text-sm">
-                                      {formatNumber(item.itemTotal?.itemTotalAmount || 0, 2)}
+                                      {formatNumber(
+                                        item.itemTotal?.itemTotalAmount || 0,
+                                        2
+                                      )}
                                     </td>
 
                                     <td>
@@ -2656,54 +2865,59 @@ const confirmDeleteSale = useCallback(async () => {
                         Required fields must be completed
                       </span>
                     </div>
-                   <div className="flex items-center space-x-3">
-  <button
-    onClick={handleCancel}
-    className="px-6 py-2.5 border border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 transition-all duration-200 font-medium"
-    disabled={isSaving}
-  >
-    Cancel
-  </button>
-  <button
-    onClick={handleSave}
-    className="px-8 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2"
-    disabled={isSaving}
-  >
-    {isSaving ? (
-      <>
-        <svg
-          className="animate-spin h-5 w-5 text-white"
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-        >
-          <circle
-            className="opacity-25"
-            cx="12"
-            cy="12"
-            r="10"
-            stroke="currentColor"
-            strokeWidth="4"
-          />
-          <path
-            className="opacity-75"
-            fill="currentColor"
-            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-          />
-        </svg>
-        {editingStock ? "Updating..." : "Saving..."}
-      </>
-    ) : (
-      editingStock ? "Update Sale" : "Save Sale"
-    )}
-  </button>
-</div>
+                    <div className="flex items-center space-x-3">
+                      <button
+                        onClick={handleCancel}
+                        className="px-6 py-2.5 border border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 transition-all duration-200 font-medium"
+                        disabled={isSaving}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSave}
+                        className="px-8 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2"
+                        disabled={isSaving}
+                      >
+                        {isSaving ? (
+                          <>
+                            <svg
+                              className="animate-spin h-5 w-5 text-white"
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                            >
+                              <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                              />
+                              <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                              />
+                            </svg>
+                            {editingStock ? "Updating..." : "Saving..."}
+                          </>
+                        ) : editingStock ? (
+                          "Update Sale"
+                        ) : (
+                          "Save Sale"
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
               <ProductDetailsModal
                 isOpen={isProductModalOpen}
                 onClose={handleProductModalClose}
+                 partyCurrency={formData?.partyCurrency}
+                party={selectedParty}
+                fixed={formData?.fixed}
                 onSave={(productData) => {
                   if (editingStockItem) {
                     // Replace the item
@@ -2741,8 +2955,8 @@ const confirmDeleteSale = useCallback(async () => {
         toastOptions={{
           duration: 4000,
           style: {
-            background: '#fff',
-            color: '#4CAF50',
+            background: "#fff",
+            color: "#4CAF50",
           },
         }}
       />

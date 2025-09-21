@@ -130,7 +130,7 @@ export default function PurchaseMetal() {
     spp: "",
     fixed: false,
     internalUnfix: false,
-    partyCurrency: []
+    partyCurrency: [],
   });
   // const handleDownloadClick = useCallback((purchase) => {
   //   setSelectedPurchase(purchase);
@@ -146,7 +146,7 @@ export default function PurchaseMetal() {
     try {
       const response = await axiosInstance.get("/account-type");
       const { data } = response.data;
-      console.log(data)
+      console.log(data);
       if (!Array.isArray(data)) {
         setError("Invalid trade debtors data format");
         return false;
@@ -380,7 +380,7 @@ export default function PurchaseMetal() {
           itemCurrencyCode: "",
           itemCurrencyValue: "",
           partyId: creditor.id,
-          partyCurrency:[],
+          partyCurrency: [],
           error: "No default currency found for this party",
         };
       }
@@ -426,7 +426,7 @@ export default function PurchaseMetal() {
     if (formData.partyCurrencyId) {
       fetchCurrencyById(formData.partyCurrencyId);
     }
-  }, [formData.partyCurrencyId, fetchCurrencyById]);
+  }, [formData.partyCurrencyId]);
 
   const validateMainModal = useCallback(() => {
     if (!formData.partyName?.trim()) {
@@ -518,32 +518,16 @@ export default function PurchaseMetal() {
     [fetchPartyDetails]
   );
 
-  const tableData = [
-    {
-      description: "24KT - 24 Karat Gold",
-      grossWt: "1,000.000",
-      purity: "1.000000",
-      pureWt: "1,000.000",
-      makingRate: "",
-      makingAmount: "",
-      taxableAmt: "0.00",
-      vatPercent: "0.00",
-      vatAmt: "0.00",
-      totalAmt: "295,304.36",
-      type: "fix",
-    },
-  ];
 
   const handleCurrencyChange = (option) => {
-   console.log(option)
-   console.log("option data",option)
+    console.log(option);
+    console.log("option data", option);
     setFormData((prev) => ({
       ...prev,
       partyCurrencyCode: option?.value,
       itemCurrencyCode: option?.value,
       partyCurrency: option?.data,
       partyCurrencyId: option?.data?._id,
-      
     }));
   };
   const selectedParty = tradeDebtors.find(
@@ -2919,7 +2903,7 @@ export default function PurchaseMetal() {
                             </div>
                           )}
 
-                            {currencyOptions.length > 0 && (
+                          {currencyOptions.length > 0 && (
                             <div className="space-y-2">
                               <label className="block text-sm font-semibold text-slate-700">
                                 Item Currency{" "}
@@ -2938,7 +2922,8 @@ export default function PurchaseMetal() {
                             </div>
                           )}
 
-                          <div></div>
+                          <div>
+                          </div>
                         </div>
                       </div>
 
