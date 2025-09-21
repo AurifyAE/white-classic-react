@@ -535,12 +535,15 @@ export default function PurchaseMetal() {
   ];
 
   const handleCurrencyChange = (option) => {
-   
+   console.log(option)
+   console.log("option data",option)
     setFormData((prev) => ({
       ...prev,
       partyCurrencyCode: option?.value,
       itemCurrencyCode: option?.value,
       partyCurrency: option?.data,
+      partyCurrencyId: option?.data?._id,
+      
     }));
   };
   const selectedParty = tradeDebtors.find(
@@ -2114,8 +2117,8 @@ export default function PurchaseMetal() {
       voucherNumber: formData.voucherCode,
       partyCode: formData.partyCode,
       partyCurrency: formData.partyCurrencyId,
-      itemCurrency: formData.itemCurrencyId,
-      baseCurrency: formData.itemCurrencyId,
+      itemCurrency: formData.partyCurrencyId,
+      baseCurrency: formData.partyCurrencyId,
       stockItems: tempStockItems.map((item) => ({
         stockCode: item.stockId,
         description: item.description,
