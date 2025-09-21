@@ -3240,6 +3240,7 @@ export default function PurchaseMetal() {
                 onClose={handleProductModalClose}
                 partyCurrency={formData?.partyCurrency}
                 party={selectedParty}
+                fixed={formData?.fixed}
                 onSave={(productData) => {
                   if (editingStockIndex !== -1) {
                     // Update existing item
