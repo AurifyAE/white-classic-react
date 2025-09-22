@@ -38,7 +38,7 @@ const numberToDirhamWords = (amount) => {
 };
 
 const PDFPreviewModal = ({ isOpen, onClose, purchase, onDownload }) => {
-  console.log("PDFPreviewModal purchase", purchase, isOpen, onClose, onDownload);
+  // console.log("PDFPreviewModal purchase", purchase, isOpen, onClose, onDownload);
 
   if (!isOpen || !purchase) return null;
 

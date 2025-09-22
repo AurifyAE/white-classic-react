@@ -166,12 +166,6 @@ const ProfileTab = ({
       {/* Balance Summary */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         <BalanceCard
-          label="Total Outstanding"
-          value={formatCurrency(userData.balances?.totalOutstanding || 0, "AED")}
-          currency="AED"
-          lastUpdated={userData.balances?.lastBalanceUpdate}
-        />
-        <BalanceCard
           label="Gold Balance"
           value={
             userData.balances?.goldBalance?.totalGrams
