@@ -504,8 +504,8 @@ const CurrencyTradingRegistry = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
-                            {transaction.partyId.customerName} (
-                            {transaction.partyId.accountCode})
+                            {transaction?.partyId?.customerName} (
+                            {transaction?.partyId?.accountCode})
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
