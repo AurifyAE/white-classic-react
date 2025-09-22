@@ -39,7 +39,7 @@ const CurrencyTradingUI = () => {
       setGoldData(marketData);
       setGoldRate(marketData.bid);
     }
-  },[marketData]);
+  }, [marketData]);
 
   const [goldRate, setGoldRate] = useState(null);
 
@@ -120,7 +120,8 @@ const CurrencyTradingUI = () => {
           changePercent: 0.5,
           volume: '10.6M',
           lastUpdated: '14:21:41',
-          isUp: true
+          isUp: true,
+          isCommodity: false
         },
         {
           pair: 'AED/XAU',
@@ -131,7 +132,8 @@ const CurrencyTradingUI = () => {
           changePercent: -0.01,
           volume: '756.1K',
           lastUpdated: '14:21:41',
-          isUp: false
+          isUp: false,
+          isCommodity: true
         },
         {
           pair: 'INR/XAU',
@@ -142,7 +144,8 @@ const CurrencyTradingUI = () => {
           changePercent: 0.023,
           volume: '234.5K',
           lastUpdated: '14:21:41',
-          isUp: true
+          isUp: true,
+          isCommodity: true
         },
       ]);
     }
@@ -183,7 +186,7 @@ const CurrencyTradingUI = () => {
 
   const getRatesForParty = (partyName, pair) => {
     const partyObj = tradingParties.find((party) => party.customerName === partyName);
-    if (!partyObj) return { buyRate: pair.rate, sellRate: pair.rate };
+    if (!partyObj) return { buyRate: pair.rate, sellRate: pair.rate, bid: 0, ask: 0 };
 
     let bid = 0;
     let ask = 0;
@@ -206,7 +209,7 @@ const CurrencyTradingUI = () => {
 
     const buyRate = pair.rate + ask;
     const sellRate = pair.rate - bid;
-    return { buyRate, sellRate };
+    return { buyRate, sellRate, bid, ask };
   };
 
   const StatCard = ({ title, value, subtitle, icon: Icon, trend, color = 'blue' }) => {
@@ -274,6 +277,11 @@ const CurrencyTradingUI = () => {
       ...getRatesForParty(selectedParty, pair)
     }));
 
+    const goldUSD = goldRate || 3000;
+    const ounceToGram = 31.105;
+    const usdToAed = 3.674;
+    const aedPerGram = (goldUSD / ounceToGram) * usdToAed;
+
     const watchlistPairs = liveRates ? [
       {
         pair: 'AED/INR',
@@ -284,7 +292,8 @@ const CurrencyTradingUI = () => {
         changePercent: 0.5,
         volume: '10.6M',
         lastUpdated: '14:21:41',
-        isUp: true
+        isUp: true,
+        isCommodity: false
       },
       {
         pair: 'INR/AED',
@@ -295,29 +304,32 @@ const CurrencyTradingUI = () => {
         changePercent: -0.01,
         volume: '756.1K',
         lastUpdated: '14:21:41',
-        isUp: false
+        isUp: false,
+        isCommodity: false
       },
       {
         pair: 'AED/XAU',
         flag: '🥇',
         code: 'XAU',
-        rate: (3000 / 31.105) * 3.674,
+        rate: aedPerGram,
         change: -0.05,
         changePercent: -0.01,
         volume: '756.1K',
         lastUpdated: '14:21:41',
-        isUp: false
+        isUp: false,
+        isCommodity: true
       },
       {
         pair: 'INR/XAU',
         flag: '💰',
         code: 'XAU',
-        rate: (3000 / 31.105) * 3.674 * liveRates.AED_TO_INR,
+        rate: aedPerGram * liveRates.AED_TO_INR,
         change: 2.34,
         changePercent: 0.023,
         volume: '234.5K',
         lastUpdated: '14:21:41',
-        isUp: true
+        isUp: true,
+        isCommodity: true
       },
     ] : [];
 
@@ -476,29 +488,11 @@ const CurrencyTradingUI = () => {
     let dynamicPairs = [];
     if (selectedPartyObj) {
       dynamicPairs = tradingPairs.map((pair) => {
-        let bid = 0;
-        let ask = 0;
-
-        if (pair.code === 'INR') {
-          const curr = selectedPartyObj.acDefinition.currencies.find(
-            (c) => c.currency.currencyCode === 'INR'
-          );
-          if (curr) {
-            bid = curr.bid;
-            ask = curr.ask;
-          }
-        } else if (pair.code === 'XAU') {
-          const margins = selectedPartyObj.limitsMargins[0];
-          if (margins) {
-            bid = margins.shortMargin;
-            ask = margins.longMargin;
-          }
-        }
-
+        const { bid, ask, buyRate, sellRate } = getRatesForParty(selectedParty, pair);
         return {
           ...pair,
-          buyRate: pair.rate + ask,
-          sellRate: pair.rate - bid,
+          buyRate,
+          sellRate,
         };
       });
     }
@@ -665,6 +659,57 @@ const CurrencyTradingUI = () => {
     );
   };
 
+  const handleCreateTrade = async () => {
+    const party = tradingParties.find(p => p.customerName === selectedTradeParty);
+    if (!party || !amount || !selectedPair) {
+      console.error('Missing required trade details');
+      return;
+    }
+
+    const base = selectedPair.pair.split('/')[0];
+    const quote = selectedPair.pair.split('/')[1];
+    const { buyRate, sellRate, bid, ask } = getRatesForParty(selectedTradeParty, selectedPair);
+    const conversionRate = tradeType === 'buy' ? buyRate : sellRate;
+    const isCommodity = selectedPair.isCommodity || false;
+    const convertedAmount = amount ? (isCommodity ? (parseFloat(amount) / conversionRate) : (parseFloat(amount) * conversionRate)).toFixed(4) : '0.0000';
+
+    const baseCurrency = currencies.find(c => c.currencyCode === base);
+    const targetCurrency = currencies.find(c => c.currencyCode === quote);
+
+    const payload = {
+      partyId: party._id,
+      type: tradeType.toUpperCase(),
+      amount: parseFloat(amount),
+      currency: base,
+      rate: conversionRate,
+      converted: parseFloat(convertedAmount),
+      orderId: `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      timestamp: new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }),
+      currentRate: selectedPair.rate,
+      bidSpread: bid,
+      askSpread: ask,
+      buyRate: buyRate,
+      sellRate: sellRate,
+      baseCurrencyId: baseCurrency?._id,
+      targetCurrencyId: targetCurrency?._id,
+      baseCurrencyCode: base,
+      targetCurrencyCode: quote,
+      reference: "CF0008"
+    };
+
+    try {
+      alert("on here")
+      const res = await axiosInstance.post('/currency-trading/trades', payload);
+      if (res.data.success) {
+        closeTradeModal();
+      } else {
+        console.error('Trade creation failed:', res.data);
+      }
+    } catch (err) {
+      console.error('Error creating trade:', err);
+    }
+  };
+
   const renderTradeModal = () => {
     if (!isModalOpen || !selectedPair) return null;
 
@@ -672,7 +717,8 @@ const CurrencyTradingUI = () => {
     const quote = selectedPair.pair.split('/')[1];
     const { buyRate, sellRate } = getRatesForParty(selectedTradeParty, selectedPair);
     const conversionRate = tradeType === 'buy' ? buyRate : sellRate;
-    const convertedAmount = amount ? (parseFloat(amount) * conversionRate).toFixed(4) : '0.0000';
+    const isCommodity = selectedPair.isCommodity || false;
+    const convertedAmount = amount ? (isCommodity ? (parseFloat(amount) / conversionRate) : (parseFloat(amount) * conversionRate)).toFixed(4) : '0.0000';
 
     return (
       <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
@@ -753,10 +799,7 @@ const CurrencyTradingUI = () => {
                 {/* Create Trade Button */}
                 <button
                   className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors"
-                  onClick={() => {
-                    console.log('Trade created:', { party: selectedTradeParty, pair: selectedPair.pair, type: tradeType, amount, converted: convertedAmount });
-                    closeTradeModal();
-                  }}
+                  onClick={handleCreateTrade}
                 >
                   Create Trade
                 </button>
