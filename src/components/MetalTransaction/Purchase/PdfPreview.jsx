@@ -9,7 +9,6 @@ const formatNumber = (num, decimals = 2) => {
   });
 };
 
-
 const numberToDirhamWords = (amount) => {
   if (amount === null || amount === undefined || isNaN(amount) || amount === '') return 'INVALID AMOUNT';
   const num = Number(amount);
@@ -38,36 +37,40 @@ const numberToDirhamWords = (amount) => {
 };
 
 const PDFPreviewModal = ({ isOpen, onClose, purchase, onDownload }) => {
-  // console.log("PDFPreviewModal purchase", purchase, isOpen, onClose, onDownload);
-
   if (!isOpen || !purchase) return null;
 
-  const stockItems = (purchase.stockItems || []).filter(item => !!item.description);
-  const itemCount = stockItems.length;
-  console.log("stockItems", stockItems);
+  // Use correct fields from purchase object
+  const partyName = purchase.partyName || 'N/A';
+  const partyPhone = purchase.partyPhone || 'N/A'; // If not available, keep N/A
+  const partyEmail = purchase.partyEmail || 'N/A'; // If not available, keep N/A
+  const voucherNumber = purchase.vocNo || purchase.voucherNumber || 'N/A';
+  const voucherDate = purchase.vocDate ? new Date(purchase.vocDate).toISOString().split('T')[0] : 'N/A';
+  const paymentTerms = purchase.paymentTerms || 'Cash';
+  const salesman = purchase.salesman || purchase.createdBy?.name || 'N/A';
 
-  const tableData = purchase.stockItems?.map((item) => {
+  // Process stock items
+  const stockItems = purchase.stockItems || [];
+  const tableData = stockItems.map((item) => {
     const grossWeight = parseFloat(item.grossWeight) || 0;
     const makingChargesTotal = parseFloat(item.itemTotal?.makingChargesTotal) || 0;
     const calculatedRate = grossWeight > 0 ? (makingChargesTotal / grossWeight) : 0;
     return {
-      description: item.description || '',
-      grossWt: formatNumber(item.grossWeight || 0),
-      purity: item.purity || 0,
-      pureWt: formatNumber(item.pureWeight || 0),
-      makingRate: formatNumber(item.makingRate || 0),
-      makingAmount: formatNumber(item.makingAmount || 0),
-      taxableAmt: formatNumber(item.taxableAmt || 0),
-      vatPercent: formatNumber(item.vatPercent || 0),
-      vatAmt: formatNumber(item.itemTotal?.vatAmount || 0),
-      totalAmt: purchase.fixed ? formatNumber(item.itemTotal?.itemTotalAmount || 0) : '0.00',
-      type: item.unfix,
-      rate: formatNumber(calculatedRate),
-      amount: formatNumber(item.itemTotal?.makingChargesTotal || 0),
+      description: item.description || 'N/A',
+      grossWt: formatNumber(item.grossWeight || 0, 3),
+      purity: formatNumber(item.purity || 0, 6),
+      pureWt: formatNumber(item.pureWeight || 0, 3),
+      makingRate: formatNumber(item.makingRate || 0, 2),
+      makingAmount: formatNumber(item.makingAmount || 0, 2),
+      taxableAmt: formatNumber(item.taxableAmt || 0, 2),
+      vatPercent: formatNumber(item.vatPercent || item.itemTotal?.vatPercentage || 0, 2),
+      vatAmt: formatNumber(item.itemTotal?.vatAmount || 0, 2),
+      totalAmt: formatNumber(item.itemTotal?.itemTotalAmount || 0, 2), // Removed fixed condition
+      rate: formatNumber(calculatedRate, 2),
+      amount: formatNumber(item.itemTotal?.makingChargesTotal || 0, 2),
     };
   });
-  const sum = (key) =>
-    tableData.reduce((acc, curr) => acc + parseFloat(curr[key]?.replace(/,/g, '') || 0), 0);
+
+  const sum = (key) => tableData.reduce((acc, curr) => acc + parseFloat(curr[key]?.replace(/,/g, '') || 0), 0);
 
   const totals = {
     totalGrossWt: sum('grossWt'),
@@ -80,29 +83,19 @@ const PDFPreviewModal = ({ isOpen, onClose, purchase, onDownload }) => {
   };
 
   const avgVATPercent = tableData.length > 0 ? sum('vatPercent') / tableData.length : 0;
-  const headingTitle = 'METAL PURCHASE';
-  console.log("purchase.fixed:", purchase.fixed, "→ heading:", headingTitle);
-
-  const goldRate = formatNumber(purchase.stockItems?.[0]?.metalRateRequirements?.rate || 0);
-  const signedBy = purchase.salesman || 'AUTHORIZED SIGNATORY';
-  const pureWeightGrams = formatNumber(totals.totalPureWt * 1000);
+  const headingTitle = purchase.fixed ? 'METAL PURCHASE FIXING' : 'METAL PURCHASE UNFIXING';
+  const goldRate = formatNumber(purchase.stockItems?.[0]?.metalRateRequirements?.rate || 0, 2);
+  const signedBy = salesman || 'AUTHORIZED SIGNATORY';
+  const pureWeightGrams = formatNumber(totals.totalPureWt, 3); // Removed *1000, assuming pureWt is already in grams
 
   return (
     <div className="fixed inset-0 z-40 bg-white/40 flex justify-center items-center px-4 py-6 overflow-hidden">
       <div className="bg-white w-full max-w-3xl max-h-[90vh] rounded-lg shadow-lg text-black font-helvetica flex flex-col overflow-y-auto">
         {/* Header */}
         <div className="relative text-center pt-2">
-          {/* Logo */}
-          <img
-            src="/assets/logo.png"
-            alt="Logo"
-            className="mx-auto w-[80px] h-[80px]"
-          />
-          {/* Heading */}
+          <img src="/assets/logo.png" alt="Logo" className="mx-auto w-[80px] h-[80px]" />
           <h2 className="text-[12px] font-bold text-right pr-3.5 mt-1">{headingTitle}</h2>
-          {/* Separator Line */}
           <div className="border-t border-[#DFDFDF] mx-3.5 mt-2"></div>
-          {/* Close Button */}
           <button onClick={onClose} className="absolute top-4 right-6 text-gray-500 hover:text-black">
             <X className="w-6 h-6" />
           </button>
@@ -111,15 +104,15 @@ const PDFPreviewModal = ({ isOpen, onClose, purchase, onDownload }) => {
         {/* Info Boxes */}
         <div className="flex mx-3.5 mt-1.5 text-[9px] border border-[#CDCDCD]">
           <div className="flex-1 p-2 border-r border-[#CDCDCD]">
-            <p>Party Name: {purchase.partyName || 'N/A'}</p>
-            <p className="mt-1.25">Phone: {purchase.partyPhone || 'N/A'}</p>
-            <p className="mt-1.25">Email: {purchase.partyEmail || 'N/A'}</p>
+            <p>Party Name: {partyName}</p>
+            <p className="mt-1.25">Phone: {partyPhone}</p>
+            <p className="mt-1.25">Email: {partyEmail}</p>
           </div>
           <div className="flex-1 p-2">
-            <p>PUR NO: {purchase.vocNo || 'N/A'}</p>
-            <p className="mt-1.25">Date: {purchase.vocDate || 'N/A'}</p>
-            <p className="mt-1.25">Terms: {purchase.paymentTerms || 'Cash'}</p>
-            <p className="mt-1.25">Salesman: {purchase.salesman || 'N/A'}</p>
+            <p>PUR NO: {voucherNumber}</p>
+            <p className="mt-1.25">Date: {voucherDate}</p>
+            <p className="mt-1.25">Terms: {paymentTerms}</p>
+            <p className="mt-1.25">Salesman: {salesman}</p>
             <p className="mt-1.25">Gold Rate: {goldRate} /GOZ</p>
           </div>
         </div>
@@ -146,21 +139,27 @@ const PDFPreviewModal = ({ isOpen, onClose, purchase, onDownload }) => {
               </tr>
             </thead>
             <tbody>
-              {tableData.map((row, idx) => (
-                <tr key={idx} className="border-t border-[#CDCDCD]">
-                  <td className="border border-l-0 border-[#CDCDCD] p-1 text-center">{idx + 1}</td>
-                  <td className="border border-[#CDCDCD] p-1 text-left">{row.description}</td>
-                  <td className="border border-[#CDCDCD] p-1 text-right">{row.grossWt}</td>
-                  <td className="border border-[#CDCDCD] p-1 text-right">{row.purity}</td>
-                  <td className="border border-[#CDCDCD] p-1 text-right">{row.pureWt}</td>
-                  <td className="border border-[#CDCDCD] p-1 text-right">{row.rate}</td>
-                  <td className="border border-[#CDCDCD] p-1 text-right">{row.amount}</td>
-                  <td className="border border-[#CDCDCD] p-1 text-right">{row.taxableAmt}</td>
-                  <td className="border border-[#CDCDCD] p-1 text-right">{row.vatPercent}</td>
-                  <td className="border border-[#CDCDCD] p-1 text-right">{row.vatAmt}</td>
-                  <td className="border border-r-0 border-[#CDCDCD] p-1 text-right">{row.totalAmt}</td>
+              {tableData.length > 0 ? (
+                tableData.map((row, idx) => (
+                  <tr key={idx} className="border-t border-[#CDCDCD]">
+                    <td className="border border-l-0 border-[#CDCDCD] p-1 text-center">{idx + 1}</td>
+                    <td className="border border-[#CDCDCD] p-1 text-left">{row.description}</td>
+                    <td className="border border-[#CDCDCD] p-1 text-right">{row.grossWt}</td>
+                    <td className="border border-[#CDCDCD] p-1 text-right">{row.purity}</td>
+                    <td className="border border-[#CDCDCD] p-1 text-right">{row.pureWt}</td>
+                    <td className="border border-[#CDCDCD] p-1 text-right">{row.rate}</td>
+                    <td className="border border-[#CDCDCD] p-1 text-right">{row.amount}</td>
+                    <td className="border border-[#CDCDCD] p-1 text-right">{row.taxableAmt}</td>
+                    <td className="border border-[#CDCDCD] p-1 text-right">{row.vatPercent}</td>
+                    <td className="border border-[#CDCDCD] p-1 text-right">{row.vatAmt}</td>
+                    <td className="border border-r-0 border-[#CDCDCD] p-1 text-right">{row.totalAmt}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="11" className="border border-[#CDCDCD] p-1 text-center">No stock items available</td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
@@ -170,19 +169,19 @@ const PDFPreviewModal = ({ isOpen, onClose, purchase, onDownload }) => {
           <div className="ml-auto border border-[#CDCDCD]" style={{ width: '33.33%' }}>
             <div className="flex border-b border-[#CDCDCD]">
               <div className="flex-1 border-r border-[#CDCDCD] p-1 font-bold text-center">VAT %</div>
-              <div className="flex-1 p-1 text-center">{formatNumber(avgVATPercent)}</div>
+              <div className="flex-1 p-1 text-center">{formatNumber(avgVATPercent, 2)}</div>
             </div>
             <div className="flex border-b border-[#CDCDCD]">
               <div className="flex-1 border-r border-[#CDCDCD] p-1 font-bold text-center">VAT Amount (AED)</div>
-              <div className="flex-1 p-1 text-center">{formatNumber(totals.totalVAT)}</div>
+              <div className="flex-1 p-1 text-center">{formatNumber(totals.totalVAT, 2)}</div>
             </div>
             <div className="flex border-b border-[#CDCDCD]">
               <div className="flex-1 border-r border-[#CDCDCD] p-1 font-bold text-center">Taxable Amount (AED)</div>
-              <div className="flex-1 p-1 text-center">{formatNumber(totals.totalTaxableAmt)}</div>
+              <div className="flex-1 p-1 text-center">{formatNumber(totals.totalTaxableAmt, 2)}</div>
             </div>
             <div className="flex">
               <div className="flex-1 border-r border-[#CDCDCD] p-1 font-bold text-center">Total Amount (AED)</div>
-              <div className="flex-1 p-1 text-center">{formatNumber(totals.totalAmt)}</div>
+              <div className="flex-1 p-1 text-center">{formatNumber(totals.totalAmt, 2)}</div>
             </div>
           </div>
         </div>
@@ -193,7 +192,7 @@ const PDFPreviewModal = ({ isOpen, onClose, purchase, onDownload }) => {
           <div className="border border-[#CDCDCD] mt-1">
             <div className="flex border-b border-[#CDCDCD]">
               <div className="w-[80px] border-r border-[#CDCDCD] p-1 font-bold">
-                {formatNumber(totals.totalAmt)} CREDITED
+                {formatNumber(totals.totalAmt, 2)} CREDITED
               </div>
               <div className="flex-1 p-1 italic">{numberToDirhamWords(totals.totalAmt)}</div>
             </div>

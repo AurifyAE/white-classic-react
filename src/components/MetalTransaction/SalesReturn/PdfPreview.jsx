@@ -80,7 +80,7 @@ const PDFPreviewModal = ({ isOpen, onClose, purchase, onDownload }) => {
   };
 
   const avgVATPercent = tableData.length > 0 ? sum('vatPercent') / tableData.length : 0;
-  const headingTitle = 'METAL SALES RETURN';
+  const headingTitle = 'METAL SALES RETUR';
   console.log("purchase.fixed:", purchase.fixed, "→ heading:", headingTitle);
 
   const goldRate = formatNumber(purchase.stockItems?.[0]?.metalRateRequirements?.rate || 0);
