@@ -54,6 +54,7 @@ const initialProductData = {
   baseCurrencyId: "",
   baseCurrency: "",
   metalTypeId: "",
+  
 };
 
 const initialGoldData = {
@@ -79,7 +80,7 @@ const ProductDetailsModal = ({
   fixed,
   editingItem,
 }) => {
-  console.log(editingItem);
+  console.log(partyCurrency);
   const [productData, setProductData] = useState(initialProductData);
   const [goldData, setGoldData] = useState(initialGoldData);
   const [metalRates, setMetalRates] = useState([]);
@@ -130,58 +131,48 @@ const ProductDetailsModal = ({
   const effectiveRate =
     partyCurrDetails.currencyCode === "AED" ? 1 : conversionRate;
   const currencyCode = partyCurrDetails.currencyCode || "AED";
-
 useEffect(() => {
   if (isOpen) {
     if (editingItem) {
-      // Convert amounts to the current partyCurrency
-      const conversionRate = parseFloat(partyCurrency?.conversionRate) || 1;
-      const convertedMetalAmount = (
-        parseFloat(editingItem.metalRateRequirements.amount) * conversionRate
-      ).toFixed(2);
-      const convertedMakingCharges = (
-        parseFloat(editingItem.makingCharges.amount) * conversionRate
-      ).toFixed(2);
-      const convertedPremium = (
-        parseFloat(editingItem.premium.amount) * conversionRate
-      ).toFixed(2);
-      const convertedOtherCharges = (
-        parseFloat(editingItem.otherCharges.amount) * conversionRate
-      ).toFixed(2);
-      const convertedVatAmount = (
-        parseFloat(editingItem.itemTotal.vatAmount) * conversionRate
-      ).toFixed(2);
-      const convertedItemTotal = (
-        parseFloat(editingItem.itemTotal.itemTotalAmount) * conversionRate
-      ).toFixed(2);
-
-      setProductData({
-        ...initialProductData,
-        ...editingItem,
-        metalTypeId: editingItem.metalType || "",
-        baseCurrency: currencyCode,
-        metalRateRequirements: {
-          ...editingItem.metalRateRequirements,
-          amount: convertedMetalAmount,
-        },
-        makingCharges: {
-          ...editingItem.makingCharges,
-          amount: convertedMakingCharges,
-        },
-        premium: {
-          ...editingItem.premium,
-          amount: convertedPremium,
-        },
-        otherCharges: {
-          ...editingItem.otherCharges,
-          amount: convertedOtherCharges,
-        },
-        itemTotal: {
-          ...editingItem.itemTotal,
-          vatAmount: convertedVatAmount,
-          itemTotalAmount: convertedItemTotal,
-        },
-      });
+      const isAED = currencyCode === "AED";
+      const previousCurrency = editingItem.baseCurrency || "AED";
+      const needsConversion = !isAED && previousCurrency === "AED" || isAED && previousCurrency !== "AED";
+      
+      let convertedData = { ...editingItem, metalTypeId: editingItem.metalType || "", baseCurrency: currencyCode };
+      
+      if (needsConversion) {
+        const conversionRate = parseFloat(partyCurrency?.conversionRate) || 1;
+        const conversionFactor = isAED ? 1 / conversionRate : conversionRate;
+        
+        convertedData = {
+          ...editingItem,
+          metalTypeId: editingItem.metalType || "",
+          baseCurrency: currencyCode,
+          metalRateRequirements: {
+            ...editingItem.metalRateRequirements,
+            amount: (parseFloat(editingItem.metalRateRequirements.amount || 0) * conversionFactor).toFixed(2),
+          },
+          makingCharges: {
+            ...editingItem.makingCharges,
+            amount: (parseFloat(editingItem.makingCharges.amount || 0) * conversionFactor).toFixed(2),
+          },
+          premium: {
+            ...editingItem.premium,
+            amount: (parseFloat(editingItem.premium.amount || 0) * conversionFactor).toFixed(2),
+          },
+          otherCharges: {
+            ...editingItem.otherCharges,
+            amount: (parseFloat(editingItem.otherCharges.amount || 0) * conversionFactor).toFixed(2),
+          },
+          itemTotal: {
+            ...editingItem.itemTotal,
+            vatAmount: (parseFloat(editingItem.itemTotal.vatAmount || 0) * conversionFactor).toFixed(2),
+            itemTotalAmount: (parseFloat(editingItem.itemTotal.itemTotalAmount || 0) * conversionFactor).toFixed(2),
+          },
+        };
+      }
+      
+      setProductData(convertedData);
     } else {
       setProductData({
         ...initialProductData,
@@ -211,46 +202,41 @@ useEffect(() => {
     return { pureWeight, purityWeight, weightInOz };
   }, [productData.grossWeight, productData.purity]);
 
-  const calculateMetalAmount = useCallback(
-    ({
-      rate,
-      convFactGms,
-      convertrate,
-      pureWeight,
-      metalRateUnit,
-      weightInOz,
-    }) => {
-      const parsedRate = parseFloat(rate) || 0;
-      const parsedConvFactGms = parseFloat(convFactGms) || 1;
-      const parsedConvertrate = parseFloat(convertrate) || 1;
-      const parsedPureWeight = parseFloat(pureWeight) || 0;
-      const parsedWeightInOz = parseFloat(weightInOz) || 0;
+ const calculateMetalAmount = useCallback(
+  ({
+    rate,
+    convFactGms,
+    convertrate,
+    pureWeight,
+    metalRateUnit,
+    weightInOz,
+  }) => {
+    const parsedRate = parseFloat(rate) || 0;
+    const parsedConvFactGms = parseFloat(convFactGms) || 1;
+    const parsedConvertrate = parseFloat(convertrate) || 1;
+    const parsedPureWeight = parseFloat(pureWeight) || 0;
+    const parsedWeightInOz = parseFloat(weightInOz) || 0;
 
-      let metalAmount = "0.00";
-      if (metalRateUnit === "GOZ" && parsedRate && parsedWeightInOz) {
-        metalAmount = (parsedWeightInOz * parsedRate).toFixed(2);
-      } else if (
-        parsedRate &&
-        parsedConvFactGms &&
-        parsedConvertrate &&
+    let metalAmount = "0.00";
+    if (metalRateUnit === "GOZ" && parsedRate && parsedWeightInOz) {
+      metalAmount = (parsedWeightInOz * parsedRate).toFixed(2);
+    } else if (
+      parsedRate &&
+      parsedConvFactGms &&
+      parsedConvertrate &&
+      parsedPureWeight
+    ) {
+      metalAmount = (
+        (parsedRate / parsedConvFactGms) *
+        parsedConvertrate *
         parsedPureWeight
-      ) {
-        metalAmount = (
-          (parsedRate / parsedConvFactGms) *
-          parsedConvertrate *
-          parsedPureWeight
-        ).toFixed(2);
-      }
+      ).toFixed(2);
+    }
 
-      // Apply effectiveRate for INR
-      const convertedMetalAmount =
-        currencyCode === "AED"
-          ? metalAmount
-          : (parseFloat(metalAmount) * effectiveRate).toFixed(2);
-      return convertedMetalAmount;
-    },
-    [currencyCode, effectiveRate]
-  );
+    return metalAmount; // Removed currencyCode === "AED" ? metalAmount : (parseFloat(metalAmount) * effectiveRate).toFixed(2)
+  },
+  [] // Removed currencyCode, effectiveRate from dependencies
+);
 
   // Updated profit calculation
   const calculateProfit = useCallback(() => {
@@ -448,188 +434,167 @@ useEffect(() => {
     productData.totalValue,
     focusedFields,
   ]);
+  // Add this useEffect to clean up when component unmounts or currency changes
+useEffect(() => {
+  return () => {
+    // Reset conversion flags when component unmounts or currency changes
+    initialRenderWeights.current = true;
+  };
+}, [currencyCode]);
 
   // Optimize calculations with debouncing
-  const debouncedSetProductData = useCallback(
-    debounce((newData) => {
-      setProductData((prev) => {
-        const updated = typeof newData === "function" ? newData(prev) : newData;
-        const metalAmount =
-          editingItem && !initialRenderWeights.current
-            ? productData.metalRateRequirements.amount
-            : calculateMetalAmount({
-                rate: updated.metalRateRequirements.rate,
-                convFactGms: updated.convFactGms,
-                convertrate: updated.convertrate,
-                pureWeight,
-                metalRateUnit: updated.metalRateUnit,
-                weightInOz,
-              });
-
-        const grossWeight = parseFloat(updated.grossWeight) || 0;
-        const subTotal = parseFloat(updated.itemTotal.subTotal) || 0;
-
-        // Making Charges
-        let makingRateStr = updated.makingCharges.rate;
-        let makingAmountStr = updated.makingCharges.amount;
-        if (lastEditedFields.makingCharges === "rate") {
-          const parsedRate = parseFloat(makingRateStr);
-          makingAmountStr = isNaN(parsedRate)
-            ? "0.00"
-            : (parsedRate * grossWeight).toFixed(2);
-        } else {
-          const parsedAmount = parseFloat(makingAmountStr);
-          makingRateStr = isNaN(parsedAmount)
-            ? "0.00"
-            : grossWeight > 0
-            ? (parsedAmount / grossWeight).toFixed(2)
-            : "0.00";
-        }
-
-        // Premium - Apply effectiveRate for INR
-        let premiumRateStr = updated.premium.rate;
-        let premiumAmountStr = updated.premium.amount;
-        const convFactGms = parseFloat(updated.convFactGms) || 1;
-        const convertrate = parseFloat(updated.convertrate) || 1;
-        const divisor = (parseFloat(purityWeight) / convFactGms) * convertrate;
-        const appliedRate = currencyCode === "AED" ? 1 : effectiveRate;
-        if (lastEditedFields.premium === "rate") {
-          const parsedRate = parseFloat(premiumRateStr) || 0;
-          premiumAmountStr = isNaN(parsedRate)
-            ? "0.00"
-            : divisor > 0
-            ? (divisor * parsedRate * appliedRate).toFixed(2)
-            : "0.00";
-        } else {
-          const parsedAmount = parseFloat(premiumAmountStr) || 0;
-          premiumRateStr = isNaN(parsedAmount)
-            ? "0.00"
-            : divisor > 0
-            ? (parsedAmount / (divisor * appliedRate)).toFixed(2)
-            : "0.00";
-        }
-
-        // Base amount
-        const baseAmount = parseFloat(metalAmount) || 0;
-        const validMakingAmount = parseFloat(makingAmountStr) || 0;
-        const validPremiumAmount = parseFloat(premiumAmountStr) || 0;
-
-        // Sub total
-        const sumForSubTotal =
-          baseAmount + validMakingAmount + validPremiumAmount;
-        const subTotalCalc =
-          isFinite(sumForSubTotal) && !isNaN(sumForSubTotal)
-            ? sumForSubTotal.toFixed(4)
-            : "0.0000";
-
-        // Other Charges - Apply effectiveRate for INR
-        let otherChargesRateStr = updated.otherCharges.rate;
-        let otherChargesAmountStr = updated.otherCharges.amount;
-        if (lastEditedFields.otherCharges === "rate") {
-          const parsedRate = parseFloat(otherChargesRateStr);
-          otherChargesAmountStr = isNaN(parsedRate)
-            ? "0.00"
-            : isFinite(subTotalCalc)
-            ? (
-                ((parseFloat(subTotalCalc) * parsedRate) / 100) *
-                appliedRate
-              ).toFixed(2)
-            : "0.00";
-        } else {
-          const parsedAmount = parseFloat(otherChargesAmountStr);
-          otherChargesRateStr = isNaN(parsedAmount)
-            ? "0.00"
-            : parseFloat(subTotalCalc) > 0
-            ? (
-                (parsedAmount / (parseFloat(subTotalCalc) * appliedRate)) *
-                100
-              ).toFixed(2)
-            : "0.00";
-        }
-        const totalAfterOtherCharges = isFinite(subTotalCalc)
-          ? (
-              parseFloat(subTotalCalc) + parseFloat(otherChargesAmountStr)
-            ).toFixed(4)
-          : "0.0000";
-
-        // VAT - Apply effectiveRate for INR
-        let vatPercentageStr = updated.itemTotal.vatPercentage;
-        let vatAmountStr = updated.itemTotal.vatAmount;
-        if (lastEditedFields.vat === "percentage") {
-          const parsedPercentage = parseFloat(vatPercentageStr);
-          vatAmountStr = isNaN(parsedPercentage)
-            ? "0.0000"
-            : isFinite(totalAfterOtherCharges)
-            ? (
-                ((parseFloat(totalAfterOtherCharges) * parsedPercentage) /
-                  100) *
-                appliedRate
-              ).toFixed(4)
-            : "0.0000";
-        } else {
-          const parsedAmount = parseFloat(vatAmountStr);
-          vatPercentageStr = isNaN(parsedAmount)
-            ? "0.00"
-            : parseFloat(totalAfterOtherCharges) > 0
-            ? (
-                (parsedAmount /
-                  (parseFloat(totalAfterOtherCharges) * appliedRate)) *
-                100
-              ).toFixed(4)
-            : "0.00";
-        }
-
-        const itemTotalAmount = isFinite(totalAfterOtherCharges)
-          ? (
-              parseFloat(totalAfterOtherCharges) + parseFloat(vatAmountStr)
-            ).toFixed(4)
-          : "0.0000";
-
-        return {
-          ...updated,
-          pureWeight,
-          purityWeight,
-          weightInOz,
-          metalRateRequirements: {
-            ...updated.metalRateRequirements,
-            amount: metalAmount,
-          },
-          makingCharges: { rate: makingRateStr, amount: makingAmountStr },
-          premium: { rate: premiumRateStr, amount: premiumAmountStr },
-          otherCharges: {
-            ...updated.otherCharges,
-            rate: otherChargesRateStr,
-            amount: otherChargesAmountStr,
-          },
-          itemTotal: {
-            ...updated.itemTotal,
-            baseAmount: isFinite(baseAmount) ? baseAmount.toFixed(4) : "0.0000",
-            makingChargesTotal: isFinite(validMakingAmount)
-              ? validMakingAmount.toFixed(4)
-              : "0.0000",
-            premiumTotal: isFinite(validPremiumAmount)
-              ? validPremiumAmount.toFixed(4)
-              : "0.0000",
-            subTotal: subTotalCalc,
-            vatAmount: vatAmountStr,
-            vatPercentage: vatPercentageStr,
-            itemTotalAmount,
-          },
-        };
+const debouncedSetProductData = useCallback(
+  debounce((newData) => {
+    setProductData((prev) => {
+      const updated = typeof newData === "function" ? newData(prev) : newData;
+      const metalAmount = calculateMetalAmount({
+        rate: updated.metalRateRequirements.rate,
+        convFactGms: updated.convFactGms,
+        convertrate: updated.convertrate,
+        pureWeight,
+        metalRateUnit: updated.metalRateUnit,
+        weightInOz,
       });
-    }, 300),
-    [
-      calculateMetalAmount,
-      pureWeight,
-      purityWeight,
-      weightInOz,
-      lastEditedFields,
-      effectiveRate,
-      currencyCode,
-    ]
-  );
 
- useEffect(() => {
+      const grossWeight = parseFloat(updated.grossWeight) || 0;
+      const subTotal = parseFloat(updated.itemTotal.subTotal) || 0;
+
+      // Making Charges
+      let makingRateStr = updated.makingCharges.rate;
+      let makingAmountStr = updated.makingCharges.amount;
+      if (lastEditedFields.makingCharges === "rate") {
+        const parsedRate = parseFloat(makingRateStr);
+        makingAmountStr = isNaN(parsedRate)
+          ? "0.00"
+          : (parsedRate * grossWeight * (currencyCode === "AED" ? 1 : effectiveRate)).toFixed(2);
+      } else {
+        const parsedAmount = parseFloat(makingAmountStr);
+        makingRateStr = isNaN(parsedAmount)
+          ? "0.00"
+          : grossWeight > 0
+          ? (parsedAmount / (grossWeight * (currencyCode === "AED" ? 1 : effectiveRate))).toFixed(2)
+          : "0.00";
+      }
+
+      // Premium
+      let premiumRateStr = updated.premium.rate;
+      let premiumAmountStr = updated.premium.amount;
+      const convFactGms = parseFloat(updated.convFactGms) || 1;
+      const convertrate = parseFloat(updated.convertrate) || 1;
+      const divisor = (parseFloat(purityWeight) / convFactGms) * convertrate;
+      const appliedRate = currencyCode === "AED" ? 1 : effectiveRate;
+      if (lastEditedFields.premium === "rate") {
+        const parsedRate = parseFloat(premiumRateStr) || 0;
+        premiumAmountStr = isNaN(parsedRate)
+          ? "0.00"
+          : divisor > 0
+          ? (divisor * parsedRate * appliedRate).toFixed(2)
+          : "0.00";
+      } else {
+        const parsedAmount = parseFloat(premiumAmountStr) || 0;
+        premiumRateStr = isNaN(parsedAmount)
+          ? "0.00"
+          : divisor > 0
+          ? (parsedAmount / (divisor * appliedRate)).toFixed(2)
+          : "0.00";
+      }
+
+      // Other Charges
+      let otherChargesRateStr = updated.otherCharges.rate;
+      let otherChargesAmountStr = updated.otherCharges.amount;
+      if (lastEditedFields.otherCharges === "rate") {
+        const parsedRate = parseFloat(otherChargesRateStr);
+        otherChargesAmountStr = isNaN(parsedRate)
+          ? "0.00"
+          : isFinite(subTotal)
+          ? (((parseFloat(subTotal) * parsedRate) / 100) * appliedRate).toFixed(2)
+          : "0.00";
+      } else {
+        const parsedAmount = parseFloat(otherChargesAmountStr);
+        otherChargesRateStr = isNaN(parsedAmount)
+          ? "0.00"
+          : parseFloat(subTotal) > 0
+          ? ((parsedAmount / (parseFloat(subTotal) * appliedRate)) * 100).toFixed(2)
+          : "0.00";
+      }
+      const totalAfterOtherCharges = isFinite(subTotal)
+        ? (parseFloat(subTotal) + parseFloat(otherChargesAmountStr)).toFixed(4)
+        : "0.0000";
+
+      // VAT
+      let vatPercentageStr = updated.itemTotal.vatPercentage;
+      let vatAmountStr = updated.itemTotal.vatAmount;
+      if (lastEditedFields.vat === "percentage") {
+        const parsedPercentage = parseFloat(vatPercentageStr);
+        vatAmountStr = isNaN(parsedPercentage)
+          ? "0.0000"
+          : isFinite(totalAfterOtherCharges)
+          ? (((parseFloat(totalAfterOtherCharges) * parsedPercentage) / 100) * appliedRate).toFixed(4)
+          : "0.0000";
+      } else {
+        const parsedAmount = parseFloat(vatAmountStr);
+        vatPercentageStr = isNaN(parsedAmount)
+          ? "0.00"
+          : parseFloat(totalAfterOtherCharges) > 0
+          ? ((parsedAmount / (parseFloat(totalAfterOtherCharges) * appliedRate)) * 100).toFixed(4)
+          : "0.00";
+      }
+
+      const itemTotalAmount = isFinite(totalAfterOtherCharges)
+        ? (parseFloat(totalAfterOtherCharges) + parseFloat(vatAmountStr)).toFixed(4)
+        : "0.0000";
+
+      // Fix for metalAmount: Parse to number before toFixed
+      const parsedMetalAmount = parseFloat(metalAmount);
+      const formattedBaseAmount = isFinite(parsedMetalAmount)
+        ? parsedMetalAmount.toFixed(4)
+        : "0.0000";
+
+      return {
+        ...updated,
+        pureWeight,
+        purityWeight,
+        weightInOz,
+        metalRateRequirements: {
+          ...updated.metalRateRequirements,
+          amount: metalAmount,
+        },
+        makingCharges: { rate: makingRateStr, amount: makingAmountStr },
+        premium: { rate: premiumRateStr, amount: premiumAmountStr },
+        otherCharges: {
+          ...updated.otherCharges,
+          rate: otherChargesRateStr,
+          amount: otherChargesAmountStr,
+        },
+        itemTotal: {
+          ...updated.itemTotal,
+          baseAmount: formattedBaseAmount,
+          makingChargesTotal: isFinite(parseFloat(makingAmountStr))
+            ? parseFloat(makingAmountStr).toFixed(4)
+            : "0.0000",
+          premiumTotal: isFinite(parseFloat(premiumAmountStr))
+            ? parseFloat(premiumAmountStr).toFixed(4)
+            : "0.0000",
+          subTotal: isFinite(subTotal) ? subTotal.toFixed(4) : "0.0000",
+          vatAmount: vatAmountStr,
+          vatPercentage: vatPercentageStr,
+          itemTotalAmount,
+        },
+      };
+    });
+  }, 300),
+  [
+    calculateMetalAmount,
+    pureWeight,
+    purityWeight,
+    weightInOz,
+    lastEditedFields,
+    effectiveRate,
+    currencyCode,
+  ]
+);
+
+useEffect(() => {
   if (initialRenderWeights.current) {
     initialRenderWeights.current = false;
     return;
@@ -651,9 +616,6 @@ useEffect(() => {
   productData.itemTotal.vatPercentage,
   productData.itemTotal.vatAmount,
   lastEditedFields,
-  effectiveRate,
-  currencyCode,
-  partyCurrency, // Add this to trigger recalculation on currency change
   debouncedSetProductData,
 ]);
 
@@ -1004,31 +966,30 @@ const handleSave = useCallback(() => {
     return;
   }
 
-  const baseConversionRate = currencyCode === "AED" ? 1 : 1 / effectiveRate;
+  const needsBaseConversion = productData.baseCurrency !== currencyCode;
+  const baseConversionRate = needsBaseConversion ? (currencyCode === "AED" ? 1 : 1 / effectiveRate) : 1;
+
   const transformedData = {
     ...productData,
     stockCode: productData.stockCode,
-    baseCurrency: productData.baseCurrencyId || currencyCode,
+    baseCurrency: currencyCode,
     metalType: productData.metalTypeId,
     profit: calculateProfit(),
-    convertedAmounts: {
-      metalAmount:
-        (parseFloat(productData.metalRateRequirements.amount) || 0) *
-        baseConversionRate,
-      premiumAmount:
-        (parseFloat(productData.premium.amount) || 0) * baseConversionRate,
-      otherChargesAmount:
-        (parseFloat(productData.otherCharges.amount) || 0) *
-        baseConversionRate,
-      vatAmount:
-        (parseFloat(productData.itemTotal.vatAmount) || 0) *
-        baseConversionRate,
-      itemTotalAmount:
-        (parseFloat(productData.itemTotal.itemTotalAmount) || 0) *
-        baseConversionRate,
-      currencyCode: "AED", // Backend expects AED
-      effectiveRate: 1, // Base currency rate
-    },
+  };
+
+  transformedData.convertedAmounts = {
+    metalAmount:
+      (parseFloat(productData.metalRateRequirements.amount) || 0) * baseConversionRate,
+    premiumAmount:
+      (parseFloat(productData.premium.amount) || 0) * baseConversionRate,
+    otherChargesAmount:
+      (parseFloat(productData.otherCharges.amount) || 0) * baseConversionRate,
+    vatAmount:
+      (parseFloat(productData.itemTotal.vatAmount) || 0) * baseConversionRate,
+    itemTotalAmount:
+      (parseFloat(productData.itemTotal.itemTotalAmount) || 0) * baseConversionRate,
+    currencyCode: needsBaseConversion ? "AED" : currencyCode,
+    effectiveRate: needsBaseConversion ? 1 : (currencyCode === "AED" ? 1 : effectiveRate),
   };
 
   onSave(transformedData);
@@ -1325,8 +1286,8 @@ const handleSave = useCallback(() => {
                   )}
                 </div>
                 <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-  Metal Amount ({partyCurrency?.symbol || currencyCode})
+               <label className="block text-sm font-medium text-gray-700 mb-2">
+  Metal Amount ({currencyCode})
 </label>
                   <input
                     type="text"

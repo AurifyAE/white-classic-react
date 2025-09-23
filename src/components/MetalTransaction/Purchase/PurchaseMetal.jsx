@@ -519,17 +519,18 @@ export default function PurchaseMetal() {
   );
 
 
-  const handleCurrencyChange = (option) => {
-    console.log(option);
-    console.log("option data", option);
-    setFormData((prev) => ({
-      ...prev,
-      partyCurrencyCode: option?.value,
-      itemCurrencyCode: option?.value,
-      partyCurrency: option?.data,
-      partyCurrencyId: option?.data?._id,
-    }));
-  };
+const handleCurrencyChange = useCallback((option) => {
+  setFormData((prev) => ({
+    ...prev,
+    partyCurrencyCode: option?.value || "",
+    partyCurrencyId: option?.data?._id || "",
+    partyCurrencyValue: option?.data?.conversionRate || "",
+    itemCurrencyCode: option?.value || "",
+    itemCurrencyId: option?.data?._id || "",
+    itemCurrencyValue: option?.data?.conversionRate || "",
+    partyCurrency: option?.data || null,
+  }));
+}, []);
   const selectedParty = tradeDebtors.find(
     (d) => d.customerName === formData.partyName
   );
@@ -1574,15 +1575,13 @@ const handleDownloadPDF = async (purchaseId) => {
     setIsProductModalOpen(true);
   }, []);
 
- const handleEdit = useCallback(
+const handleEdit = useCallback(
   async (stock) => {
     setEditingStock(stock);
     setError(null);
 
     try {
-      const response = await axiosInstance.get(
-        `/metal-transaction/${stock.id}`
-      );
+      const response = await axiosInstance.get(`/metal-transaction/${stock.id}`);
       const transaction = response.data.data;
 
       let partyName = "Unknown Party";
@@ -1600,9 +1599,7 @@ const handleDownloadPDF = async (purchaseId) => {
       };
 
       try {
-        const partyResponse = await axiosInstance.get(
-          `/account-type/${transaction.partyCode?._id}`
-        );
+        const partyResponse = await axiosInstance.get(`/account-type/${transaction.partyCode?._id}`);
         partyName = partyResponse.data.data.customerName || "Unknown Party";
         partyDetails = fetchPartyDetails(partyName);
       } catch (error) {
@@ -1610,8 +1607,7 @@ const handleDownloadPDF = async (purchaseId) => {
       }
 
       const mappedStockItems = (transaction.stockItems || []).map((item) => {
-        const calculatedVatPercentage =
-          item.vat?.percentage || item.vatPercentage || 0;
+        const calculatedVatPercentage = item.vat?.percentage || item.vatPercentage || 0;
 
         return {
           stockId: item.stockCode?._id || item.stockCode || "",
@@ -1643,17 +1639,14 @@ const handleDownloadPDF = async (purchaseId) => {
             amount: Number(item.otherCharges?.amount) || 0,
             rate: Number(item.otherCharges?.rate) || 0,
             description: item.otherCharges?.description || "",
-            totalAfterOtherCharges:
-              Number(item.otherCharges?.totalAfterOtherCharges) || 0,
+            totalAfterOtherCharges: Number(item.otherCharges?.totalAfterOtherCharges) || 0,
           },
           itemTotal: {
             baseAmount: Number(item.itemTotal?.baseAmount) || 0,
-            makingChargesTotal:
-              Number(item.itemTotal?.makingChargesTotal) || 0,
+            makingChargesTotal: Number(item.itemTotal?.makingChargesTotal) || 0,
             premiumTotal: Number(item.itemTotal?.premiumTotal) || 0,
             subTotal: Number(item.itemTotal?.subTotal) || 0,
-            vatAmount:
-              Number(item.vat?.amount || item.itemTotal?.vatAmount) || 0,
+            vatAmount: Number(item.vat?.amount || item.itemTotal?.vatAmount) || 0,
             vatPercentage: calculatedVatPercentage,
             itemTotalAmount: Number(item.itemTotal?.itemTotalAmount) || 0,
           },
@@ -1668,14 +1661,13 @@ const handleDownloadPDF = async (purchaseId) => {
 
       setTempStockItems(mappedStockItems);
 
-      // FIX: Get currency details from the transaction first, then fallback to party details
-      const transactionPartyCurrencyId = transaction.partyCurrency?._id || transaction.partyCurrency;
-      const transactionItemCurrencyId = transaction.itemCurrency?._id || transaction.itemCurrency;
-      
-      // Fetch currency details for both currencies
+      // Fetch currency details for both party and item currencies
       let partyCurrencyData = null;
       let itemCurrencyData = null;
-      
+
+      const transactionPartyCurrencyId = transaction.partyCurrency?._id || transaction.partyCurrency;
+      const transactionItemCurrencyId = transaction.itemCurrency?._id || transaction.itemCurrency;
+
       if (transactionPartyCurrencyId) {
         try {
           const currencyResponse = await axiosInstance.get(`/currency-master/${transactionPartyCurrencyId}`);
@@ -1684,8 +1676,8 @@ const handleDownloadPDF = async (purchaseId) => {
           console.error("Error fetching party currency:", error);
         }
       }
-      
-      if (transactionItemCurrencyId && transactionItemCurrencyId !== transactionPartyCurrencyId) {
+
+      if (transactionItemCurrencyId) {
         try {
           const currencyResponse = await axiosInstance.get(`/currency-master/${transactionItemCurrencyId}`);
           itemCurrencyData = currencyResponse.data.data;
@@ -1693,18 +1685,6 @@ const handleDownloadPDF = async (purchaseId) => {
           console.error("Error fetching item currency:", error);
         }
       }
-
-      // Use transaction currency data first, then fallback to party details
-      const partyCurrencyCode = partyCurrencyData?.currencyCode || 
-                               transaction.partyCurrency?.currencyCode || 
-                               partyDetails.partyCurrencyCode || 
-                               "AED";
-      
-      const itemCurrencyCode = itemCurrencyData?.currencyCode || 
-                              transaction.itemCurrency?.currencyCode || 
-                              partyDetails.itemCurrencyCode || 
-                              partyCurrencyCode || 
-                              "AED";
 
       setFormData({
         transactionType: "purchase",
@@ -1717,10 +1697,10 @@ const handleDownloadPDF = async (purchaseId) => {
         partyCode: partyDetails.partyCode || transaction.partyCode?._id || "",
         partyName: partyDetails.partyName || partyName,
         partyCurrencyId: transactionPartyCurrencyId || partyDetails.partyCurrencyId || "",
-        partyCurrencyCode: partyCurrencyCode,
+        partyCurrencyCode: partyCurrencyData?.currencyCode || transaction.partyCurrency?.currencyCode || partyDetails.partyCurrencyCode || "AED",
         partyCurrencyValue: partyCurrencyData?.conversionRate || partyDetails.partyCurrencyValue || "",
         itemCurrencyId: transactionItemCurrencyId || partyDetails.itemCurrencyId || transactionPartyCurrencyId || "",
-        itemCurrencyCode: itemCurrencyCode,
+        itemCurrencyCode: itemCurrencyData?.currencyCode || transaction.itemCurrency?.currencyCode || partyDetails.itemCurrencyCode || "AED",
         itemCurrencyValue: itemCurrencyData?.conversionRate || partyDetails.itemCurrencyValue || partyCurrencyData?.conversionRate || "",
         baseCurrency: transaction.baseCurrency?._id || transactionPartyCurrencyId || null,
         metalRateUnit: transaction.metalRateUnit || "GOZ",
@@ -1735,7 +1715,6 @@ const handleDownloadPDF = async (purchaseId) => {
       });
 
       setIsModalOpen(true);
-
       showToast("Editing metal purchase", "success");
     } catch (error) {
       setError("Failed to fetch transaction data for editing");
