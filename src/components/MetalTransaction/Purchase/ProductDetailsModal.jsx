@@ -131,19 +131,42 @@ const ProductDetailsModal = ({
   const effectiveRate =
     partyCurrDetails.currencyCode === "AED" ? 1 : conversionRate;
   const currencyCode = partyCurrDetails.currencyCode || "AED";
+
+  
 useEffect(() => {
   if (isOpen) {
     if (editingItem) {
       const isAED = currencyCode === "AED";
       const previousCurrency = editingItem.baseCurrency || "AED";
-      const needsConversion = !isAED && previousCurrency === "AED" || isAED && previousCurrency !== "AED";
       
-      let convertedData = { ...editingItem, metalTypeId: editingItem.metalType || "", baseCurrency: currencyCode };
+      // Determine if conversion is needed
+      const needsConversion = previousCurrency !== currencyCode;
+      
+      let convertedData = { 
+        ...editingItem, 
+        metalTypeId: editingItem.metalType || "", 
+        baseCurrency: currencyCode 
+      };
       
       if (needsConversion) {
         const conversionRate = parseFloat(partyCurrency?.conversionRate) || 1;
-        const conversionFactor = isAED ? 1 / conversionRate : conversionRate;
         
+        // Determine conversion direction and factor
+        let conversionFactor;
+        if (isAED && previousCurrency !== "AED") {
+          // Converting from other currency to AED: multiply by conversion rate
+          conversionFactor = 1 / conversionRate;
+        } else if (!isAED && previousCurrency === "AED") {
+          // Converting from AED to other currency: divide by conversion rate
+          conversionFactor = 1 ;
+        } else {
+          // Same currency or no conversion needed
+          conversionFactor = 1;
+        }
+        
+        console.log(`Currency conversion: ${previousCurrency} -> ${currencyCode}, factor: ${conversionFactor}`);
+        
+        // Apply conversion to all monetary values
         convertedData = {
           ...editingItem,
           metalTypeId: editingItem.metalType || "",
@@ -166,6 +189,10 @@ useEffect(() => {
           },
           itemTotal: {
             ...editingItem.itemTotal,
+            baseAmount: (parseFloat(editingItem.itemTotal.baseAmount || 0) * conversionFactor).toFixed(2),
+            makingChargesTotal: (parseFloat(editingItem.itemTotal.makingChargesTotal || 0) * conversionFactor).toFixed(2),
+            premiumTotal: (parseFloat(editingItem.itemTotal.premiumTotal || 0) * conversionFactor).toFixed(2),
+            subTotal: (parseFloat(editingItem.itemTotal.subTotal || 0) * conversionFactor).toFixed(2),
             vatAmount: (parseFloat(editingItem.itemTotal.vatAmount || 0) * conversionFactor).toFixed(2),
             itemTotalAmount: (parseFloat(editingItem.itemTotal.itemTotalAmount || 0) * conversionFactor).toFixed(2),
           },
@@ -191,7 +218,6 @@ useEffect(() => {
     });
   }
 }, [isOpen, editingItem, currencyCode, partyCurrency]);
-
   // Memoize calculations to prevent unnecessary recalculations
   const { pureWeight, purityWeight, weightInOz } = useMemo(() => {
     const grossWeight = parseFloat(productData.grossWeight) || 0;
