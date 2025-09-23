@@ -220,15 +220,7 @@ const fetchAllCashType = async () => {
     console.error("Error fetching cash types:", error);
   }
 };
-  // const checkForNegativeBalance = (cashTypeId) => {
-  //   const selectedAccount = cashTypes.find(account => account._id === cashTypeId);
-  //   if (selectedAccount && selectedAccount.openingBalance < 0) {
-  //     setSelectedCashType(selectedAccount);
-  //     setShowNegativeBalanceWarning(true);
-  //     return true;
-  //   }
-  //   return false;
-  // };
+ 
 
   const fetchAllCurrency = async () => {
     try {

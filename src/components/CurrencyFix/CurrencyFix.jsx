@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Search, Settings, RefreshCw, TrendingUp, DollarSign, Star, Users, Zap, ChevronRight, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import axiosInstance from '../../api/axios';
 import useMarketData from '../marketData';
+import { toast } from 'react-toastify';
 
 const CurrencyTradingUI = () => {
   const [activeTab, setActiveTab] = useState('Overview');
-  const [selectedParty, setSelectedParty] = useState('MAJID');
+  // set first party on selected party
+  const [selectedParty, setSelectedParty] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -14,10 +16,14 @@ const CurrencyTradingUI = () => {
   const [liveRates, setLiveRates] = useState(null);
   const [tradingPairs, setTradingPairs] = useState([]);
   const [loadingParties, setLoadingParties] = useState(true);
+  const [voucherCode, setVoucherCode] = useState("");
+  const [voucherType, setVoucherType] = useState("");
+  const [prefix, setPrefix] = useState("");
 
   // load hook
   const { marketData } = useMarketData(["GOLD"]);
   console.log(marketData);
+
   const [goldData, setGoldData] = useState({
     symbol: "GOLD",
     bid: null,
@@ -33,13 +39,14 @@ const CurrencyTradingUI = () => {
     priceUpdateTimestamp: null,
   });
 
-  //take the gold bid from the market data
+  // take the gold bid from the market data
   useEffect(() => {
     if (marketData) {
       setGoldData(marketData);
       setGoldRate(marketData.bid);
+      console.log(goldData, goldRate);
     }
-  }, [marketData]);
+  }, []);
 
   const [goldRate, setGoldRate] = useState(null);
 
@@ -50,13 +57,17 @@ const CurrencyTradingUI = () => {
   const [amount, setAmount] = useState('');
   const [selectedTradeParty, setSelectedTradeParty] = useState('');
 
+  // Pagination state for trading parties
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   useEffect(() => {
     const fetchTradingParties = async () => {
       try {
         setLoadingParties(true);
         const res = await axiosInstance.get(`/account-type`);
-
         if (res.data.success && res.data.data) {
+          setSelectedParty(res.data.data[0].customerName);
           setTradingParties(res.data.data);
         }
       } catch (err) {
@@ -104,7 +115,7 @@ const CurrencyTradingUI = () => {
       const inrCurrency = currencies.find(c => c.currencyCode === 'INR');
       const inrRate = inrCurrency ? inrCurrency.conversionRate : 23.9;
 
-      const goldUSD = goldRate || 3000;
+      const goldUSD = marketData?.bid || 3754;
       const ounceToGram = 31.105;
       const usdToAed = 3.674;
       const aedPerGram = (goldUSD / ounceToGram) * usdToAed;
@@ -125,7 +136,7 @@ const CurrencyTradingUI = () => {
         },
         {
           pair: 'AED/XAU',
-          flag: '🥇',
+          flag: '💰',
           code: 'XAU',
           rate: aedPerGram,
           change: -0.05,
@@ -158,6 +169,26 @@ const CurrencyTradingUI = () => {
     return () => clearInterval(timer);
   }, []);
 
+  const module = window.location.pathname.split("/")[1] || "currency-fix";
+  const generateVoucherNumber = async () => {
+    try {
+      const response = await axiosInstance.post(`/voucher/generate/${module}`, {
+        transactionType: "purchase",
+      });
+      const { data } = response.data;
+      console.log(data);
+      localStorage.setItem(data.prefix, location.pathname);
+      return {
+        voucherCode: data.voucherNumber,
+        voucherType: data.voucherType,
+        prefix: data.prefix,
+      };
+    } catch (error) {
+      console.error("Error generating voucher number:", error);
+      return { voucherCode: "", voucherType: "PUR", prefix: "" };
+    }
+  };
+
   const formatTime = (date) => {
     return date.toLocaleString('en-US', {
       month: 'short',
@@ -170,8 +201,12 @@ const CurrencyTradingUI = () => {
     });
   };
 
-  const openTradeModal = (pair) => {
+  const openTradeModal = async (pair) => {
     setSelectedPair(pair);
+    const { voucherCode, voucherType, prefix } = await generateVoucherNumber();
+    setVoucherCode(voucherCode);
+    setVoucherType(voucherType);
+    setPrefix(prefix);
     setIsModalOpen(true);
     setAmount('');
     setTradeType('buy');
@@ -207,8 +242,9 @@ const CurrencyTradingUI = () => {
       }
     }
 
-    const buyRate = pair.rate + ask;
-    const sellRate = pair.rate - bid;
+    const buyRate = pair.rate - bid;  // pay more when buying(get more currency)
+    const sellRate = pair.rate + ask; // get less when selling
+
     return { buyRate, sellRate, bid, ask };
   };
 
@@ -241,23 +277,23 @@ const CurrencyTradingUI = () => {
   };
 
   const WatchlistCard = ({ pair }) => (
-    <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-lg transition-all duration-300 hover:border-gray-200 min-w-[280px]">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center space-x-3">
-          <div className="text-3xl">{pair.flag}</div>
+    <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-lg transition-all duration-300 hover:border-gray-200 min-w-[200px]">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center space-x-2">
+          <div className="text-2xl">{pair.flag}</div>
           <div>
-            <div className="text-lg font-bold text-gray-900">{pair.code}</div>
-            <div className="text-sm text-gray-500 font-medium">{pair.pair}</div>
+            <div className="text-base font-bold text-gray-900">{pair.code}</div>
+            <div className="text-xs text-gray-500 font-medium">{pair.pair}</div>
           </div>
         </div>
         <button className="text-yellow-500 hover:text-yellow-600 transition-colors">
-          <Star className="w-5 h-5 fill-current" />
+          <Star className="w-4 h-4 fill-current" />
         </button>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-2xl font-bold text-gray-900">{pair.rate.toFixed(4)}</span>
+          <span className="text-lg font-bold text-gray-900">{pair.rate.toFixed(4)}</span>
           <div className={`flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-semibold ${pair.isUp ? 'text-green-700 bg-green-100' : 'text-red-700 bg-red-100'}`}>
             {pair.isUp ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
             <span>{pair.changePercent.toFixed(2)}%</span>
@@ -277,7 +313,7 @@ const CurrencyTradingUI = () => {
       ...getRatesForParty(selectedParty, pair)
     }));
 
-    const goldUSD = goldRate || 3000;
+    const goldUSD = goldRate || 3754;
     const ounceToGram = 31.105;
     const usdToAed = 3.674;
     const aedPerGram = (goldUSD / ounceToGram) * usdToAed;
@@ -309,7 +345,7 @@ const CurrencyTradingUI = () => {
       },
       {
         pair: 'AED/XAU',
-        flag: '🥇',
+        flag: '💰',
         code: 'XAU',
         rate: aedPerGram,
         change: -0.05,
@@ -350,127 +386,120 @@ const CurrencyTradingUI = () => {
           <StatCard title="Watchlist" value={watchlistPairs.length} icon={Star} color="purple" />
         </div>
 
-        {/* Horizontal Watchlist */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="px-8 py-6 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-blue-50">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-purple-100 rounded-xl">
-                  <Star className="w-6 h-6 text-purple-600" />
+        {/* Watchlist and Live Trading Pairs Side by Side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Watchlist Section */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="px-8 py-6 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-blue-50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-purple-100 rounded-xl">
+                    <Star className="w-6 h-6 text-purple-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900">Watchlist</h3>
+                    <p className="text-sm text-gray-600">Your favorite currency pairs</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-xl font-bold text-gray-900">Watchlist</h3>
-                  <p className="text-sm text-gray-600">Your favorite currency pairs</p>
+                <div className="relative">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search currencies..."
+                    className="w-64 pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white shadow-sm"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
                 </div>
-              </div>
-              <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search currencies..."
-                  className="w-64 pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white shadow-sm"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
               </div>
             </div>
-          </div>
 
-          <div className="p-8">
-            <div className="flex space-x-6 overflow-x-auto pb-4">
+            <div className="p-10">
               {watchlistPairs.length === 0 ? (
                 <div className="text-gray-500">Loading live rates...</div>
               ) : (
-                watchlistPairs.map((pair, index) => (
-                  <WatchlistCard key={index} pair={pair} />
-                ))
+                <div className="grid grid-cols-2 gap-8">
+                  {watchlistPairs.map((pair, index) => (
+                    <WatchlistCard key={index} pair={pair} />
+                  ))}
+                </div>
               )}
             </div>
           </div>
-        </div>
 
-        {/* Live Trading Pairs */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="px-8 py-6 border-b border-gray-100 bg-gradient-to-r from-green-50 to-blue-50">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-green-100 rounded-xl">
-                  <TrendingUp className="w-6 h-6 text-green-600" />
+          {/* Live Trading Pairs Section */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="px-8 py-6 border-b border-gray-100 bg-gradient-to-r from-green-50 to-blue-50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-green-100 rounded-xl">
+                    <TrendingUp className="w-6 h-6 text-green-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900">Live Trading Pairs</h3>
+                    <p className="text-sm text-gray-600">Real-time rates with party-specific spreads</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-xl font-bold text-gray-900">Live Trading Pairs</h3>
-                  <p className="text-sm text-gray-600">Real-time rates with party-specific spreads</p>
+                <div className="flex items-center space-x-2 text-sm font-medium text-green-700">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span>Live Updates</span>
                 </div>
-              </div>
-              <div className="flex items-center space-x-2 text-sm font-medium text-green-700">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span>Live Updates</span>
               </div>
             </div>
-          </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-100">
-                <tr>
-                  <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Currency Pair</th>
-                  <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Current Rate</th>
-                  <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Buy Rate</th>
-                  <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Sell Rate</th>
-                  <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Change</th>
-                  <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Volume</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-100">
-                {computedPairs.length === 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-100">
                   <tr>
-                    <td colSpan={6} className="text-center py-6 text-gray-500">
-                      No trading pairs found
-                    </td>
+                    <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Currency Pair</th>
+                    <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Current Rate</th>
+                    <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Buy Rate</th>
+                    <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Sell Rate</th>
                   </tr>
-                ) : (
-                  computedPairs.map((pair, index) => (
-                    <tr
-                      key={index}
-                      className="hover:bg-gray-50 transition-colors cursor-pointer"
-                      onClick={() => openTradeModal(pair)}
-                    >
-                      <td className="px-8 py-5 whitespace-nowrap">
-                        <div className="flex items-center space-x-4">
-                          <div className="text-2xl">{pair.flag}</div>
-                          <div>
-                            <div className="text-sm font-bold text-gray-900">{pair.pair}</div>
-                            <div className="text-xs text-gray-500 font-medium">{pair.code}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-8 py-5 whitespace-nowrap text-sm font-bold text-gray-900">
-                        {pair.rate.toFixed(4)}
-                      </td>
-                      <td className="px-8 py-5 whitespace-nowrap">
-                        <div className="text-sm font-bold text-green-700 bg-green-50 px-3 py-1 rounded-lg inline-block">
-                          {pair.buyRate.toFixed(4)}
-                        </div>
-                      </td>
-                      <td className="px-8 py-5 whitespace-nowrap">
-                        <div className="text-sm font-bold text-red-700 bg-red-50 px-3 py-1 rounded-lg inline-block">
-                          {pair.sellRate.toFixed(4)}
-                        </div>
-                      </td>
-                      <td className="px-8 py-5 whitespace-nowrap">
-                        <div className={`flex items-center space-x-1 text-sm font-semibold ${pair.isUp ? 'text-green-700' : 'text-red-700'}`}>
-                          {pair.isUp ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
-                          <span>{pair.changePercent.toFixed(2)}%</span>
-                        </div>
-                      </td>
-                      <td className="px-8 py-5 whitespace-nowrap text-sm text-gray-600">
-                        {pair.volume}
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {computedPairs.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="text-center py-6 text-gray-500">
+                        No trading pairs found
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    computedPairs.map((pair, index) => (
+                      <tr
+                        key={index}
+                        className="hover:bg-gray-50 transition-colors cursor-pointer"
+                        onClick={() => openTradeModal(pair)}
+                      >
+                        <td className="px-8 py-5 whitespace-nowrap">
+                          <div className="flex items-center space-x-4">
+                            <div className="text-2xl">{pair.flag}</div>
+                            <div>
+                              <div className="text-sm font-bold text-gray-900">{pair.pair}</div>
+                              <div className="text-xs text-gray-500 font-medium">{pair.code}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-8 py-5 whitespace-nowrap text-sm font-bold text-gray-900">
+                          {pair.rate.toFixed(4)}
+                        </td>
+                        <td className="px-8 py-5 whitespace-nowrap">
+                          <div className="text-sm font-bold text-green-700 bg-green-50 px-3 py-1 rounded-lg inline-block">
+                            {pair.buyRate.toFixed(4)}
+                          </div>
+                        </td>
+                        <td className="px-8 py-5 whitespace-nowrap">
+                          <div className="text-sm font-bold text-red-700 bg-red-50 px-3 py-1 rounded-lg inline-block">
+                            {pair.sellRate.toFixed(4)}
+                          </div>
+                        </td>
+
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
@@ -482,6 +511,18 @@ const CurrencyTradingUI = () => {
       party.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       party.accountCode.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    // Pagination calculations
+    const totalPages = Math.ceil(filteredParties.length / itemsPerPage);
+    const indexOfLast = currentPage * itemsPerPage;
+    const indexOfFirst = indexOfLast - itemsPerPage;
+    const currentParties = filteredParties.slice(indexOfFirst, indexOfLast);
+
+    // Generate page numbers with ellipsis if needed
+    const pageNumbers = [];
+    for (let i = 1; i <= totalPages; i++) {
+      pageNumbers.push(i);
+    }
 
     const selectedPartyObj = tradingParties.find((party) => party.customerName === selectedParty);
 
@@ -543,14 +584,14 @@ const CurrencyTradingUI = () => {
                       Loading trading parties...
                     </td>
                   </tr>
-                ) : filteredParties.length === 0 ? (
+                ) : currentParties.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="text-center py-6 text-gray-500">
                       No trading parties found
                     </td>
                   </tr>
                 ) : (
-                  filteredParties.map((party, index) => (
+                  currentParties.map((party, index) => (
                     <tr key={index} className="hover:bg-gray-50 transition-colors">
                       <td className="px-8 py-5 whitespace-nowrap text-sm font-bold text-gray-900">
                         {party.customerName}
@@ -588,6 +629,41 @@ const CurrencyTradingUI = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-8 py-4 border-t border-gray-100 bg-gray-50">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Previous
+              </button>
+              <div className="flex items-center space-x-2">
+                {pageNumbers.map((number) => (
+                  <button
+                    key={number}
+                    onClick={() => setCurrentPage(number)}
+                    className={`px-3 py-1 text-sm font-medium rounded-lg transition-colors ${
+                      currentPage === number
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                    }`}
+                  >
+                    {number}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Currency Configuration */}
@@ -694,15 +770,16 @@ const CurrencyTradingUI = () => {
       targetCurrencyId: targetCurrency?._id,
       baseCurrencyCode: base,
       targetCurrencyCode: quote,
-      reference: "CF0008"
+      reference: voucherCode
     };
 
     try {
-      alert("on here")
       const res = await axiosInstance.post('/currency-trading/trades', payload);
       if (res.data.success) {
+        toast.success('Trade created successfully');
         closeTradeModal();
       } else {
+        toast.error('Trade creation failed');
         console.error('Trade creation failed:', res.data);
       }
     } catch (err) {
@@ -721,38 +798,65 @@ const CurrencyTradingUI = () => {
     const convertedAmount = amount ? (isCommodity ? (parseFloat(amount) / conversionRate) : (parseFloat(amount) * conversionRate)).toFixed(4) : '0.0000';
 
     return (
-      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
-        <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl">
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-2xl p-8 w-full max-w-4xl shadow-2xl max-h-[90vh] overflow-y-auto">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-bold text-gray-900">Create Trade</h2>
-            <button onClick={closeTradeModal} className="text-gray-500 hover:text-gray-700">
-              ×
+            <button
+              onClick={closeTradeModal}
+              className="text-gray-500 hover:text-gray-700 p-2 rounded-full hover:bg-gray-100 transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
           </div>
 
           <div className="space-y-6">
+            {/* Voucher Information */}
+            <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+              <div className="text-sm font-semibold text-gray-700 mb-3">Voucher Details</div>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <span className="text-xs text-gray-500 block">Voucher Code</span>
+                  <div className="text-sm font-medium text-gray-900">{voucherCode || 'N/A'}</div>
+                </div>
+                <div>
+                  <span className="text-xs text-gray-500 block">Prefix</span>
+                  <div className="text-sm font-medium text-gray-900">{prefix || 'N/A'}</div>
+                </div>
+                <div>
+                  <span className="text-xs text-gray-500 block">Voucher Type</span>
+                  <div className="text-sm font-medium text-gray-900">{voucherType || 'N/A'}</div>
+                </div>
+              </div>
+            </div>
+
             {/* Party Selection */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Select Party</label>
-              <select
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                value={selectedTradeParty}
-                onChange={(e) => setSelectedTradeParty(e.target.value)}
-              >
-                <option value="">Choose a party...</option>
-                {tradingParties.map((party) => (
-                  <option key={party.customerName} value={party.customerName}>
-                    {party.customerName}
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <select
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white appearance-none"
+                  value={selectedTradeParty}
+                  onChange={(e) => setSelectedTradeParty(e.target.value)}
+                >
+                  <option value="">Choose a party...</option>
+                  {tradingParties.map((party) => (
+                    <option key={party.customerName} value={party.customerName}>
+                      {party.customerName}
+                    </option>
+                  ))}
+                </select>
+                <ChevronRight className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              </div>
             </div>
 
             {selectedTradeParty && (
               <>
                 {/* Pair Info */}
-                <div className="flex items-center space-x-4 bg-gray-50 p-4 rounded-xl">
-                  <div className="text-2xl">{selectedPair.flag}</div>
+                <div className="flex items-center space-x-4 bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-xl">
+                  <div className="text-3xl">{selectedPair.flag}</div>
                   <div>
                     <div className="text-lg font-bold text-gray-900">{selectedPair.pair}</div>
                     <div className="text-sm text-gray-600">Mid Rate: {selectedPair.rate.toFixed(4)}</div>
@@ -760,16 +864,16 @@ const CurrencyTradingUI = () => {
                 </div>
 
                 {/* Buy/Sell Options */}
-                <div className="flex space-x-4">
+                <div className="grid grid-cols-2 gap-4">
                   <button
                     onClick={() => setTradeType('buy')}
-                    className={`flex-1 py-3 rounded-xl font-semibold transition-colors ${tradeType === 'buy' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                    className={`py-3 rounded-xl font-semibold transition-colors ${tradeType === 'buy' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                   >
                     Buy
                   </button>
                   <button
                     onClick={() => setTradeType('sell')}
-                    className={`flex-1 py-3 rounded-xl font-semibold transition-colors ${tradeType === 'sell' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                    className={`py-3 rounded-xl font-semibold transition-colors ${tradeType === 'sell' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                   >
                     Sell
                   </button>
@@ -777,7 +881,7 @@ const CurrencyTradingUI = () => {
 
                 {/* Amount Input */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Enter Amount ({base})</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Amount ({base})</label>
                   <input
                     type="number"
                     placeholder={`Enter amount in ${base}`}
@@ -788,8 +892,8 @@ const CurrencyTradingUI = () => {
                 </div>
 
                 {/* Converted Amount */}
-                <div className="bg-blue-50 p-4 rounded-xl">
-                  <div className="text-sm text-gray-600 mb-1">Converted Amount ({quote})</div>
+                <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                  <div className="text-sm font-semibold text-gray-700 mb-2">Converted Amount ({quote})</div>
                   <div className="text-2xl font-bold text-blue-900">{convertedAmount}</div>
                   <div className="text-xs text-gray-500 mt-1">
                     Rate: {conversionRate.toFixed(4)} ({tradeType === 'buy' ? 'Buy' : 'Sell'})
@@ -798,10 +902,19 @@ const CurrencyTradingUI = () => {
 
                 {/* Create Trade Button */}
                 <button
-                  className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors"
+                  className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                   onClick={handleCreateTrade}
+                  disabled={!selectedTradeParty || !amount}
                 >
                   Create Trade
+                </button>
+
+                {/* Cancel Button */}
+                <button
+                  className="w-full bg-gray-100 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-200 transition-colors"
+                  onClick={closeTradeModal}
+                >
+                  Cancel
                 </button>
               </>
             )}
