@@ -726,154 +726,154 @@ export default function SalesMetal() {
     }
   }, [generateVoucherNumber, today, showToast]);
 
-  const handleEdit = useCallback(
-    async (stock) => {
-      setEditingStock(stock);
-      setError(null);
+const handleEdit = useCallback(
+  async (stock) => {
+    setEditingStock(stock);
+    setError(null);
+
+    try {
+      const response = await axiosInstance.get(`/metal-transaction/${stock.id}`);
+      const transaction = response.data.data;
+
+      let partyName = "Unknown Party";
+      let partyDetails = {
+        partyCode: "",
+        partyName: "",
+        partyCurrencyId: "",
+        partyCurrencyCode: "",
+        partyCurrencyValue: "",
+        itemCurrencyId: "",
+        itemCurrencyCode: "",
+        itemCurrencyValue: "",
+        partyId: "",
+        error: null,
+      };
 
       try {
-        const response = await axiosInstance.get(
-          `/metal-transaction/${stock.id}`
-        );
-        const transaction = response.data.data;
-
-        let partyName = "Unknown Party";
-        let partyDetails = {
-          partyCode: "",
-          partyName: "",
-          partyCurrencyId: "",
-          partyCurrencyCode: "",
-          partyCurrencyValue: "",
-          itemCurrencyId: "",
-          itemCurrencyCode: "",
-          itemCurrencyValue: "",
-          partyId: "",
-          error: null,
-        };
-
-        try {
-          const partyResponse = await axiosInstance.get(
-            `/account-type/${transaction.partyCode?._id}`
-          );
-          partyName = partyResponse.data.data.customerName || "Unknown Party";
-          partyDetails = fetchPartyDetails(partyName);
-        } catch (error) {
-          showToast("Failed to fetch party details", "error");
-        }
-
-        const mappedStockItems = (transaction.stockItems || []).map((item) => {
-          const calculatedVatPercentage =
-            item.vat?.percentage || item.vatPercentage || 0;
-
-          return {
-            stockId: item.stockCode?._id || item.stockCode || "",
-            stockCode: item.stockCode?.code || "",
-            description: item.description || "",
-            pcs: item.pieces || 0,
-            pcsCount: item.pieces || 0,
-            grossWeight: item.grossWeight || 0,
-            purity: item.purity || 0,
-            purityWeight: item.purityWeight || 0,
-            pureWeight: item.pureWeight || 0,
-            weightInOz: item.weightInOz || 0,
-            metalType: item.metalType || item.metalcode || "G",
-            metalRate: item.metalRate?._id || "",
-            metalRateRequirements: {
-              amount: Number(item.metalRateRequirements?.amount) || 0,
-              rate: Number(item.metalRateRequirements?.rate) || 0,
-            },
-            makingRate: item.makingCharges?.rate || 0,
-            premium: {
-              amount: Number(item.premium?.amount) || 0,
-              rate: Number(item.premium?.rate) || 0,
-            },
-            makingCharges: {
-              amount: Number(item.makingCharges?.amount) || 0,
-              rate: Number(item.makingCharges?.rate) || 0,
-            },
-            otherCharges: {
-              amount: Number(item.otherCharges?.amount) || 0,
-              rate:
-                Number(
-                  item.otherCharges?.percentage || item.otherCharges?.rate
-                ) || 0, // Ensure rate is properly mapped
-              description: item.otherCharges?.description || "",
-            },
-            itemTotal: {
-              baseAmount: Number(item.itemTotal?.baseAmount) || 0,
-              makingChargesTotal:
-                Number(item.itemTotal?.makingChargesTotal) || 0,
-              premiumTotal: Number(item.itemTotal?.premiumTotal) || 0,
-              subTotal: Number(item.itemTotal?.subTotal) || 0,
-              vatAmount: Number(item.itemTotal?.vatAmount) || 0,
-              vatPercentage: calculatedVatPercentage,
-              itemTotalAmount: Number(item.itemTotal?.itemTotalAmount) || 0,
-            },
-            vatPercentage: calculatedVatPercentage,
-            itemNotes: item.itemNotes || "",
-            itemStatus: item.itemStatus || "active",
-          };
-        });
-
-        setTempStockItems(mappedStockItems);
-
-        const itemCurrencyCode =
-          partyDetails.itemCurrencyCode ||
-          transaction.itemCurrency?.symbol ||
-          "AED";
-
-        setFormData({
-          transactionType: "saleReturn",
-          voucherCode: transaction.voucherNumber || "",
-          voucherType: transaction.voucherType || "SR",
-          prefix: transaction.prefix || "SR",
-          voucherDate: transaction.voucherDate
-            ? new Date(transaction.voucherDate).toISOString().split("T")[0]
-            : today,
-          partyCode: partyDetails.partyCode || transaction.partyCode?._id || "",
-          partyName: partyDetails.partyName || partyName,
-          partyCurrencyId:
-            partyDetails.partyCurrencyId ||
-            transaction.partyCurrency?._id ||
-            "",
-          partyCurrencyCode:
-            partyDetails.partyCurrencyCode ||
-            transaction.partyCurrency?.symbol ||
-            "AED",
-          partyCurrencyValue: partyDetails.partyCurrencyValue || "",
-          itemCurrencyId:
-            partyDetails.itemCurrencyId || transaction.itemCurrency?._id || "",
-          itemCurrencyCode: itemCurrencyCode,
-          itemCurrencyValue: partyDetails.itemCurrencyValue || "",
-          baseCurrency: transaction.baseCurrency?._id || null,
-          metalRateUnit: transaction.metalRateUnit || "GOZ",
-          metalRate: transaction.metalRate || "",
-          crDays: transaction.crDays?.toString() || "0",
-          creditDays: transaction.creditDays?.toString() || "0",
-          enteredBy: transaction.createdBy?.name || "ADMIN",
-          spp: transaction.spp || "",
-          fixed: transaction.fixed || false,
-          internalUnfix: transaction.unfix || false,
-        });
-
-        setIsModalOpen(true);
-
-        const currencyId =
-          partyDetails.partyCurrencyId ||
-          transaction.partyCurrency?._id ||
-          transaction.itemCurrency?._id;
-        if (currencyId) {
-          await fetchCurrencyById(currencyId);
-        }
-
-        showToast("Editing metal sale return", "success");
+        const partyResponse = await axiosInstance.get(`/account-type/${transaction.partyCode?._id}`);
+        partyName = partyResponse.data.data.customerName || "Unknown Party";
+        partyDetails = fetchPartyDetails(partyName);
       } catch (error) {
-        setError("Failed to fetch transaction data for editing");
-        showToast("Failed to load transaction data", "error");
+        showToast("Failed to fetch party details", "error");
       }
-    },
-    [today, axiosInstance, fetchPartyDetails, fetchCurrencyById, showToast]
-  );
+
+      const mappedStockItems = (transaction.stockItems || []).map((item) => {
+        const calculatedVatPercentage = item.vat?.percentage || item.vatPercentage || 0;
+
+        return {
+          stockId: item.stockCode?._id || item.stockCode || "",
+          stockCode: item.stockCode?.code || "",
+          description: item.description || "",
+          pcs: item.pieces || 0,
+          pcsCount: item.pieces || 0,
+          grossWeight: item.grossWeight || 0,
+          purity: item.purity || 0,
+          purityWeight: item.purityWeight || 0,
+          pureWeight: item.pureWeight || 0,
+          weightInOz: item.weightInOz || 0,
+          metalType: item.metalType || item.metalcode || "G",
+          metalRate: item.metalRate?._id || "",
+          metalRateRequirements: {
+            amount: Number(item.metalRateRequirements?.amount) || 0,
+            rate: Number(item.metalRateRequirements?.rate) || 0,
+          },
+          makingRate: item.makingCharges?.rate || 0,
+          makingCharges: {
+            amount: Number(item.makingCharges?.amount) || 0,
+            rate: Number(item.makingCharges?.rate) || 0,
+          },
+          premium: {
+            amount: Number(item.premium?.amount) || 0,
+            rate: Number(item.premium?.rate) || 0,
+          },
+          otherCharges: {
+            amount: Number(item.otherCharges?.amount) || 0,
+            rate: Number(item.otherCharges?.rate) || 0,
+            description: item.otherCharges?.description || "",
+            totalAfterOtherCharges: Number(item.otherCharges?.totalAfterOtherCharges) || 0,
+          },
+          itemTotal: {
+            baseAmount: Number(item.itemTotal?.baseAmount) || 0,
+            makingChargesTotal: Number(item.itemTotal?.makingChargesTotal) || 0,
+            premiumTotal: Number(item.itemTotal?.premiumTotal) || 0,
+            subTotal: Number(item.itemTotal?.subTotal) || 0,
+            vatAmount: Number(item.vat?.amount || item.itemTotal?.vatAmount) || 0,
+            vatPercentage: calculatedVatPercentage,
+            itemTotalAmount: Number(item.itemTotal?.itemTotalAmount) || 0,
+          },
+          vatPercentage: calculatedVatPercentage,
+          itemNotes: item.itemNotes || "",
+          itemStatus: item.itemStatus || "active",
+          convFactGms: item.convFactGms || "",
+          convertrate: item.convertrate || "",
+          premiumCurrencyValue: item.premiumCurrencyValue || 3.674,
+        };
+      });
+
+      setTempStockItems(mappedStockItems);
+
+      // Fetch currency details for both party and item currencies
+      let partyCurrencyData = null;
+      let itemCurrencyData = null;
+
+      const transactionPartyCurrencyId = transaction.partyCurrency?._id || transaction.partyCurrency;
+      const transactionItemCurrencyId = transaction.itemCurrency?._id || transaction.itemCurrency;
+
+      if (transactionPartyCurrencyId) {
+        try {
+          const currencyResponse = await axiosInstance.get(`/currency-master/${transactionPartyCurrencyId}`);
+          partyCurrencyData = currencyResponse.data.data;
+        } catch (error) {
+          console.error("Error fetching party currency:", error);
+        }
+      }
+
+      if (transactionItemCurrencyId) {
+        try {
+          const currencyResponse = await axiosInstance.get(`/currency-master/${transactionItemCurrencyId}`);
+          itemCurrencyData = currencyResponse.data.data;
+        } catch (error) {
+          console.error("Error fetching item currency:", error);
+        }
+      }
+
+      setFormData({
+        transactionType: "saleReturn",
+        voucherCode: transaction.voucherNumber || "",
+        voucherType: transaction.voucherType || "PUR",
+        prefix: transaction.prefix || "PUR",
+        voucherDate: transaction.voucherDate
+          ? new Date(transaction.voucherDate).toISOString().split("T")[0]
+          : today,
+        partyCode: partyDetails.partyCode || transaction.partyCode?._id || "",
+        partyName: partyDetails.partyName || partyName,
+        partyCurrencyId: transactionPartyCurrencyId || partyDetails.partyCurrencyId || "",
+        partyCurrencyCode: partyCurrencyData?.currencyCode || transaction.partyCurrency?.currencyCode || partyDetails.partyCurrencyCode || "AED",
+        partyCurrencyValue: partyCurrencyData?.conversionRate || partyDetails.partyCurrencyValue || "",
+        itemCurrencyId: transactionItemCurrencyId || partyDetails.itemCurrencyId || transactionPartyCurrencyId || "",
+        itemCurrencyCode: itemCurrencyData?.currencyCode || transaction.itemCurrency?.currencyCode || partyDetails.itemCurrencyCode || "AED",
+        itemCurrencyValue: itemCurrencyData?.conversionRate || partyDetails.itemCurrencyValue || partyCurrencyData?.conversionRate || "",
+        baseCurrency: transaction.baseCurrency?._id || transactionPartyCurrencyId || null,
+        metalRateUnit: transaction.metalRateUnit || "GOZ",
+        metalRate: transaction.metalRate || "",
+        crDays: transaction.crDays?.toString() || "0",
+        creditDays: transaction.creditDays?.toString() || "0",
+        enteredBy: transaction.createdBy?.name || "ADMIN",
+        spp: transaction.spp || "",
+        fixed: transaction.fixed || false,
+        internalUnfix: transaction.unfix || false,
+        partyCurrency: partyCurrencyData || partyDetails.partyCurrency || [],
+      });
+
+      setIsModalOpen(true);
+      showToast("Editing metal purchase", "success");
+    } catch (error) {
+      setError("Failed to fetch transaction data for editing");
+      showToast("Failed to load transaction data", "error");
+    }
+  },
+  [today, axiosInstance, fetchPartyDetails, showToast]
+);
 
   useEffect(() => {
     const checkVoucher = async () => {
