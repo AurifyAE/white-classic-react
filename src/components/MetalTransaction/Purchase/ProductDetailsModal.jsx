@@ -54,6 +54,7 @@ const initialProductData = {
   baseCurrencyId: "",
   baseCurrency: "",
   metalTypeId: "",
+  
 };
 
 const initialGoldData = {
@@ -131,34 +132,75 @@ const ProductDetailsModal = ({
     partyCurrDetails.currencyCode === "AED" ? 1 : conversionRate;
   const currencyCode = partyCurrDetails.currencyCode || "AED";
 
-  // Reset form when modal opens/closes or editingItem changes
-  useEffect(() => {
-    if (isOpen) {
-      if (editingItem) {
-        setProductData({
-          ...initialProductData,
-          ...editingItem,
-          metalTypeId: editingItem.metalType || "",
-          baseCurrency: currencyCode,
-        });
-      } else {
-        setProductData({
-          ...initialProductData,
-          baseCurrency: currencyCode,
-        });
-      }
-      setErrors({});
-      setFetchError("");
-      initialRenderWeights.current = true;
-      setFocusedFields({});
-      setLastEditedFields({
-        makingCharges: "rate",
-        premium: "rate",
-        otherCharges: "rate",
-        vat: "percentage",
+useEffect(() => {
+  if (isOpen) {
+    if (editingItem) {
+      // Convert amounts to the current partyCurrency
+      const conversionRate = parseFloat(partyCurrency?.conversionRate) || 1;
+      const convertedMetalAmount = (
+        parseFloat(editingItem.metalRateRequirements.amount) * conversionRate
+      ).toFixed(2);
+      const convertedMakingCharges = (
+        parseFloat(editingItem.makingCharges.amount) * conversionRate
+      ).toFixed(2);
+      const convertedPremium = (
+        parseFloat(editingItem.premium.amount) * conversionRate
+      ).toFixed(2);
+      const convertedOtherCharges = (
+        parseFloat(editingItem.otherCharges.amount) * conversionRate
+      ).toFixed(2);
+      const convertedVatAmount = (
+        parseFloat(editingItem.itemTotal.vatAmount) * conversionRate
+      ).toFixed(2);
+      const convertedItemTotal = (
+        parseFloat(editingItem.itemTotal.itemTotalAmount) * conversionRate
+      ).toFixed(2);
+
+      setProductData({
+        ...initialProductData,
+        ...editingItem,
+        metalTypeId: editingItem.metalType || "",
+        baseCurrency: currencyCode,
+        metalRateRequirements: {
+          ...editingItem.metalRateRequirements,
+          amount: convertedMetalAmount,
+        },
+        makingCharges: {
+          ...editingItem.makingCharges,
+          amount: convertedMakingCharges,
+        },
+        premium: {
+          ...editingItem.premium,
+          amount: convertedPremium,
+        },
+        otherCharges: {
+          ...editingItem.otherCharges,
+          amount: convertedOtherCharges,
+        },
+        itemTotal: {
+          ...editingItem.itemTotal,
+          vatAmount: convertedVatAmount,
+          itemTotalAmount: convertedItemTotal,
+        },
+      });
+    } else {
+      setProductData({
+        ...initialProductData,
+        baseCurrency: currencyCode,
       });
     }
-  }, [isOpen, editingItem, currencyCode]);
+    setErrors({});
+    setFetchError("");
+    initialRenderWeights.current = true;
+    setFocusedFields({});
+    setLastEditedFields({
+      makingCharges: "rate",
+      premium: "rate",
+      otherCharges: "rate",
+      vat: "percentage",
+    });
+  }
+}, [isOpen, editingItem, currencyCode, partyCurrency]);
 
   // Memoize calculations to prevent unnecessary recalculations
   const { pureWeight, purityWeight, weightInOz } = useMemo(() => {
@@ -213,39 +255,37 @@ const ProductDetailsModal = ({
 
   // Updated profit calculation
   const calculateProfit = useCallback(() => {
-    if (currencyCode === "AED") {
-      return "0.00"; // No profit for AED
-    }
+  if (currencyCode === "AED") {
+    return "0.00"; // No profit for AED
+  }
 
-    const premiumAmount = parseFloat(productData.premium.amount) || 0;
-    const otherChargesAmount = parseFloat(productData.otherCharges.amount) || 0;
+  const premiumAmount = parseFloat(productData.premium.amount) || 0;
+  const otherChargesAmount = parseFloat(productData.otherCharges.amount) || 0;
 
-    if (fixed) {
-      // When fixed is true, use base, premium, other charges, and VAT
-      const baseAmount = parseFloat(productData.itemTotal.baseAmount) || 0;
-      const vatAmount = parseFloat(productData.itemTotal.vatAmount) || 0;
-      const totalExcludingMaking =
-        baseAmount + premiumAmount + otherChargesAmount + vatAmount;
-      const totalWithSpread = totalExcludingMaking * effectiveRate;
-      const totalWithoutSpread = totalExcludingMaking * conversionRate;
-      return (totalWithoutSpread - totalWithSpread).toFixed(2);
-    } else {
-      // When fixed is false, use only premium and otherCharges
-      const addedValue = premiumAmount + otherChargesAmount;
-      const totalWithSpread = addedValue * effectiveRate;
-      const totalWithoutSpread = addedValue * conversionRate;
-      return (totalWithoutSpread - totalWithSpread).toFixed(2);
-    }
-  }, [
-    productData.itemTotal.baseAmount,
-    productData.premium.amount,
-    productData.otherCharges.amount,
-    productData.itemTotal.vatAmount,
-    effectiveRate,
-    conversionRate,
-    fixed,
-    currencyCode,
-  ]);
+  if (fixed) {
+    const baseAmount = parseFloat(productData.itemTotal.baseAmount) || 0;
+    const vatAmount = parseFloat(productData.itemTotal.vatAmount) || 0;
+    const totalExcludingMaking =
+      baseAmount + premiumAmount + otherChargesAmount + vatAmount;
+    const totalWithSpread = totalExcludingMaking * effectiveRate;
+    const totalWithoutSpread = totalExcludingMaking * conversionRate;
+    return (totalWithoutSpread - totalWithSpread).toFixed(2);
+  } else {
+    const addedValue = premiumAmount + otherChargesAmount;
+    const totalWithSpread = addedValue * effectiveRate;
+    const totalWithoutSpread = addedValue * conversionRate;
+    return (totalWithoutSpread - totalWithSpread).toFixed(2);
+  }
+}, [
+  productData.itemTotal.baseAmount,
+  productData.premium.amount,
+  productData.otherCharges.amount,
+  productData.itemTotal.vatAmount,
+  effectiveRate,
+  conversionRate,
+  fixed,
+  currencyCode,
+]);
 
   // Update gold data from market data
   const updateGoldData = useCallback(
@@ -590,32 +630,33 @@ const ProductDetailsModal = ({
     ]
   );
 
-  useEffect(() => {
-    if (initialRenderWeights.current) {
-      initialRenderWeights.current = false;
-      return;
-    }
-    debouncedSetProductData((prev) => ({ ...prev }));
-  }, [
-    productData.grossWeight,
-    productData.purity,
-    productData.metalRateRequirements.rate,
-    productData.convFactGms,
-    productData.convertrate,
-    productData.metalRateUnit,
-    productData.makingCharges.rate,
-    productData.makingCharges.amount,
-    productData.premium.rate,
-    productData.premium.amount,
-    productData.otherCharges.rate,
-    productData.otherCharges.amount,
-    productData.itemTotal.vatPercentage,
-    productData.itemTotal.vatAmount,
-    lastEditedFields,
-    effectiveRate,
-    currencyCode,
-    debouncedSetProductData,
-  ]);
+ useEffect(() => {
+  if (initialRenderWeights.current) {
+    initialRenderWeights.current = false;
+    return;
+  }
+  debouncedSetProductData((prev) => ({ ...prev }));
+}, [
+  productData.grossWeight,
+  productData.purity,
+  productData.metalRateRequirements.rate,
+  productData.convFactGms,
+  productData.convertrate,
+  productData.metalRateUnit,
+  productData.makingCharges.rate,
+  productData.makingCharges.amount,
+  productData.premium.rate,
+  productData.premium.amount,
+  productData.otherCharges.rate,
+  productData.otherCharges.amount,
+  productData.itemTotal.vatPercentage,
+  productData.itemTotal.vatAmount,
+  lastEditedFields,
+  effectiveRate,
+  currencyCode,
+  partyCurrency, // Add this to trigger recalculation on currency change
+  debouncedSetProductData,
+]);
 
   const validate = useCallback(() => {
     const newErrors = {};
@@ -955,41 +996,51 @@ const ProductDetailsModal = ({
     [handleInputChange]
   );
 
-  const handleSave = useCallback(() => {
-    if (!validate()) {
-      const errorMessages = Object.values(errors).filter(Boolean);
-      if (errorMessages.length > 0) {
-        alert(errorMessages.join(", "));
-      }
-      return;
+const handleSave = useCallback(() => {
+  if (!validate()) {
+    const errorMessages = Object.values(errors).filter(Boolean);
+    if (errorMessages.length > 0) {
+      alert(errorMessages.join(", "));
     }
+    return;
+  }
 
-    const transformedData = {
-      ...productData,
-      stockCode: productData.stockCode,
-      baseCurrency: productData.baseCurrencyId || currencyCode,
-      metalType: productData.metalTypeId,
-      profit: calculateProfit(),
-      convertedAmounts: {
-        metalAmount: parseFloat(productData.metalRateRequirements.amount) || 0,
-        premiumAmount: parseFloat(productData.premium.amount) || 0,
-        otherChargesAmount: parseFloat(productData.otherCharges.amount) || 0,
-        vatAmount: parseFloat(productData.itemTotal.vatAmount) || 0,
-        itemTotalAmount: parseFloat(productData.itemTotal.itemTotalAmount) || 0,
-        currencyCode,
-        effectiveRate: currencyCode === "AED" ? 1 : effectiveRate,
-      },
-    };
+  const baseConversionRate = currencyCode === "AED" ? 1 : 1 / effectiveRate;
+  const transformedData = {
+    ...productData,
+    stockCode: productData.stockCode,
+    baseCurrency: productData.baseCurrencyId || currencyCode,
+    metalType: productData.metalTypeId,
+    profit: calculateProfit(),
+    convertedAmounts: {
+      metalAmount:
+        (parseFloat(productData.metalRateRequirements.amount) || 0) *
+        baseConversionRate,
+      premiumAmount:
+        (parseFloat(productData.premium.amount) || 0) * baseConversionRate,
+      otherChargesAmount:
+        (parseFloat(productData.otherCharges.amount) || 0) *
+        baseConversionRate,
+      vatAmount:
+        (parseFloat(productData.itemTotal.vatAmount) || 0) *
+        baseConversionRate,
+      itemTotalAmount:
+        (parseFloat(productData.itemTotal.itemTotalAmount) || 0) *
+        baseConversionRate,
+      currencyCode: "AED", // Backend expects AED
+      effectiveRate: 1, // Base currency rate
+    },
+  };
 
-    onSave(transformedData);
-  }, [
-    validate,
-    productData,
-    onSave,
-    currencyCode,
-    calculateProfit,
-    effectiveRate,
-  ]);
+  onSave(transformedData);
+}, [
+  validate,
+  productData,
+  onSave,
+  currencyCode,
+  calculateProfit,
+  effectiveRate,
+]);
 
   if (!isOpen) return null;
 
@@ -1275,9 +1326,9 @@ const ProductDetailsModal = ({
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Metal Amount ({currencyCode})
-                  </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+  Metal Amount ({partyCurrency?.symbol || currencyCode})
+</label>
                   <input
                     type="text"
                     name="metalRateRequirements.amount"
