@@ -877,38 +877,38 @@ export default function StatementOfAccounts() {
               className="space-y-6"
             >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-               <div className="space-y-2">
-      <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700">
-        <div className="p-1.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg">
-          <Calendar className="w-4 h-4 text-white" />
-        </div>
-        <span>From Date</span>
-      </label>
-      <input
-        type="date"
-        value={filters.fromDate}
-        max={new Date().toISOString().split('T')[0]} // Prevent future dates
-        onClick={(e) => e.target.showPicker?.()}
-        onChange={(e) => handleFilterChange("fromDate", e.target.value)}
-        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 backdrop-blur-sm transition-all duration-200 hover:bg-white"
-      />
-    </div>
-                    <div className="space-y-2">
-      <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700">
-        <div className="p-1.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg">
-          <Calendar className="w-4 h-4 text-white" />
-        </div>
-        <span>To Date</span>
-      </label>
-      <input
-        type="date"
-        value={filters.toDate}
-        max={new Date().toISOString().split('T')[0]} // Prevent future dates
-        onClick={(e) => e.target.showPicker?.()}
-        onChange={(e) => handleFilterChange("toDate", e.target.value)}
-        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 backdrop-blur-sm transition-all duration-200 hover:bg-white"
-      />
-    </div>
+                <div className="space-y-2">
+                  <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700">
+                    <div className="p-1.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg">
+                      <Calendar className="w-4 h-4 text-white" />
+                    </div>
+                    <span>From Date</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={filters.fromDate}
+                    max={new Date().toISOString().split('T')[0]} // Prevent future dates
+                    onClick={(e) => e.target.showPicker?.()}
+                    onChange={(e) => handleFilterChange("fromDate", e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 backdrop-blur-sm transition-all duration-200 hover:bg-white"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700">
+                    <div className="p-1.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg">
+                      <Calendar className="w-4 h-4 text-white" />
+                    </div>
+                    <span>To Date</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={filters.toDate}
+                    max={new Date().toISOString().split('T')[0]} // Prevent future dates
+                    onClick={(e) => e.target.showPicker?.()}
+                    onChange={(e) => handleFilterChange("toDate", e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 backdrop-blur-sm transition-all duration-200 hover:bg-white"
+                  />
+                </div>
 
               </div>
               <div className="flex  mt-4 ml-40  items-center rounded-2xl w-1/3">

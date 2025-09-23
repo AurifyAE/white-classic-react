@@ -6,7 +6,6 @@ import { toast } from 'react-toastify';
 
 const CurrencyTradingUI = () => {
   const [activeTab, setActiveTab] = useState('Overview');
-  // set first party on selected party
   const [selectedParty, setSelectedParty] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -20,7 +19,13 @@ const CurrencyTradingUI = () => {
   const [voucherType, setVoucherType] = useState("");
   const [prefix, setPrefix] = useState("");
 
-  // load hook
+  // Trades state with pagination
+  const [trades, setTrades] = useState([]);
+  const [loadingTrades, setLoadingTrades] = useState(true);
+  const [currentTradesPage, setCurrentTradesPage] = useState(1);
+  const tradesPerPage = 10;
+
+  // Load hook
   const { marketData } = useMarketData(["GOLD"]);
   console.log(marketData);
 
@@ -39,22 +44,25 @@ const CurrencyTradingUI = () => {
     priceUpdateTimestamp: null,
   });
 
-  // take the gold bid from the market data
+  // Take the gold bid from the market data
   useEffect(() => {
     if (marketData) {
       setGoldData(marketData);
       setGoldRate(marketData.bid);
       console.log(goldData, goldRate);
     }
-  }, []);
+  }, [marketData]);
 
   const [goldRate, setGoldRate] = useState(null);
 
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
   const [selectedPair, setSelectedPair] = useState(null);
+  const [selectedTrade, setSelectedTrade] = useState(null);
   const [tradeType, setTradeType] = useState('buy'); // 'buy' or 'sell'
   const [amount, setAmount] = useState('');
+  const [manualRate, setManualRate] = useState(null);
   const [selectedTradeParty, setSelectedTradeParty] = useState('');
 
   // Pagination state for trading parties
@@ -108,6 +116,24 @@ const CurrencyTradingUI = () => {
     };
 
     fetchLiveRates();
+  }, []);
+
+  // Fetch trades
+  const fetchTrades = async () => {
+    try {
+      setLoadingTrades(true);
+      const res = await axiosInstance.get('/currency-trading/trades');
+      console.log(res);
+      setTrades(res.data || []);
+    } catch (err) {
+      console.error("Error fetching trades:", err);
+    } finally {
+      setLoadingTrades(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTrades();
   }, []);
 
   useEffect(() => {
@@ -201,22 +227,48 @@ const CurrencyTradingUI = () => {
     });
   };
 
-  const openTradeModal = async (pair) => {
+  const openCreateModal = async (pair) => {
     setSelectedPair(pair);
+    setSelectedTrade(null);
+    setIsEditMode(false);
     const { voucherCode, voucherType, prefix } = await generateVoucherNumber();
     setVoucherCode(voucherCode);
     setVoucherType(voucherType);
     setPrefix(prefix);
     setIsModalOpen(true);
     setAmount('');
+    setManualRate(null);
     setTradeType('buy');
     setSelectedTradeParty(selectedParty || '');
   };
 
-  const closeTradeModal = () => {
+  const openEditModal = (trade) => {
+    const pair = {
+      pair: `${trade.baseCurrencyCode}/${trade.targetCurrencyCode}`,
+      flag: trade.targetCurrencyCode === 'INR' ? '🇮🇳' : (trade.targetCurrencyCode === 'AED' ? '🇦🇪' : '💰'),
+      code: trade.targetCurrencyCode,
+      rate: trade.currentRate || 0,
+      isCommodity: trade.isGoldTrade || trade.targetCurrencyCode === 'XAU',
+    };
+    setSelectedPair(pair);
+    setSelectedTrade(trade);
+    setIsEditMode(true);
+    setVoucherCode(trade.reference);
+    setVoucherType("");
+    setPrefix("");
+    setIsModalOpen(true);
+    setAmount(trade.amount.toString());
+    setManualRate(trade.rate);
+    setTradeType(trade.type.toLowerCase());
+    setSelectedTradeParty(trade.partyId.customerName);
+  };
+
+  const closeModal = () => {
     setIsModalOpen(false);
     setSelectedPair(null);
+    setSelectedTrade(null);
     setSelectedTradeParty('');
+    setManualRate(null);
   };
 
   const getRatesForParty = (partyName, pair) => {
@@ -242,8 +294,8 @@ const CurrencyTradingUI = () => {
       }
     }
 
-    const buyRate = pair.rate - bid;  // pay more when buying(get more currency)
-    const sellRate = pair.rate + ask; // get less when selling
+    const buyRate = pair.rate - bid;
+    const sellRate = pair.rate + ask;
 
     return { buyRate, sellRate, bid, ask };
   };
@@ -369,6 +421,17 @@ const CurrencyTradingUI = () => {
       },
     ] : [];
 
+    // Pagination for trades
+    const totalTradesPages = Math.ceil(trades.length / tradesPerPage);
+    const indexOfLastTrade = currentTradesPage * tradesPerPage;
+    const indexOfFirstTrade = indexOfLastTrade - tradesPerPage;
+    const currentTrades = trades.slice(indexOfFirstTrade, indexOfLastTrade);
+
+    const pageNumbers = [];
+    for (let i = 1; i <= totalTradesPages; i++) {
+      pageNumbers.push(i);
+    }
+
     return (
       <div className="space-y-8">
         {/* Stats Grid */}
@@ -469,7 +532,7 @@ const CurrencyTradingUI = () => {
                       <tr
                         key={index}
                         className="hover:bg-gray-50 transition-colors cursor-pointer"
-                        onClick={() => openTradeModal(pair)}
+                        onClick={() => openCreateModal(pair)}
                       >
                         <td className="px-8 py-5 whitespace-nowrap">
                           <div className="flex items-center space-x-4">
@@ -493,7 +556,6 @@ const CurrencyTradingUI = () => {
                             {pair.sellRate.toFixed(4)}
                           </div>
                         </td>
-
                       </tr>
                     ))
                   )}
@@ -501,6 +563,123 @@ const CurrencyTradingUI = () => {
               </table>
             </div>
           </div>
+        </div>
+
+        {/* Recent Trades Section */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="px-8 py-6 border-b border-gray-100 bg-gradient-to-r from-orange-50 to-red-50">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-orange-100 rounded-xl">
+                  <DollarSign className="w-6 h-6 text-orange-600" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">Recent Trades</h3>
+                  <p className="text-sm text-gray-600">Your latest trading activities</p>
+                </div>
+              </div>
+              <button 
+                onClick={fetchTrades}
+                className="p-3 text-blue-600 hover:bg-blue-50 rounded-xl transition-colors"
+              >
+                <RefreshCw className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-100">
+                <tr>
+                  <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Reference</th>
+                  <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Type</th>
+                  <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Party</th>
+                  <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Pair</th>
+                  <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Amount</th>
+                  <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Rate</th>
+                  <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Converted</th>
+                  <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Status</th>
+                  <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Date</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-100">
+                {loadingTrades ? (
+                  <tr>
+                    <td colSpan={9} className="text-center py-6 text-gray-500">
+                      Loading trades...
+                    </td>
+                  </tr>
+                ) : currentTrades.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="text-center py-6 text-gray-500">
+                      No trades found
+                    </td>
+                  </tr>
+                ) : (
+                  currentTrades.map((trade) => (
+                    <tr 
+                      key={trade._id} 
+                      className="hover:bg-gray-50 transition-colors cursor-pointer"
+                      onClick={() => openEditModal(trade)}
+                    >
+                      <td className="px-8 py-5 whitespace-nowrap text-sm font-medium text-gray-900">{trade.reference}</td>
+                      <td className="px-8 py-5 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${trade.type === 'BUY' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                          {trade.type}
+                        </span>
+                      </td>
+                      <td className="px-8 py-5 whitespace-nowrap text-sm text-gray-600">{trade.partyId?.customerName || "NULLLLL"}</td>
+                      <td className="px-8 py-5 whitespace-nowrap text-sm text-gray-600">{trade.baseCurrencyCode}/{trade.targetCurrencyCode}</td>
+                      <td className="px-8 py-5 whitespace-nowrap text-sm font-bold text-gray-900">{trade.amount.toFixed(2)}</td>
+                      <td className="px-8 py-5 whitespace-nowrap text-sm font-bold text-gray-900">{trade.rate.toFixed(4)}</td>
+                      <td className="px-8 py-5 whitespace-nowrap text-sm font-bold text-gray-900">{trade.converted.toFixed(2)}</td>
+                      <td className="px-8 py-5 whitespace-nowrap">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+                          {trade.status}
+                        </span>
+                      </td>
+                      <td className="px-8 py-5 whitespace-nowrap text-sm text-gray-500">{new Date(trade.createdAt).toLocaleString()}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Trades Pagination */}
+          {totalTradesPages > 1 && (
+            <div className="flex items-center justify-between px-8 py-4 border-t border-gray-100 bg-gray-50">
+              <button
+                onClick={() => setCurrentTradesPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentTradesPage === 1}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Previous
+              </button>
+              <div className="flex items-center space-x-2">
+                {pageNumbers.map((number) => (
+                  <button
+                    key={number}
+                    onClick={() => setCurrentTradesPage(number)}
+                    className={`px-3 py-1 text-sm font-medium rounded-lg transition-colors ${
+                      currentTradesPage === number
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                    }`}
+                  >
+                    {number}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setCurrentTradesPage(prev => Math.min(prev + 1, totalTradesPages))}
+                disabled={currentTradesPage === totalTradesPages}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -512,13 +691,11 @@ const CurrencyTradingUI = () => {
       party.accountCode.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    // Pagination calculations
     const totalPages = Math.ceil(filteredParties.length / itemsPerPage);
     const indexOfLast = currentPage * itemsPerPage;
     const indexOfFirst = indexOfLast - itemsPerPage;
     const currentParties = filteredParties.slice(indexOfFirst, indexOfLast);
 
-    // Generate page numbers with ellipsis if needed
     const pageNumbers = [];
     for (let i = 1; i <= totalPages; i++) {
       pageNumbers.push(i);
@@ -696,7 +873,7 @@ const CurrencyTradingUI = () => {
                   <tr
                     key={index}
                     className="hover:bg-gray-50 transition-colors cursor-pointer"
-                    onClick={() => openTradeModal(pair)}
+                    onClick={() => openCreateModal(pair)}
                   >
                     <td className="px-8 py-5 whitespace-nowrap">
                       <div className="flex items-center space-x-4">
@@ -735,7 +912,7 @@ const CurrencyTradingUI = () => {
     );
   };
 
-  const handleCreateTrade = async () => {
+  const handleSubmit = async () => {
     const party = tradingParties.find(p => p.customerName === selectedTradeParty);
     if (!party || !amount || !selectedPair) {
       console.error('Missing required trade details');
@@ -745,9 +922,10 @@ const CurrencyTradingUI = () => {
     const base = selectedPair.pair.split('/')[0];
     const quote = selectedPair.pair.split('/')[1];
     const { buyRate, sellRate, bid, ask } = getRatesForParty(selectedTradeParty, selectedPair);
-    const conversionRate = tradeType === 'buy' ? buyRate : sellRate;
+    const calculatedRate = tradeType === 'buy' ? buyRate : sellRate;
+    const effectiveRate = manualRate ?? calculatedRate;
     const isCommodity = selectedPair.isCommodity || false;
-    const convertedAmount = amount ? (isCommodity ? (parseFloat(amount) / conversionRate) : (parseFloat(amount) * conversionRate)).toFixed(4) : '0.0000';
+    const convertedAmount = amount ? (isCommodity ? (parseFloat(amount) / effectiveRate) : (parseFloat(amount) * effectiveRate)).toFixed(4) : '0.0000';
 
     const baseCurrency = currencies.find(c => c.currencyCode === base);
     const targetCurrency = currencies.find(c => c.currencyCode === quote);
@@ -757,7 +935,7 @@ const CurrencyTradingUI = () => {
       type: tradeType.toUpperCase(),
       amount: parseFloat(amount),
       currency: base,
-      rate: conversionRate,
+      rate: effectiveRate,
       converted: parseFloat(convertedAmount),
       orderId: `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       timestamp: new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }),
@@ -774,42 +952,73 @@ const CurrencyTradingUI = () => {
     };
 
     try {
-      const res = await axiosInstance.post('/currency-trading/trades', payload);
-      if (res.data.success) {
-        toast.success('Trade created successfully');
-        closeTradeModal();
+      let res;
+      if (isEditMode) {
+        res = await axiosInstance.put(`/currency-trading/trades/${selectedTrade._id}`, payload);
       } else {
-        toast.error('Trade creation failed');
-        console.error('Trade creation failed:', res.data);
+        res = await axiosInstance.post('/currency-trading/trades', payload);
+      }
+      if (res.data.success) {
+        toast.success(isEditMode ? 'Trade updated successfully' : 'Trade created successfully');
+        closeModal();
+        fetchTrades();
+      } else {
+        toast.error('Operation failed');
+        console.error('Operation failed:', res.data);
       }
     } catch (err) {
-      console.error('Error creating trade:', err);
+      console.error('Error:', err);
     }
   };
 
-  const renderTradeModal = () => {
+  const handleDelete = async () => {
+    if (!window.confirm('Are you sure you want to delete this trade?')) return;
+
+    try {
+      await axiosInstance.delete(`/currency-trading/trades/${selectedTrade._id}`);
+      toast.success('Trade deleted successfully');
+      closeModal();
+      fetchTrades();
+    } catch (err) {
+      console.error('Error deleting trade:', err);
+      toast.error('Failed to delete trade');
+    }
+  };
+
+  const renderModal = () => {
     if (!isModalOpen || !selectedPair) return null;
 
     const base = selectedPair.pair.split('/')[0];
     const quote = selectedPair.pair.split('/')[1];
     const { buyRate, sellRate } = getRatesForParty(selectedTradeParty, selectedPair);
-    const conversionRate = tradeType === 'buy' ? buyRate : sellRate;
+    const calculatedRate = tradeType === 'buy' ? buyRate : sellRate;
+    const effectiveRate = manualRate ?? calculatedRate;
     const isCommodity = selectedPair.isCommodity || false;
-    const convertedAmount = amount ? (isCommodity ? (parseFloat(amount) / conversionRate) : (parseFloat(amount) * conversionRate)).toFixed(4) : '0.0000';
+    const convertedAmount = amount ? (isCommodity ? (parseFloat(amount) / effectiveRate) : (parseFloat(amount) * effectiveRate)).toFixed(4) : '0.0000';
 
     return (
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
         <div className="bg-white rounded-2xl p-8 w-full max-w-4xl shadow-2xl max-h-[90vh] overflow-y-auto">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-gray-900">Create Trade</h2>
-            <button
-              onClick={closeTradeModal}
-              className="text-gray-500 hover:text-gray-700 p-2 rounded-full hover:bg-gray-100 transition-colors"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+            <h2 className="text-2xl font-bold text-gray-900">{isEditMode ? 'Edit Trade' : 'Create Trade'}</h2>
+            <div className="flex items-center space-x-4">
+              {isEditMode && (
+                <button
+                  className="text-red-600 hover:text-red-800 text-sm font-semibold bg-red-50 px-3 py-1 rounded-lg hover:bg-red-100 transition-colors"
+                  onClick={handleDelete}
+                >
+                  Delete
+                </button>
+              )}
+              <button
+                onClick={closeModal}
+                className="text-gray-500 hover:text-gray-700 p-2 rounded-full hover:bg-gray-100 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
           </div>
 
           <div className="space-y-6">
@@ -891,28 +1100,40 @@ const CurrencyTradingUI = () => {
                   />
                 </div>
 
+                {/* Rate Input */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Rate</label>
+                  <input
+                    type="number"
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                    value={isEditMode ? manualRate : effectiveRate.toFixed(4)}
+                    onChange={(e) => isEditMode && setManualRate(parseFloat(e.target.value))}
+                    disabled={!isEditMode}
+                  />
+                </div>
+
                 {/* Converted Amount */}
                 <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
                   <div className="text-sm font-semibold text-gray-700 mb-2">Converted Amount ({quote})</div>
                   <div className="text-2xl font-bold text-blue-900">{convertedAmount}</div>
                   <div className="text-xs text-gray-500 mt-1">
-                    Rate: {conversionRate.toFixed(4)} ({tradeType === 'buy' ? 'Buy' : 'Sell'})
+                    Effective Rate: {effectiveRate.toFixed(4)} ({tradeType === 'buy' ? 'Buy' : 'Sell'})
                   </div>
                 </div>
 
-                {/* Create Trade Button */}
+                {/* Submit Button */}
                 <button
                   className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-                  onClick={handleCreateTrade}
+                  onClick={handleSubmit}
                   disabled={!selectedTradeParty || !amount}
                 >
-                  Create Trade
+                  {isEditMode ? 'Update Trade' : 'Create Trade'}
                 </button>
 
                 {/* Cancel Button */}
                 <button
                   className="w-full bg-gray-100 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-200 transition-colors"
-                  onClick={closeTradeModal}
+                  onClick={closeModal}
                 >
                   Cancel
                 </button>
@@ -930,20 +1151,18 @@ const CurrencyTradingUI = () => {
       <div className="bg-white shadow-sm border-b border-gray-200 backdrop-blur-sm bg-white/90 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20">
-            {/* Logo and Title */}
             <div className="flex items-center space-x-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+              {/* <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
                 <div className="w-7 h-7 rounded-full border-2 border-white flex items-center justify-center">
                   <div className="w-3 h-3 bg-white rounded-full"></div>
                 </div>
-              </div>
+              </div> */}
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">Currency Trading</h1>
                 <p className="text-sm text-gray-600 font-medium">Real-time Exchange Platform</p>
               </div>
             </div>
 
-            {/* Navigation */}
             <div className="flex items-center space-x-8">
               <div className="flex items-center space-x-1 bg-blue-50 rounded-xl p-1 border border-blue-200">
                 <button className="px-4 py-2 text-sm font-bold bg-blue-600 text-white rounded-lg shadow-sm">
@@ -968,7 +1187,6 @@ const CurrencyTradingUI = () => {
                 ))}
               </div>
 
-              {/* Time and Actions */}
               <div className="flex items-center space-x-4">
                 <div className="flex items-center space-x-2 text-sm font-medium text-gray-600 bg-green-50 px-3 py-2 rounded-xl border border-green-200">
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -986,12 +1204,11 @@ const CurrencyTradingUI = () => {
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {activeTab === 'Overview' ? renderOverview() : renderTrading()}
       </div>
 
-      {renderTradeModal()}
+      {renderModal()}
     </div>
   );
 };
