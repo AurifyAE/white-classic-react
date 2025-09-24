@@ -27,7 +27,6 @@ const CurrencyTradingUI = () => {
 
   // Load hook
   const { marketData } = useMarketData(["GOLD"]);
-  console.log(marketData);
 
   const [goldData, setGoldData] = useState({
     symbol: "GOLD",
@@ -44,16 +43,15 @@ const CurrencyTradingUI = () => {
     priceUpdateTimestamp: null,
   });
 
+  const [goldRate, setGoldRate] = useState(null);
+
   // Take the gold bid from the market data
   useEffect(() => {
     if (marketData) {
       setGoldData(marketData);
       setGoldRate(marketData.bid);
-      console.log(goldData, goldRate);
     }
   }, [marketData]);
-
-  const [goldRate, setGoldRate] = useState(null);
 
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -61,9 +59,11 @@ const CurrencyTradingUI = () => {
   const [selectedPair, setSelectedPair] = useState(null);
   const [selectedTrade, setSelectedTrade] = useState(null);
   const [tradeType, setTradeType] = useState('buy'); // 'buy' or 'sell'
-  const [amount, setAmount] = useState('');
+  const [payAmount, setPayAmount] = useState('');
+  const [receiveAmount, setReceiveAmount] = useState('');
   const [manualRate, setManualRate] = useState(null);
   const [selectedTradeParty, setSelectedTradeParty] = useState('');
+  const [inputCurrency, setInputCurrency] = useState(''); // Tracks which currency the user is entering
 
   // Pagination state for trading parties
   const [currentPage, setCurrentPage] = useState(1);
@@ -123,7 +123,6 @@ const CurrencyTradingUI = () => {
     try {
       setLoadingTrades(true);
       const res = await axiosInstance.get('/currency-trading/trades');
-      console.log(res);
       setTrades(res.data || []);
     } catch (err) {
       console.error("Error fetching trades:", err);
@@ -186,7 +185,7 @@ const CurrencyTradingUI = () => {
         },
       ]);
     }
-  }, [currencies, goldRate]);
+  }, [currencies, marketData]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -202,8 +201,7 @@ const CurrencyTradingUI = () => {
         transactionType: "purchase",
       });
       const { data } = response.data;
-      console.log(data);
-      localStorage.setItem(data.prefix, location.pathname);
+      localStorage.setItem(data.prefix, window.location.pathname);
       return {
         voucherCode: data.voucherNumber,
         voucherType: data.voucherType,
@@ -236,10 +234,12 @@ const CurrencyTradingUI = () => {
     setVoucherType(voucherType);
     setPrefix(prefix);
     setIsModalOpen(true);
-    setAmount('');
+    setPayAmount('');
+    setReceiveAmount('');
     setManualRate(null);
     setTradeType('buy');
     setSelectedTradeParty(selectedParty || '');
+    setInputCurrency(pair.pair.split('/')[0]); // Default to base currency
   };
 
   const openEditModal = (trade) => {
@@ -257,10 +257,12 @@ const CurrencyTradingUI = () => {
     setVoucherType("");
     setPrefix("");
     setIsModalOpen(true);
-    setAmount(trade.amount.toString());
+    setPayAmount(trade.amount.toString());
+    setReceiveAmount(trade.converted.toString());
     setManualRate(trade.rate);
     setTradeType(trade.type.toLowerCase());
     setSelectedTradeParty(trade.partyId.customerName);
+    setInputCurrency(trade.baseCurrencyCode);
   };
 
   const closeModal = () => {
@@ -269,6 +271,9 @@ const CurrencyTradingUI = () => {
     setSelectedTrade(null);
     setSelectedTradeParty('');
     setManualRate(null);
+    setPayAmount('');
+    setReceiveAmount('');
+    setInputCurrency('');
   };
 
   const getRatesForParty = (partyName, pair) => {
@@ -914,8 +919,9 @@ const CurrencyTradingUI = () => {
 
   const handleSubmit = async () => {
     const party = tradingParties.find(p => p.customerName === selectedTradeParty);
-    if (!party || !amount || !selectedPair) {
+    if (!party || (!payAmount && !receiveAmount) || !selectedPair) {
       console.error('Missing required trade details');
+      toast.error('Please enter a non-zero amount');
       return;
     }
 
@@ -925,7 +931,27 @@ const CurrencyTradingUI = () => {
     const calculatedRate = tradeType === 'buy' ? buyRate : sellRate;
     const effectiveRate = manualRate ?? calculatedRate;
     const isCommodity = selectedPair.isCommodity || false;
-    const convertedAmount = amount ? (isCommodity ? (parseFloat(amount) / effectiveRate) : (parseFloat(amount) * effectiveRate)).toFixed(4) : '0.0000';
+
+    let finalPayAmount, finalReceiveAmount;
+    if (inputCurrency === (tradeType === 'buy' ? base : quote)) {
+      finalPayAmount = parseFloat(payAmount) || 0;
+      if (finalPayAmount <= 0) {
+        toast.error('Amount must be greater than zero');
+        return;
+      }
+      finalReceiveAmount = isCommodity
+        ? (finalPayAmount / effectiveRate).toFixed(4)
+        : (finalPayAmount * effectiveRate).toFixed(4);
+    } else {
+      finalReceiveAmount = parseFloat(receiveAmount) || 0;
+      if (finalReceiveAmount <= 0) {
+        toast.error('Amount must be greater than zero');
+        return;
+      }
+      finalPayAmount = isCommodity
+        ? (finalReceiveAmount * effectiveRate).toFixed(4)
+        : (finalReceiveAmount / effectiveRate).toFixed(4);
+    }
 
     const baseCurrency = currencies.find(c => c.currencyCode === base);
     const targetCurrency = currencies.find(c => c.currencyCode === quote);
@@ -933,10 +959,10 @@ const CurrencyTradingUI = () => {
     const payload = {
       partyId: party._id,
       type: tradeType.toUpperCase(),
-      amount: parseFloat(amount),
+      amount: parseFloat(finalPayAmount),
       currency: base,
       rate: effectiveRate,
-      converted: parseFloat(convertedAmount),
+      converted: effectiveRate,
       orderId: `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       timestamp: new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }),
       currentRate: selectedPair.rate,
@@ -950,7 +976,7 @@ const CurrencyTradingUI = () => {
       targetCurrencyCode: quote,
       reference: voucherCode
     };
-
+console.log(payload)
     try {
       let res;
       if (isEditMode) {
@@ -968,6 +994,7 @@ const CurrencyTradingUI = () => {
       }
     } catch (err) {
       console.error('Error:', err);
+      toast.error('Error processing trade');
     }
   };
 
@@ -990,11 +1017,84 @@ const CurrencyTradingUI = () => {
 
     const base = selectedPair.pair.split('/')[0];
     const quote = selectedPair.pair.split('/')[1];
-    const { buyRate, sellRate } = getRatesForParty(selectedTradeParty, selectedPair);
+    const { buyRate, sellRate, bid, ask } = getRatesForParty(selectedTradeParty, selectedPair);
     const calculatedRate = tradeType === 'buy' ? buyRate : sellRate;
     const effectiveRate = manualRate ?? calculatedRate;
     const isCommodity = selectedPair.isCommodity || false;
-    const convertedAmount = amount ? (isCommodity ? (parseFloat(amount) / effectiveRate) : (parseFloat(amount) * effectiveRate)).toFixed(4) : '0.0000';
+
+    const payCurrency = tradeType === 'buy' ? base : quote;
+    const receiveCurrency = tradeType === 'buy' ? quote : base;
+
+    const calculateConvertedAmount = () => {
+      if (inputCurrency === payCurrency && payAmount) {
+        const amount = parseFloat(payAmount);
+        if (isCommodity) {
+          return tradeType === 'buy'
+            ? (amount / effectiveRate).toFixed(4)
+            : (amount * effectiveRate).toFixed(4);
+        } else {
+          return tradeType === 'buy'
+            ? (amount * effectiveRate).toFixed(4)
+            : (amount / effectiveRate).toFixed(4);
+        }
+      } else if (inputCurrency === receiveCurrency && receiveAmount) {
+        const amount = parseFloat(receiveAmount);
+        if (isCommodity) {
+          return tradeType === 'buy'
+            ? (amount * effectiveRate).toFixed(4)
+            : (amount / effectiveRate).toFixed(4);
+        } else {
+          return tradeType === 'buy'
+            ? (amount / effectiveRate).toFixed(4)
+            : (amount * effectiveRate).toFixed(4);
+        }
+      }
+      return '0.0000';
+    };
+
+    const calculateProfit = () => {
+      const amount = parseFloat(payAmount) || parseFloat(receiveAmount) || 0;
+      if (amount <= 0) return { profitWithSpread: 0, profitWithoutSpread: 0 };
+
+      let finalPayAmount;
+      if (inputCurrency === payCurrency) {
+        finalPayAmount = parseFloat(payAmount);
+      } else {
+        finalPayAmount = isCommodity
+          ? parseFloat(receiveAmount) * effectiveRate
+          : parseFloat(receiveAmount) / effectiveRate;
+      }
+
+      let profitWithSpread, profitWithoutSpread;
+      if (tradeType === 'buy') {
+        profitWithSpread = isCommodity
+          ? ((selectedPair.rate - effectiveRate) * finalPayAmount).toFixed(4)
+          : ((selectedPair.rate - effectiveRate) * finalPayAmount).toFixed(4);
+        profitWithoutSpread = ((selectedPair.rate - selectedPair.rate) * finalPayAmount).toFixed(4); // Zero as it's the same rate
+      } else {
+        profitWithSpread = isCommodity
+          ? ((effectiveRate - selectedPair.rate) * finalPayAmount).toFixed(4)
+          : ((effectiveRate - selectedPair.rate) * finalPayAmount).toFixed(4);
+        profitWithoutSpread = ((selectedPair.rate - selectedPair.rate) * finalPayAmount).toFixed(4); // Zero as it's the same rate
+      }
+
+      return { profitWithSpread, profitWithoutSpread };
+    };
+
+    const convertedAmount = calculateConvertedAmount();
+    const { profitWithSpread, profitWithoutSpread } = calculateProfit();
+
+    const handlePayAmountChange = (value) => {
+      setPayAmount(value);
+      setInputCurrency(payCurrency);
+      setReceiveAmount('');
+    };
+
+    const handleReceiveAmountChange = (value) => {
+      setReceiveAmount(value);
+      setInputCurrency(receiveCurrency);
+      setPayAmount('');
+    };
 
     return (
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -1078,25 +1178,41 @@ const CurrencyTradingUI = () => {
                     onClick={() => setTradeType('buy')}
                     className={`py-3 rounded-xl font-semibold transition-colors ${tradeType === 'buy' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                   >
-                    Buy
+                    Buy {quote}
                   </button>
                   <button
                     onClick={() => setTradeType('sell')}
                     className={`py-3 rounded-xl font-semibold transition-colors ${tradeType === 'sell' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                   >
-                    Sell
+                    Sell {quote}
                   </button>
                 </div>
 
-                {/* Amount Input */}
+                {/* Pay Amount Input */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Amount ({base})</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Pay Amount ({payCurrency}{isCommodity && payCurrency === 'XAU' ? ' grams' : ''})
+                  </label>
                   <input
                     type="number"
-                    placeholder={`Enter amount in ${base}`}
+                    placeholder={`Enter amount in ${payCurrency}${isCommodity && payCurrency === 'XAU' ? ' grams' : ''}`}
                     className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
+                    value={payAmount}
+                    onChange={(e) => handlePayAmountChange(e.target.value)}
+                  />
+                </div>
+
+                {/* Receive Amount Input */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Receive Amount ({receiveCurrency}{isCommodity && receiveCurrency === 'XAU' ? ' grams' : ''})
+                  </label>
+                  <input
+                    type="number"
+                    placeholder={`Enter amount in ${receiveCurrency}${isCommodity && receiveCurrency === 'XAU' ? ' grams' : ''}`}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                    value={receiveAmount || convertedAmount}
+                    onChange={(e) => handleReceiveAmountChange(e.target.value)}
                   />
                 </div>
 
@@ -1112,12 +1228,40 @@ const CurrencyTradingUI = () => {
                   />
                 </div>
 
-                {/* Converted Amount */}
+                {/* Trade Summary */}
                 <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
-                  <div className="text-sm font-semibold text-gray-700 mb-2">Converted Amount ({quote})</div>
-                  <div className="text-2xl font-bold text-blue-900">{convertedAmount}</div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    Effective Rate: {effectiveRate.toFixed(4)} ({tradeType === 'buy' ? 'Buy' : 'Sell'})
+                  <div className="text-sm font-semibold text-gray-700 mb-2">Trade Summary</div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <span className="text-xs text-gray-500 block">You Pay</span>
+                      <div className="text-lg font-bold text-gray-900">
+                        {(payAmount || (inputCurrency === receiveCurrency ? convertedAmount : '0.0000'))} {payCurrency}{isCommodity && payCurrency === 'XAU' ? ' grams' : ''}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-xs text-gray-500 block">You Receive</span>
+                      <div className="text-lg font-bold text-gray-900">
+                        {(receiveAmount || convertedAmount)} {receiveCurrency}{isCommodity && receiveCurrency === 'XAU' ? ' grams' : ''}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-xs text-gray-500 block">Effective Rate</span>
+                      <div className="text-lg font-bold text-gray-900">
+                        {effectiveRate.toFixed(4)} ({tradeType === 'buy' ? 'Buy' : 'Sell'})
+                      </div>
+                    </div>
+                    {/* <div>
+                      <span className="text-xs text-gray-500 block">Profit (With Spread)</span>
+                      <div className={`text-lg font-bold ${profitWithSpread >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                        {profitWithSpread} {base}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-xs text-gray-500 block">Profit (Without Spread)</span>
+                      <div className={`text-lg font-bold ${profitWithoutSpread >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                        {profitWithoutSpread} {base}
+                      </div>
+                    </div> */}
                   </div>
                 </div>
 
@@ -1125,7 +1269,7 @@ const CurrencyTradingUI = () => {
                 <button
                   className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                   onClick={handleSubmit}
-                  disabled={!selectedTradeParty || !amount}
+                  disabled={!selectedTradeParty || (!payAmount && !receiveAmount)}
                 >
                   {isEditMode ? 'Update Trade' : 'Create Trade'}
                 </button>
@@ -1152,13 +1296,8 @@ const CurrencyTradingUI = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20">
             <div className="flex items-center space-x-4">
-              {/* <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-                <div className="w-7 h-7 rounded-full border-2 border-white flex items-center justify-center">
-                  <div className="w-3 h-3 bg-white rounded-full"></div>
-                </div>
-              </div> */}
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Currency Trading</h1>
+                <h1 className="text-2xl font-bold text-gray-900">Fixing Dashboard</h1>
                 <p className="text-sm text-gray-600 font-medium">Real-time Exchange Platform</p>
               </div>
             </div>

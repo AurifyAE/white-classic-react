@@ -12,11 +12,11 @@ import {
 } from "lucide-react";
 import axios from "../../../api/axios";
 import Loader from "../../Loader/LoaderComponents";
-import DirhamIcon from "../../../assets/uae-dirham.svg";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { formatCommodityNumber } from "../../../utils/formatters";
 import useVoucherNavigation from "../../../hooks/useVoucherNavigation";
+import DirhamIcon from "../../../assets/uae-dirham.svg";
 
 // Debounce hook
 const useDebounce = (value, delay) => {
@@ -171,6 +171,8 @@ const CurrencyTradingRegistry = () => {
             className="w-3.5 h-3.5 mr-1"
             style={{ filter: getColorFilter(colorClass) }}
           />
+        ) : currencyCode === "INR" ? (
+          <span className="mr-1">₹</span>
         ) : (
           <span className="mr-1">{currencyCode}</span>
         )}
@@ -270,11 +272,7 @@ const CurrencyTradingRegistry = () => {
                       </p>
                     </div>
                     <p className="text-3xl font-bold text-gray-900 mb-1 flex items-center">
-                      <img
-                        src={DirhamIcon}
-                        alt="AED"
-                        className="w-8 h-8 mr-1"
-                      />
+                      <span className="mr-1 text-3xl">₹</span>
                       {Math.abs(
                         parseFloat(summaryTotals.totalBuy || 0)
                       ).toLocaleString(undefined, {
@@ -302,11 +300,7 @@ const CurrencyTradingRegistry = () => {
                       </p>
                     </div>
                     <p className="text-3xl font-bold text-gray-900 mb-1 flex items-center">
-                      <img
-                        src={DirhamIcon}
-                        alt="AED"
-                        className="w-8 h-8 mr-1"
-                      />
+                      <span className="mr-1 text-3xl">₹</span>
                       {Math.abs(
                         parseFloat(summaryTotals.totalSell || 0)
                       ).toLocaleString(undefined, {
@@ -432,9 +426,6 @@ const CurrencyTradingRegistry = () => {
                 <table className="w-full">
                   <thead className="bg-gray-50">
                     <tr>
-                      {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Transaction ID
-                      </th> */}
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Type
                       </th>
@@ -450,9 +441,6 @@ const CurrencyTradingRegistry = () => {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         To Currency
                       </th>
-                      {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Amount
-                      </th> */}
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Rate
                       </th>
@@ -473,17 +461,6 @@ const CurrencyTradingRegistry = () => {
                         key={transaction._id}
                         className="hover:bg-gray-50 transition-colors"
                       >
-                        {/* <td className="px-6 py-4 whitespace-nowrap">
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {transaction._id}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              Status: {transaction.status}
-                            </div>
-                          </div>
-                        </td> */}
-
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             {getTypeIcon(transaction.type)}
@@ -533,11 +510,6 @@ const CurrencyTradingRegistry = () => {
                             )}
                           </div>
                         </td>
-                        {/* <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-semibold text-gray-900">
-                            {formatCurrency(transaction.amount, transaction.baseCurrency.currencyCode)}
-                          </div>
-                        </td> */}
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
                             {transaction.rate.toFixed(6)}
@@ -556,7 +528,7 @@ const CurrencyTradingRegistry = () => {
 
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-semibold text-gray-900">
-                            {formatCurrency(transaction.profit, "AED")}
+                            {formatCurrency(transaction.profit, "INR")}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
