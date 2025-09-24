@@ -104,18 +104,18 @@ const TransactionSummaryStatement = ({ transactionData, fromDate, toDate }) => {
               {" | Date Range: "}
               {fromDate
                 ? new Date(fromDate).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  })
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })
                 : "Beginning"}
               {" to "}
               {toDate
                 ? new Date(toDate).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  })
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })
                 : "Today"}
             </>
           )}
@@ -140,7 +140,7 @@ const TransactionSummaryStatement = ({ transactionData, fromDate, toDate }) => {
               <th scope="col" className="px-6 py-3 text-center w-[80px]">Pcs</th>
               <th scope="col" className="px-6 py-3 text-center w-[100px]">Gross Wt</th>
               <th scope="col" className="px-2 py-3 text-center w-[100px]">Premium/ <span>Discount</span></th>
-              <th scope="col" className="px-6 py-3 text-center w-[100px]">Net Wt</th>
+              {/* <th scope="col" className="px-6 py-3 text-center w-[100px]">Net Wt</th> */}
               <th scope="col" className="px-6 py-3 text-center w-[80px]">Purity</th>
               <th scope="col" className="px-6 py-3 text-center w-[100px]">Pure Wt</th>
               <th scope="col" className="px-6 py-3 text-center w-[120px]">Metal Value</th>
@@ -152,7 +152,7 @@ const TransactionSummaryStatement = ({ transactionData, fromDate, toDate }) => {
             {sortedData.map((item, index) => (
               <tr key={item.id} className="hover:bg-blue-50 border-b border-gray-200 text-sm transition-all duration-200  ">
                 <td className="px-4 py-3 text-gray-700 font-medium text-center">{(index + 1).toLocaleString('en-US')}</td>
-                <td 
+                <td
                   className={`px-4 py-3 text-gray-600 ${expandedIds.has(index) ? 'whitespace-normal break-words' : 'truncate'} cursor-pointer`}
                   onClick={() => toggleExpand(setExpandedIds, index)}
                   title="Click to expand/collapse"
@@ -160,7 +160,7 @@ const TransactionSummaryStatement = ({ transactionData, fromDate, toDate }) => {
                   {item.transactionId || 'N/A'}
                 </td>
                 <td className="px-4 py-3 text-gray-600 text-center">{item.code || 'N/A'}</td>
-                <td 
+                <td
                   className={`px-4 py-3 text-gray-800 ${expandedDescriptions.has(index) ? 'whitespace-normal break-words' : 'truncate'} cursor-pointer`}
                   onClick={() => toggleExpand(setExpandedDescriptions, index)}
                   title="Click to expand/collapse"
@@ -170,7 +170,7 @@ const TransactionSummaryStatement = ({ transactionData, fromDate, toDate }) => {
                 <td className="px-4 py-3 text-center">{formatNumber(item.pcs, 0)}</td>
                 <td className="px-4 py-3 text-center">{formatNumber(item.grossWt)}</td>
                 <td className="px-4 py-3 text-center">{formatNumber(item.stoneWt)}</td>
-                <td className="px-4 py-3 text-center">{formatNumber(item.netWt)}</td>
+                {/* <td className="px-4 py-3 text-center">{formatNumber(item.netWt)}</td> */}
                 <td className="px-4 py-3 text-center">{formatNumber(item.purity, 0)}</td>
                 <td className="px-4 py-3 text-center">{formatNumber(item.pureWt)}</td>
                 <td className="px-4 py-3 text-center">{formatNumber(item.metalValue)}</td>

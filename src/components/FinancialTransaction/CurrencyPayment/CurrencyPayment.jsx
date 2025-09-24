@@ -823,10 +823,42 @@ const handleExportAllToPDF = async () => {
   }));
 
   // Cash type select options
-  const cashTypeOptions = cashTypes.map((cashType) => ({
-    value: cashType._id,
-    label: `${cashType.name} - ${cashType.uniqId}`,
-  }));
+const cashTypeOptions = useMemo(() => {
+  console.log("=== DEBUG: Computing cashTypeOptions ===");
+  console.log("Selected Currency:", selectedCurrency);
+  console.log("Cash Types:", cashTypes);
+
+  if (!selectedCurrency?.value) {
+    console.log("No currency selected, returning empty cashTypeOptions");
+    return [];
+  }
+
+  const filteredCashTypes = cashTypes
+    .filter((cashType) => {
+      // Handle both string and object currencyId
+      const cashTypeCurrencyId =
+        typeof cashType.currencyId === "object" && cashType.currencyId?._id
+          ? cashType.currencyId._id
+          : cashType.currencyId;
+      const matchesCurrency = cashTypeCurrencyId === selectedCurrency.value;
+      console.log(
+        `Checking cashType ${cashType.name}:`,
+        cashTypeCurrencyId,
+        "matches",
+        selectedCurrency.value,
+        "?",
+        matchesCurrency
+      );
+      return matchesCurrency;
+    })
+    .map((cashType) => ({
+      value: cashType._id,
+      label: `${cashType.name} - ${cashType.uniqId}`,
+    }));
+
+  console.log("Filtered Cash Types:", filteredCashTypes);
+  return filteredCashTypes;
+}, [cashTypes, selectedCurrency]);
 
 
 
@@ -1041,31 +1073,40 @@ const handleCloseProductModal = () => {
     clearError("voucher");
   };
 
-  const handlePartyChange = (option) => {
-    setMainRemarks(`Currency payment for ${option.label}`);
-    setSelectedParty(option);
-    clearError("party");
-    clearError("balance");
+const handlePartyChange = (option) => {
+  console.log("=== DEBUG: handlePartyChange ===");
+  console.log("Selected Party:", option);
 
-    const currencies = option?.party?.acDefinition?.currencies || [];
-    const mappedCurrencies = currencies
-      .filter((c) => c.isDefault)
-      .map((c) => ({
-        value: c.currency?._id,
-        label: `${c.currency?.currencyCode} - ${c.currency?.description}`,
-        currency: c.currency,
-        isDefault: c.isDefault,
-      }));
+  setMainRemarks(`Currency receipt for ${option.label}`);
+  setSelectedParty(option);
+  clearError("party");
+  clearError("balance");
 
-    setCurrencyOptions(mappedCurrencies);
-    const defaultCurrency = mappedCurrencies.find((c) => c.isDefault);
-    if (defaultCurrency) {
-      setSelectedCurrency(defaultCurrency);
-      clearError("currency");
-    } else {
-      setSelectedCurrency(null);
-    }
-  };
+  const currencies = option?.party?.acDefinition?.currencies || [];
+  const mappedCurrencies = currencies
+    .map((c) => ({
+      value: c.currency?._id,
+      label: `${c.currency?.currencyCode} - ${c.currency?.description}`,
+      currency: c.currency,
+      isDefault: c.isDefault,
+    }));
+
+  console.log("Mapped Currencies:", mappedCurrencies);
+  setCurrencyOptions(mappedCurrencies);
+  const defaultCurrency = mappedCurrencies.find((c) => c.isDefault);
+  if (defaultCurrency) {
+    console.log("Setting default currency:", defaultCurrency);
+    setSelectedCurrency(defaultCurrency);
+    clearError("currency");
+  } else {
+    console.log("No default currency found, clearing selectedCurrency");
+    setSelectedCurrency(null);
+  }
+
+  // Reset cashType and product modal state when currency changes
+  setCashType(null);
+  setArrayError((prev) => ({ ...prev, cashType: "" }));
+};
 
   // Product modal logic
   const handleProductModalOpen = () => {
@@ -1144,32 +1185,32 @@ const handleMainSave = async () => {
   console.group("=== Starting handleMainSave ===");
   console.log("1. Checking cash balance of selected party...");
 
-  const deFaultCurrnecy = selectedParty?.party?.balances?.cashBalance?.currency;
-  console.log("Default currency for party:", deFaultCurrnecy);
+  // const deFaultCurrnecy = selectedParty?.party?.balances?.cashBalance?.currency;
+  // console.log("Default currency for party:", deFaultCurrnecy);
 
-  const hasCurrencyMismatch = productList.some(
-    (item) => item.currency?.value !== deFaultCurrnecy
-  );
+  // const hasCurrencyMismatch = productList.some(
+  //   (item) => item.currency?.value !== deFaultCurrnecy
+  // );
 
-  if (!deFaultCurrnecy) {
-    setErrors((prev) => ({
-      ...prev,
-      balance: "The selected party does not have any payment currency set.",
-    }));
-    toast.error("The selected party does not have any payment currency set.");
-    console.groupEnd();
-    return;
-  }
+  // if (!deFaultCurrnecy) {
+  //   setErrors((prev) => ({
+  //     ...prev,
+  //     balance: "The selected party does not have any payment currency set.",
+  //   }));
+  //   toast.error("The selected party does not have any payment currency set.");
+  //   console.groupEnd();
+  //   return;
+  // }
 
-  if (hasCurrencyMismatch) {
-    setErrors((prev) => ({
-      ...prev,
-      balance: "All product currencies must match the party's default currency.",
-    }));
-    toast.error("All product currencies must match the party's default currency.");
-    console.groupEnd();
-    return;
-  }
+  // if (hasCurrencyMismatch) {
+  //   setErrors((prev) => ({
+  //     ...prev,
+  //     balance: "All product currencies must match the party's default currency.",
+  //   }));
+  //   toast.error("All product currencies must match the party's default currency.");
+  //   console.groupEnd();
+  //   return;
+  // }
 
   console.log("2. Preparing loading toast...");
   setIsSaving(true); // Set loading state

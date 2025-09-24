@@ -1544,36 +1544,36 @@ const handlePartyChange = (option) => {
     console.group("=== Starting handleMainSave ===");
     console.log("1. Checking cash balance of selected party...");
 
-    const deFaultCurrnecy =
-      selectedParty?.party?.balances?.cashBalance?.currency;
-    console.log("Default currency for party:", deFaultCurrnecy);
+    // const deFaultCurrnecy =
+    //   selectedParty?.party?.balances?.cashBalance?.currency;
+    // console.log("Default currency for party:", deFaultCurrnecy);
 
-    const hasCurrencyMismatch = productList.some(
-      (item) => item.currency?.value !== deFaultCurrnecy
-    );
+    // const hasCurrencyMismatch = productList.some(
+    //   (item) => item.currency?.value !== deFaultCurrnecy
+    // );
 
-    if (!deFaultCurrnecy) {
-      setErrors((prev) => ({
-        ...prev,
-        balance: "The selected party does not have any receipt currency set.",
-      }));
-      toast.error("The selected party does not have any receipt currency set.");
-      console.groupEnd();
-      return;
-    }
+    // if (!deFaultCurrnecy) {
+    //   setErrors((prev) => ({
+    //     ...prev,
+    //     balance: "The selected party does not have any receipt currency set.",
+    //   }));
+    //   toast.error("The selected party does not have any receipt currency set.");
+    //   console.groupEnd();
+    //   return;
+    // }
 
-    if (hasCurrencyMismatch) {
-      setErrors((prev) => ({
-        ...prev,
-        balance:
-          "All product currencies must match the party's default currency.",
-      }));
-      toast.error(
-        "All product currencies must match the party's default currency."
-      );
-      console.groupEnd();
-      return;
-    }
+    // if (hasCurrencyMismatch) {
+    //   setErrors((prev) => ({
+    //     ...prev,
+    //     balance:
+    //       "All product currencies must match the party's default currency.",
+    //   }));
+    //   toast.error(
+    //     "All product currencies must match the party's default currency."
+    //   );
+    //   console.groupEnd();
+    //   return;
+    // }
 
     console.log("2. Preparing loading toast...");
     setIsSaving(true); // Set loading state
@@ -1597,6 +1597,7 @@ const handlePartyChange = (option) => {
       party: selectedParty?.value || "",
       enteredBy: enteredBy || "",
       remarks: mainRemarks || "",
+     
       cash: productList.map((item) => {
         const vatPercentage =
           item.vatDetails?.percentage || item.vatPercentage || 0;
@@ -1612,6 +1613,7 @@ const handlePartyChange = (option) => {
           remarks: item.remarks || "",
           vatPercentage: Number(vatPercentage),
           vatAmount: vatAmount,
+           currencyId:item.currency?._id,
         };
       }),
     };

@@ -466,7 +466,7 @@ const AcDefinitionTab = ({
         },
       }),
       {}
-    ) || {}
+    ) || { AED: { askSpread: "", bidSpread: "" } } // Initialize AED spreads
   );
 
   // Initialize AED if not present
@@ -485,14 +485,14 @@ const AcDefinitionTab = ({
               minRate: aedCurrency.minRate,
               maxRate: aedCurrency.maxRate,
               isDefault: !prev.currencies?.length,
-              ask: 0,
-              bid: 0,
+              ask: spreads.AED?.askSpread || 0,
+              bid: spreads.AED?.bidSpread || 0,
             },
           ],
         }));
       }
     }
-  }, [currencyOptions, checkedCurrencies, setAcDefinitionData]);
+  }, [currencyOptions, checkedCurrencies, setAcDefinitionData, spreads]);
 
   // Filter currencies based on search input
   useEffect(() => {
@@ -527,12 +527,10 @@ const AcDefinitionTab = ({
         },
       ],
     }));
-    if (currencyCode !== "AED") {
-      setSpreads((prev) => ({
-        ...prev,
-        [currencyCode]: { askSpread: "", bidSpread: "" },
-      }));
-    }
+    setSpreads((prev) => ({
+      ...prev,
+      [currencyCode]: { askSpread: "", bidSpread: "" },
+    }));
   };
 
   const handleRemoveCurrency = (currencyCode) => {
@@ -729,44 +727,36 @@ const AcDefinitionTab = ({
                       {curr.maxRate}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">
-                      {curr.currency !== "AED" ? (
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={spreads[curr.currency]?.askSpread || ""}
-                          onChange={(e) =>
-                            handleSpreadChange(
-                              curr.currency,
-                              "askSpread",
-                              parseFloat(e.target.value) || ""
-                            )
-                          }
-                          className="w-full px-2 py-1 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                          placeholder="Enter ask spread"
-                        />
-                      ) : (
-                        "-"
-                      )}
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={spreads[curr.currency]?.askSpread || ""}
+                        onChange={(e) =>
+                          handleSpreadChange(
+                            curr.currency,
+                            "askSpread",
+                            parseFloat(e.target.value) || ""
+                          )
+                        }
+                        className="w-full px-2 py-1 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        placeholder="Enter ask spread"
+                      />
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">
-                      {curr.currency !== "AED" ? (
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={spreads[curr.currency]?.bidSpread || ""}
-                          onChange={(e) =>
-                            handleSpreadChange(
-                              curr.currency,
-                              "bidSpread",
-                              parseFloat(e.target.value) || ""
-                            )
-                          }
-                          className="w-full px-2 py-1 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                          placeholder="Enter bid spread"
-                        />
-                      ) : (
-                        "-"
-                      )}
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={spreads[curr.currency]?.bidSpread || ""}
+                        onChange={(e) =>
+                          handleSpreadChange(
+                            curr.currency,
+                            "bidSpread",
+                            parseFloat(e.target.value) || ""
+                          )
+                        }
+                        className="w-full px-2 py-1 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        placeholder="Enter bid spread"
+                      />
                     </td>
                     <td className="px-4 py-3">
                       <input
