@@ -4,6 +4,8 @@ import axiosInstance from '../../api/axios';
 import useMarketData from '../marketData';
 import { toast } from 'react-toastify';
 
+import Select from 'react-select';
+
 const CurrencyTradingUI = () => {
   const [activeTab, setActiveTab] = useState('Overview');
   const [selectedParty, setSelectedParty] = useState(null);
@@ -19,6 +21,7 @@ const CurrencyTradingUI = () => {
   const [voucherType, setVoucherType] = useState("");
   const [prefix, setPrefix] = useState("");
 
+  // react seect 
   // Trades state with pagination
   const [trades, setTrades] = useState([]);
   const [loadingTrades, setLoadingTrades] = useState(true);
@@ -42,6 +45,51 @@ const CurrencyTradingUI = () => {
     bidChanged: null,
     priceUpdateTimestamp: null,
   });
+  // Prepare options for react-select
+  const partyOptions = tradingParties.map((party) => ({
+    value: party.customerName,
+    label: `${party.customerName} (${party.accountCode})`,
+  }));
+
+  const customSelectStyles = {
+    control: (provided, state) => ({
+      ...provided,
+      borderRadius: '0.75rem',
+      border: '1px solid #e5e7eb',
+      backgroundColor: '#fff',
+      padding: '0.5rem',
+      boxShadow: state.isFocused ? '0 0 0 2px #3b82f6' : 'none',
+      '&:hover': {
+        borderColor: '#e5e7eb',
+      },
+    }),
+    menu: (provided) => ({
+      ...provided,
+      borderRadius: '0.75rem',
+      border: '1px solid #e5e7eb',
+      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+    }),
+    option: (provided, state) => ({
+      ...provided,
+      backgroundColor: state.isSelected ? '#3b82f6' : state.isFocused ? '#f3f4f6' : '#fff',
+      color: state.isSelected ? '#fff' : '#1f2937',
+      padding: '0.75rem 1rem',
+      cursor: 'pointer',
+    }),
+    singleValue: (provided) => ({
+      ...provided,
+      color: '#1f2937',
+      fontWeight: 500,
+    }),
+    input: (provided) => ({
+      ...provided,
+      color: '#1f2937',
+    }),
+    placeholder: (provided) => ({
+      ...provided,
+      color: '#9ca3af',
+    }),
+  };
 
   const [goldRate, setGoldRate] = useState(null);
 
@@ -583,7 +631,7 @@ const CurrencyTradingUI = () => {
                   <p className="text-sm text-gray-600">Your latest trading activities</p>
                 </div>
               </div>
-              <button 
+              <button
                 onClick={fetchTrades}
                 className="p-3 text-blue-600 hover:bg-blue-50 rounded-xl transition-colors"
               >
@@ -622,8 +670,8 @@ const CurrencyTradingUI = () => {
                   </tr>
                 ) : (
                   currentTrades.map((trade) => (
-                    <tr 
-                      key={trade._id} 
+                    <tr
+                      key={trade._id}
                       className="hover:bg-gray-50 transition-colors cursor-pointer"
                       onClick={() => openEditModal(trade)}
                     >
@@ -666,11 +714,10 @@ const CurrencyTradingUI = () => {
                   <button
                     key={number}
                     onClick={() => setCurrentTradesPage(number)}
-                    className={`px-3 py-1 text-sm font-medium rounded-lg transition-colors ${
-                      currentTradesPage === number
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
-                    }`}
+                    className={`px-3 py-1 text-sm font-medium rounded-lg transition-colors ${currentTradesPage === number
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                      }`}
                   >
                     {number}
                   </button>
@@ -827,11 +874,10 @@ const CurrencyTradingUI = () => {
                   <button
                     key={number}
                     onClick={() => setCurrentPage(number)}
-                    className={`px-3 py-1 text-sm font-medium rounded-lg transition-colors ${
-                      currentPage === number
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
-                    }`}
+                    className={`px-3 py-1 text-sm font-medium rounded-lg transition-colors ${currentPage === number
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                      }`}
                   >
                     {number}
                   </button>
@@ -1151,21 +1197,17 @@ const CurrencyTradingUI = () => {
             {/* Party Selection */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Select Party</label>
-              <div className="relative">
-                <select
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white appearance-none"
-                  value={selectedTradeParty}
-                  onChange={(e) => setSelectedTradeParty(e.target.value)}
-                >
-                  <option value="">Choose a party...</option>
-                  {tradingParties.map((party) => (
-                    <option key={party.customerName} value={party.customerName}>
-                      {party.customerName}
-                    </option>
-                  ))}
-                </select>
-                <ChevronRight className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              </div>
+              <Select
+                options={partyOptions}
+                value={partyOptions.find((option) => option.value === selectedTradeParty) || null}
+                onChange={(selectedOption) => setSelectedTradeParty(selectedOption ? selectedOption.value : '')}
+                placeholder="Choose a party..."
+                isClearable
+                isSearchable
+                styles={customSelectStyles}
+                className="w-full"
+                classNamePrefix="select"
+              />
             </div>
 
             {selectedTradeParty && (
