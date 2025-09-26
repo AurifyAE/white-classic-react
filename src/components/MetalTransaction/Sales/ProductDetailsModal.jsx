@@ -79,6 +79,7 @@ const ProductDetailsModal = ({
   fixed,
   editingItem,
 }) => {
+  console.log(editingItem);
   const [productData, setProductData] = useState(initialProductData);
   const [goldData, setGoldData] = useState(initialGoldData);
   const [metalRates, setMetalRates] = useState([]);
@@ -98,6 +99,7 @@ const ProductDetailsModal = ({
   const premiumRateRef = useRef(null);
   const premiumAmountRef = useRef(null);
 
+  // Updated party currency details with effective rate handling
   const partyCurrDetails = useMemo(() => {
     if (
       !party ||
@@ -123,7 +125,7 @@ const ProductDetailsModal = ({
     };
   }, [party, partyCurrency]);
 
-  const spread = parseFloat(partyCurrDetails.ask) || 0;
+  const spread = parseFloat(partyCurrDetails.bid) || 0;
   const conversionRate = parseFloat(partyCurrency?.conversionRate) || 1;
   const effectiveRate =
     partyCurrDetails.currencyCode === "AED" ? 1 : conversionRate;
@@ -156,7 +158,7 @@ const ProductDetailsModal = ({
         vat: "percentage",
       });
     }
-  }, [isOpen, editingItem]);
+  }, [isOpen, editingItem, currencyCode]);
 
   // Memoize calculations to prevent unnecessary recalculations
   const { pureWeight, purityWeight, weightInOz } = useMemo(() => {
@@ -165,7 +167,6 @@ const ProductDetailsModal = ({
     const pureWeight = (grossWeight * purity).toFixed(2);
     const purityWeight = pureWeight;
     const weightInOz = (parseFloat(pureWeight) / 31.103).toFixed(2);
-
     return { pureWeight, purityWeight, weightInOz };
   }, [productData.grossWeight, productData.purity]);
 
@@ -364,24 +365,20 @@ const ProductDetailsModal = ({
     }
   }, [isOpen, fetchMetalRates]);
 
-  // Calculate gross weight based on pcs
   // Calculate gross weight based on pcsCount and totalValue, or pcsCount based on grossWeight
   useEffect(() => {
     const pcsCount = parseFloat(productData.pcsCount) || 0;
-    const totalValue = parseFloat(productData.totalValue) || 1000; // Default to 1000 grams per piece
+    const totalValue = parseFloat(productData.totalValue) || 1000;
     const grossWeight = parseFloat(productData.grossWeight) || 0;
 
     if (productData.pcs) {
-      // User edited pcsCount: calculate grossWeight
       if (pcsCount > 0 && focusedFields.pcsCount) {
         const calculatedGrossWeight = (pcsCount * totalValue).toFixed(2);
         setProductData((prev) => ({
           ...prev,
           grossWeight: calculatedGrossWeight,
         }));
-      }
-      // User edited grossWeight: calculate pcsCount
-      else if (
+      } else if (
         grossWeight >= 0 &&
         focusedFields.grossWeight &&
         totalValue > 0
@@ -391,9 +388,7 @@ const ProductDetailsModal = ({
           ...prev,
           pcsCount: calculatedPcsCount,
         }));
-      }
-      // Programmatic change (e.g., from stock selection): assume pcsCount is source, calculate grossWeight
-      else {
+      } else {
         const calculatedGrossWeight = (pcsCount * totalValue).toFixed(2);
         setProductData((prev) => ({
           ...prev,
@@ -672,9 +667,7 @@ const ProductDetailsModal = ({
       const normalizeNumber = (val, decimals = 2, allowNegative = false) => {
         if (val === "" || val === null || val === undefined) return "";
         const num = parseFloat(val);
-        if (isNaN(num) || (!allowNegative && num < 0)) {
-          return "0.00";
-        }
+        if (isNaN(num) || (!allowNegative && num < 0)) return "0.00";
         return num.toFixed(decimals);
       };
 
@@ -1601,4 +1594,5 @@ const ProductDetailsModal = ({
     </div>
   );
 };
+
 export default ProductDetailsModal;
