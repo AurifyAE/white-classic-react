@@ -122,7 +122,7 @@ export default function PurchaseMetal() {
     itemCurrencyCode: "",
     itemCurrencyValue: "",
     baseCurrency: null,
-    metalRateUnit: "GOZ",
+    metalRateUnit: "KGBAR",
     metalRate: "",
     crDays: "",
     creditDays: "",
@@ -518,19 +518,30 @@ export default function PurchaseMetal() {
     [fetchPartyDetails]
   );
 
-
-const handleCurrencyChange = useCallback((option) => {
+const handleConversionRateChange = useCallback((e) => {
+  const newRate = e.target.value;
   setFormData((prev) => ({
     ...prev,
-    partyCurrencyCode: option?.value || "",
-    partyCurrencyId: option?.data?._id || "",
-    partyCurrencyValue: option?.data?.conversionRate || "",
-    itemCurrencyCode: option?.value || "",
-    itemCurrencyId: option?.data?._id || "",
-    itemCurrencyValue: option?.data?.conversionRate || "",
-    partyCurrency: option?.data || null,
+    partyCurrencyValue: newRate,
+    itemCurrencyValue: newRate,
+    partyCurrency: {
+      ...prev.partyCurrency,
+      conversionRate: newRate,  // Update the conversionRate in the partyCurrency object for passing to ProductDetailsModal
+    },
   }));
 }, []);
+
+const handleCurrencyChange = (option) => {
+  setFormData((prev) => ({
+    ...prev,
+    partyCurrencyCode: option?.value,
+    itemCurrencyCode: option?.value,
+    partyCurrency: option?.data,
+    partyCurrencyId: option?.data?._id,
+    partyCurrencyValue: option?.data?.conversionRate || "",  // Set initial value
+    itemCurrencyValue: option?.data?.conversionRate || "",
+  }));
+};
   const selectedParty = tradeDebtors.find(
     (d) => d.customerName === formData.partyName
   );
@@ -656,7 +667,7 @@ const handleDownloadPDF = async (purchaseId) => {
     doc.text(`Terms      : ${purchase.paymentTerms || "Cash"}`, rightX, infoStartY + lineSpacing * 2);
     doc.text(`Salesman   : ${purchase.salesman || "N/A"}`, rightX, infoStartY + lineSpacing * 3);
     const goldRate = formatNumber(purchase.stockItems?.[0]?.metalRateRequirements?.rate || 0, 2);
-    doc.text(`Gold Rate  : ${goldRate} ${currencyCode}/GOZ`, rightX, infoStartY + lineSpacing * 4);
+    doc.text(`Gold Rate  : ${goldRate} ${currencyCode}/KGBAR`, rightX, infoStartY + lineSpacing * 4);
 
     const boxTopY = infoStartY - 6;
     const boxBottomY = infoStartY + lineSpacing * 5;
@@ -1274,7 +1285,7 @@ const handleDownloadPDF = async (purchaseId) => {
         body: [
           [
             {
-              content: `GOLD VALUE @${goldRate}/GOZ(AED)`,
+              content: `GOLD VALUE @${goldRate}/KGBAR(AED)`,
               styles: { halign: "left", fontStyle: "bold" },
             },
             {
@@ -1550,7 +1561,7 @@ const handleDownloadPDF = async (purchaseId) => {
       itemCurrencyId: "",
       itemCurrencyCode: "",
       itemCurrencyValue: "",
-      metalRateUnit: "GOZ",
+      metalRateUnit: "KGBAR",
       metalRate: "",
       crDays: "",
       creditDays: "",
@@ -1703,7 +1714,7 @@ const handleEdit = useCallback(
         itemCurrencyCode: itemCurrencyData?.currencyCode || transaction.itemCurrency?.currencyCode || partyDetails.itemCurrencyCode || "AED",
         itemCurrencyValue: itemCurrencyData?.conversionRate || partyDetails.itemCurrencyValue || partyCurrencyData?.conversionRate || "",
         baseCurrency: transaction.baseCurrency?._id || transactionPartyCurrencyId || null,
-        metalRateUnit: transaction.metalRateUnit || "GOZ",
+        metalRateUnit: transaction.metalRateUnit || "KGBAR",
         metalRate: transaction.metalRate || "",
         crDays: transaction.crDays?.toString() || "0",
         creditDays: transaction.creditDays?.toString() || "0",
@@ -1757,6 +1768,8 @@ const handleEdit = useCallback(
       partyCurrency: formData.partyCurrencyId,
       itemCurrency: formData.partyCurrencyId,
       baseCurrency: formData.partyCurrencyId,
+      effectivePartyCurrencyRate: parseFloat(formData.partyCurrencyValue) || 0,
+    effectiveItemCurrencyRate: parseFloat(formData.itemCurrencyValue) || 0,
       stockItems: tempStockItems.map((item) => ({
         stockCode: item.stockId,
         description: item.description,
@@ -2538,47 +2551,61 @@ const handleEdit = useCallback(
                         </div>
 
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-                          {currencyOptions.length > 0 && (
-                            <div className="space-y-2">
-                              <label className="block text-sm font-semibold text-slate-700">
-                                Party Currency{" "}
-                                <span className="text-red-500">*</span>
-                              </label>
-                              <Select
-                                placeholder="Select currency"
-                                options={currencyOptions}
-                                value={{
-                                  value: formData?.partyCurrencyCode,
-                                  label: formData?.partyCurrencyCode,
-                                }}
-                                onChange={handleCurrencyChange}
-                                isClearable
-                              />
-                            </div>
-                          )}
+  {currencyOptions.length > 0 && (
+    <div className="space-y-2">
+      <label className="block text-sm font-semibold text-slate-700">
+        Party Currency <span className="text-red-500">*</span>
+      </label>
+      <Select
+        placeholder="Select currency"
+        options={currencyOptions}
+        value={{
+          value: formData?.partyCurrencyCode,
+          label: formData?.partyCurrencyCode,
+        }}
+        onChange={handleCurrencyChange}
+        isClearable
+      />
+    </div>
+  )}
 
-                          {currencyOptions.length > 0 && (
-                            <div className="space-y-2">
-                              <label className="block text-sm font-semibold text-slate-700">
-                                Item Currency{" "}
-                                <span className="text-red-500">*</span>
-                              </label>
-                              <Select
-                                placeholder="Select currency"
-                                options={currencyOptions}
-                                value={{
-                                  value: formData?.partyCurrencyCode,
-                                  label: formData?.partyCurrencyCode,
-                                }}
-                                onChange={handleCurrencyChange}
-                                isClearable
-                              />
-                            </div>
-                          )}
+  {currencyOptions.length > 0 && (
+    <div className="space-y-2">
+      <label className="block text-sm font-semibold text-slate-700">
+        Item Currency <span className="text-red-500">*</span>
+      </label>
+      <Select
+        placeholder="Select currency"
+        options={currencyOptions}
+        value={{
+          value: formData?.partyCurrencyCode,
+          label: formData?.partyCurrencyCode,
+        }}
+        onChange={handleCurrencyChange}
+        isClearable
+      />
+    </div>
+  )}
 
-                          <div>
-                          </div>
-                        </div>
+  {formData.partyCurrencyCode && (  // Show only when currency is selected
+    <div className="space-y-2">
+      <label className="block text-sm font-semibold text-slate-700">
+        Conversion Rate <span className="text-red-500">*</span>
+      </label>
+      <input
+        type="number"
+        step="0.01"
+        name="partyCurrencyValue"
+        value={formData.partyCurrencyValue}
+        onChange={handleConversionRateChange}
+        className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white hover:border-blue-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all duration-200"
+        placeholder="Enter conversion rate"
+      />
+    </div>
+  )}
+
+  <div></div>
+</div>
                       </div>
 
                       <div className="p-6">
@@ -2594,7 +2621,7 @@ const handleEdit = useCallback(
                               onChange={handleInputChange}
                               className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white hover:border-blue-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all duration-200"
                             >
-                              <option value="GOZ">GOZ</option>
+                              <option value="GOZ">KGBAR</option>
                             </select>
                           </div>
 

@@ -122,7 +122,7 @@ export default function purchasereturn() {
     itemCurrencyCode: "",
     itemCurrencyValue: "",
     baseCurrency: null,
-    metalRateUnit: "GOZ",
+    metalRateUnit: "KGBAR",
     metalRate: "",
     crDays: "",
     creditDays: "",
@@ -237,6 +237,9 @@ export default function purchasereturn() {
     }
   }, []); // Remove currentPage, itemsPerPage from dependencies
 
+
+
+  
   // Combined initial data load
   useEffect(() => {
     const loadData = async () => {
@@ -519,17 +522,31 @@ export default function purchasereturn() {
   );
 
 
-  const handleCurrencyChange = (option) => {
-    console.log(option);
-    console.log("option data", option);
-    setFormData((prev) => ({
-      ...prev,
-      partyCurrencyCode: option?.value,
-      itemCurrencyCode: option?.value,
-      partyCurrency: option?.data,
-      partyCurrencyId: option?.data?._id,
-    }));
-  };
+const handleConversionRateChange = useCallback((e) => {
+  const newRate = e.target.value;
+  setFormData((prev) => ({
+    ...prev,
+    partyCurrencyValue: newRate,
+    itemCurrencyValue: newRate,
+    partyCurrency: {
+      ...prev.partyCurrency,
+      conversionRate: newRate,  // Update the conversionRate in the partyCurrency object for passing to ProductDetailsModal
+    },
+  }));
+}, [])
+
+const handleCurrencyChange = (option) => {
+  setFormData((prev) => ({
+    ...prev,
+    partyCurrencyCode: option?.value,
+    itemCurrencyCode: option?.value,
+    partyCurrency: option?.data,
+    partyCurrencyId: option?.data?._id,
+    partyCurrencyValue: option?.data?.conversionRate || "",  // Set initial value
+    itemCurrencyValue: option?.data?.conversionRate || "",
+  }));
+};
+
   const selectedParty = tradeDebtors.find(
     (d) => d.customerName === formData.partyName
   );
@@ -1893,7 +1910,7 @@ export default function purchasereturn() {
       itemCurrencyId: "",
       itemCurrencyCode: "",
       itemCurrencyValue: "",
-      metalRateUnit: "GOZ",
+      metalRateUnit: "KGBAR",
       metalRate: "",
       crDays: "",
       creditDays: "",
@@ -2046,7 +2063,7 @@ const handleEdit = useCallback(
         itemCurrencyCode: itemCurrencyData?.currencyCode || transaction.itemCurrency?.currencyCode || partyDetails.itemCurrencyCode || "AED",
         itemCurrencyValue: itemCurrencyData?.conversionRate || partyDetails.itemCurrencyValue || partyCurrencyData?.conversionRate || "",
         baseCurrency: transaction.baseCurrency?._id || transactionPartyCurrencyId || null,
-        metalRateUnit: transaction.metalRateUnit || "GOZ",
+        metalRateUnit: transaction.metalRateUnit || "KGBAR",
         metalRate: transaction.metalRate || "",
         crDays: transaction.crDays?.toString() || "0",
         creditDays: transaction.creditDays?.toString() || "0",
@@ -2162,6 +2179,8 @@ const handleEdit = useCallback(
       status: "draft",
       notes: "",
     };
+    console.log("Submitting transaction data:", transactionData);
+    
 
     try {
       if (editingStock) {
@@ -2880,48 +2899,63 @@ const handleEdit = useCallback(
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-                          {currencyOptions.length > 0 && (
-                            <div className="space-y-2">
-                              <label className="block text-sm font-semibold text-slate-700">
-                                Party Currency{" "}
-                                <span className="text-red-500">*</span>
-                              </label>
-                              <Select
-                                placeholder="Select currency"
-                                options={currencyOptions}
-                                value={{
-                                  value: formData?.partyCurrencyCode,
-                                  label: formData?.partyCurrencyCode,
-                                }}
-                                onChange={handleCurrencyChange}
-                                isClearable
-                              />
-                            </div>
-                          )}
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+  {currencyOptions.length > 0 && (
+    <div className="space-y-2">
+      <label className="block text-sm font-semibold text-slate-700">
+        Party Currency <span className="text-red-500">*</span>
+      </label>
+      <Select
+        placeholder="Select currency"
+        options={currencyOptions}
+        value={{
+          value: formData?.partyCurrencyCode,
+          label: formData?.partyCurrencyCode,
+        }}
+        onChange={handleCurrencyChange}
+        isClearable
+      />
+    </div>
+  )}
 
-                          {currencyOptions.length > 0 && (
-                            <div className="space-y-2">
-                              <label className="block text-sm font-semibold text-slate-700">
-                                Item Currency{" "}
-                                <span className="text-red-500">*</span>
-                              </label>
-                              <Select
-                                placeholder="Select currency"
-                                options={currencyOptions}
-                                value={{
-                                  value: formData?.partyCurrencyCode,
-                                  label: formData?.partyCurrencyCode,
-                                }}
-                                onChange={handleCurrencyChange}
-                                isClearable
-                              />
-                            </div>
-                          )}
+  {currencyOptions.length > 0 && (
+    <div className="space-y-2">
+      <label className="block text-sm font-semibold text-slate-700">
+        Item Currency <span className="text-red-500">*</span>
+      </label>
+      <Select
+        placeholder="Select currency"
+        options={currencyOptions}
+        value={{
+          value: formData?.partyCurrencyCode,
+          label: formData?.partyCurrencyCode,
+        }}
+        onChange={handleCurrencyChange}
+        isClearable
+      />
+    </div>
+  )}
 
-                          <div>
-                          </div>
-                        </div>
+  {formData.partyCurrencyCode && (  // Show only when currency is selected
+    <div className="space-y-2">
+      <label className="block text-sm font-semibold text-slate-700">
+        Conversion Rate <span className="text-red-500">*</span>
+      </label>
+      <input
+        type="number"
+        step="0.01"
+        name="partyCurrencyValue"
+        value={formData.partyCurrencyValue}
+        onChange={handleConversionRateChange}
+        className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white hover:border-blue-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all duration-200"
+        placeholder="Enter conversion rate"
+      />
+    </div>
+  )}
+
+  <div>
+    </div>
+    </div>
                       </div>
 
                       <div className="p-6">
@@ -2937,7 +2971,7 @@ const handleEdit = useCallback(
                               onChange={handleInputChange}
                               className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white hover:border-blue-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all duration-200"
                             >
-                              <option value="GOZ">GOZ</option>
+                              <option value="GOZ">KGBAR</option>
                             </select>
                           </div>
 

@@ -217,7 +217,7 @@ export default function SalesMetal() {
     itemCurrencyCode: "",
     itemCurrencyValue: "",
     baseCurrency: null,
-    metalRateUnit: "GOZ",
+    metalRateUnit: "KGBAR",
     metalRate: "",
     crDays: "",
     creditDays: "",
@@ -710,7 +710,7 @@ export default function SalesMetal() {
         itemCurrencyId: "",
         itemCurrencyCode: "",
         itemCurrencyValue: "",
-        metalRateUnit: "GOZ",
+        metalRateUnit: "KGBAR",
         metalRate: "",
         crDays: "",
         creditDays: "",
@@ -854,7 +854,7 @@ const handleEdit = useCallback(
         itemCurrencyCode: itemCurrencyData?.currencyCode || transaction.itemCurrency?.currencyCode || partyDetails.itemCurrencyCode || "AED",
         itemCurrencyValue: itemCurrencyData?.conversionRate || partyDetails.itemCurrencyValue || partyCurrencyData?.conversionRate || "",
         baseCurrency: transaction.baseCurrency?._id || transactionPartyCurrencyId || null,
-        metalRateUnit: transaction.metalRateUnit || "GOZ",
+        metalRateUnit: transaction.metalRateUnit || "KGBAR",
         metalRate: transaction.metalRate || "",
         crDays: transaction.crDays?.toString() || "0",
         creditDays: transaction.creditDays?.toString() || "0",
@@ -1204,7 +1204,7 @@ const handleEdit = useCallback(
       infoStartY + lineSpacing * 3
     );
     doc.text(
-      `Gold Rate: ${goldRate} /GOZ`,
+      `Gold Rate: ${goldRate} /KGBAR`,
       rightX,
       infoStartY + lineSpacing * 4
     );
@@ -1918,7 +1918,7 @@ const handleEdit = useCallback(
       body: [
         [
           {
-            content: `GOLD VALUE @${goldRate}/GOZ(AED)`,
+            content: `GOLD VALUE @${goldRate}/KGBAR(AED)`,
             styles: { halign: "left", fontStyle: "bold" },
           },
           { content: totalAmt, styles: { halign: "right", fontStyle: "bold" } },
@@ -2636,7 +2636,7 @@ const handleEdit = useCallback(
                               onChange={handleInputChange}
                               className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white hover:border-blue-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                             >
-                              <option value="GOZ">GOZ</option>
+                              <option value="GOZ">KGBAR</option>
                             </select>
                           </div>
                           {/* <div className="space-y-2">
