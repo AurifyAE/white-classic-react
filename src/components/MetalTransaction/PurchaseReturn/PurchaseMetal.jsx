@@ -1678,6 +1678,7 @@ const handleEdit = useCallback(
 
       const transactionPartyCurrencyId = transaction.partyCurrency?._id || transaction.partyCurrency;
       const transactionItemCurrencyId = transaction.itemCurrency?._id || transaction.itemCurrency;
+
       if (transactionPartyCurrencyId) {
         try {
           const currencyResponse = await axiosInstance.get(`/currency-master/${transactionPartyCurrencyId}`);
@@ -1708,10 +1709,10 @@ const handleEdit = useCallback(
         partyName: partyDetails.partyName || partyName,
         partyCurrencyId: transactionPartyCurrencyId || partyDetails.partyCurrencyId || "",
         partyCurrencyCode: partyCurrencyData?.currencyCode || transaction.partyCurrency?.currencyCode || partyDetails.partyCurrencyCode || "AED",
-        partyCurrencyValue: partyCurrencyData?.conversionRate || partyDetails.partyCurrencyValue || "",
+        partyCurrencyValue: transaction.effectivePartyCurrencyRate?.toString() || partyCurrencyData?.conversionRate?.toString() || partyDetails.partyCurrencyValue || "",
         itemCurrencyId: transactionItemCurrencyId || partyDetails.itemCurrencyId || transactionPartyCurrencyId || "",
         itemCurrencyCode: itemCurrencyData?.currencyCode || transaction.itemCurrency?.currencyCode || partyDetails.itemCurrencyCode || "AED",
-        itemCurrencyValue: itemCurrencyData?.conversionRate || partyDetails.itemCurrencyValue || partyCurrencyData?.conversionRate || "",
+        itemCurrencyValue: transaction.effectiveItemCurrencyRate?.toString() || itemCurrencyData?.conversionRate?.toString() || partyDetails.itemCurrencyValue || "",
         baseCurrency: transaction.baseCurrency?._id || transactionPartyCurrencyId || null,
         metalRateUnit: transaction.metalRateUnit || "KGBAR",
         metalRate: transaction.metalRate || "",
@@ -1719,9 +1720,14 @@ const handleEdit = useCallback(
         creditDays: transaction.creditDays?.toString() || "0",
         enteredBy: transaction.createdBy?.name || "ADMIN",
         spp: transaction.spp || "",
-        fixed: transaction.fixed || false,
+        fixed: transaction.fix || false,
         internalUnfix: transaction.unfix || false,
         partyCurrency: partyCurrencyData || partyDetails.partyCurrency || [],
+      });
+
+      console.log("Form Data on Edit:", {
+        partyCurrencyValue: transaction.effectivePartyCurrencyRate?.toString(),
+        itemCurrencyValue: transaction.effectiveItemCurrencyRate?.toString(),
       });
 
       setIsModalOpen(true);
