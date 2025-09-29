@@ -132,44 +132,59 @@ const [lastEditedFields, setLastEditedFields] = useState({
     partyCurrDetails.currencyCode === "AED" ? 1 : conversionRate;
   const currencyCode = partyCurrDetails.currencyCode || "AED";
 
-  // Reset form when modal opens/closes or editingItem changes
-  useEffect(() => {
-    if (isOpen) {
-      if (editingItem) {
-        setProductData({
-          ...initialProductData,
-          ...editingItem,
-          metalTypeId: editingItem.metalType || "",
-          baseCurrency: currencyCode,
-        });
-      } else {
-        setProductData({
-          ...initialProductData,
-          baseCurrency: currencyCode,
-        });
-      }
-      setErrors({});
-      setFetchError("");
-      initialRenderWeights.current = true;
-      setFocusedFields({});
+// Replace the current useEffect for modal open/editing with this:
+useEffect(() => {
+  if (isOpen) {
+    if (editingItem) {
+      // When editing, preserve the original premium values without recalculation
+      setProductData({
+        ...initialProductData,
+        ...editingItem,
+        metalTypeId: editingItem.metalType,
+        baseCurrency: currencyCode,
+        // Preserve premium values exactly as they were saved
+        premium: {
+          rate: editingItem.premium?.rate || "0.00",
+          amount: editingItem.premium?.amount || "0.00"
+        }
+      });
+
       setLastEditedFields({
-        makingCharges: "rate",
-        premium: "rate",
-        otherCharges: "rate",
-        vat: "percentage",
+        makingCharges: { rate: true, amount: true },
+        premium: { rate: true, amount: true }, 
+        otherCharges: { rate: true, amount: true },
+        vat: { percentage: true }
+      });
+    } else {
+      setProductData({
+        ...initialProductData,
+        baseCurrency: currencyCode,
+      });
+
+      setLastEditedFields({
+        makingCharges: { rate: true },
+        premium: { rate: true },
+        otherCharges: { rate: true },
+        vat: { percentage: true }
       });
     }
-  }, [isOpen, editingItem, currencyCode]);
+    setErrors({});
+    setFetchError("");
+    initialRenderWeights.current = true;
+    setFocusedFields({});
+  }
+}, [isOpen, editingItem, currencyCode]);
+
 
   // Memoize calculations to prevent unnecessary recalculations
   const { pureWeight, purityWeight, weightInOz } = useMemo(() => {
-    const grossWeight = parseFloat(productData.grossWeight) || 0;
-    const purity = parseFloat(productData.purity) || 0;
-    const pureWeight = (grossWeight * purity).toFixed(2);
-    const purityWeight = pureWeight;
-    const weightInOz = (parseFloat(pureWeight) / 31.103).toFixed(2);
-    return { pureWeight, purityWeight, weightInOz };
-  }, [productData.grossWeight, productData.purity]);
+  const grossWeight = parseFloat(productData.grossWeight) || 0;
+  const purity = parseFloat(productData.purity) || 0;
+  const pureWeightCalc = (grossWeight * (purity / 100)).toFixed(2);
+  const purityWeight = pureWeightCalc;
+  const weightInOz = (parseFloat(pureWeightCalc) / 31.103).toFixed(2);
+  return { pureWeight: pureWeightCalc, purityWeight, weightInOz };
+}, [productData.grossWeight, productData.purity]);
 
 const calculateMetalAmount = useCallback(
   ({ rate, grossWeight }) => {
@@ -217,69 +232,59 @@ const calculateMetalAmount = useCallback(
     currencyCode,
   ]);
 
-  // Update gold data from market data
-  const updateGoldData = useCallback(
-    (newMarketData) => {
-      if (!newMarketData) {
-        setGoldData((prev) => ({ ...prev, marketStatus: "ERROR" }));
-        return;
-      }
+ // Update gold data from market data
+const updateGoldData = useCallback(
+  (newMarketData) => {
+    if (!newMarketData) {
+      setGoldData((prev) => ({ ...prev, marketStatus: "ERROR" }));
+      return;
+    }
 
-      setGoldData((prevData) => {
-        const bid = parseFloat(newMarketData.bid) || null;
-        const high = parseFloat(newMarketData.high) || prevData.high;
-        const low = parseFloat(newMarketData.low) || prevData.low;
-        const marketStatus = newMarketData.marketStatus || "TRADEABLE";
-        const bidChanged =
-          prevData.bid !== null && bid !== null && bid !== prevData.bid
-            ? bid > prevData.bid
-              ? "up"
-              : "down"
-            : null;
-        const direction = bidChanged || prevData.direction;
-        const openPrice =
-          parseFloat(newMarketData.openPrice) ||
-          prevData.openPrice ||
-          (prevData.bid === null && bid !== null ? bid : prevData.bid);
-        const dailyChange =
-          bid !== null && openPrice !== null
-            ? (bid - openPrice).toFixed(2)
-            : "0.00";
-        const dailyChangePercent =
-          bid !== null && openPrice !== null && openPrice !== 0
-            ? (((bid - openPrice) / openPrice) * 100).toFixed(2) + "%"
-            : "0.00%";
+    setGoldData((prevData) => {
+      const bid = parseFloat(newMarketData.bid) || null;
+      const high = parseFloat(newMarketData.high) || prevData.high;
+      const low = parseFloat(newMarketData.low) || prevData.low;
+      const marketStatus = newMarketData.marketStatus || "TRADEABLE";
+      const bidChanged =
+        prevData.bid !== null && bid !== null && bid !== prevData.bid
+          ? bid > prevData.bid
+            ? "up"
+            : "down"
+          : null;
+      const direction = bidChanged || prevData.direction;
+      const openPrice =
+        parseFloat(newMarketData.openPrice) ||
+        prevData.openPrice ||
+        (prevData.bid === null && bid !== null ? bid : prevData.bid);
+      const dailyChange =
+        bid !== null && openPrice !== null
+          ? (bid - openPrice).toFixed(2)
+          : "0.00";
+      const dailyChangePercent =
+        bid !== null && openPrice !== null && openPrice !== 0
+          ? (((bid - openPrice) / openPrice) * 100).toFixed(2) + "%"
+          : "0.00%";
 
-        return {
-          ...prevData,
-          bid,
-          high,
-          low,
-          marketStatus,
-          marketOpenTimestamp:
-            newMarketData.marketOpenTimestamp || prevData.marketOpenTimestamp,
-          previousBid: prevData.bid !== null ? prevData.bid : bid,
-          direction,
-          openPrice: prevData.openPrice || openPrice,
-          dailyChange,
-          dailyChangePercent,
-          bidChanged,
-          priceUpdateTimestamp: new Date().toISOString(),
-        };
-      });
-
-      if (newMarketData.bid && !productData.metalRateRequirements.rate) {
-        setProductData((prev) => ({
-          ...prev,
-          metalRateRequirements: {
-            ...prev.metalRateRequirements,
-            rate: parseFloat(newMarketData.bid).toFixed(2),
-          },
-        }));
-      }
-    },
-    [productData.metalRateRequirements.rate]
-  );
+      return {
+        ...prevData,
+        bid,
+        high,
+        low,
+        marketStatus,
+        marketOpenTimestamp:
+          newMarketData.marketOpenTimestamp || prevData.marketOpenTimestamp,
+        previousBid: prevData.bid !== null ? prevData.bid : bid,
+        direction,
+        openPrice: prevData.openPrice || openPrice,
+        dailyChange,
+        dailyChangePercent,
+        bidChanged,
+        priceUpdateTimestamp: new Date().toISOString(),
+      };
+    });
+  },
+  [] // Removed productData.metalRateRequirements.rate from dependencies
+);
 
   useEffect(() => {
     if (marketData) {
@@ -386,7 +391,10 @@ const debouncedSetProductData = useCallback(
     setProductData((prev) => {
       const updated = typeof newData === "function" ? newData(prev) : newData;
       const grossWeight = parseFloat(updated.grossWeight) || 0;
-      const purityWeight = parseFloat(updated.purityWeight) || 0;
+      const purity = parseFloat(updated.purity) || 0;
+      const pureWeight = (grossWeight * (purity / 100)).toFixed(2);
+      const purityWeight = pureWeight;
+      const weightInOz = (parseFloat(pureWeight) / 31.103).toFixed(2);
       const convFactGms = parseFloat(updated.convFactGms) || 1;
       const convertrate = parseFloat(updated.convertrate) || 1;
 
@@ -394,51 +402,55 @@ const debouncedSetProductData = useCallback(
       const conversionFactor = currencyCode === "AED" ? 1 : effectiveRate;
 
       // Define divisor for premium calculations with fallback
-      const divisor = purityWeight > 0 && convFactGms > 0 ? (purityWeight / convFactGms) * convertrate : 0;
+      const divisor = purityWeight > 0 && convFactGms > 0 ? (parseFloat(purityWeight) / convFactGms) * convertrate : 0;
 
-      // Metal Rate Requirements
+      // Metal Rate Requirements - ALWAYS calculate both rate and amount
       let metalRateStr = updated.metalRateRequirements.rate;
       let metalAmountStr = updated.metalRateRequirements.amount;
+      
+      // If user is editing rate, calculate amount
       if (lastEditedFields.metalRateRequirements === "rate") {
         const parsedRate = parseFloat(metalRateStr) || 0;
         metalAmountStr = (parsedRate * grossWeight).toFixed(2);
-      } else {
+      } 
+      // If user is editing amount, calculate rate
+      else if (lastEditedFields.metalRateRequirements === "amount") {
         const parsedAmount = parseFloat(metalAmountStr) || 0;
         metalRateStr = grossWeight > 0 ? (parsedAmount / grossWeight).toFixed(2) : "0.00";
+      }
+      // If neither is being actively edited, ensure both are calculated
+      else {
+        const parsedRate = parseFloat(metalRateStr) || 0;
+        metalAmountStr = (parsedRate * grossWeight).toFixed(2);
       }
 
       // Making Charges
       let makingRateStr = updated.makingCharges.rate;
       let makingAmountStr = updated.makingCharges.amount;
       if (lastEditedFields.makingCharges === "rate") {
-        const parsedRate = parseFloat(makingRateStr);
-        makingAmountStr = isNaN(parsedRate)
-          ? "0.00"
-          : (parsedRate * grossWeight * conversionFactor).toFixed(2);
+        const parsedRate = parseFloat(makingRateStr) || 0;
+        makingAmountStr = (parsedRate * grossWeight * conversionFactor).toFixed(2);
       } else {
-        const parsedAmount = parseFloat(makingAmountStr);
-        makingRateStr = isNaN(parsedAmount)
-          ? "0.00"
-          : grossWeight > 0
-          ? (parsedAmount / (grossWeight * conversionFactor)).toFixed(2)
-          : "0.00";
+        const parsedAmount = parseFloat(makingAmountStr) || 0;
+        makingRateStr = grossWeight > 0 ? (parsedAmount / (grossWeight * conversionFactor)).toFixed(2) : "0.00";
       }
 
-      // Premium
-let premiumRateStr = updated.premium.rate;
+      // Premium (respect last edited field)
+     let premiumRateStr = updated.premium.rate;
 let premiumAmountStr = updated.premium.amount;
-if (lastEditedFields.premium === "rate") {
+
+// Only recalculate premium if we're not in editing mode or if fields are actively being edited
+if (editingItem && !focusedFields.premiumRate && !focusedFields.premiumAmount) {
+  // Keep the original values when editing without active focus
+  premiumRateStr = updated.premium.rate;
+  premiumAmountStr = updated.premium.amount;
+} else if (lastEditedFields.premium?.rate) {
   const parsedRate = parseFloat(premiumRateStr) || 0;
-  premiumAmountStr = divisor > 0
-    ? (divisor * parsedRate * conversionFactor).toFixed(2)
-    : "0.00";
+  premiumAmountStr = divisor !== 0 ? (divisor * parsedRate * conversionFactor).toFixed(2) : "0.00";
 } else {
   const parsedAmount = parseFloat(premiumAmountStr) || 0;
-  premiumRateStr = divisor > 0
-    ? (parsedAmount / (divisor * conversionFactor)).toFixed(2)
-    : "0.00";
+  premiumRateStr = divisor !== 0 ? (parsedAmount / divisor / conversionFactor).toFixed(2) : "0.00";
 }
-
 
       // Calculate subTotal: metalAmount + makingCharges + premium
       const parsedMetalAmount = parseFloat(metalAmountStr) || 0;
@@ -449,52 +461,35 @@ if (lastEditedFields.premium === "rate") {
       // Other Charges
       let otherChargesRateStr = updated.otherCharges.rate;
       let otherChargesAmountStr = updated.otherCharges.amount;
-      if (lastEditedFields.otherCharges === "rate") {
-        const parsedRate = parseFloat(otherChargesRateStr);
-        otherChargesAmountStr = isNaN(parsedRate)
-          ? "0.00"
-          : isFinite(subTotal)
-          ? (((parseFloat(subTotal) * parsedRate) / 100) * conversionFactor).toFixed(2)
-          : "0.00";
+      if (lastEditedFields.otherCharges?.rate) {
+        const parsedRate = parseFloat(otherChargesRateStr) || 0;
+        otherChargesAmountStr =
+          isFinite(subTotal) ? ((parseFloat(subTotal) * parsedRate / 100) * conversionFactor).toFixed(2) : "0.00";
       } else {
-        const parsedAmount = parseFloat(otherChargesAmountStr);
-        otherChargesRateStr = isNaN(parsedAmount)
-          ? "0.00"
-          : parseFloat(subTotal) > 0
-          ? ((parsedAmount / (parseFloat(subTotal) * conversionFactor)) * 100).toFixed(2)
-          : "0.00";
+        const parsedAmount = parseFloat(otherChargesAmountStr) || 0;
+        otherChargesRateStr =
+          isFinite(subTotal) && conversionFactor !== 0
+            ? ((parsedAmount / parseFloat(subTotal) / conversionFactor) * 100).toFixed(2)
+            : "0.00";
       }
-      const totalAfterOtherCharges = isFinite(subTotal)
-        ? (parseFloat(subTotal) + parseFloat(otherChargesAmountStr)).toFixed(4)
-        : "0.0000";
+
+      const totalAfterOtherCharges = (parseFloat(subTotal) + parseFloat(otherChargesAmountStr)).toFixed(4);
 
       // VAT
       let vatPercentageStr = updated.itemTotal.vatPercentage;
       let vatAmountStr = updated.itemTotal.vatAmount;
       if (lastEditedFields.vat === "percentage") {
-        const parsedPercentage = parseFloat(vatPercentageStr);
-        vatAmountStr = isNaN(parsedPercentage)
-          ? "0.0000"
-          : isFinite(totalAfterOtherCharges)
-          ? (((parseFloat(totalAfterOtherCharges) * parsedPercentage) / 100) * conversionFactor).toFixed(4)
-          : "0.0000";
+        const parsedPercentage = parseFloat(vatPercentageStr) || 0;
+        vatAmountStr = parseFloat(totalAfterOtherCharges) > 0 ? (((parseFloat(totalAfterOtherCharges) * parsedPercentage) / 100) * conversionFactor).toFixed(4) : "0.0000";
       } else {
-        const parsedAmount = parseFloat(vatAmountStr);
-        vatPercentageStr = isNaN(parsedAmount)
-          ? "0.00"
-          : parseFloat(totalAfterOtherCharges) > 0
-          ? ((parsedAmount / (parseFloat(totalAfterOtherCharges) * conversionFactor)) * 100).toFixed(4)
-          : "0.00";
+        const parsedAmount = parseFloat(vatAmountStr) || 0;
+        vatPercentageStr = parseFloat(totalAfterOtherCharges) > 0 ? ((parsedAmount / (parseFloat(totalAfterOtherCharges) * conversionFactor)) * 100).toFixed(4) : "0.00";
       }
 
-      // Calculate itemTotalAmount
-      const itemTotalAmount = isFinite(totalAfterOtherCharges)
-        ? (parseFloat(totalAfterOtherCharges) + parseFloat(vatAmountStr)).toFixed(4)
-        : "0.0000";
+      // Calculate itemTotalAmount - ALWAYS calculate this
+      const itemTotalAmount = (parseFloat(totalAfterOtherCharges) + parseFloat(vatAmountStr)).toFixed(4);
 
-      const formattedBaseAmount = isFinite(parsedMetalAmount)
-        ? parsedMetalAmount.toFixed(4)
-        : "0.0000";
+      const formattedBaseAmount = parsedMetalAmount.toFixed(4);
 
       return {
         ...updated,
@@ -516,28 +511,22 @@ if (lastEditedFields.premium === "rate") {
         itemTotal: {
           ...updated.itemTotal,
           baseAmount: formattedBaseAmount,
-          makingChargesTotal: isFinite(parseFloat(makingAmountStr))
-            ? parseFloat(makingAmountStr).toFixed(4)
-            : "0.0000",
-          premiumTotal: isFinite(parseFloat(premiumAmountStr))
-            ? parseFloat(premiumAmountStr).toFixed(4)
-            : "0.0000",
-          subTotal: isFinite(subTotal) ? subTotal : "0.0000",
+          makingChargesTotal: parsedMakingAmount.toFixed(4),
+          premiumTotal: parsedPremiumAmount.toFixed(4),
+          subTotal,
           vatAmount: vatAmountStr,
           vatPercentage: vatPercentageStr,
-          itemTotalAmount,
+          itemTotalAmount, // This will always be calculated now
         },
       };
     });
   }, 300),
   [
-    calculateMetalAmount,
-    pureWeight,
-    purityWeight,
-    weightInOz,
-    lastEditedFields,
-    effectiveRate,
-    currencyCode,
+lastEditedFields,
+  effectiveRate,
+  currencyCode,
+  editingItem,
+  focusedFields, 
   ]
 );
 
@@ -546,6 +535,8 @@ useEffect(() => {
     initialRenderWeights.current = false;
     return;
   }
+  
+  // Trigger recalculation whenever any relevant field changes
   debouncedSetProductData((prev) => ({ ...prev }));
 }, [
   productData.grossWeight,
@@ -750,6 +741,7 @@ const handleInputChange = useCallback(
             ...prevFields,
             metalRateRequirements: child,
           }));
+
           if (child === "rate") {
             const rate = parseFloat(rawValue) || 0;
             updatedParent.amount = (rate * grossWeight).toFixed(2);
@@ -757,6 +749,39 @@ const handleInputChange = useCallback(
             const amount = parseFloat(rawValue) || 0;
             updatedParent.rate = grossWeight > 0 ? (amount / grossWeight).toFixed(2) : "0.00";
           }
+
+          // Recalculate totals for metal rate changes
+          const parsedMetalAmount = parseFloat(updatedParent.amount) || 0;
+          const parsedMakingAmount = parseFloat(prev.makingCharges.amount) || 0;
+          const parsedPremiumAmount = parseFloat(prev.premium.amount) || 0;
+          updatedItemTotal.subTotal = (parsedMetalAmount + parsedMakingAmount + parsedPremiumAmount).toFixed(4);
+
+          const otherChargesRate = parseFloat(getRawValue(prev.otherCharges.rate)) || 0;
+          const otherChargesAmount = isFinite(updatedItemTotal.subTotal)
+            ? ((parseFloat(updatedItemTotal.subTotal) * otherChargesRate) / 100 * appliedRate).toFixed(2)
+            : "0.00";
+
+          const totalAfterOtherCharges = isFinite(updatedItemTotal.subTotal)
+            ? (parseFloat(updatedItemTotal.subTotal) + parseFloat(otherChargesAmount)).toFixed(4)
+            : "0.0000";
+
+          const vatPercentage = parseFloat(getRawValue(prev.itemTotal.vatPercentage)) || 0;
+          updatedItemTotal.vatAmount = isFinite(totalAfterOtherCharges)
+            ? (((parseFloat(totalAfterOtherCharges) * vatPercentage) / 100) * appliedRate).toFixed(4)
+            : "0.0000";
+
+          updatedItemTotal.itemTotalAmount = isFinite(totalAfterOtherCharges)
+            ? (parseFloat(totalAfterOtherCharges) + parseFloat(updatedItemTotal.vatAmount)).toFixed(4)
+            : "0.0000";
+
+          // Update otherCharges amount in state
+          updatedParent = {
+            ...updatedParent,
+            otherCharges: {
+              ...prev.otherCharges,
+              amount: otherChargesAmount,
+            },
+          };
         }
 
         if (parent === "makingCharges") {
@@ -896,10 +921,21 @@ const handlePremiumInput = useCallback(
     const { value, selectionStart } = e.target;
     const rawValue = value.replace(/,/g, "");
 
+    // Allow empty, numbers, decimals, and negative values
     if (rawValue === "" || /^-?\d*\.?\d*$/.test(rawValue)) {
       setProductData((prev) => {
         const updatedPremium = { ...prev.premium };
         
+        // Get current values
+        const purityWeight = parseFloat(prev.purityWeight) || 0;
+        const convFactGms = parseFloat(prev.convFactGms) || 1;
+        const convertrate = parseFloat(prev.convertrate) || 1;
+        const appliedRate = currencyCode === "AED" ? 1 : effectiveRate;
+        
+        // Calculate divisor for premium calculations
+        const divisor = purityWeight > 0 && convFactGms > 0 ? 
+          (purityWeight / convFactGms) * convertrate : 0;
+
         if (field === "rate") {
           updatedPremium.rate = rawValue;
           setLastEditedFields((prevFields) => ({
@@ -909,15 +945,7 @@ const handlePremiumInput = useCallback(
           
           // Calculate amount based on rate
           const rate = parseFloat(rawValue) || 0;
-          const purityWeight = parseFloat(prev.purityWeight) || 0;
-          const convFactGms = parseFloat(prev.convFactGms) || 1;
-          const convertrate = parseFloat(prev.convertrate) || 1;
-          const appliedRate = currencyCode === "AED" ? 1 : effectiveRate;
-          
-          const divisor = purityWeight > 0 && convFactGms > 0 ? 
-            (purityWeight / convFactGms) * convertrate : 0;
-          
-          updatedPremium.amount = divisor > 0 ? 
+          updatedPremium.amount = divisor > 0 && appliedRate > 0 ? 
             (divisor * rate * appliedRate).toFixed(2) : "0.00";
             
         } else if (field === "amount") {
@@ -929,15 +957,7 @@ const handlePremiumInput = useCallback(
           
           // Calculate rate based on amount
           const amount = parseFloat(rawValue) || 0;
-          const purityWeight = parseFloat(prev.purityWeight) || 0;
-          const convFactGms = parseFloat(prev.convFactGms) || 1;
-          const convertrate = parseFloat(prev.convertrate) || 1;
-          const appliedRate = currencyCode === "AED" ? 1 : effectiveRate;
-          
-          const divisor = purityWeight > 0 && convFactGms > 0 ? 
-            (purityWeight / convFactGms) * convertrate : 0;
-          
-          updatedPremium.rate = divisor > 0 ? 
+          updatedPremium.rate = divisor > 0 && appliedRate > 0 ? 
             (amount / (divisor * appliedRate)).toFixed(2) : "0.00";
         }
 
@@ -946,6 +966,15 @@ const handlePremiumInput = useCallback(
           premium: updatedPremium,
         };
       });
+
+      // Preserve cursor position
+      setTimeout(() => {
+        if (field === "rate" && premiumRateRef.current) {
+          premiumRateRef.current.setSelectionRange(selectionStart, selectionStart);
+        } else if (field === "amount" && premiumAmountRef.current) {
+          premiumAmountRef.current.setSelectionRange(selectionStart, selectionStart);
+        }
+      }, 0);
     }
   },
   [effectiveRate, currencyCode]
@@ -1377,16 +1406,11 @@ console.log('Transformed Data:', transformedData); // Debugging line
         <input
           type="text"
           name="premiumCurrencyValue"
-          value={getDisplayValue(
-            productData.premiumCurrencyValue,
-            "premiumCurrency"
-          )}
+          value={getDisplayValue(productData.premiumCurrencyValue, "premiumCurrency")}
           onChange={(e) => {
             const value = e.target.value.replace(/,/g, "");
             if (value === "" || !isNaN(value)) {
-              handleInputChange({
-                target: { name: "premiumCurrencyValue", value },
-              });
+              handleInputChange({ target: { name: "premiumCurrencyValue", value } });
             }
           }}
           onFocus={() => handleFocus("premiumCurrency")}
@@ -1404,18 +1428,9 @@ console.log('Transformed Data:', transformedData); // Debugging line
         ref={premiumRateRef}
         type="text"
         name="premium.rate"
-        value={getDisplayValue(
-          productData.premium.rate,
-          "premiumRate"
-        )}
+        value={getDisplayValue(productData.premium.rate, "premiumRate")}
         onChange={(e) => handlePremiumInput(e, "rate")}
-        onFocus={() => {
-          handleFocus("premiumRate");
-          setLastEditedFields((prevFields) => ({
-            ...prevFields,
-            premium: "rate",
-          }));
-        }}
+        onFocus={() => handleFocus("premiumRate")}
         onBlur={() => handleBlur("premiumRate")}
         className="w-full px-4 py-3 border-0 rounded-xl focus:ring-4 focus:ring-blue-100 bg-gray-50 hover:bg-white focus:bg-white shadow-sm hover:shadow-md focus:shadow-lg transition-all duration-300"
         placeholder={`Enter rate in ${currencyCode} (e.g., 5.50 or -5.50)`}
@@ -1429,23 +1444,12 @@ console.log('Transformed Data:', transformedData); // Debugging line
         ref={premiumAmountRef}
         type="text"
         name="premium.amount"
-        value={getDisplayValue(
-          productData.premium.amount,
-          "premiumAmount"
-        )}
+        value={getDisplayValue(productData.premium.amount, "premiumAmount")}
         onChange={(e) => handlePremiumInput(e, "amount")}
-        onFocus={() => {
-          handleFocus("premiumAmount");
-          setLastEditedFields((prevFields) => ({
-            ...prevFields,
-            premium: "amount",
-          }));
-        }}
+        onFocus={() => handleFocus("premiumAmount")}
         onBlur={() => handleBlur("premiumAmount")}
         className={`w-full px-4 py-3 border-0 rounded-xl focus:ring-4 focus:ring-blue-100 bg-gray-50 hover:bg-white focus:bg-white shadow-sm hover:shadow-md focus:shadow-lg transition-all duration-300 ${
-          parseFloat(getRawValue(productData.premium.amount)) < 0
-            ? "text-red-500"
-            : ""
+          parseFloat(getRawValue(productData.premium.amount)) < 0 ? "text-red-500" : ""
         }`}
         placeholder={`Enter amount in ${currencyCode} (e.g., 50.00 or -50.00)`}
       />

@@ -2,34 +2,35 @@ import React, {
   useState,
   useEffect,
   useCallback,
-  useRef,
   useMemo,
+  useRef,
 } from "react";
 import {
   Package,
   Plus,
   Search,
+  Filter,
+  X,
+  Settings,
   Edit3,
   DownloadIcon,
-  X,
-  Filter,
+  Edit,
+  Download,
+  TrashIcon,
 } from "lucide-react";
+import Select from "react-select";
+import PDFPreviewModal from "./PdfPreview"; 
 import PartyCodeField from "./PartyCodeField";
 import ProductDetailsModal from "./ProductDetailsModal";
-import PDFPreviewModal from "./pdfsalespreview";
 import SearchableInput from "./SearchInputField/SearchableInput";
 import Loader from "../../Loader/LoaderComponents";
 import axiosInstance from "../../../api/axios";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { toast, Toaster } from "sonner";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
-import Select from "react-select";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
-// Custom hook for debounced toast notifications
 const useDebouncedToast = () => {
   const toastTimeoutRef = useRef(null);
 
@@ -70,144 +71,47 @@ const karatToPurity = {
   Platinum: 95.0,
 };
 
-const formatNumber = (num, decimals = 2) => {
-  if (isNaN(num) || num === null || num === "") return "0.00";
-  return Number(num).toLocaleString("en-US", {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
-};
-
-const numberToDirhamWords = (amount) => {
-  if (
-    amount === null ||
-    amount === undefined ||
-    isNaN(amount) ||
-    amount === ""
-  ) {
-    return "INVALID AMOUNT";
-  }
-
-  const num = Number(amount);
-  const [dirhamPart, filsPartRaw] = num.toFixed(2).split(".");
-  const dirham = parseInt(dirhamPart, 10) || 0;
-  const fils = parseInt(filsPartRaw, 10) || 0;
-
-  const a = [
-    "",
-    "ONE",
-    "TWO",
-    "THREE",
-    "FOUR",
-    "FIVE",
-    "SIX",
-    "SEVEN",
-    "EIGHT",
-    "NINE",
-    "TEN",
-    "ELEVEN",
-    "TWELVE",
-    "THIRTEEN",
-    "FOURTEEN",
-    "FIFTEEN",
-    "SIXTEEN",
-    "SEVENTEEN",
-    "EIGHTEEN",
-    "NINETEEN",
-  ];
-  const b = [
-    "",
-    "",
-    "TWENTY",
-    "THIRTY",
-    "FORTY",
-    "FIFTY",
-    "SIXTY",
-    "SEVENTY",
-    "EIGHTY",
-    "NINETY",
-  ];
-
-  const convert = (num) => {
-    if (num === 0) return "";
-    if (num < 20) return a[num];
-    if (num < 100)
-      return b[Math.floor(num / 10)] + (num % 10 ? " " + a[num % 10] : "");
-    if (num < 1000)
-      return (
-        a[Math.floor(num / 100)] +
-        " HUNDRED" +
-        (num % 100 ? " " + convert(num % 100) : "")
-      );
-    if (num < 100000)
-      return (
-        convert(Math.floor(num / 1000)) +
-        " THOUSAND" +
-        (num % 1000 ? " " + convert(num % 1000) : "")
-      );
-    if (num < 10000000)
-      return (
-        convert(Math.floor(num / 100000)) +
-        " LAKH" +
-        (num % 100000 ? " " + convert(num % 100000) : "")
-      );
-    if (num < 100000000)
-      return (
-        convert(Math.floor(num / 10000000)) +
-        " CRORE" +
-        (num % 10000000 ? " " + convert(num % 10000000) : "")
-      );
-    return "NUMBER TOO LARGE";
-  };
-
-  let words = "";
-  if (dirham > 0) words += convert(dirham) + " DIRHAM";
-  if (fils > 0) words += (dirham > 0 ? " AND " : "") + convert(fils) + " FILS";
-  if (words === "") words = "ZERO DIRHAM";
-  return words + " ONLY";
-};
-
 export default function SalesMetal() {
-  const { module } = useParams();
+  const [editingStockItem, setEditingStockItem] = useState(null);
+  const [editingStockIndex, setEditingStockIndex] = useState(-1);
   const showToast = useDebouncedToast();
-  const [metalSales, setMetalSales] = useState([]);
+  const [metalPurchase, setMetalPurchase] = useState([]);
+  const [filteredPurchase, setFilteredPurchase] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingStock, setEditingStock] = useState(null);
-  const [editingStockItem, setEditingStockItem] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(5);
+  const [filterBy, setFilterBy] = useState("all");
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [tradeDebtors, setTradeDebtors] = useState([]);
-  const [stockItems, setStockItems] = useState([]);
-  const [transactionData, setTransactionData] = useState([]);
-  const [error, setError] = useState(null);
-  const [tempStockItems, setTempStockItems] = useState([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [dateSearch, setDateSearch] = useState(null);
-  const [filterBy, setFilterBy] = useState("all");
+  const [filteredDebtors, setFilteredDebtors] = useState([]);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [saleToDelete, setSaleToDelete] = useState(null);
-  // const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
-  // const [selectedPurchase, setSelectedPurchase] = useState(null);
+  const [purchaseToDelete, setPurchaseToDelete] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [stockItems, setStockItems] = useState([]);
+  const [error, setError] = useState(null);
+  const [tempStockItems, setTempStockItems] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [pagination, setPagination] = useState({});
+  const [searchDate, setSearchDate] = useState("");
   const [showPreviewAfterSave, setShowPreviewAfterSave] = useState(false);
   const [newlyCreatedSale, setNewlyCreatedSale] = useState(null);
-  const navigate = useNavigate();
-
-  const [currentPage, setCurrentPage] = useState(1);
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
   const [selectedPurchase, setSelectedPurchase] = useState(null);
-  const itemsPerPage = 5;
-  const today = new Date().toISOString().split("T")[0];
-
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const today = new Date().toISOString().split("T")[0];
 
   const [formData, setFormData] = useState({
     transactionType: "sale",
     voucherCode: "",
     voucherType: "",
     prefix: "",
-    voucherDate: today,
+    voucherDate: "",
     partyCode: "",
     partyName: "",
     partyCurrencyId: "",
@@ -227,154 +131,16 @@ export default function SalesMetal() {
     internalUnfix: false,
     partyCurrency: [],
   });
+  // const handleDownloadClick = useCallback((purchase) => {
+  //   setSelectedPurchase(purchase);
+  //   setIsDownloadModalOpen(true);
+  // }, []);
+  // const handleDownloadModalClose = useCallback(() => {
+  //   setIsDownloadModalOpen(false);
+  //   setSelectedPurchase(null);
+  // }, []);
 
-  useEffect(() => {
-    const loadData = async () => {
-      setInitialLoading(true);
-      const debtorSuccess = await fetchTradeDebtors();
-      const transactionSuccess = await fetchTransactionData();
-      setInitialLoading(!(debtorSuccess && transactionSuccess));
-    };
-    loadData();
-  }, []);
-
-  const fetchMetalTransactions = useCallback(async () => {
-    try {
-      const response = await axiosInstance.get("/metal-transaction");
-      const { data } = response.data;
-
-      const salesTransactions = Array.isArray(data)
-        ? data
-            .filter((transaction) => transaction.transactionType === "sale")
-            .map((transaction, index) => ({
-              id: transaction._id || "",
-              sl: index + 1,
-              branch: transaction.branch || "Default Branch",
-              vocType: transaction.voucherType || "SAL",
-              vocNo: transaction.voucherNumber || "",
-              vocDate:
-                transaction.formattedVoucherDate ||
-                new Date(transaction.voucherDate).toISOString().split("T")[0],
-              partyCode: transaction.partyCode?.accountCode || "N/A",
-              partyName: transaction.partyCode?.customerName || "Unknown Party",
-              stockItems: Array.isArray(transaction.stockItems)
-                ? transaction.stockItems.map((item) => ({
-                    stockId: item.stockCode || "",
-                    description: item.description || "N/A",
-                    pcs: item.pieces || 0,
-                    grossWeight: item.grossWeight || 0,
-                    purity: item.purity || 0,
-                    pureWeight: item.pureWeight || 0,
-                    purityWeight: item.purityWeight || 0,
-                    weightInOz: item.weightInOz || 0,
-                    metalRate: item.metalRate || "0",
-                    metalRateRequirements: {
-                      amount: item.metalRateRequirements?.amount || 0,
-                      rate: item.metalRateRequirements?.rate || 0,
-                    },
-                    makingCharges: {
-                      amount: item.makingCharges?.amount || 0,
-                      rate: item.makingCharges?.rate || 0,
-                    },
-                    premium: {
-                      amount: item.premium?.amount || 0,
-                      rate: item.premium?.rate || 0,
-                    },
-                    otherCharges: {
-                      amount: item.otherCharges?.amount || 0,
-                      rate: item.otherCharges?.rate || 0,
-                      description: item.otherCharges?.description || "",
-                    },
-                    itemTotal: {
-                      baseAmount: item.itemTotal?.baseAmount || 0,
-                      makingChargesTotal:
-                        item.itemTotal?.makingChargesTotal || 0,
-                      premiumTotal: item.itemTotal?.premiumTotal || 0,
-                      subTotal: item.itemTotal?.subTotal || 0,
-                      vatAmount: item.itemTotal?.vatAmount || 0,
-                      itemTotalAmount: item.itemTotal?.itemTotalAmount || 0,
-                    },
-                    vatPercentage: item.vatPercentage || 0,
-                    metalType: item.metalType || "N/A",
-                  }))
-                : [],
-            }))
-        : [];
-
-      setMetalSales(salesTransactions);
-      return salesTransactions;
-    } catch (err) {
-      showToast("Failed to fetch metal sales transactions", "error");
-      return [];
-    }
-  }, [showToast]);
-
-  useEffect(() => {
-    fetchMetalTransactions();
-  }, [fetchMetalTransactions]);
-
-  const fetchTransactionData = async () => {
-    try {
-      const response = await axiosInstance.get("/metal-transaction");
-      const { data } = response.data;
-      if (Array.isArray(data)) {
-        const allStockItems = data.flatMap((transaction) =>
-          Array.isArray(transaction.stockItems)
-            ? transaction.stockItems.map((item) => ({
-                stockId: item.stockCode || "",
-                description: item.description || "N/A",
-                pcs: item.pieces || 0,
-                grossWeight: item.grossWeight || 0,
-                purity: item.purity || 0,
-                pureWeight: item.pureWeight || 0,
-                purityWeight: item.purityWeight || 0,
-                weightInOz: item.weightInOz || 0,
-                metalRate: item.metalRate || "0",
-                metalRateRequirements: {
-                  amount: item.metalRateRequirements?.amount || 0,
-                  rate: item.metalRateRequirements?.rate || 0,
-                },
-                makingCharges: {
-                  amount: item.makingCharges?.amount || 0,
-                  rate: item.makingCharges?.rate || 0,
-                },
-                premium: {
-                  amount: item.premium?.amount || 0,
-                  rate: item.premium?.rate || 0,
-                },
-                otherCharges: {
-                  amount: item.otherCharges?.amount || 0,
-                  rate: item.otherCharges?.rate || 0,
-                  description: item.otherCharges?.description || "",
-                },
-                itemTotal: {
-                  baseAmount: item.itemTotal?.baseAmount || 0,
-                  makingChargesTotal: item.itemTotal?.makingChargesTotal || 0,
-                  premiumTotal: item.itemTotal?.premiumTotal || 0,
-                  subTotal: item.itemTotal?.subTotal || 0,
-                  vatAmount: item.itemTotal?.vatAmount || 0,
-                  itemTotalAmount: item.itemTotal?.itemTotalAmount || 0,
-                },
-                vatPercentage: item.vatPercentage || 0,
-                metalType: item.metalType || "N/A",
-                transactionId: transaction._id,
-                voucherNumber: transaction.voucherNumber,
-              }))
-            : []
-        );
-        setStockItems(allStockItems);
-        setTransactionData(data);
-        return true;
-      }
-      setStockItems([]);
-      setTransactionData([]);
-      return false;
-    } catch (error) {
-      showToast("Failed to fetch transaction data", "error");
-      return false;
-    }
-  };
-
+  // Fetch trade debtors
   const fetchTradeDebtors = useCallback(async () => {
     try {
       const response = await axiosInstance.get("/account-type");
@@ -399,6 +165,7 @@ export default function SalesMetal() {
       }));
 
       setTradeDebtors(mappedTradeDebtors);
+      setFilteredDebtors(mappedTradeDebtors);
       return true;
     } catch (error) {
       setError("Failed to fetch trade debtors");
@@ -406,6 +173,110 @@ export default function SalesMetal() {
       return false;
     }
   }, []);
+
+  // Fetch metal transactions with pagination
+  const fetchMetalTransactions = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await axiosInstance.get(
+        `/metal-transaction?page=1&limit=100`
+      );
+      const { data, pagination: pag } = response.data;
+
+      if (!Array.isArray(data)) {
+        setError("Invalid transaction data format");
+        console.error("API Response Data:", data); // Debug log
+        return [];
+      }
+
+      // Remove duplicates by unique _id
+      const uniqueTransactions = Array.from(
+        new Map(data.map((item) => [item._id, item])).values()
+      );
+
+      const purchaseTransactions = uniqueTransactions
+        .filter((transaction) => transaction.transactionType === "sale")
+        .map((transaction, index) => {
+          const formattedDate = transaction.voucherDate
+            ? new Date(transaction.voucherDate).toISOString().split("T")[0]
+            : "";
+          return {
+            id: transaction._id,
+            sl: index + 1, // Simplified SL number (no pagination offset needed)
+            branch: transaction.branch || "Default Branch",
+            vocType: transaction.voucherType || "SAL",
+            vocNo: transaction.voucherNumber || "N/A",
+            vocDate: formattedDate, // Always YYYY-MM-DD
+            partyCode: transaction.partyCode?.accountCode || "N/A",
+            partyName: transaction.partyCode?.customerName || "Unknown Party",
+            stockItems: transaction.stockItems || [],
+          };
+        });
+
+      setMetalPurchase(purchaseTransactions);
+      setFilteredPurchase(purchaseTransactions); // Initialize filteredPurchase
+      setPagination(pag || {});
+      setStockItems(
+        uniqueTransactions.flatMap(
+          (transaction) =>
+            transaction.stockItems?.map((item) => ({
+              ...item,
+              transactionId: transaction._id,
+              voucherNumber: transaction.voucherNumber,
+            })) || []
+        )
+      );
+      return purchaseTransactions;
+    } catch (error) {
+      setError("Failed to fetch metal transactions");
+      console.error("Error fetching metal transactions:", error);
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  }, []); // Remove currentPage, itemsPerPage from dependencies
+
+  // Combined initial data load
+  useEffect(() => {
+    const loadData = async () => {
+      setInitialLoading(true);
+      const debtorSuccess = await fetchTradeDebtors();
+      const transactionSuccess = await fetchMetalTransactions();
+      setInitialLoading(!(debtorSuccess && transactionSuccess));
+    };
+    loadData();
+  }, [fetchTradeDebtors, fetchMetalTransactions]);
+
+  // Memoized filtering logic
+  const filteredPurchaseMemo = useMemo(() => {
+    return metalPurchase.filter((purchase) => {
+      const searchTermLower = searchTerm.toLowerCase();
+
+      // Ensure vocDate is in "YYYY-MM-DD" format for comparison
+      const purchaseDate = purchase.vocDate.includes("T")
+        ? new Date(purchase.vocDate).toISOString().split("T")[0]
+        : purchase.vocDate;
+
+      // General search (SL, branch, voucher number, party name, party code)
+      const matchesSearchTerm =
+        !searchTermLower ||
+        purchase.sl.toString().includes(searchTermLower) ||
+        purchase.branch.toLowerCase().includes(searchTermLower) ||
+        purchase.vocNo.toLowerCase().includes(searchTermLower) ||
+        purchase.partyName.toLowerCase().includes(searchTermLower) ||
+        purchase.partyCode.toLowerCase().includes(searchTermLower);
+
+      // Date search (exact match for "YYYY-MM-DD")
+      const matchesDate = !searchDate || purchaseDate === searchDate;
+
+      // Metal type filter
+      const matchesFilter =
+        filterBy === "all" ||
+        purchase.branch.toLowerCase() === filterBy.toLowerCase();
+
+      return matchesSearchTerm && matchesDate && matchesFilter;
+    });
+  }, [metalPurchase, searchTerm, searchDate, filterBy]);
 
   const currentModule = location.pathname.split("/")[1] || "";
   const generateVoucherNumber = useCallback(async () => {
@@ -433,43 +304,9 @@ export default function SalesMetal() {
     } catch (error) {
       console.error("Error generating voucher number:", error);
       if (setError) setError("Failed to generate voucher number");
-      return { voucherCode: "", voucherType: "PUR", prefix: "" };
+      return { voucherCode: "", voucherType: "SAL", prefix: "" };
     }
   }, [currentModule, location.pathname, setError]);
-
-  const filteredSales = useMemo(() => {
-    return metalSales.filter((sale) => {
-      const dateString = sale.vocDate
-        ? new Date(sale.vocDate).toLocaleDateString("en-US", {
-            year: "numeric",
-            month: "2-digit",
-            day: "2-digit",
-          })
-        : "";
-      const selectedDateString = dateSearch
-        ? dateSearch.toLocaleDateString("en-US", {
-            year: "numeric",
-            month: "2-digit",
-            day: "2-digit",
-          })
-        : "";
-
-      const matchesSearchTerm = searchTerm
-        ? sale.sl.toString().includes(searchTerm.toLowerCase()) ||
-          sale.partyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          sale.partyCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          sale.vocNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          sale.branch.toLowerCase().includes(searchTerm.toLowerCase())
-        : true;
-
-      const matchesDate = dateSearch ? dateString === selectedDateString : true;
-      const matchesFilter =
-        filterBy === "all" ||
-        sale.branch.toLowerCase() === filterBy.toLowerCase();
-
-      return matchesSearchTerm && matchesDate && matchesFilter;
-    });
-  }, [metalSales, searchTerm, dateSearch, filterBy]);
 
   const fetchPartyDetails = useCallback(
     (partyName) => {
@@ -564,28 +401,25 @@ export default function SalesMetal() {
     [tradeDebtors]
   );
 
-  const fetchCurrencyById = async (currencyId) => {
-    if (!currencyId) {
-      showToast("No currency ID provided", "error");
-      return null;
-    }
+  const fetchCurrencyById = useCallback(async (currencyId) => {
     try {
       const response = await axiosInstance.get(
         `/currency-master/${currencyId}`
       );
       const data = response.data.data;
+      console.log(data);
       setFormData((prev) => ({
         ...prev,
-        partyCurrencyValue: data.conversionRate || "",
-        itemCurrencyValue: data.conversionRate || "",
-        itemCurrencyCode: data.symbol || prev.itemCurrencyCode || "AED",
+        partyCurrencyValue: data.conversionRate,
+        itemCurrencyValue: data.conversionRate,
       }));
       return data;
     } catch (error) {
-      showToast("Failed to fetch currency", "error");
+      setError("Failed to fetch currency");
+      console.error("Error fetching currency:", error);
       return null;
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (formData.partyCurrencyId) {
@@ -593,32 +427,26 @@ export default function SalesMetal() {
     }
   }, [formData.partyCurrencyId]);
 
-  const validateMainModal = () => {
-    if (!formData.partyName || formData.partyName.trim() === "") {
-      setError("Party name is required to add products.");
-      showToast("Party name is required to add products.", "error");
+  const validateMainModal = useCallback(() => {
+    if (!formData.partyName?.trim()) {
+      setError("Party name is required");
       return false;
     }
     if (!formData.partyCode) {
-      setError("Please select a valid party before adding products.");
-      showToast("Please select a valid party before adding products.", "error");
+      setError("Valid party selection is required");
       return false;
     }
     if (!formData.partyCurrencyId) {
-      setError("Party currency is required to add products.");
-      showToast("Party currency is required to add products.", "error");
+      setError("Party currency is required");
       return false;
     }
     if (!formData.fixed && !formData.internalUnfix) {
-      setError("Please select either Fixed or Internal Unfix option.");
-      showToast(
-        "Please select either Fixed or Internal Unfix option.",
-        "error"
-      );
+      setError("Please select Fixed or Internal Unfix option");
       return false;
     }
+    setError(null);
     return true;
-  };
+  }, [formData]);
 
   const handleInputChange = useCallback(
     (e) => {
@@ -689,42 +517,1073 @@ export default function SalesMetal() {
     [fetchPartyDetails]
   );
 
+const handleConversionRateChange = useCallback((e) => {
+  const newRate = e.target.value;
+  setFormData((prev) => ({
+    ...prev,
+    partyCurrencyValue: newRate,
+    itemCurrencyValue: newRate,
+    partyCurrency: {
+      ...prev.partyCurrency,
+      conversionRate: newRate,  // Update the conversionRate in the partyCurrency object for passing to ProductDetailsModal
+    },
+  }));
+}, []);
+
+const handleCurrencyChange = (option) => {
+  setFormData((prev) => ({
+    ...prev,
+    partyCurrencyCode: option?.value,
+    itemCurrencyCode: option?.value,
+    partyCurrency: option?.data,
+    partyCurrencyId: option?.data?._id,
+    partyCurrencyValue: option?.data?.conversionRate || "",  // Set initial value
+    itemCurrencyValue: option?.data?.conversionRate || "",
+  }));
+};
+  const selectedParty = tradeDebtors.find(
+    (d) => d.customerName === formData.partyName
+  );
+
+  const currencyOptions =
+    selectedParty?.acDefinition?.currencies?.map((c) => ({
+      value: c.currency?.currencyCode,
+      label: c.currency?.currencyCode,
+      data: c.currency,
+    })) || [];
+
+const handleDownloadPDF = async (purchaseId) => {
+  const formatNumber = (num, decimals = 2) => {
+    if (num === null || num === undefined || isNaN(num)) return "0.00";
+    return Number(num).toLocaleString("en-US", {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    });
+  };
+
+  const numberToDirhamWords = (amount) => {
+    if (amount === null || amount === undefined || isNaN(amount) || amount === "") {
+      return "INVALID AMOUNT";
+    }
+    const num = Number(amount);
+    const isNegative = num < 0;
+    const absoluteNum = Math.abs(num);
+    const [integerPart, decimalPartRaw] = absoluteNum.toFixed(2).split(".");
+    const integer = parseInt(integerPart, 10) || 0;
+    const decimal = parseInt(decimalPartRaw, 10) || 0;
+
+    const a = [
+      "", "ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE",
+      "TEN", "ELEVEN", "TWELVE", "THIRTEEN", "FOURTEEN", "FIFTEEN", "SIXTEEN",
+      "SEVENTEEN", "EIGHTEEN", "NINETEEN",
+    ];
+    const b = ["", "", "TWENTY", "THIRTY", "FORTY", "FIFTY", "SIXTY", "SEVENTY", "EIGHTY", "NINETY"];
+
+    const convert = (num) => {
+      if (num === 0) return "";
+      if (num < 20) return a[num];
+      if (num < 100) return b[Math.floor(num / 10)] + (num % 10 ? " " + a[num % 10] : "");
+      if (num < 1000) return a[Math.floor(num / 100)] + " HUNDRED" + (num % 100 ? " " + convert(num % 100) : "");
+      if (num < 100000) return convert(Math.floor(num / 1000)) + " THOUSAND" + (num % 1000 ? " " + convert(num % 1000) : "");
+      if (num < 10000000) return convert(Math.floor(num / 100000)) + " LAKH" + (num % 100000 ? " " + convert(num % 100000) : "");
+      if (num < 1000000000) return convert(Math.floor(num / 10000000)) + " CRORE" + (num % 10000000 ? " " + convert(num % 10000000) : "");
+      return "NUMBER TOO LARGE";
+    };
+
+    let words = "";
+    if (integer > 0) words += convert(integer) + ` ${formData.partyCurrencyCode || "AED"}`;
+    if (decimal > 0) words += (integer > 0 ? " AND " : "") + convert(decimal) + " FILS";
+    if (words === "") words = `ZERO ${formData.partyCurrencyCode || "AED"}`;
+    return (isNegative ? "MINUS " : "") + words + " ONLY";
+  };
+
+  try {
+    const res = await axiosInstance.get(`/metal-transaction/${purchaseId}`);
+    const purchaseData = res.data;
+    const purchase = purchaseData.data;
+
+    // Use the currency from formData or fall back to purchase data
+    const currencyCode = formData.partyCurrencyCode || purchase.partyCurrency?.currencyCode || "AED";
+
+    const tableData = purchase.stockItems?.map((item) => {
+      const grossWeight = parseFloat(item.grossWeight) || 0;
+      const makingChargesTotal = parseFloat(item.itemTotal?.makingChargesTotal) || 0;
+      const calculatedRate = makingChargesTotal / grossWeight || 0;
+      return {
+        description: item.description || "",
+        grossWt: formatNumber(item.grossWeight || 0, 3),
+        purity: formatNumber(item.purity || 0, 6),
+        pureWt: formatNumber(item.pureWeight || 0, 3),
+        makingRate: formatNumber(item.makingRate || 0, 2),
+        makingAmount: formatNumber(item.makingAmount || 0, 2),
+        taxableAmt: formatNumber(item.taxableAmt || 0, 2),
+        vatPercent: formatNumber(item.vatPercent || item.itemTotal?.vatPercentage || 0, 2),
+        vatAmt: formatNumber(item.itemTotal?.vatAmount || 0, 2),
+        totalAmt: purchase.fixed ? formatNumber(item.itemTotal?.itemTotalAmount || 0, 2) : "0.00",
+        type: item.unfix ? "Unfix" : "Fix",
+        rate: formatNumber(calculatedRate, 2),
+        amount: formatNumber(item.itemTotal?.makingChargesTotal || 0, 2),
+      };
+    }) || [];
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const centerX = pageWidth / 2;
+
+    // Header Section
+    const headingTitle = purchase.fixed ? "METAL SALE FIXING" : "METAL SALE UNFIXING";
+    const logoImg = "/assets/logo.png";
+    const boxStartYs = 5;
+    const logoWidth = 20;
+    const logoHeight = 20;
+    const logoX = pageWidth / 2 - logoWidth / 2;
+    const logoY = boxStartYs + 2;
+
+    doc.addImage(logoImg, "PNG", logoX, logoY, logoWidth, logoHeight);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text(headingTitle, pageWidth - 14, logoY + logoHeight + 4, { align: "right" });
+
+    const separatorY = logoY + logoHeight + 8;
+    doc.setDrawColor(223, 223, 223);
+    doc.setLineWidth(0.3);
+    doc.line(14, separatorY, pageWidth - 14, separatorY);
+
+    // Info Box
+    const infoStartY = separatorY + 6;
+    const leftX = 14;
+    const rightX = pageWidth / 2 + 4;
+    const lineSpacing = 5;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text(`Party Name : ${purchase.partyCode?.customerName || "N/A"}`, leftX, infoStartY);
+    doc.text(`Phone      : ${purchase.partyCode?.addresses?.phoneNumber1 || "N/A"}`, leftX, infoStartY + lineSpacing);
+    doc.text(`Email      : ${purchase.partyCode?.addresses?.email || "N/A"}`, leftX, infoStartY + lineSpacing * 2);
+
+    doc.text(`PUR NO     : ${purchase.voucherNumber || "N/A"}`, rightX, infoStartY);
+    doc.text(`Date       : ${purchase.formattedVoucherDate || purchase.voucherDate.split("T")[0] || "N/A"}`, rightX, infoStartY + lineSpacing);
+    doc.text(`Terms      : ${purchase.paymentTerms || "Cash"}`, rightX, infoStartY + lineSpacing * 2);
+    doc.text(`Salesman   : ${purchase.salesman || "N/A"}`, rightX, infoStartY + lineSpacing * 3);
+    const goldRate = formatNumber(purchase.stockItems?.[0]?.metalRateRequirements?.rate || 0, 2);
+    doc.text(`Gold Rate  : ${goldRate} ${currencyCode}/KGBAR`, rightX, infoStartY + lineSpacing * 4);
+
+    const boxTopY = infoStartY - 6;
+    const boxBottomY = infoStartY + lineSpacing * 5;
+    doc.setDrawColor(205, 205, 205);
+    doc.setLineWidth(0.5);
+    doc.line(14, boxTopY, pageWidth - 14, boxTopY);
+    doc.line(14, boxBottomY, pageWidth - 14, boxBottomY);
+    const centerXs = pageWidth / 2;
+    doc.line(centerXs, boxTopY, centerX, boxBottomY);
+
+    // Main Items Table
+    let tableStartY = logoY + logoHeight + 50;
+    const totalAmt = purchase.fixed
+      ? tableData.reduce((acc, curr) => acc + parseFloat(curr.totalAmt.replace(/,/g, "") || "0"), 0)
+      : 0;
+    const totalGrossWt = tableData.reduce((acc, curr) => acc + parseFloat(curr.grossWt.replace(/,/g, "") || "0"), 0);
+    const totalPureWt = tableData.reduce((acc, curr) => acc + parseFloat(curr.pureWt.replace(/,/g, "") || "0"), 0);
+    const totalVAT = purchase.fixed
+      ? tableData.reduce((acc, curr) => acc + parseFloat(curr.vatAmt.replace(/,/g, "") || "0"), 0)
+      : 0;
+    const totalMakingAmount = purchase.fixed
+      ? tableData.reduce((acc, curr) => acc + parseFloat(curr.makingAmount.replace(/,/g, "") || "0"), 0)
+      : 0;
+    const totalTaxableAmt = purchase.fixed
+      ? tableData.reduce((acc, curr) => acc + parseFloat(curr.taxableAmt.replace(/,/g, "") || "0"), 0)
+      : 0;
+    const avgVATPercent = purchase.fixed && tableData.length > 0
+      ? tableData.reduce((acc, curr) => acc + parseFloat(curr.vatPercent.replace(/,/g, "") || "0"), 0) / tableData.length
+      : 0;
+
+    const tableColumns = [
+      { content: "#", rowSpan: 2, styles: { halign: "center", valign: "middle" } },
+      { content: "Stock Description", rowSpan: 2, styles: { halign: "center", valign: "middle" } },
+      { content: "Gross Wt.", rowSpan: 2, styles: { halign: "center", valign: "middle" } },
+      { content: "Purity", rowSpan: 2, styles: { halign: "center", valign: "middle" } },
+      { content: "Pure Wt.", rowSpan: 2, styles: { halign: "center", valign: "middle" } },
+      { content: `Making (${currencyCode})`, colSpan: 2, styles: { halign: "center", valign: "middle" } },
+      { content: `Taxable Amt (${currencyCode})`, rowSpan: 2, styles: { halign: "center", valign: "middle" } },
+      { content: "VAT%", rowSpan: 2, styles: { halign: "center", valign: "middle" } },
+      { content: `VAT Amt (${currencyCode})`, rowSpan: 2, styles: { halign: "center", valign: "middle" } },
+      { content: `Total Amt (${currencyCode})`, rowSpan: 2, styles: { halign: "center", valign: "middle" } },
+    ];
+
+    const tableSubColumns = [
+      { content: "Rate", styles: { halign: "center", valign: "middle" } },
+      { content: "Amount", styles: { halign: "center", valign: "middle" } },
+    ];
+
+    const tableBody = tableData.map((item, index) => [
+      { content: (index + 1).toString(), styles: { halign: "center" } },
+      { content: item.description, styles: { halign: "left" } },
+      { content: item.grossWt, styles: { halign: "right" } },
+      { content: item.purity, styles: { halign: "right" } },
+      { content: item.pureWt, styles: { halign: "right" } },
+      { content: item.rate, styles: { halign: "right" } },
+      { content: item.amount, styles: { halign: "right" } },
+      { content: item.taxableAmt, styles: { halign: "right" } },
+      { content: item.vatPercent, styles: { halign: "right" } },
+      { content: item.vatAmt, styles: { halign: "right" } },
+      { content: item.totalAmt, styles: { halign: "right" } },
+    ]);
+
+    autoTable(doc, {
+      startY: tableStartY,
+      head: [tableColumns, tableSubColumns],
+      body: tableBody,
+      theme: "grid",
+      styles: { fontSize: 8, font: "helvetica", textColor: 0, lineWidth: 0.3 },
+      headStyles: { fillColor: [230, 230, 230], textColor: 0, fontStyle: "bold", fontSize: 8, halign: "center", valign: "middle" },
+      bodyStyles: { fontSize: 8, valign: "middle" },
+      margin: { left: 14, right: 14 },
+      tableWidth: "auto",
+      didParseCell: function (data) {
+        const isFirstColumn = data.column.index === 0;
+        const isLastColumn = data.column.index === data.table.columns.length - 1;
+        if (isFirstColumn) {
+          data.cell.styles.lineWidth = { left: 0, right: 0.3, top: 0.3, bottom: 0.3 };
+        } else if (isLastColumn) {
+          data.cell.styles.lineWidth = { left: 0.3, right: 0, top: 0.3, bottom: 0.3 };
+        }
+      },
+    });
+
+    // Totals Summary Box
+    const totalsStartY = doc.lastAutoTable.finalY;
+    const tableWidth = pageWidth / 3;
+    const leftMargin = pageWidth - tableWidth - 14;
+
+    const totalsBody = purchase.fixed
+      ? [
+          [{ content: "VAT %", styles: { fontStyle: "bold", halign: "center" } }, { content: formatNumber(avgVATPercent, 2), styles: { fontStyle: "bold", halign: "center" } }],
+          [{ content: `VAT Amount (${currencyCode})`, styles: { fontStyle: "bold", halign: "center" } }, { content: formatNumber(totalVAT, 2), styles: { fontStyle: "bold", halign: "center" } }],
+          [{ content: `Taxable Amount (${currencyCode})`, styles: { fontStyle: "bold", halign: "center" } }, { content: formatNumber(totalTaxableAmt, 2), styles: { fontStyle: "bold", halign: "center" } }],
+          [{ content: `Total Amount (${currencyCode})`, styles: { fontStyle: "bold", halign: "center" } }, { content: formatNumber(totalAmt, 2), styles: { fontStyle: "bold", halign: "center" } }],
+        ]
+      : [
+          [{ content: "Total Gross Wt.", styles: { fontStyle: "bold", halign: "center" } }, { content: formatNumber(totalGrossWt, 3), styles: { fontStyle: "bold", halign: "center" } }],
+        ];
+
+    autoTable(doc, {
+      startY: totalsStartY,
+      body: totalsBody,
+      theme: "plain",
+      styles: { fontSize: 8, font: "helvetica", textColor: 0, lineWidth: 0, cellPadding: { top: 1, bottom: 4, left: 2, right: 2 } },
+      columnStyles: { 0: { cellWidth: tableWidth / 2 }, 1: { cellWidth: tableWidth / 2 } },
+      margin: { left: leftMargin, right: 14 },
+      tableWidth: tableWidth,
+      showHead: "never",
+      didDrawPage: (data) => {
+        const totalBoxHeight = data.cursor.y - totalsStartY;
+        doc.setDrawColor(205, 205, 205);
+        doc.setLineWidth(0.3);
+        doc.line(leftMargin, totalsStartY, leftMargin + tableWidth, totalsStartY);
+        doc.line(leftMargin, totalsStartY, leftMargin, totalsStartY + totalBoxHeight);
+        doc.line(leftMargin, totalsStartY + totalBoxHeight, leftMargin + tableWidth, totalsStartY + totalBoxHeight);
+      },
+    });
+
+    // Account Update Section
+    const accountUpdateY = (doc.lastAutoTable?.finalY || 120) + 15;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.text("Your account has been updated with:", 14, accountUpdateY);
+
+    const creditAmount = purchase.fixed ? formatNumber(totalAmt, 2) : "0.00";
+    const creditWords = purchase.fixed ? numberToDirhamWords(totalAmt) : `ZERO ${currencyCode} ONLY`;
+    const pureWeightGrams = formatNumber(totalPureWt * 1000, 3);
+
+    const sharedStyles = {
+      fontSize: 8,
+      font: "helvetica",
+      textColor: 0,
+      cellPadding: { top: 1.5, bottom: 1.5, left: 3, right: 3 },
+      lineColor: [0, 0, 0],
+      lineWidth: 0.3,
+    };
+
+    let boxStartY = accountUpdateY + 4;
+    autoTable(doc, {
+      startY: boxStartY,
+      body: [
+        [
+          { content: `${creditAmount} ${currencyCode} CREDITED`, styles: { ...sharedStyles, fontStyle: "bold", halign: "left" } },
+          { content: creditWords, styles: { ...sharedStyles, fontStyle: "italic", halign: "left" } },
+        ],
+      ],
+      theme: "plain",
+      styles: sharedStyles,
+      columnStyles: { 0: { cellWidth: 80 }, 1: { cellWidth: pageWidth - 108 } },
+      margin: { left: 14, right: 14 },
+      showHead: "never",
+      didDrawPage: (data) => { boxStartY = data.cursor.y; },
+    });
+
+    autoTable(doc, {
+      startY: boxStartY,
+      body: [
+        [
+          { content: `${pureWeightGrams} GMS CREDITED`, styles: { ...sharedStyles, fontStyle: "bold", halign: "left" } },
+          { content: `GOLD ${pureWeightGrams} Point Gms`, styles: { ...sharedStyles, fontStyle: "italic", halign: "left" } },
+        ],
+      ],
+      theme: "plain",
+      styles: sharedStyles,
+      columnStyles: { 0: { cellWidth: 80 }, 1: { cellWidth: pageWidth - 108 } },
+      margin: { left: 14, right: 14 },
+      showHead: "never",
+      didDrawPage: (data) => { boxStartY = data.cursor.y; },
+    });
+
+    autoTable(doc, {
+      startY: boxStartY,
+      body: [
+        [
+          { content: `${purchase.fixed ? "fix" : "unfix"} buy pure gold ${pureWeightGrams} gm @`, colSpan: 2, styles: { ...sharedStyles, halign: "left" } },
+        ],
+      ],
+      theme: "plain",
+      styles: sharedStyles,
+      columnStyles: { 0: { cellWidth: pageWidth - 28 } },
+      margin: { left: 14, right: 14 },
+      showHead: "never",
+    });
+
+    // Footer Section
+    const footerY = doc.lastAutoTable.finalY + 15;
+    const signedBy = purchase.salesman || "AUTHORIZED SIGNATORY";
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(9);
+    doc.text("Confirmed on behalf of", 14, footerY);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text(signedBy, 14, footerY + 5);
+
+    // Signature Section
+    const sigY = footerY + 25;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0);
+    doc.setLineWidth(0.3);
+    doc.setDrawColor(150, 150, 150);
+    doc.line(20, sigY - 2, 70, sigY - 2);
+    doc.line(80, sigY - 2, 130, sigY - 2);
+    doc.line(140, sigY - 2, 190, sigY - 2);
+    doc.text("PARTY'S SIGNATURE", 45, sigY + 3, null, null, "center");
+    doc.text("CHECKED BY", 105, sigY + 3, null, null, "center");
+    doc.text("AUTHORIZED SIGNATORY", 165, sigY + 3, null, null, "center");
+
+    // Save PDF
+    doc.save(`metal-purchase-${purchase.voucherNumber || "N/A"}.pdf`);
+  } catch (error) {
+    console.error("Error generating PDF:", error);
+    toast.error("Failed to generate PDF");
+  }
+};
+
+  // Handle voucher query parameter to open edit modal
+  useEffect(() => {
+    const checkVoucher = async () => {
+      const queryParams = new URLSearchParams(location.search);
+      const voucher = queryParams.get("voucher");
+
+      if (voucher) {
+        try {
+          const transactionSuccess = await fetchMetalTransactions();
+          if (transactionSuccess) {
+            const transaction = transactionSuccess.find(
+              (p) => p.vocNo === voucher
+            );
+
+            if (transaction) {
+              handleEdit(transaction);
+            } else {
+              console.warn(`No transaction found for voucher: ${voucher}`);
+              toast.error(`No transaction found for voucher: ${voucher}`, {
+                style: {
+                  background: "white",
+                  color: "red",
+                  border: "1px solid red",
+                },
+              });
+            }
+          }
+        } catch (err) {
+          console.error("Error fetching metal transactions:", err);
+          toast.error("Failed to fetch transactions", {
+            style: {
+              background: "white",
+              color: "red",
+              border: "1px solid red",
+            },
+          });
+        }
+
+        // Clear query parameter to prevent re-triggering
+        navigate(location.pathname, { replace: true });
+      }
+    };
+
+    checkVoucher();
+  }, [location, metalPurchase, navigate, fetchMetalTransactions]);
+
+  const handleExportAllToPDF = async () => {
+    // Function to convert number to Dirham words
+    const numberToDirhamWords = (amount) => {
+      if (
+        amount === null ||
+        amount === undefined ||
+        isNaN(amount) ||
+        amount === ""
+      ) {
+        return "INVALID AMOUNT";
+      }
+
+      const num = Number(amount);
+      const isNegative = num < 0;
+      const absoluteNum = Math.abs(num);
+      const [dirhamPart, filsPartRaw] = absoluteNum.toFixed(2).split(".");
+      const dirham = parseInt(dirhamPart, 10) || 0;
+      const fils = parseInt(filsPartRaw, 10) || 0;
+
+      const a = [
+        "",
+        "ONE",
+        "TWO",
+        "THREE",
+        "FOUR",
+        "FIVE",
+        "SIX",
+        "SEVEN",
+        "EIGHT",
+        "NINE",
+        "TEN",
+        "ELEVEN",
+        "TWELVE",
+        "THIRTEEN",
+        "FOURTEEN",
+        "FIFTEEN",
+        "SIXTEEN",
+        "SEVENTEEN",
+        "EIGHTEEN",
+        "NINETEEN",
+      ];
+      const b = [
+        "",
+        "",
+        "TWENTY",
+        "THIRTY",
+        "FORTY",
+        "FIFTY",
+        "SIXTY",
+        "SEVENTY",
+        "EIGHTY",
+        "NINETY",
+      ];
+
+      const convert = (num) => {
+        if (num === 0) return "";
+        if (num < 20) return a[num];
+        if (num < 100)
+          return b[Math.floor(num / 10)] + (num % 10 ? " " + a[num % 10] : "");
+        if (num < 1000)
+          return (
+            a[Math.floor(num / 100)] +
+            " HUNDRED" +
+            (num % 100 ? " " + convert(num % 100) : "")
+          );
+        if (num < 100000)
+          return (
+            convert(Math.floor(num / 1000)) +
+            " THOUSAND" +
+            (num % 1000 ? " " + convert(num % 1000) : "")
+          );
+        if (num < 10000000)
+          return (
+            convert(Math.floor(num / 100000)) +
+            " LAKH" +
+            (num % 100000 ? " " + convert(num % 100000) : "")
+          );
+        if (num < 1000000000)
+          return (
+            convert(Math.floor(num / 10000000)) +
+            " CRORE" +
+            (num % 10000000 ? " " + convert(num % 10000000) : "")
+          );
+        if (num <= 9999999999)
+          return (
+            convert(Math.floor(num / 10000000)) +
+            " CRORE" +
+            (num % 10000000 ? " " + convert(num % 10000000) : "")
+          );
+        return "NUMBER TOO LARGE";
+      };
+
+      let words = "";
+      if (dirham > 0) words += convert(dirham) + " DIRHAM";
+      if (fils > 0)
+        words += (dirham > 0 ? " AND " : "") + convert(fils) + " FILS";
+      if (words === "") words = "ZERO DIRHAM";
+
+      return (isNegative ? "MINUS " : "") + words + " ONLY";
+    };
+
+    try {
+      const purchaseTransactions = filteredPurchaseMemo;
+
+      if (purchaseTransactions.length === 0) {
+        toast.error("No transactions available to export");
+        return;
+      }
+
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const centerX = pageWidth / 2;
+      const logoImg = "/assets/logo.png";
+      const logoWidth = 20;
+      const logoHeight = 20;
+      const logoX = centerX - logoWidth / 2;
+      const logoY = 5;
+
+      // === HEADER SECTION ===
+      // Centered Logo
+      doc.addImage(logoImg, "PNG", logoX, logoY, logoWidth, logoHeight);
+
+      // Heading Title (Right-aligned)
+      const headingTitle = "METAL SALE METAL";
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text(headingTitle, pageWidth - 14, logoY + logoHeight + 4, {
+        align: "right",
+      });
+
+      // Separator Line
+      const separatorY = logoY + logoHeight + 8;
+      doc.setDrawColor(223, 223, 223); // Light grey
+      doc.setLineWidth(0.3);
+      doc.line(14, separatorY, pageWidth - 14, separatorY);
+
+      // === MAIN TABLE ===
+      const allStockItems = purchaseTransactions.flatMap((purchase) =>
+        (purchase?.stockItems || []).map((item) => ({
+          description: item.description || "N/A",
+          grossWt: formatNumberWithCommas(item.grossWeight || 0, 3),
+          purity: formatNumberWithCommas(item.purity || 0, 6),
+          pureWt: formatNumberWithCommas(item.pureWeight || 0, 3),
+          rate: formatNumberWithCommas(item.temTotal?.rate || 0, 2),
+          amount: formatNumberWithCommas(
+            item.itemTotal?.makingChargesTotal || 0,
+            2
+          ),
+          taxableAmt: formatNumberWithCommas(item.taxableAmt || 0, 2),
+          vatPercent: formatNumberWithCommas(
+            item.itemTotal?.vatPercent || 0,
+            2
+          ),
+          vatAmt: formatNumberWithCommas(item.itemTotal?.vatAmount || 0, 2),
+          totalAmt: formatNumberWithCommas(
+            item.itemTotal?.itemTotalAmount || 0,
+            2
+          ),
+        }))
+      );
+
+      if (allStockItems.length === 0) {
+        toast.error("No sale transactions available to export");
+        return;
+      }
+
+      const itemCount = allStockItems.length;
+      const totalAmt = formatNumberWithCommas(
+        allStockItems.reduce(
+          (acc, curr) => acc + parseFloat(curr.totalAmt.replace(/,/g, "") || 0),
+          0
+        ),
+        2
+      );
+      const totalGrossWt = formatNumberWithCommas(
+        allStockItems.reduce(
+          (acc, curr) => acc + parseFloat(curr.grossWt.replace(/,/g, "") || 0),
+          0
+        ),
+        3
+      );
+      const totalPureWt = formatNumberWithCommas(
+        allStockItems.reduce(
+          (acc, curr) => acc + parseFloat(curr.pureWt.replace(/,/g, "") || 0),
+          0
+        ),
+        3
+      );
+      const totalVAT = formatNumberWithCommas(
+        allStockItems.reduce(
+          (acc, curr) => acc + parseFloat(curr.vatAmt.replace(/,/g, "") || 0),
+          0
+        ),
+        2
+      );
+      const totalRate = formatNumberWithCommas(
+        allStockItems.reduce(
+          (acc, curr) => acc + parseFloat(curr.rate.replace(/,/g, "") || 0),
+          0
+        ),
+        2
+      );
+      const totalAmount = formatNumberWithCommas(
+        allStockItems.reduce(
+          (acc, curr) => acc + parseFloat(curr.amount.replace(/,/g, "") || 0),
+          0
+        ),
+        2
+      );
+      const avgVATPercent =
+        allStockItems.length > 0
+          ? formatNumberWithCommas(
+              allStockItems.reduce(
+                (acc, curr) =>
+                  acc + parseFloat(curr.vatPercent.replace(/,/g, "") || 0),
+                0
+              ) / allStockItems.length,
+              2
+            )
+          : "0.00";
+
+      autoTable(doc, {
+        startY: separatorY + 6,
+        head: [
+          [
+            {
+              content: "#",
+              rowSpan: 2,
+              styles: { halign: "center", valign: "middle" },
+            },
+            {
+              content: "Stock Description",
+              rowSpan: 2,
+              styles: { halign: "center", valign: "middle" },
+            },
+            {
+              content: "Gross Wt.",
+              rowSpan: 2,
+              styles: { halign: "center", valign: "middle" },
+            },
+            {
+              content: "Purity",
+              rowSpan: 2,
+              styles: { halign: "center", valign: "middle" },
+            },
+            {
+              content: "Pure Wt.",
+              rowSpan: 2,
+              styles: { halign: "center", valign: "middle" },
+            },
+            {
+              content: "Making (AED)",
+              colSpan: 2,
+              styles: { halign: "center", valign: "middle" },
+            },
+            {
+              content: "Taxable Amt (AED)",
+              rowSpan: 2,
+              styles: { halign: "center", valign: "middle" },
+            },
+            {
+              content: "VAT%",
+              rowSpan: 2,
+              styles: { halign: "center", valign: "middle" },
+            },
+            {
+              content: "VAT Amt (AED)",
+              rowSpan: 2,
+              styles: { halign: "center", valign: "middle" },
+            },
+            {
+              content: "Total Amt (AED)",
+              rowSpan: 2,
+              styles: { halign: "center", valign: "middle" },
+            },
+          ],
+          [
+            { content: "Rate", styles: { halign: "center", valign: "middle" } },
+            {
+              content: "Amount",
+              styles: { halign: "center", valign: "middle" },
+            },
+          ],
+        ],
+        body: allStockItems.map((item, index) => [
+          { content: (index + 1).toString(), styles: { halign: "center" } },
+          { content: item.description, styles: { halign: "left" } },
+          { content: item.grossWt, styles: { halign: "right" } },
+          { content: item.purity, styles: { halign: "right" } },
+          { content: item.pureWt, styles: { halign: "right" } },
+          { content: item.rate, styles: { halign: "right" } },
+          { content: item.amount, styles: { halign: "right" } },
+          { content: item.taxableAmt, styles: { halign: "right" } },
+          { content: item.vatPercent, styles: { halign: "right" } },
+          { content: item.vatAmt, styles: { halign: "right" } },
+          { content: item.totalAmt, styles: { halign: "right" } },
+        ]),
+        theme: "grid",
+        styles: {
+          fontSize: 8,
+          font: "helvetica",
+          textColor: 0,
+          lineWidth: 0.3,
+        },
+        headStyles: {
+          fillColor: [230, 230, 230],
+          textColor: 0,
+          fontStyle: "bold",
+          fontSize: 8,
+          halign: "center",
+          valign: "middle",
+          cellPadding: { top: 2, bottom: 2, left: 2, right: 2 },
+        },
+        bodyStyles: {
+          fontSize: 8,
+          valign: "middle",
+          cellPadding: { top: 4, bottom: 4, left: 2, right: 2 },
+        },
+        margin: { left: 14, right: 14 },
+        tableWidth: "auto",
+        didParseCell: (data) => {
+          const isFirstColumn = data.column.index === 0;
+          const isLastColumn =
+            data.column.index === data.table.columns.length - 1;
+          if (isFirstColumn) {
+            data.cell.styles.lineWidth = {
+              left: 0,
+              right: 0.3,
+              top: 0.3,
+              bottom: 0.3,
+            };
+          } else if (isLastColumn) {
+            data.cell.styles.lineWidth = {
+              left: 0.3,
+              right: 0,
+              top: 0.3,
+              bottom: 0.3,
+            };
+          }
+        },
+      });
+
+      const finalY = doc.lastAutoTable.finalY;
+      const goldRate = formatNumberWithCommas(
+        allStockItems[0]?.metalRateRequirements?.rate || 2500,
+        2
+      );
+      const footerTableWidth = pageWidth / 2;
+      const footerLeftMargin = pageWidth - footerTableWidth - 14;
+
+      autoTable(doc, {
+        startY: finalY,
+        body: [
+          [
+            {
+              content: `GOLD VALUE @${goldRate}/KGBAR(AED)`,
+              styles: { halign: "left", fontStyle: "bold" },
+            },
+            {
+              content: totalAmt,
+              styles: { halign: "right", fontStyle: "bold" },
+            },
+          ],
+          [
+            {
+              content: "Total Amount Before VAT(AED)",
+              styles: { halign: "left", fontStyle: "bold" },
+            },
+            {
+              content: totalAmt,
+              styles: { halign: "right", fontStyle: "bold" },
+            },
+          ],
+          [
+            {
+              content: "VAT Amt(AED)",
+              styles: { halign: "left", fontStyle: "bold" },
+            },
+            {
+              content: totalVAT,
+              styles: { halign: "right", fontStyle: "bold" },
+            },
+          ],
+          [
+            {
+              content: "Total Amount(AED)",
+              styles: { halign: "left", fontStyle: "bold" },
+            },
+            {
+              content: totalAmt,
+              styles: { halign: "right", fontStyle: "bold" },
+            },
+          ],
+          [
+            {
+              content: "Total Party Amount (AED)",
+              styles: { halign: "left", fontStyle: "bold" },
+            },
+            {
+              content: totalAmt,
+              styles: { halign: "right", fontStyle: "bold" },
+            },
+          ],
+        ],
+        theme: "grid",
+        styles: {
+          fontSize: 8,
+          font: "helvetica",
+          textColor: 0,
+          cellPadding: { top: 1.5, bottom: 1.5, left: 1.5, right: 1.5 },
+        },
+        columnStyles: {
+          0: { cellWidth: footerTableWidth / 2, halign: "left" },
+          1: { cellWidth: footerTableWidth / 2, halign: "right" },
+        },
+        margin: { left: footerLeftMargin, right: 14 },
+        tableWidth: footerTableWidth,
+        showHead: "never",
+        didParseCell: (data) => {
+          const isLastColumn =
+            data.column.index === data.table.columns.length - 1;
+          if (isLastColumn) {
+            data.cell.styles.lineWidth = {
+              left: 0.3,
+              right: 0,
+              top: 0.3,
+              bottom: 0.3,
+            };
+          }
+        },
+      });
+
+      // === FOOTER NOTES ===
+      const updatedTextY = doc.lastAutoTable.finalY + 4;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(0, 0, 0);
+      doc.text("Your account has been updated with:", 14, updatedTextY);
+
+      const totalAmtValue = parseFloat(totalAmt.replace(/,/g, "") || 0);
+      const creditAmount =
+        totalAmtValue >= 0
+          ? totalAmt
+          : formatNumberWithCommas(Math.abs(totalAmtValue), 2);
+      const creditWords =
+        totalAmtValue >= 0
+          ? numberToDirhamWords(totalAmtValue)
+          : numberToDirhamWords(Math.abs(totalAmtValue));
+
+      autoTable(doc, {
+        startY: updatedTextY + 2,
+        body: [
+          [
+            {
+              content: `AED ${creditAmount} ${
+                totalAmtValue >= 0 ? "CREDITED" : "DEBITED"
+              }`,
+              styles: { halign: "left", fontStyle: "bold" },
+            },
+            {
+              content: creditWords,
+              styles: { halign: "right", fontStyle: "italic" },
+            },
+          ],
+        ],
+        theme: "grid",
+        styles: {
+          fontSize: 8,
+          font: "helvetica",
+          textColor: 0,
+          cellPadding: { top: 1.5, bottom: 1.5, left: 4, right: 4 },
+        },
+        columnStyles: {
+          0: { cellWidth: "auto", halign: "left" },
+          1: { cellWidth: 100, halign: "right" },
+        },
+        margin: { left: 14, right: 14 },
+        tableWidth: 182,
+        showHead: "never",
+      });
+
+      // === SIGNATORY TEXT ===
+      const footerY = doc.lastAutoTable.finalY + 6;
+      const signedBy = allStockItems[0]?.salesman || "AUTHORIZED SIGNATORY";
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(8);
+      doc.text("Confirmed on behalf of", 14, footerY);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.text(signedBy, 14, footerY + 5);
+
+      // === SIGNATURES ===
+      const sigY = doc.lastAutoTable.finalY + 22;
+      doc.setFontSize(9);
+      doc.text("PARTY'S SIGNATURE", 40, sigY, null, null, "center");
+      doc.text("CHECKED BY", 105, sigY, null, null, "center");
+      doc.text("AUTHORISED SIGNATORY", 170, sigY, null, null, "center");
+
+      // Save PDF
+      doc.save("filtered-metal-sales.pdf");
+      toast.success(
+        "Filtered sales transactions exported to PDF successfully!"
+      );
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      toast.error("Failed to export filtered transactions to PDF");
+    }
+  };
+
+  // Updated formatNumberWithCommas to handle decimal places dynamically
+  const formatNumber = (num, decimals = 2) => {
+    return Number(num)
+      .toFixed(decimals)
+      .replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  };
+
+  function numberToDirhamWords(amount) {
+    if (
+      amount === null ||
+      amount === undefined ||
+      isNaN(amount) ||
+      amount === ""
+    ) {
+      return "INVALID AMOUNT";
+    }
+
+    const num = Number(amount);
+    if (isNaN(num)) return "INVALID AMOUNT";
+    const [dirhamPart, filsPartRaw] = num.toFixed(2).split(".");
+    const dirham = parseInt(dirhamPart, 10) || 0;
+    const fils = parseInt(filsPartRaw, 10) || 0;
+
+    const a = [
+      "",
+      "ONE",
+      "TWO",
+      "THREE",
+      "FOUR",
+      "FIVE",
+      "SIX",
+      "SEVEN",
+      "EIGHT",
+      "NINE",
+      "TEN",
+      "ELEVEN",
+      "TWELVE",
+      "THIRTEEN",
+      "FOURTEEN",
+      "FIFTEEN",
+      "SIXTEEN",
+      "SEVENTEEN",
+      "EIGHTEEN",
+      "NINETEEN",
+    ];
+    const b = [
+      "",
+      "",
+      "TWENTY",
+      "THIRTY",
+      "FORTY",
+      "FIFTY",
+      "SIXTY",
+      "SEVENTY",
+      "EIGHTY",
+      "NINETY",
+    ];
+
+    const convert = (num) => {
+      if (num === 0) return "";
+      if (num < 20) return a[num];
+      if (num < 100)
+        return b[Math.floor(num / 10)] + (num % 10 ? " " + a[num % 10] : "");
+      if (num < 1000)
+        return (
+          a[Math.floor(num / 100)] +
+          " HUNDRED" +
+          (num % 100 ? " " + convert(num % 100) : "")
+        );
+      if (num < 100000)
+        return (
+          convert(Math.floor(num / 1000)) +
+          " THOUSAND" +
+          (num % 1000 ? " " + convert(num % 1000) : "")
+        );
+      if (num < 10000000)
+        return (
+          convert(Math.floor(num / 100000)) +
+          " LAKH" +
+          (num % 100000 ? " " + convert(num % 100000) : "")
+        );
+      if (num < 100000000)
+        return (
+          convert(Math.floor(num / 10000000)) +
+          " CRORE" +
+          (num % 10000000 ? " " + convert(num % 10000000) : "")
+        );
+      return "NUMBER TOO LARGE";
+    };
+
+    let words = "";
+    if (dirham > 0) {
+      words += convert(dirham) + " DIRHAM";
+    }
+    // if (fils > 0) {
+    //   words += (dirham > 0 ? ' AND ' : '') + convert(fils) + ' FILS';
+    // }
+    if (words === "") {
+      words = "ZERO DIRHAM";
+    }
+    return words + " ONLY";
+  }
+
   const handleAdd = useCallback(async () => {
     setEditingStock(null);
     setError(null);
     setTempStockItems([]);
-    try {
-      const { voucherCode, voucherType, prefix } =
-        await generateVoucherNumber();
-      setFormData({
-        transactionType: "sale",
-        voucherCode,
-        voucherType,
-        prefix,
-        voucherDate: today,
-        partyCode: "",
-        partyName: "",
-        partyCurrencyId: "",
-        partyCurrencyCode: "",
-        partyCurrencyValue: "",
-        itemCurrencyId: "",
-        itemCurrencyCode: "",
-        itemCurrencyValue: "",
-        metalRateUnit: "KGBAR",
-        metalRate: "",
-        crDays: "",
-        creditDays: "",
-        enteredBy: "ADMIN",
-        spp: "",
-        fixed: false,
-        internalUnfix: false,
-      });
-      setIsModalOpen(true);
-      showToast("Starting new metal sale", "success");
-    } catch (error) {
-      showToast("Failed to start new sale", "error");
-    }
-  }, [generateVoucherNumber, today, showToast]);
+    const { voucherCode, voucherType, prefix } = await generateVoucherNumber();
+    setFormData({
+      transactionType: "sale",
+      voucherCode,
+      voucherType,
+      prefix,
+      voucherDate: today,
+      partyCode: "",
+      partyName: "",
+      partyCurrencyId: "",
+      partyCurrencyCode: "",
+      partyCurrencyValue: "",
+      itemCurrencyId: "",
+      itemCurrencyCode: "",
+      itemCurrencyValue: "",
+      metalRateUnit: "KGBAR",
+      metalRate: "",
+      crDays: "",
+      creditDays: "",
+      enteredBy: "ADMIN",
+      spp: "",
+      fixed: false,
+      internalUnfix: false,
+    });
+    setIsModalOpen(true);
+    toast.success(" new sales Metal", {
+      style: {
+        background: "white",
+        color: "green",
+        border: "1px solid green",
+      },
+    });
+  }, [generateVoucherNumber, today]);
+
+  const handleEditStockItem = useCallback((item, index) => {
+    setEditingStockItem(item);
+    setEditingStockIndex(index);
+    setIsProductModalOpen(true);
+  }, []);
 
 const handleEdit = useCallback(
   async (stock) => {
@@ -818,7 +1677,6 @@ const handleEdit = useCallback(
 
       const transactionPartyCurrencyId = transaction.partyCurrency?._id || transaction.partyCurrency;
       const transactionItemCurrencyId = transaction.itemCurrency?._id || transaction.itemCurrency;
-
       if (transactionPartyCurrencyId) {
         try {
           const currencyResponse = await axiosInstance.get(`/currency-master/${transactionPartyCurrencyId}`);
@@ -840,8 +1698,8 @@ const handleEdit = useCallback(
       setFormData({
         transactionType: "sale",
         voucherCode: transaction.voucherNumber || "",
-        voucherType: transaction.voucherType || "PUR",
-        prefix: transaction.prefix || "PUR",
+        voucherType: transaction.voucherType || "SAL",
+        prefix: transaction.prefix || "SAL",
         voucherDate: transaction.voucherDate
           ? new Date(transaction.voucherDate).toISOString().split("T")[0]
           : today,
@@ -866,7 +1724,7 @@ const handleEdit = useCallback(
       });
 
       setIsModalOpen(true);
-      showToast("Editing metal purchase", "success");
+      showToast("Editing metal sale", "success");
     } catch (error) {
       setError("Failed to fetch transaction data for editing");
       showToast("Failed to load transaction data", "error");
@@ -875,230 +1733,301 @@ const handleEdit = useCallback(
   [today, axiosInstance, fetchPartyDetails, showToast]
 );
 
-  useEffect(() => {
-    const checkVoucher = async () => {
-      const queryParams = new URLSearchParams(location.search);
-      const voucher = queryParams.get("voucher");
-
-      if (voucher) {
-        try {
-          const transactionSuccess = await fetchMetalTransactions();
-          if (transactionSuccess) {
-            const transaction = transactionSuccess.find(
-              (p) => p.vocNo === voucher
-            );
-
-            if (transaction) {
-              handleEdit(transaction);
-            } else {
-              console.warn(`No transaction found for voucher: ${voucher}`);
-              toast.error(`No transaction found for voucher: ${voucher}`, {
-                style: {
-                  background: "white",
-                  color: "red",
-                  border: "1px solid red",
-                },
-              });
-            }
-          }
-        } catch (err) {
-          console.error("Error fetching metal transactions:", err);
-          toast.error("Failed to fetch transactions", {
-            style: {
-              background: "white",
-              color: "red",
-              border: "1px solid red",
-            },
-          });
-        }
-
-        // Clear query parameter to prevent re-triggering
-        navigate(location.pathname, { replace: true });
+const handleSave = useCallback(async () => {
+  if (
+    !formData.voucherCode ||
+    !formData.partyCode ||
+    tempStockItems.length === 0
+  ) {
+    setError(
+      "Voucher Code, Party Code, and at least one Stock Item are required"
+    );
+    toast.error(
+      "Voucher Code, Party Code, and at least one Stock Item are required",
+      {
+        style: {
+          background: "white",
+          color: "red",
+          border: "1px solid red",
+        },
       }
-    };
+    );
+    return;
+  }
 
-    checkVoucher();
-  }, [location, navigate, fetchMetalTransactions]);
+  // Validate conversion rate
+  const conversionRate = parseFloat(formData.partyCurrencyValue);
+  if (isNaN(conversionRate) || conversionRate <= 0) {
+    setError("Please enter a valid conversion rate greater than 0");
+    toast.error("Please enter a valid conversion rate greater than 0", {
+      style: {
+        background: "white",
+        color: "red",
+        border: "1px solid red",
+      },
+  });
+    return;
+  }
 
-  const handleSave = useCallback(async () => {
-    if (
-      !formData.voucherCode ||
-      !formData.partyCode ||
-      tempStockItems.length === 0
-    ) {
-      setError(
-        "Voucher Code, Party Code, and at least one Stock Item are required"
+  setIsSaving(true); // Set loading state
+  const transactionData = {
+    transactionType: "sale",
+    fix: formData.fixed ? formData.fixed : false,
+    unfix: formData.internalUnfix ? formData.internalUnfix : false,
+    voucherType: formData.voucherType,
+    voucherDate: formData.voucherDate,
+    voucherNumber: formData.voucherCode,
+    partyCode: formData.partyCode,
+    partyCurrency: formData.partyCurrencyId,
+    itemCurrency: formData.itemCurrencyId, // Ensure this matches the selected item currency
+    baseCurrency: formData.partyCurrencyId,
+    effectivePartyCurrencyRate: conversionRate, 
+    effectiveItemCurrencyRate: conversionRate, 
+    stockItems: tempStockItems.map((item) => ({
+      stockCode: item.stockId,
+      description: item.description,
+      pieces: Number(item.pcsCount) || 0,
+      grossWeight: Number(item.grossWeight) || 0,
+      purity: Number(item.purity) || 0,
+      pureWeight: Number(item.pureWeight) || 0,
+      purityWeight: Number(item.purityWeight) || 0,
+      weightInOz: Number(item.weightInOz) || 0,
+      metalRate: item.metalRate || "0",
+      metalRateRequirements: {
+        amount: Number(item.metalRateRequirements.amount) || 0,
+        rate: Number(item.metalRateRequirements.rate) || 0,
+      },
+      makingCharges: {
+        amount: Number(item.makingCharges.amount) || 0,
+        rate: Number(item.makingCharges.rate) || 0,
+      },
+      otherCharges: {
+        percentage: item.otherCharges.rate || item.otherCharges.percentage,
+        amount: Number(item.otherCharges.amount) || 0,
+        description: item.otherCharges.description || "",
+        totalAfterOtherCharges:
+          Number(item.otherCharges.totalAfterOtherCharges) || 0,
+      },
+      vat: {
+        vatPercentage: Number(item.itemTotal.vatPercentage) || 0,
+        vatAmount: Number(item.itemTotal.vatAmount) || 0,
+      },
+      premium: {
+        amount: Number(item.premium.amount) || 0,
+        rate: Number(item.premium.rate) || 0,
+      },
+      itemTotal: {
+        baseAmount: Number(item.itemTotal.baseAmount) || 0,
+        makingChargesTotal: Number(item.itemTotal.makingChargesTotal) || 0,
+        premiumTotal: Number(item.itemTotal.premiumTotal) || 0,
+        subTotal: Number(item.itemTotal.subTotal) || 0,
+        vatAmount: Number(item.itemTotal.vatAmount) || 0,
+        itemTotalAmount: Number(item.itemTotal.itemTotalAmount) || 0,
+      },
+      itemNotes: "",
+      itemStatus: "active",
+    })),
+    totalAmountSession: {
+      totalAmountAED: tempStockItems.reduce(
+        (sum, item) => sum + (Number(item.itemTotal.itemTotalAmount) || 0),
+        0
+      ),
+      netAmountAED: tempStockItems.reduce(
+        (sum, item) => sum + (Number(item.itemTotal.subTotal) || 0),
+        0
+      ),
+      vatAmount: tempStockItems.reduce(
+        (sum, item) => sum + (Number(item.itemTotal.vatAmount) || 0),
+        0
+      ),
+      vatPercentage: Number(tempStockItems[0]?.vatPercentage) || 0,
+    },
+    status: "draft",
+    notes: "",
+  };
+
+  try {
+    if (editingStock) {
+      const response = await axiosInstance.put(
+        `/metal-transaction/${editingStock.id}`,
+        transactionData
       );
-      showToast(
-        "Missing required fields: Voucher Code, Party Code, or Stock Items",
-        "error"
+      toast.success("Metal sales updated successfully!", {
+        style: {
+          background: "white",
+          color: "green",
+          border: "1px solid green",
+        },
+      });
+      setIsModalOpen(false);
+      fetchMetalTransactions();
+      setIsDownloadModalOpen(true);
+    } else {
+      const response = await axiosInstance.post(
+        "/metal-transaction",
+        transactionData
       );
+      console.log("transaction",transactionData);
+      
+      const newTransaction = response.data.data;
+      const newStock = {
+        id: formData._id,
+        sl: editingStock
+          ? editingStock.sl
+          : Math.max(...metalPurchase.map((s) => s.sl), 0) + 1,
+        branch: "Main Branch",
+        vocType: formData.voucherType,
+        vocNo: formData.voucherCode,
+        vocDate: formData.voucherDate,
+        partyCode: formData.partyCode,
+        partyName: formData.partyName,
+        stockItems: tempStockItems,
+      };
+
+      setMetalPurchase((prev) =>
+        editingStock
+          ? prev.map((stock) =>
+              stock.sl === editingStock.sl ? newStock : stock
+            )
+          : [...prev, newStock]
+      );
+
+      setStockItems((prev) => [
+        ...prev,
+        ...newTransaction.stockItems.map((item) => ({
+          ...item,
+          transactionId: newTransaction._id,
+          voucherNumber: newTransaction.voucherNumber,
+        })),
+      ]);
+      setNewlyCreatedSale(newStock);
+      setSelectedPurchase(newStock);
+
+      setShowPreviewAfterSave(true);
+
+      toast.success("Metal sales created successfully!", {
+        style: {
+          background: "white",
+          color: "green",
+          border: "1px solid green",
+        },
+      });
+      setIsModalOpen(false);
+      fetchMetalTransactions();
+    }
+  } catch (error) {
+    setError(
+      error.response?.data?.message || "Failed to save metal sales"
+    );
+    toast.error(
+      error.response?.data?.message || "Failed to save metal sales",
+      {
+        style: {
+          background: "white",
+          color: "red",
+          border: "1px solid red",
+        },
+      }
+    );
+  } finally {
+    setIsSaving(false);
+  }
+}, [
+  formData,
+  tempStockItems,
+  editingStock,
+  metalPurchase,
+  fetchMetalTransactions,
+]);
+
+  const handleDelete = useCallback(() => {
+    if (!editingStock || !editingStock.id) {
+      showToast("No valid transaction selected for deletion", "error");
+      return;
+    }
+    setPurchaseToDelete(editingStock.id);
+    setIsDeleteModalOpen(true);
+  }, [editingStock, showToast]);
+
+  // Updated confirmDeletePurchase function
+  const confirmDeletePurchase = useCallback(async () => {
+    if (!purchaseToDelete) {
+      showToast("No transaction selected for deletion", "error");
+      setIsDeleteModalOpen(false);
       return;
     }
 
-    setIsSaving(true);
-    const transactionData = {
-      transactionType: "sale",
-      fix: formData.fixed ? formData.fixed : false,
-      unfix: formData.internalUnfix ? formData.internalUnfix : false,
-      voucherType: formData.voucherType,
-      voucherDate: formData.voucherDate,
-      voucherNumber: formData.voucherCode,
-      partyCode: formData.partyCode,
-      partyCurrency: formData.partyCurrencyId,
-      itemCurrency: formData.partyCurrencyId,
-      baseCurrency: formData.partyCurrencyId,
-      stockItems: tempStockItems.map((item) => ({
-        stockCode: item.stockId,
-        description: item.description,
-        pieces: Number(item.pcsCount) || 0,
-        grossWeight: Number(item.grossWeight) || 0,
-        purity: Number(item.purity) || 0,
-        pureWeight: Number(item.pureWeight) || 0,
-        purityWeight: Number(item.purityWeight) || 0,
-        weightInOz: Number(item.weightInOz) || 0,
-        metalRate: item.metalRate || "0",
-        metalRateRequirements: {
-          amount: Number(item.metalRateRequirements.amount) || 0,
-          rate: Number(item.metalRateRequirements.rate) || 0,
-        },
-        makingCharges: {
-          amount: Number(item.makingCharges.amount) || 0,
-          rate: Number(item.makingCharges.rate) || 0,
-        },
-        otherCharges: {
-          percentage: item.otherCharges.rate || item.otherCharges.percentage,
-          amount: Number(item.otherCharges.amount) || 0,
-          description: item.otherCharges.description || "",
-          totalAfterOtherCharges:
-            Number(item.otherCharges.totalAfterOtherCharges) || 0,
-        },
-        vat: {
-          vatPercentage: Number(item.itemTotal.vatPercentage) || 0,
-          vatAmount: Number(item.itemTotal.vatAmount) || 0,
-        },
-        premium: {
-          amount: Number(item.premium.amount) || 0,
-          rate: Number(item.premium.rate) || 0,
-        },
-        itemTotal: {
-          baseAmount: Number(item.itemTotal.baseAmount) || 0,
-          makingChargesTotal: Number(item.itemTotal.makingChargesTotal) || 0,
-          premiumTotal: Number(item.itemTotal.premiumTotal) || 0,
-          subTotal: Number(item.itemTotal.subTotal) || 0,
-          vatAmount: Number(item.itemTotal.vatAmount) || 0,
-          itemTotalAmount: Number(item.itemTotal.itemTotalAmount) || 0,
-        },
-        itemNotes: "",
-        itemStatus: "active",
-      })),
-      totalAmountSession: {
-        totalAmountAED: tempStockItems.reduce(
-          (sum, item) => sum + (Number(item.itemTotal.itemTotalAmount) || 0),
-          0
-        ),
-        netAmountAED: tempStockItems.reduce(
-          (sum, item) => sum + (Number(item.itemTotal.subTotal) || 0),
-          0
-        ),
-        vatAmount: tempStockItems.reduce(
-          (sum, item) => sum + (Number(item.itemTotal.vatAmount) || 0),
-          0
-        ),
-        vatPercentage: Number(tempStockItems[0]?.vatPercentage) || 0,
-      },
-      status: "draft",
-      notes: "",
-    };
-
-    // Debug: Log what we're sending to backend
-    console.log(
-      "Sending to backend:",
-      JSON.stringify(transactionData, null, 2)
-    );
-
+    setIsDeleting(true);
     try {
-      if (editingStock) {
-        await axiosInstance.put(
-          `/metal-transaction/${editingStock.id}`,
-          transactionData
+      const response = await axiosInstance.delete(
+        `/metal-transaction/${purchaseToDelete}`
+      );
+      if (response.data.success) {
+        setMetalPurchase((prev) =>
+          prev.filter((stock) => stock.id !== purchaseToDelete)
         );
-        showToast("Metal sale updated successfully!", "success");
-        setIsModalOpen(false);
-        fetchMetalTransactions();
+        setStockItems((prev) =>
+          prev.filter((item) => item.transactionId !== purchaseToDelete)
+        );
+        showToast("Metal sales deleted successfully", "success");
+        await fetchMetalTransactions(); // Refetch to ensure data consistency
       } else {
-        const response = await axiosInstance.post(
-          "/metal-transaction",
-          transactionData
+        showToast(
+          response.data.message || "Failed to delete, please try again",
+          "error"
         );
-        const newTransaction = response.data.data;
-
-        const newStock = {
-          id: newTransaction._id || "",
-          sl: editingStock
-            ? editingStock.sl
-            : Math.max(...metalSales.map((s) => s.sl), 0) + 1,
-          branch: "Main Branch",
-          vocType: formData.voucherType,
-          vocNo: formData.voucherCode,
-          vocDate: formData.voucherDate,
-          partyCode: formData.partyCode,
-          partyName: formData.partyName,
-          stockItems: tempStockItems,
-        };
-
-        setMetalSales((prev) =>
-          editingStock
-            ? prev.map((stock) =>
-                stock.sl === editingStock.sl ? newStock : stock
-              )
-            : [...prev, newStock]
-        );
-
-        setStockItems((prev) => [
-          ...prev,
-          ...newTransaction.stockItems.map((item) => ({
-            ...item,
-            stockId: item.stockCode,
-            transactionId: newTransaction._id,
-            voucherNumber: newTransaction.voucherNumber,
-          })),
-        ]);
-        setNewlyCreatedSale(newStock);
-        // Show preview after save
-        setShowPreviewAfterSave(true);
-
-        showToast("Metal sale created successfully!", "success");
-        setIsModalOpen(false);
-        fetchMetalTransactions();
       }
     } catch (error) {
-      setError(error.response?.data?.message || "Failed to save metal sale");
-      showToast(
-        error.response?.data?.message || "Failed to save metal sale",
-        "error"
-      );
+      const errorMessage =
+        error.response?.data?.message || "Failed to delete sales";
+      showToast(errorMessage, "error");
+      console.error("Error deleting transaction:", error);
     } finally {
-      setIsSaving(false);
+      setIsDeleting(false);
+      setIsDeleteModalOpen(false);
+      setPurchaseToDelete(null);
+      if (editingStock) {
+        setIsModalOpen(false);
+        setEditingStock(null);
+      }
     }
-  }, [
-    formData,
-    tempStockItems,
-    editingStock,
-    metalSales,
-    fetchMetalTransactions,
-    showToast,
-  ]);
+  }, [purchaseToDelete, editingStock, showToast, fetchMetalTransactions]);
 
-  const handleProductModalOpen = () => {
-    if (validateMainModal()) setIsProductModalOpen(true);
-  };
+  const handleCancel = useCallback(() => {
+    setIsModalOpen(false);
+    setError(null);
+    setTempStockItems([]);
+  }, []);
 
-  const handleProductModalClose = () => {
+  const handleProductModalOpen = useCallback(() => {
+    if (validateMainModal()) {
+      setIsProductModalOpen(true);
+    }
+  }, [validateMainModal]);
+
+  const handleProductModalClose = useCallback(() => {
     setEditingStockItem(null);
+    setEditingStockIndex(-1); // Reset editing index
     setIsProductModalOpen(false);
-  };
+  }, []);
 
+  // Pagination controls
+  const totalPages = Math.ceil(filteredPurchaseMemo.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const currentPurchase = filteredPurchaseMemo.slice(
+    startIndex,
+    startIndex + itemsPerPage
+  );
+
+  const goToPage = useCallback((page) => setCurrentPage(page), []);
+  const goToPrevious = useCallback(
+    () => currentPage > 1 && setCurrentPage(currentPage - 1),
+    [currentPage]
+  );
+  const goToNext = useCallback(
+    () => currentPage < totalPages && setCurrentPage(currentPage + 1),
+    [currentPage, totalPages]
+  );
   const options = tradeDebtors.map((debtor) => ({
     value: debtor.customerName,
     label: debtor.customerName,
@@ -1106,985 +2035,6 @@ const handleEdit = useCallback(
   const selectedOption = options.find(
     (opt) => opt.value === formData.partyName
   );
-
-  const handleCancel = () => {
-    setIsModalOpen(false);
-    setError(null);
-    setTempStockItems([]);
-  };
-
-  const handleCurrencyChange = (option) => {
-    console.log(option);
-    console.log("option data", option);
-    setFormData((prev) => ({
-      ...prev,
-      partyCurrencyCode: option?.value,
-      itemCurrencyCode: option?.value,
-      partyCurrency: option?.data,
-      partyCurrencyId: option?.data?._id,
-    }));
-  };
-  const selectedParty = tradeDebtors.find(
-    (d) => d.customerName === formData.partyName
-  );
-
-  const currencyOptions =
-    selectedParty?.acDefinition?.currencies?.map((c) => ({
-      value: c.currency?.currencyCode,
-      label: c.currency?.currencyCode,
-      data: c.currency,
-    })) || [];
-
-  const generatePDF = (purchase, doc, isSingle = true) => {
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const centerX = pageWidth / 2;
-    const logoImg = "/assets/logo.png";
-    const logoWidth = 20;
-    const logoHeight = 20;
-    const logoX = centerX - logoWidth / 2;
-    const logoY = 5;
-
-    // === HEADER SECTION ===
-    doc.addImage(logoImg, "PNG", logoX, logoY, logoWidth, logoHeight);
-    const headingTitle = purchase.fixed
-      ? "METAL SALES FIXING"
-      : "METAL SALES UNFIXING";
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.text(headingTitle, pageWidth - 14, logoY + logoHeight + 4, {
-      align: "right",
-    });
-
-    const separatorY = logoY + logoHeight + 8;
-    doc.setDrawColor(223, 223, 223);
-    doc.setLineWidth(0.3);
-    doc.line(14, separatorY, pageWidth - 14, separatorY);
-
-    // === INFO BOXES ===
-    const infoStartY = separatorY + 6;
-    const leftX = 14;
-    const rightX = pageWidth / 2 + 4;
-    const lineSpacing = 5;
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.text(
-      `Party Name: ${purchase.partyCode.customerName || "N/A"}`,
-      leftX,
-      infoStartY
-    );
-    doc.text(
-      `Phone: ${purchase.partyCode.addresses.phoneNumber1 || "N/A"}`,
-      leftX,
-      infoStartY + lineSpacing
-    );
-    doc.text(
-      `Email: ${purchase.partyCode.addresses.email || "N/A"}`,
-      leftX,
-      infoStartY + lineSpacing * 2
-    );
-
-    const goldRate = formatNumber(
-      purchase.stockItems?.[0]?.metalRateRequirements?.rate || 0
-    );
-    doc.text(`PUR NO: ${purchase.voucherNumber || "N/A"}`, rightX, infoStartY);
-    doc.text(
-      `Date: ${purchase.formattedVoucherDate || "N/A"}`,
-      rightX,
-      infoStartY + lineSpacing
-    );
-    doc.text(
-      `Terms: ${purchase.paymentTerms || "CASH"}`,
-      rightX,
-      infoStartY + lineSpacing * 2
-    );
-    doc.text(
-      `Salesman: ${purchase.salesman || "N/A"}`,
-      rightX,
-      infoStartY + lineSpacing * 3
-    );
-    doc.text(
-      `Gold Rate: ${goldRate} /KGBAR`,
-      rightX,
-      infoStartY + lineSpacing * 4
-    );
-
-    const boxTopY = infoStartY - 6;
-    const boxBottomY = infoStartY + lineSpacing * 5;
-    doc.setDrawColor(205, 205, 205);
-    doc.setLineWidth(0.5);
-    doc.line(14, boxTopY, pageWidth - 14, boxTopY);
-    doc.line(14, boxBottomY, pageWidth - 14, boxBottomY);
-    doc.line(centerX, boxTopY, centerX, boxBottomY);
-
-    // === MAIN TABLE ===
-    const tableData = (isSingle ? purchase.stockItems : purchase).map(
-      (item) => ({
-        description: item.description || "N/A",
-        grossWt: formatNumber(item.grossWeight || 0, 3),
-        purity: formatNumber(item.purity || 0, 6),
-        pureWt: formatNumber(item.pureWeight || 0, 3),
-        makingRate: formatNumber(item.makingCharges?.rate || 0, 2),
-        makingAmount: formatNumber(item.makingCharges?.amount || 0, 2),
-        taxableAmt: formatNumber(
-          item.taxableAmt || item.itemTotal?.subTotal || 0,
-          2
-        ),
-        vatPercent: formatNumber(item.itemTotal?.vatPercentage || 0, 2),
-        vatAmt: formatNumber(item.itemTotal?.vatAmount || 0, 2),
-        totalAmt: purchase.fixed
-          ? formatNumber(item.itemTotal?.itemTotalAmount || 0, 2)
-          : "0.00",
-        rate: formatNumber(item.makingCharges?.rate || 0, 2),
-        amount: formatNumber(item.makingCharges?.amount || 0, 2),
-      })
-    );
-
-    const itemCount = tableData.length;
-    const totalAmt = purchase.fixed
-      ? formatNumber(
-          tableData.reduce(
-            (acc, curr) =>
-              acc + parseFloat(curr.totalAmt.replace(/,/g, "") || 0),
-            0
-          ),
-          2
-        )
-      : "0.00";
-    const totalGrossWt = formatNumber(
-      tableData.reduce(
-        (acc, curr) => acc + parseFloat(curr.grossWt.replace(/,/g, "") || 0),
-        0
-      ),
-      3
-    );
-    const totalPureWt = formatNumber(
-      tableData.reduce(
-        (acc, curr) => acc + parseFloat(curr.pureWt.replace(/,/g, "") || 0),
-        0
-      ),
-      3
-    );
-    const totalVAT = purchase.fixed
-      ? formatNumber(
-          tableData.reduce(
-            (acc, curr) => acc + parseFloat(curr.vatAmt.replace(/,/g, "") || 0),
-            0
-          ),
-          2
-        )
-      : "0.00";
-    const totalRate = purchase.fixed
-      ? formatNumber(
-          tableData.reduce(
-            (acc, curr) => acc + parseFloat(curr.rate.replace(/,/g, "") || 0),
-            0
-          ),
-          2
-        )
-      : "0.00";
-    const totalAmount = purchase.fixed
-      ? formatNumber(
-          tableData.reduce(
-            (acc, curr) => acc + parseFloat(curr.amount.replace(/,/g, "") || 0),
-            0
-          ),
-          2
-        )
-      : "0.00";
-    const avgVATPercent =
-      purchase.fixed && tableData.length > 0
-        ? formatNumber(
-            tableData.reduce(
-              (acc, curr) =>
-                acc + parseFloat(curr.vatPercent.replace(/,/g, "") || 0),
-              0
-            ) / tableData.length,
-            2
-          )
-        : "0.00";
-
-    autoTable(doc, {
-      startY: boxBottomY + 6,
-      head: [
-        [
-          {
-            content: "#",
-            rowSpan: 2,
-            styles: { halign: "center", valign: "middle" },
-          },
-          {
-            content: "Stock Description",
-            rowSpan: 2,
-            styles: { halign: "center", valign: "middle" },
-          },
-          {
-            content: "Gross Wt.",
-            rowSpan: 2,
-            styles: { halign: "center", valign: "middle" },
-          },
-          {
-            content: "Purity",
-            rowSpan: 2,
-            styles: { halign: "center", valign: "middle" },
-          },
-          {
-            content: "Pure Wt.",
-            rowSpan: 2,
-            styles: { halign: "center", valign: "middle" },
-          },
-          {
-            content: "Making (AED)",
-            colSpan: 2,
-            styles: { halign: "center", valign: "middle" },
-          },
-          {
-            content: "Taxable Amt (AED)",
-            rowSpan: 2,
-            styles: { halign: "center", valign: "middle" },
-          },
-          {
-            content: "VAT%",
-            rowSpan: 2,
-            styles: { halign: "center", valign: "middle" },
-          },
-          {
-            content: "VAT Amt (AED)",
-            rowSpan: 2,
-            styles: { halign: "center", valign: "middle" },
-          },
-          {
-            content: "Total Amt (AED)",
-            rowSpan: 2,
-            styles: { halign: "center", valign: "middle" },
-          },
-        ],
-        [
-          { content: "Rate", styles: { halign: "center", valign: "middle" } },
-          { content: "Amount", styles: { halign: "center", valign: "middle" } },
-        ],
-      ],
-      body: tableData.map((item, index) => [
-        { content: (index + 1).toString(), styles: { halign: "center" } },
-        { content: item.description, styles: { halign: "left" } },
-        { content: item.grossWt, styles: { halign: "right" } },
-        { content: item.purity, styles: { halign: "right" } },
-        { content: item.pureWt, styles: { halign: "right" } },
-        { content: item.rate, styles: { halign: "right" } },
-        { content: item.amount, styles: { halign: "right" } },
-        { content: item.taxableAmt, styles: { halign: "right" } },
-        { content: item.vatPercent, styles: { halign: "right" } },
-        { content: item.vatAmt, styles: { halign: "right" } },
-        { content: item.totalAmt, styles: { halign: "right" } },
-      ]),
-      theme: "grid",
-      styles: {
-        fontSize: 8,
-        font: "helvetica",
-        textColor: 0,
-        lineWidth: 0.3,
-      },
-      headStyles: {
-        fillColor: [230, 230, 230],
-        textColor: 0,
-        fontStyle: "bold",
-        fontSize: 8,
-        halign: "center",
-        valign: "middle",
-        cellPadding: { top: 2, bottom: 2, left: 2, right: 2 },
-      },
-      bodyStyles: {
-        fontSize: 8,
-        valign: "middle",
-        cellPadding: { top: 4, bottom: 4, left: 2, right: 2 },
-      },
-      margin: { left: 14, right: 14 },
-      tableWidth: "auto",
-      didParseCell: (data) => {
-        const isFirstColumn = data.column.index === 0;
-        const isLastColumn =
-          data.column.index === data.table.columns.length - 1;
-        if (isFirstColumn) {
-          data.cell.styles.lineWidth = {
-            left: 0,
-            right: 0.3,
-            top: 0.3,
-            bottom: 0.3,
-          };
-        } else if (isLastColumn) {
-          data.cell.styles.lineWidth = {
-            left: 0.3,
-            right: 0,
-            top: 0.3,
-            bottom: 0.3,
-          };
-        }
-      },
-    });
-
-    const totalsStartY = doc.lastAutoTable.finalY;
-    const tableWidth = pageWidth / 3;
-    const leftMargin = pageWidth - tableWidth - 14;
-    let totalBoxHeight = 0;
-    let totalBoxTopY = totalsStartY;
-
-    const totalsBody = purchase.fixed
-      ? [
-          [
-            {
-              content: "VAT %",
-              styles: { fontStyle: "bold", halign: "center" },
-            },
-            {
-              content: avgVATPercent,
-              styles: { fontStyle: "bold", halign: "center" },
-            },
-          ],
-          [
-            {
-              content: "VAT Amount (AED)",
-              styles: { fontStyle: "bold", halign: "center" },
-            },
-            {
-              content: totalVAT,
-              styles: { fontStyle: "bold", halign: "center" },
-            },
-          ],
-          [
-            {
-              content: "Taxable Amount (AED)",
-              styles: { fontStyle: "bold", halign: "center" },
-            },
-            {
-              content: totalAmount,
-              styles: { fontStyle: "bold", halign: "center" },
-            },
-          ],
-          [
-            {
-              content: "Total Amount (AED)",
-              styles: { fontStyle: "bold", halign: "center" },
-            },
-            {
-              content: totalAmt,
-              styles: { fontStyle: "bold", halign: "center" },
-            },
-          ],
-        ]
-      : [
-          [
-            {
-              content: "Total Gross Wt.",
-              styles: { fontStyle: "bold", halign: "center" },
-            },
-            {
-              content: totalGrossWt,
-              styles: { fontStyle: "bold", halign: "center" },
-            },
-          ],
-        ];
-
-    autoTable(doc, {
-      startY: totalsStartY,
-      body: totalsBody,
-      theme: "plain",
-      styles: {
-        fontSize: 8,
-        font: "helvetica",
-        textColor: 0,
-        lineWidth: 0,
-        cellPadding: { top: 1, bottom: 4, left: 2, right: 2 },
-      },
-      columnStyles: {
-        0: { cellWidth: tableWidth / 2 },
-        1: { cellWidth: tableWidth / 2 },
-      },
-      margin: { left: leftMargin, right: 14 },
-      tableWidth: tableWidth,
-      showHead: "never",
-      didDrawPage: (data) => {
-        totalBoxHeight = data.cursor.y - totalBoxTopY;
-        doc.setDrawColor(205, 205, 205);
-        doc.setLineWidth(0.3);
-        doc.line(
-          leftMargin,
-          totalBoxTopY,
-          leftMargin + tableWidth,
-          totalBoxTopY
-        );
-        doc.line(
-          leftMargin,
-          totalBoxTopY,
-          leftMargin,
-          totalBoxTopY + totalBoxHeight
-        );
-        doc.line(
-          leftMargin,
-          totalBoxTopY + totalBoxHeight,
-          leftMargin + tableWidth,
-          totalBoxTopY + totalBoxHeight
-        );
-      },
-    });
-
-    const accountUpdateY = doc.lastAutoTable.finalY + 15;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.setTextColor(0, 0, 0);
-    doc.text("Your account has been updated with:", 14, accountUpdateY);
-
-    const creditAmount = purchase.fixed ? totalAmt : "0.00";
-    const creditWords = purchase.fixed
-      ? numberToDirhamWords(parseFloat(totalAmt.replace(/,/g, "")))
-      : "ZERO UAE DIRHAMS ONLY";
-    const pureWeightGrams = formatNumber(totalPureWt * 1000, 3);
-
-    const sharedStyles = {
-      fontSize: 8,
-      font: "helvetica",
-      textColor: 0,
-      cellPadding: { top: 1.5, bottom: 1.5, left: 3, right: 3 },
-      lineColor: [0, 0, 0],
-      lineWidth: 0.3,
-    };
-
-    let boxStartY = accountUpdateY + 4;
-
-    autoTable(doc, {
-      startY: boxStartY,
-      body: [
-        [
-          {
-            content: `${creditAmount} ${
-              purchase.fixed ? "CREDITED" : "DEBITED"
-            }`,
-            styles: { ...sharedStyles, fontStyle: "bold", halign: "left" },
-          },
-          {
-            content: creditWords,
-            styles: { ...sharedStyles, fontStyle: "italic", halign: "left" },
-          },
-        ],
-      ],
-      theme: "plain",
-      styles: sharedStyles,
-      columnStyles: {
-        0: { cellWidth: 80 },
-        1: { cellWidth: pageWidth - 108 },
-      },
-      margin: { left: 14, right: 14 },
-      showHead: "never",
-      didDrawPage: (data) => {
-        boxStartY = data.cursor.y;
-      },
-    });
-
-    autoTable(doc, {
-      startY: boxStartY,
-      body: [
-        [
-          {
-            content: `${pureWeightGrams} GMS ${
-              purchase.fixed ? "CREDITED" : "DEBITED"
-            }`,
-            styles: { ...sharedStyles, fontStyle: "bold", halign: "left" },
-          },
-          {
-            content: `GOLD ${pureWeightGrams} Point Gms`,
-            styles: { ...sharedStyles, fontStyle: "italic", halign: "left" },
-          },
-        ],
-      ],
-      theme: "plain",
-      styles: sharedStyles,
-      columnStyles: {
-        0: { cellWidth: 80 },
-        1: { cellWidth: pageWidth - 108 },
-      },
-      margin: { left: 14, right: 14 },
-      showHead: "never",
-      didDrawPage: (data) => {
-        boxStartY = data.cursor.y;
-      },
-    });
-
-    autoTable(doc, {
-      startY: boxStartY,
-      body: [
-        [
-          {
-            content: `${
-              purchase.fixed ? "fix" : "unfix"
-            } buy pure gold ${pureWeightGrams} gm @`,
-            colSpan: 2,
-            styles: { ...sharedStyles, halign: "left" },
-          },
-        ],
-      ],
-      theme: "plain",
-      styles: sharedStyles,
-      columnStyles: {
-        0: { cellWidth: pageWidth - 28 },
-      },
-      margin: { left: 14, right: 14 },
-      showHead: "never",
-    });
-
-    const footerY = doc.lastAutoTable.finalY + 15;
-    const signedBy = purchase.salesman || "AUTHORIZED SIGNATORY";
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(9);
-    doc.text("Confirmed on behalf of", 14, footerY);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.text(signedBy, 14, footerY + 5);
-
-    const sigY = footerY + 25;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(0, 0, 0);
-    doc.setLineWidth(0.3);
-    doc.setDrawColor(150, 150, 150);
-    doc.line(20, sigY - 2, 70, sigY - 2);
-    doc.line(80, sigY - 2, 130, sigY - 2);
-    doc.line(140, sigY - 2, 190, sigY - 2);
-    doc.text("PARTY'S SIGNATURE", 45, sigY + 3, null, null, "center");
-    doc.text("CHECKED BY", 105, sigY + 3, null, null, "center");
-    doc.text("AUTHORIZED SIGNATORY", 165, sigY + 3, null, null, "center");
-  };
-
-  const handleDownloadPDF = async (purchaseId) => {
-    try {
-      const res = await axiosInstance.get(`/metal-transaction/${purchaseId}`);
-      const purchase = res.data.data;
-
-      const doc = new jsPDF();
-      generatePDF(purchase, doc);
-      doc.save(`transaction-${purchase.voucherNumber || "N/A"}.pdf`);
-      showToast(
-        `PDF generated for transaction ${purchase.voucherNumber}`,
-        "success"
-      );
-    } catch (error) {
-      showToast("Failed to generate PDF", "error");
-    }
-  };
-
-  const handleExportAllToPDF = async () => {
-    if (filteredSales.length === 0) {
-      showToast("No filtered transactions available to export", "error");
-      return;
-    }
-
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const centerX = pageWidth / 2;
-    const logoImg = "/assets/logo.png";
-    const logoWidth = 20;
-    const logoHeight = 20;
-    const logoX = centerX - logoWidth / 2;
-    const logoY = 5;
-
-    const salesTransactions = transactionData.filter(
-      (transaction) => transaction.transactionType === "sale"
-    );
-
-    const allStockItems = salesTransactions.flatMap((transaction) =>
-      (transaction?.stockItems || []).map((item) => ({
-        ...item,
-        salesman: transaction?.salesman,
-        voucherNumber: transaction?.voucherNumber,
-        formattedVoucherDate: transaction?.formattedVoucherDate,
-        paymentTerms: transaction?.paymentTerms,
-      }))
-    );
-
-    if (allStockItems.length === 0) {
-      showToast("No sale transactions available to export", "error");
-      return;
-    }
-
-    doc.addImage(logoImg, "PNG", logoX, logoY, logoWidth, logoHeight);
-    const headingTitle = "METAL SALES";
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.text(headingTitle, pageWidth - 14, logoY + logoHeight + 4, {
-      align: "right",
-    });
-
-    const separatorY = logoY + logoHeight + 8;
-    doc.setDrawColor(223, 223, 223);
-    doc.setLineWidth(0.3);
-    doc.line(14, separatorY, pageWidth - 14, separatorY);
-
-    const tableData = allStockItems.map((item) => ({
-      description: item.description || "N/A",
-      grossWt: formatNumber(item.grossWeight || 0, 3),
-      purity: formatNumber(item.purity || 0, 6),
-      pureWt: formatNumber(item.pureWeight || 0, 3),
-      makingRate: formatNumber(item.makingCharges?.rate || 0, 2),
-      makingAmount: formatNumber(item.makingCharges?.amount || 0, 2),
-      taxableAmt: formatNumber(item.itemTotal?.subTotal || 0, 2),
-      vatPercent: formatNumber(item.itemTotal?.vatPercentage || 0, 2),
-      vatAmt: formatNumber(item.itemTotal?.vatAmount || 0, 2),
-      totalAmt: formatNumber(item.itemTotal?.itemTotalAmount || 0, 2),
-      rate: formatNumber(item.makingCharges?.rate || 0, 2),
-      amount: formatNumber(item.makingCharges?.amount || 0, 2),
-    }));
-
-    const itemCount = tableData.length;
-    const totalAmt = formatNumber(
-      tableData.reduce(
-        (acc, curr) => acc + parseFloat(curr.totalAmt.replace(/,/g, "") || 0),
-        0
-      ),
-      2
-    );
-    const totalGrossWt = formatNumber(
-      tableData.reduce(
-        (acc, curr) => acc + parseFloat(curr.grossWt.replace(/,/g, "") || 0),
-        0
-      ),
-      3
-    );
-    const totalPureWt = formatNumber(
-      tableData.reduce(
-        (acc, curr) => acc + parseFloat(curr.pureWt.replace(/,/g, "") || 0),
-        0
-      ),
-      3
-    );
-    const totalVAT = formatNumber(
-      tableData.reduce(
-        (acc, curr) => acc + parseFloat(curr.vatAmt.replace(/,/g, "") || 0),
-        0
-      ),
-      2
-    );
-    const totalRate = formatNumber(
-      tableData.reduce(
-        (acc, curr) => acc + parseFloat(curr.rate.replace(/,/g, "") || 0),
-        0
-      ),
-      2
-    );
-    const totalAmount = formatNumber(
-      tableData.reduce(
-        (acc, curr) => acc + parseFloat(curr.amount.replace(/,/g, "") || 0),
-        0
-      ),
-      2
-    );
-    const avgVATPercent =
-      tableData.length > 0
-        ? formatNumber(
-            tableData.reduce(
-              (acc, curr) =>
-                acc + parseFloat(curr.vatPercent.replace(/,/g, "") || 0),
-              0
-            ) / tableData.length,
-            2
-          )
-        : "0.00";
-
-    autoTable(doc, {
-      startY: separatorY + 6,
-      head: [
-        [
-          {
-            content: "#",
-            rowSpan: 2,
-            styles: { halign: "center", valign: "middle" },
-          },
-          {
-            content: "Stock Description",
-            rowSpan: 2,
-            styles: { halign: "center", valign: "middle" },
-          },
-          {
-            content: "Gross Wt.",
-            rowSpan: 2,
-            styles: { halign: "center", valign: "middle" },
-          },
-          {
-            content: "Purity",
-            rowSpan: 2,
-            styles: { halign: "center", valign: "middle" },
-          },
-          {
-            content: "Pure Wt.",
-            rowSpan: 2,
-            styles: { halign: "center", valign: "middle" },
-          },
-          {
-            content: "Making (AED)",
-            colSpan: 2,
-            styles: { halign: "center", valign: "middle" },
-          },
-          {
-            content: "Taxable Amt (AED)",
-            rowSpan: 2,
-            styles: { halign: "center", valign: "middle" },
-          },
-          {
-            content: "VAT%",
-            rowSpan: 2,
-            styles: { halign: "center", valign: "middle" },
-          },
-          {
-            content: "VAT Amt (AED)",
-            rowSpan: 2,
-            styles: { halign: "center", valign: "middle" },
-          },
-          {
-            content: "Total Amt (AED)",
-            rowSpan: 2,
-            styles: { halign: "center", valign: "middle" },
-          },
-        ],
-        [
-          { content: "Rate", styles: { halign: "center", valign: "middle" } },
-          { content: "Amount", styles: { halign: "center", valign: "middle" } },
-        ],
-      ],
-      body: tableData.map((item, index) => [
-        { content: (index + 1).toString(), styles: { halign: "center" } },
-        { content: item.description, styles: { halign: "left" } },
-        { content: item.grossWt, styles: { halign: "right" } },
-        { content: item.purity, styles: { halign: "right" } },
-        { content: item.pureWt, styles: { halign: "right" } },
-        { content: item.rate, styles: { halign: "right" } },
-        { content: item.amount, styles: { halign: "right" } },
-        { content: item.taxableAmt, styles: { halign: "right" } },
-        { content: item.vatPercent, styles: { halign: "right" } },
-        { content: item.vatAmt, styles: { halign: "right" } },
-        { content: item.totalAmt, styles: { halign: "right" } },
-      ]),
-      theme: "grid",
-      styles: {
-        fontSize: 8,
-        font: "helvetica",
-        textColor: 0,
-        lineWidth: 0.3,
-      },
-      headStyles: {
-        fillColor: [230, 230, 230],
-        textColor: 0,
-        fontStyle: "bold",
-        fontSize: 8,
-        halign: "center",
-        valign: "middle",
-        cellPadding: { top: 2, bottom: 2, left: 2, right: 2 },
-      },
-      bodyStyles: {
-        fontSize: 8,
-        valign: "middle",
-        cellPadding: { top: 4, bottom: 4, left: 2, right: 2 },
-      },
-      margin: { left: 14, right: 14 },
-      tableWidth: "auto",
-      didParseCell: (data) => {
-        const isFirstColumn = data.column.index === 0;
-        const isLastColumn =
-          data.column.index === data.table.columns.length - 1;
-        if (isFirstColumn) {
-          data.cell.styles.lineWidth = {
-            left: 0,
-            right: 0.3,
-            top: 0.3,
-            bottom: 0.3,
-          };
-        } else if (isLastColumn) {
-          data.cell.styles.lineWidth = {
-            left: 0.3,
-            right: 0,
-            top: 0.3,
-            bottom: 0.3,
-          };
-        }
-      },
-    });
-
-    const finalY = doc.lastAutoTable.finalY;
-    const goldRate = formatNumber(
-      allStockItems[0]?.metalRateRequirements?.rate || 2500,
-      2
-    );
-    const tableWidth = pageWidth / 2;
-    const leftMargin = pageWidth - tableWidth - 14;
-
-    autoTable(doc, {
-      startY: finalY,
-      body: [
-        [
-          {
-            content: `GOLD VALUE @${goldRate}/KGBAR(AED)`,
-            styles: { halign: "left", fontStyle: "bold" },
-          },
-          { content: totalAmt, styles: { halign: "right", fontStyle: "bold" } },
-        ],
-        [
-          {
-            content: "Total Amount Before VAT(AED)",
-            styles: { halign: "left", fontStyle: "bold" },
-          },
-          { content: totalAmt, styles: { halign: "right", fontStyle: "bold" } },
-        ],
-        [
-          {
-            content: "VAT Amt(AED)",
-            styles: { halign: "left", fontStyle: "bold" },
-          },
-          { content: totalVAT, styles: { halign: "right", fontStyle: "bold" } },
-        ],
-        [
-          {
-            content: "Total Amount(AED)",
-            styles: { halign: "left", fontStyle: "bold" },
-          },
-          { content: totalAmt, styles: { halign: "right", fontStyle: "bold" } },
-        ],
-        [
-          {
-            content: "Total Party Amount (AED)",
-            styles: { halign: "left", fontStyle: "bold" },
-          },
-          { content: totalAmt, styles: { halign: "right", fontStyle: "bold" } },
-        ],
-      ],
-      theme: "grid",
-      styles: {
-        fontSize: 8,
-        font: "helvetica",
-        textColor: 0,
-        cellPadding: { top: 1.5, bottom: 1.5, left: 1.5, right: 1.5 },
-      },
-      columnStyles: {
-        0: { cellWidth: tableWidth / 2, halign: "left" },
-        1: { cellWidth: tableWidth / 2, halign: "right" },
-      },
-      margin: { left: leftMargin, right: 14 },
-      tableWidth: tableWidth,
-      showHead: "never",
-      didParseCell: (data) => {
-        const isLastColumn =
-          data.column.index === data.table.columns.length - 1;
-        if (isLastColumn) {
-          data.cell.styles.lineWidth = {
-            left: 0.3,
-            right: 0,
-            top: 0.3,
-            bottom: 0.3,
-          };
-        }
-      },
-    });
-
-    const updatedTextY = doc.lastAutoTable.finalY + 4;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.text("Your account has been updated with:", 14, updatedTextY);
-
-    const totalAmtValue = parseFloat(totalAmt.replace(/,/g, "") || 0);
-    const creditAmount =
-      totalAmtValue >= 0 ? totalAmt : formatNumber(Math.abs(totalAmtValue), 2);
-    const creditWords =
-      totalAmtValue >= 0
-        ? numberToDirhamWords(totalAmtValue)
-        : numberToDirhamWords(Math.abs(totalAmtValue));
-
-    autoTable(doc, {
-      startY: updatedTextY + 2,
-      body: [
-        [
-          {
-            content: `AED ${creditAmount} ${
-              totalAmtValue >= 0 ? "CREDITED" : "DEBITED"
-            }`,
-            styles: { halign: "left", fontStyle: "bold" },
-          },
-          {
-            content: creditWords,
-            styles: { halign: "right", fontStyle: "italic" },
-          },
-        ],
-      ],
-      theme: "grid",
-      styles: {
-        fontSize: 8,
-        font: "helvetica",
-        textColor: 0,
-        cellPadding: { top: 1.5, bottom: 1.5, left: 4, right: 4 },
-      },
-      columnStyles: {
-        0: { cellWidth: "auto", halign: "left" },
-        1: { cellWidth: 100, halign: "right" },
-      },
-      margin: { left: 14, right: 14 },
-      tableWidth: 182,
-      showHead: "never",
-    });
-
-    const footerY = doc.lastAutoTable.finalY + 6;
-    const signedBy = allStockItems[0]?.salesman || "AUTHORIZED SIGNATORY";
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(8);
-    doc.text("Confirmed on behalf of", 14, footerY);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.text(signedBy, 14, footerY + 5);
-
-    const sigY = doc.lastAutoTable.finalY + 22;
-    doc.setFontSize(9);
-    doc.text("PARTY'S SIGNATURE", 40, sigY, null, null, "center");
-    doc.text("CHECKED BY", 105, sigY, null, null, "center");
-    doc.text("AUTHORISED SIGNATORY", 170, sigY, null, null, "center");
-
-    doc.save("filtered-metal-sales.pdf");
-    showToast(
-      "Filtered sales transactions exported to PDF successfully!",
-      "success"
-    );
-  };
-
-  const totalPages = Math.ceil(filteredSales.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const currentSales = filteredSales.slice(
-    startIndex,
-    startIndex + itemsPerPage
-  );
-
-  const handleDelete = useCallback(() => {
-    let id = editingStock.id;
-    setSaleToDelete(id);
-    setIsDeleteModalOpen(true);
-  }, [editingStock]);
-
-  const confirmDeleteSale = useCallback(async () => {
-    if (!saleToDelete) return;
-
-    setIsDeleting(true); // Set deleting state
-    try {
-      const response = await axiosInstance.delete(
-        `/metal-transaction/${saleToDelete}`
-      );
-      if (response.data.success) {
-        setMetalSales((prev) =>
-          prev.filter((stock) => stock.id !== saleToDelete)
-        );
-        showToast("Metal sale deleted successfully", "success");
-      } else {
-        showToast("Failed to delete sale", "error");
-      }
-    } catch (error) {
-      showToast("Failed to delete sale", "error");
-    } finally {
-      setIsDeleting(false); // Reset deleting state
-      setIsDeleteModalOpen(false);
-      setSaleToDelete(null);
-      setIsModalOpen(false);
-    }
-  }, [saleToDelete, showToast]);
 
   return (
     <div className="min-h-screen w-full">
@@ -2110,6 +2060,12 @@ const handleEdit = useCallback(
               <p className="text-blue-100">Bullion Management System</p>
             </div>
           </div>
+          <div className="flex items-center space-x-3 mt-4 sm:mt-0">
+            <span className="bg-white/20 px-3 py-1 rounded-lg text-sm">
+              Professional Edition
+            </span>
+            <Settings className="w-6 h-6 cursor-pointer hover:text-blue-200" />
+          </div>
         </div>
       </div>
 
@@ -2127,33 +2083,30 @@ const handleEdit = useCallback(
           <div className="bg-white/90 rounded-xl p-4 sm:p-6 mb-6 shadow-md">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div className="flex flex-col sm:flex-row gap-4 flex-1">
-                <div className="relative w-full sm:w-[30%]">
+                <div className="relative w-[30%]">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                   <input
                     type="text"
-                    placeholder="Search by SL, Party Name, or Voucher No..."
+                    placeholder="Search by SL, party name, voucher..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full pl-10 pr-4 py-2 rounded-lg outline-none border border-gray-200 focus:ring-2 focus:ring-blue-300 focus:border-blue-500 transition-all"
                   />
                 </div>
-                <div className="relative w-full sm:w-[30%]">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 z-10" />
-                  <DatePicker
-                    selected={dateSearch}
-                    onChange={(date) => setDateSearch(date)}
-                    placeholderText="Select Date (MM/DD/YYYY)"
-                    className="w-full pl-10 pr-4 py-2 rounded-lg outline-none border border-gray-200 focus:ring-2 focus:ring-blue-300 focus:border-blue-500 transition-all"
-                    dateFormat="MM/dd/yyyy"
-                    isClearable
+                <div className="relative w-[30%]">
+                  <input
+                    type="date"
+                    value={searchDate}
+                    onChange={(e) => setSearchDate(e.target.value)}
+                    className="w-full px-4 py-2 rounded-lg outline-none border border-gray-200 focus:ring-2 focus:ring-blue-300 focus:border-blue-500 transition-all"
                   />
                 </div>
-                <div className="relative w-full sm:w-[20%]">
+                <div className="relative">
                   <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                   <select
                     value={filterBy}
                     onChange={(e) => setFilterBy(e.target.value)}
-                    className="w-full pl-10 pr-8 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-300 transition-all"
+                    className="pl-10 pr-8 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-300 transition-all"
                   >
                     <option value="all">All Metals</option>
                     <option value="gold">Gold</option>
@@ -2168,7 +2121,7 @@ const handleEdit = useCallback(
                   className="px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-lg hover:from-blue-700 hover:to-cyan-600 flex items-center gap-2"
                 >
                   <Plus className="w-4 h-4" />
-                  Add Metal Sale
+                  Add Sales Metal
                 </button>
                 <button
                   onClick={handleExportAllToPDF}
@@ -2180,7 +2133,8 @@ const handleEdit = useCallback(
               </div>
             </div>
           </div>
-          <div className="bg-white/80 rounded-2xl shadow-lg overflow-hidden border border-white/20">
+          <div className="flex p-4 w-full  justify-end"></div>
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg overflow-hidden border border-white/20">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white">
@@ -2212,12 +2166,23 @@ const handleEdit = useCallback(
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200/50">
-                  {currentSales.length > 0 ? (
-                    currentSales.map((sale, index) => (
+                  {loading ? (
+                    <tr>
+                      <td
+                        colSpan="8"
+                        className="px-6 py-12 text-center text-gray-500"
+                      >
+                        <div className="flex flex-col items-center space-y-3">
+                          <span className="text-lg">Loading...</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : currentPurchase.length > 0 ? (
+                    currentPurchase.map((purchase, index) => (
                       <tr
-                        key={sale.vocNo}
+                        key={purchase.vocNo}
                         className="hover:bg-blue-50/50 transition-all duration-200 hover:cursor-pointer"
-                        onClick={() => handleEdit(sale)}
+                        onClick={() => handleEdit(purchase)}
                       >
                         <td className="px-6 py-4 text-sm font-medium text-gray-900">
                           <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-lg text-xs font-semibold">
@@ -2225,29 +2190,31 @@ const handleEdit = useCallback(
                           </span>
                         </td>
                         <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                          {sale.branch}
+                          {purchase.branch}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-700">
-                          {sale.vocType}
+                          {purchase.vocType}
                         </td>
                         <td className="px-6 py-4 text-sm">
                           <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded-lg text-xs font-semibold">
-                            {sale.vocNo}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-sm">{sale.vocDate}</td>
-                        <td className="px-6 py-4 text-sm">
-                          <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded-lg text-xs font-semibold">
-                            {sale.partyCode}
+                            {purchase.vocNo}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-700">
-                          {sale.partyName}
+                          {purchase.vocDate}
+                        </td>
+                        <td className="px-6 py-4 text-sm">
+                          <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded-lg text-xs font-semibold">
+                            {purchase.partyCode}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-700">
+                          {purchase.partyName}
                         </td>
                         <td className="px-6 py-4 flex space-x-2">
                           <button
                             onClick={(e) => {
-                              setSelectedPurchase(sale);
+                              setSelectedPurchase(purchase);
                               setIsDownloadModalOpen(true);
                               e.stopPropagation();
                             }}
@@ -2272,13 +2239,17 @@ const handleEdit = useCallback(
                 </tbody>
               </table>
             </div>
-            {filteredSales.length > itemsPerPage && (
+
+            {filteredPurchaseMemo.length > itemsPerPage && (
               <div className="px-6 py-4 bg-gray-50/50 border-t border-gray-200/50">
                 <div className="flex items-center justify-between">
                   <div className="text-sm text-gray-700">
                     Showing {startIndex + 1} to{" "}
-                    {Math.min(startIndex + itemsPerPage, filteredSales.length)}{" "}
-                    of {filteredSales.length} results
+                    {Math.min(
+                      startIndex + itemsPerPage,
+                      filteredPurchaseMemo.length
+                    )}{" "}
+                    of {filteredPurchaseMemo.length} results
                   </div>
                   <div className="flex items-center space-x-2">
                     <button
@@ -2341,6 +2312,7 @@ const handleEdit = useCallback(
               </div>
             )}
           </div>
+
           {isDeleteModalOpen && (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-100">
               <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
@@ -2351,7 +2323,7 @@ const handleEdit = useCallback(
                   <button
                     onClick={() => {
                       setIsDeleteModalOpen(false);
-                      setSaleToDelete(null);
+                      setPurchaseToDelete(null);
                     }}
                     className="text-gray-500 hover:text-gray-700"
                     disabled={isDeleting}
@@ -2373,22 +2345,22 @@ const handleEdit = useCallback(
                   </button>
                 </div>
                 <p className="text-sm text-gray-600 mb-6">
-                  Are you sure you want to delete this metal sale? This action
-                  cannot be undone.
+                  Are you sure you want to delete this metal sales? This
+                  action cannot be undone.
                 </p>
                 <div className="flex justify-end gap-3">
                   <button
                     onClick={() => {
                       setIsDeleteModalOpen(false);
-                      setSaleToDelete(null);
+                      setPurchaseToDelete(null);
                     }}
-                    className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
+                    className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50"
                     disabled={isDeleting}
                   >
                     Cancel
                   </button>
                   <button
-                    onClick={confirmDeleteSale}
+                    onClick={confirmDeletePurchase}
                     className="px-6 py-2 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-lg hover:from-blue-700 hover:to-cyan-600 disabled:opacity-50 flex items-center gap-2"
                     disabled={isDeleting}
                   >
@@ -2436,7 +2408,9 @@ const handleEdit = useCallback(
                       </div>
                       <div>
                         <h2 className="text-xl font-bold">
-                          {editingStock ? "Edit Metal Sale" : "Add Metal Sale"}
+                          {editingStock
+                            ? "Edit sale Metal"
+                            : "Add sale Metal"}
                         </h2>
                         <p className="text-blue-100 text-sm">
                           Professional Bullion Management
@@ -2445,16 +2419,18 @@ const handleEdit = useCallback(
                     </div>
                     <button
                       onClick={handleCancel}
-                      className="text-white hover:text-gray-200 p-2 rounded-lg hover:bg-white/10"
+                      className="text-white hover:text-gray-200 p-2 rounded-lg hover:bg-white/10 transition-all duration-200"
                     >
                       <X className="w-6 h-6" />
                     </button>
                   </div>
                 </div>
+
                 <div className="flex-1 overflow-y-auto bg-gradient-to-br from-slate-50 to-blue-50/30">
                   <div className="p-8">
                     <div className="flex items-center justify-between mb-8">
                       <div className="flex items-center space-x-3">
+                        <div className="w-2 h-8 rounded-full"></div>
                         <h3 className="text-xl font-bold text-slate-800">
                           Invoice Details
                         </h3>
@@ -2462,7 +2438,6 @@ const handleEdit = useCallback(
                           Required Information
                         </div>
                       </div>
-
                       {editingStock ? (
                         <button
                           onClick={handleDelete}
@@ -2474,12 +2449,14 @@ const handleEdit = useCallback(
                         <div className="h-10" />
                       )}
                     </div>
+
                     {error && (
                       <div className="bg-red-100 text-red-700 px-4 py-2 rounded-lg mb-4">
                         {error}
                       </div>
                     )}
-                    <div className="bg-white rounded-2xl w-full p-6 shadow-sm border border-slate-200/60 mb-6">
+
+                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/60 mb-6">
                       <div className="flex items-center space-x-8">
                         <div className="flex items-center space-x-3">
                           <input
@@ -2515,6 +2492,7 @@ const handleEdit = useCallback(
                         </div>
                       </div>
                     </div>
+
                     <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 overflow-hidden">
                       <div className="p-6 bg-gradient-to-r from-slate-50 to-blue-50/50 border-b border-slate-200/60">
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -2536,11 +2514,12 @@ const handleEdit = useCallback(
                                 name="voucherCode"
                                 value={formData.voucherCode}
                                 onChange={handleInputChange}
-                                className="flex-1 px-4 py-3 border border-slate-200 rounded-xl bg-white hover:border-blue-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                                className="flex-1 px-4 py-3 border border-slate-200 rounded-xl bg-white hover:border-blue-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all duration-200"
                                 placeholder="Enter voucher code"
                               />
                             </div>
                           </div>
+
                           <div className="space-y-2">
                             <label className="block text-sm font-semibold text-slate-700">
                               Voucher Date{" "}
@@ -2551,9 +2530,10 @@ const handleEdit = useCallback(
                               name="voucherDate"
                               value={formData.voucherDate}
                               onChange={handleInputChange}
-                              className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white hover:border-blue-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                              className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white hover:border-blue-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all duration-200"
                             />
                           </div>
+
                           <div className="space-y-2">
                             <label className="block text-sm font-semibold text-slate-700">
                               Party Name <span className="text-red-500">*</span>
@@ -2581,48 +2561,65 @@ const handleEdit = useCallback(
                             </div>
                           </div>
                         </div>
+
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-                          {currencyOptions.length > 0 && (
-                            <div className="space-y-2">
-                              <label className="block text-sm font-semibold text-slate-700">
-                                Party Currency{" "}
-                                <span className="text-red-500">*</span>
-                              </label>
-                              <Select
-                                placeholder="Select currency"
-                                options={currencyOptions}
-                                value={{
-                                  value: formData?.partyCurrencyCode,
-                                  label: formData?.partyCurrencyCode,
-                                }}
-                                onChange={handleCurrencyChange}
-                                isClearable
-                              />
-                            </div>
-                          )}
+  {currencyOptions.length > 0 && (
+    <div className="space-y-2">
+      <label className="block text-sm font-semibold text-slate-700">
+        Party Currency <span className="text-red-500">*</span>
+      </label>
+      <Select
+        placeholder="Select currency"
+        options={currencyOptions}
+        value={{
+          value: formData?.partyCurrencyCode,
+          label: formData?.partyCurrencyCode,
+        }}
+        onChange={handleCurrencyChange}
+        isClearable
+      />
+    </div>
+  )}
 
-                          {currencyOptions.length > 0 && (
-                            <div className="space-y-2">
-                              <label className="block text-sm font-semibold text-slate-700">
-                                Item Currency{" "}
-                                <span className="text-red-500">*</span>
-                              </label>
-                              <Select
-                                placeholder="Select currency"
-                                options={currencyOptions}
-                                value={{
-                                  value: formData?.partyCurrencyCode,
-                                  label: formData?.partyCurrencyCode,
-                                }}
-                                onChange={handleCurrencyChange}
-                                isClearable
-                              />
-                            </div>
-                          )}
+  {currencyOptions.length > 0 && (
+    <div className="space-y-2">
+      <label className="block text-sm font-semibold text-slate-700">
+        Item Currency <span className="text-red-500">*</span>
+      </label>
+      <Select
+        placeholder="Select currency"
+        options={currencyOptions}
+        value={{
+          value: formData?.partyCurrencyCode,
+          label: formData?.partyCurrencyCode,
+        }}
+        onChange={handleCurrencyChange}
+        isClearable
+      />
+    </div>
+  )}
 
-                          <div></div>
-                        </div>
+  {formData.partyCurrencyCode && (  // Show only when currency is selected
+    <div className="space-y-2">
+      <label className="block text-sm font-semibold text-slate-700">
+        Conversion Rate <span className="text-red-500">*</span>
+      </label>
+      <input
+        type="number"
+        step="0.01"
+        name="partyCurrencyValue"
+        value={formData.partyCurrencyValue}
+        onChange={handleConversionRateChange}
+        className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white hover:border-blue-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all duration-200"
+        placeholder="Enter conversion rate"
+      />
+    </div>
+  )}
+
+  <div></div>
+</div>
                       </div>
+
                       <div className="p-6">
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                           <div className="space-y-2">
@@ -2634,11 +2631,12 @@ const handleEdit = useCallback(
                               name="metalRateUnit"
                               value={formData.metalRateUnit}
                               onChange={handleInputChange}
-                              className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white hover:border-blue-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                              className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white hover:border-blue-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all duration-200"
                             >
                               <option value="GOZ">KGBAR</option>
                             </select>
                           </div>
+
                           {/* <div className="space-y-2">
                             <label className="block text-sm font-semibold text-slate-700">
                               Days <span className="text-red-500">*</span>
@@ -2648,25 +2646,28 @@ const handleEdit = useCallback(
                               name="crDays"
                               value={formData.crDays}
                               onChange={handleInputChange}
-                              className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white hover:border-blue-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                              className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white hover:border-blue-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all duration-200"
                               placeholder="Enter CR days"
                               min="0"
                             />
                           </div>
+
                           <div className="space-y-2">
                             <label className="block text-sm font-semibold text-slate-700">
-                              Credit Days <span className="text-red-500">*</span>
+                              Credit Days{" "}
+                              <span className="text-red-500">*</span>
                             </label>
                             <input
                               type="number"
                               name="creditDays"
                               value={formData.creditDays}
                               onChange={handleInputChange}
-                              className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white hover:border-blue-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                              className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white hover:border-blue-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all duration-200"
                               placeholder="Enter credit days"
                               min="0"
                             />
                           </div> */}
+
                           <div className="space-y-2">
                             <label className="block text-sm font-semibold text-slate-700">
                               Entered By <span className="text-red-500">*</span>
@@ -2679,6 +2680,7 @@ const handleEdit = useCallback(
                               className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none"
                             />
                           </div>
+
                           <div className="space-y-2">
                             <label className="block text-sm font-semibold text-slate-700">
                               Salesman <span className="text-red-500">*</span>
@@ -2688,20 +2690,21 @@ const handleEdit = useCallback(
                               name="spp"
                               value={formData.spp}
                               onChange={handleInputChange}
-                              className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white hover:border-blue-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                              className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white hover:border-blue-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all duration-200"
                               placeholder="Enter salesman name"
                             />
                           </div>
                         </div>
                       </div>
+
                       <div className="p-6 border-t border-slate-200/60">
                         <div className="flex justify-end">
                           <button
                             onClick={handleProductModalOpen}
-                            className="px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-lg hover:from-blue-700 hover:to-cyan-600 flex items-center gap-2"
+                            className="px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-lg hover:from-blue-700 hover:to-cyan-600 flex items-center gap-2 hover:cursor-pointer "
                           >
                             <Plus className="w-4 h-4" />
-                            Add Product
+                            Add
                           </button>
                         </div>
                         <h3 className="text-lg font-bold text-slate-800 mb-4">
@@ -2754,7 +2757,7 @@ const handleEdit = useCallback(
                                   Item Total
                                 </th>
                                 <th className="px-4 py-3 text-left text-sm font-semibold">
-                                  Action
+                                  Edit
                                 </th>
                               </tr>
                             </thead>
@@ -2792,6 +2795,7 @@ const handleEdit = useCallback(
                                     <td className="px-4 py-3 text-sm">
                                       {item.metalType || "N/A"}
                                     </td>
+                                    {/* FIXED: Amount column - removed the conditional that was showing "---" */}
                                     <td className="px-4 py-3 text-sm">
                                       {formatNumber(
                                         item.metalRateRequirements?.rate || 0,
@@ -2822,7 +2826,6 @@ const handleEdit = useCallback(
                                         2
                                       )}
                                     </td>
-
                                     <td>
                                       <button
                                         onClick={() => {
@@ -2857,6 +2860,7 @@ const handleEdit = useCallback(
                     </div>
                   </div>
                 </div>
+
                 <div className="bg-gradient-to-r from-slate-50 to-blue-50/30 px-8 py-5 border-t border-slate-200/60">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2 text-sm text-slate-600">
@@ -2903,9 +2907,9 @@ const handleEdit = useCallback(
                             {editingStock ? "Updating..." : "Saving..."}
                           </>
                         ) : editingStock ? (
-                          "Update Sale"
+                          "Update sale"
                         ) : (
-                          "Save Sale"
+                          "Save sale"
                         )}
                       </button>
                     </div>
@@ -2915,22 +2919,36 @@ const handleEdit = useCallback(
               <ProductDetailsModal
                 isOpen={isProductModalOpen}
                 onClose={handleProductModalClose}
-                 partyCurrency={formData?.partyCurrency}
+                partyCurrency={formData?.partyCurrency}
                 party={selectedParty}
                 fixed={formData?.fixed}
                 onSave={(productData) => {
-                  if (editingStockItem) {
-                    // Replace the item
+                  if (editingStockIndex !== -1) {
+                    // Update existing item
                     setTempStockItems((prevItems) =>
-                      prevItems.map((item) =>
-                        item.stockId === editingStockItem.stockId
-                          ? productData
-                          : item
+                      prevItems.map((item, index) =>
+                        index === editingStockIndex ? productData : item
                       )
                     );
                   } else {
-                    // Add new item
-                    setTempStockItems((prev) => [...prev, productData]);
+                    // Add new item - check for duplicates
+                    const existingIndex = tempStockItems.findIndex(
+                      (item) => item.stockId === productData.stockId
+                    );
+
+                    if (existingIndex !== -1) {
+                      setTempStockItems((prevItems) =>
+                        prevItems.map((item, index) =>
+                          index === existingIndex ? productData : item
+                        )
+                      );
+                    } else {
+                      // Add new item
+                      setTempStockItems((prevItems) => [
+                        ...prevItems,
+                        productData,
+                      ]);
+                    }
                   }
 
                   handleProductModalClose();
@@ -2941,22 +2959,25 @@ const handleEdit = useCallback(
           )}
         </>
       )}
-      <style>{`
-        .no-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-        .no-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
-      `}</style>
+
+      <style>
+        {`
+          .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+          }
+          .no-scrollbar::-webkit-scrollbar {
+            display: none;
+          }
+        `}
+      </style>
       <Toaster
         position="top-right"
         toastOptions={{
           duration: 4000,
           style: {
             background: "#fff",
-            color: "#4CAF50",
+            color: "#4CAF50", // Changed from #000 to green (#4CAF50)
           },
         }}
       />
