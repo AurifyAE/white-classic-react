@@ -1678,7 +1678,6 @@ const handleEdit = useCallback(
 
       const transactionPartyCurrencyId = transaction.partyCurrency?._id || transaction.partyCurrency;
       const transactionItemCurrencyId = transaction.itemCurrency?._id || transaction.itemCurrency;
-
       if (transactionPartyCurrencyId) {
         try {
           const currencyResponse = await axiosInstance.get(`/currency-master/${transactionPartyCurrencyId}`);
@@ -1735,198 +1734,212 @@ const handleEdit = useCallback(
   [today, axiosInstance, fetchPartyDetails, showToast]
 );
 
-  const handleSave = useCallback(async () => {
-    if (
-      !formData.voucherCode ||
-      !formData.partyCode ||
-      tempStockItems.length === 0
-    ) {
-      setError(
-        "Voucher Code, Party Code, and at least one Stock Item are required"
-      );
-      toast.error(
-        "Voucher Code, Party Code, and at least one Stock Item are required",
-        {
-          style: {
-            background: "white",
-            color: "red",
-            border: "1px solid red",
-          },
-        }
-      );
-      return;
-    }
-    setIsSaving(true); // Set loading state
-    const transactionData = {
-      transactionType: "purchase",
-      fix: formData.fixed ? formData.fixed : false,
-      unfix: formData.internalUnfix ? formData.internalUnfix : false,
-      voucherType: formData.voucherType,
-      voucherDate: formData.voucherDate,
-      voucherNumber: formData.voucherCode,
-      partyCode: formData.partyCode,
-      partyCurrency: formData.partyCurrencyId,
-      itemCurrency: formData.partyCurrencyId,
-      baseCurrency: formData.partyCurrencyId,
-      effectivePartyCurrencyRate: parseFloat(formData.partyCurrencyValue) || 0,
-    effectiveItemCurrencyRate: parseFloat(formData.itemCurrencyValue) || 0,
-      stockItems: tempStockItems.map((item) => ({
-        stockCode: item.stockId,
-        description: item.description,
-        pieces: Number(item.pcsCount) || 0,
-        grossWeight: Number(item.grossWeight) || 0,
-        purity: Number(item.purity) || 0,
-        pureWeight: Number(item.pureWeight) || 0,
-        purityWeight: Number(item.purityWeight) || 0,
-        weightInOz: Number(item.weightInOz) || 0,
-        metalRate: item.metalRate || "0",
-        metalRateRequirements: {
-          amount: Number(item.metalRateRequirements.amount) || 0,
-          rate: Number(item.metalRateRequirements.rate) || 0,
+const handleSave = useCallback(async () => {
+  if (
+    !formData.voucherCode ||
+    !formData.partyCode ||
+    tempStockItems.length === 0
+  ) {
+    setError(
+      "Voucher Code, Party Code, and at least one Stock Item are required"
+    );
+    toast.error(
+      "Voucher Code, Party Code, and at least one Stock Item are required",
+      {
+        style: {
+          background: "white",
+          color: "red",
+          border: "1px solid red",
         },
-        makingCharges: {
-          amount: Number(item.makingCharges.amount) || 0,
-          rate: Number(item.makingCharges.rate) || 0,
-        },
-        otherCharges: {
-          percentage: item.otherCharges.rate || item.otherCharges.percentage,
-          amount: Number(item.otherCharges.amount) || 0,
-          description: item.otherCharges.description || "",
-          totalAfterOtherCharges:
-            Number(item.otherCharges.totalAfterOtherCharges) || 0,
-        },
-        vat: {
-          vatPercentage: Number(item.itemTotal.vatPercentage) || 0,
-          vatAmount: Number(item.itemTotal.vatAmount) || 0,
-        },
-        premium: {
-          amount: Number(item.premium.amount) || 0,
-          rate: Number(item.premium.rate) || 0,
-        },
-        itemTotal: {
-          baseAmount: Number(item.itemTotal.baseAmount) || 0,
-          makingChargesTotal: Number(item.itemTotal.makingChargesTotal) || 0,
-          premiumTotal: Number(item.itemTotal.premiumTotal) || 0,
-          subTotal: Number(item.itemTotal.subTotal) || 0,
-          vatAmount: Number(item.itemTotal.vatAmount) || 0,
-          itemTotalAmount: Number(item.itemTotal.itemTotalAmount) || 0,
-        },
-        itemNotes: "",
-        itemStatus: "active",
-      })),
-      totalAmountSession: {
-        totalAmountAED: tempStockItems.reduce(
-          (sum, item) => sum + (Number(item.itemTotal.itemTotalAmount) || 0),
-          0
-        ),
-        netAmountAED: tempStockItems.reduce(
-          (sum, item) => sum + (Number(item.itemTotal.subTotal) || 0),
-          0
-        ),
-        vatAmount: tempStockItems.reduce(
-          (sum, item) => sum + (Number(item.itemTotal.vatAmount) || 0),
-          0
-        ),
-        vatPercentage: Number(tempStockItems[0]?.vatPercentage) || 0,
-      },
-      status: "draft",
-      notes: "",
-    };
-
-    try {
-      if (editingStock) {
-        const response = await axiosInstance.put(
-          `/metal-transaction/${editingStock.id}`,
-          transactionData
-        );
-        console.log(response);
-        toast.success("Metal purchase updated successfully!", {
-          style: {
-            background: "white",
-            color: "green",
-            border: "1px solid green",
-          },
-        });
-        setIsModalOpen(false);
-        fetchMetalTransactions();
-        setIsDownloadModalOpen(true);
-      } else {
-        const response = await axiosInstance.post(
-          "/metal-transaction",
-          transactionData
-        );
-        const newTransaction = response.data.data;
-        const newStock = {
-          id: formData._id,
-          sl: editingStock
-            ? editingStock.sl
-            : Math.max(...metalPurchase.map((s) => s.sl), 0) + 1,
-          branch: "Main Branch",
-          vocType: formData.voucherType,
-          vocNo: formData.voucherCode,
-          vocDate: formData.voucherDate,
-          partyCode: formData.partyCode,
-          partyName: formData.partyName,
-          stockItems: tempStockItems,
-        };
-
-        setMetalPurchase((prev) =>
-          editingStock
-            ? prev.map((stock) =>
-                stock.sl === editingStock.sl ? newStock : stock
-              )
-            : [...prev, newStock]
-        );
-
-        setStockItems((prev) => [
-          ...prev,
-          ...newTransaction.stockItems.map((item) => ({
-            ...item,
-            transactionId: newTransaction._id,
-            voucherNumber: newTransaction.voucherNumber,
-          })),
-        ]);
-        setNewlyCreatedSale(newStock);
-        setSelectedPurchase(newStock);
-
-        // Show preview after save
-        setShowPreviewAfterSave(true);
-
-        toast.success("Metal purchase created successfully!", {
-          style: {
-            background: "white",
-            color: "green",
-            border: "1px solid green",
-          },
-        });
-        setIsModalOpen(false);
-        fetchMetalTransactions();
       }
-    } catch (error) {
-      setError(
-        error.response?.data?.message || "Failed to save metal purchase"
+    );
+    return;
+  }
+
+  // Validate conversion rate
+  const conversionRate = parseFloat(formData.partyCurrencyValue);
+  if (isNaN(conversionRate) || conversionRate <= 0) {
+    setError("Please enter a valid conversion rate greater than 0");
+    toast.error("Please enter a valid conversion rate greater than 0", {
+      style: {
+        background: "white",
+        color: "red",
+        border: "1px solid red",
+      },
+  });
+    return;
+  }
+
+  setIsSaving(true); // Set loading state
+  const transactionData = {
+    transactionType: "purchase",
+    fix: formData.fixed ? formData.fixed : false,
+    unfix: formData.internalUnfix ? formData.internalUnfix : false,
+    voucherType: formData.voucherType,
+    voucherDate: formData.voucherDate,
+    voucherNumber: formData.voucherCode,
+    partyCode: formData.partyCode,
+    partyCurrency: formData.partyCurrencyId,
+    itemCurrency: formData.itemCurrencyId, // Ensure this matches the selected item currency
+    baseCurrency: formData.partyCurrencyId,
+    effectivePartyCurrencyRate: conversionRate, 
+    effectiveItemCurrencyRate: conversionRate, 
+    stockItems: tempStockItems.map((item) => ({
+      stockCode: item.stockId,
+      description: item.description,
+      pieces: Number(item.pcsCount) || 0,
+      grossWeight: Number(item.grossWeight) || 0,
+      purity: Number(item.purity) || 0,
+      pureWeight: Number(item.pureWeight) || 0,
+      purityWeight: Number(item.purityWeight) || 0,
+      weightInOz: Number(item.weightInOz) || 0,
+      metalRate: item.metalRate || "0",
+      metalRateRequirements: {
+        amount: Number(item.metalRateRequirements.amount) || 0,
+        rate: Number(item.metalRateRequirements.rate) || 0,
+      },
+      makingCharges: {
+        amount: Number(item.makingCharges.amount) || 0,
+        rate: Number(item.makingCharges.rate) || 0,
+      },
+      otherCharges: {
+        percentage: item.otherCharges.rate || item.otherCharges.percentage,
+        amount: Number(item.otherCharges.amount) || 0,
+        description: item.otherCharges.description || "",
+        totalAfterOtherCharges:
+          Number(item.otherCharges.totalAfterOtherCharges) || 0,
+      },
+      vat: {
+        vatPercentage: Number(item.itemTotal.vatPercentage) || 0,
+        vatAmount: Number(item.itemTotal.vatAmount) || 0,
+      },
+      premium: {
+        amount: Number(item.premium.amount) || 0,
+        rate: Number(item.premium.rate) || 0,
+      },
+      itemTotal: {
+        baseAmount: Number(item.itemTotal.baseAmount) || 0,
+        makingChargesTotal: Number(item.itemTotal.makingChargesTotal) || 0,
+        premiumTotal: Number(item.itemTotal.premiumTotal) || 0,
+        subTotal: Number(item.itemTotal.subTotal) || 0,
+        vatAmount: Number(item.itemTotal.vatAmount) || 0,
+        itemTotalAmount: Number(item.itemTotal.itemTotalAmount) || 0,
+      },
+      itemNotes: "",
+      itemStatus: "active",
+    })),
+    totalAmountSession: {
+      totalAmountAED: tempStockItems.reduce(
+        (sum, item) => sum + (Number(item.itemTotal.itemTotalAmount) || 0),
+        0
+      ),
+      netAmountAED: tempStockItems.reduce(
+        (sum, item) => sum + (Number(item.itemTotal.subTotal) || 0),
+        0
+      ),
+      vatAmount: tempStockItems.reduce(
+        (sum, item) => sum + (Number(item.itemTotal.vatAmount) || 0),
+        0
+      ),
+      vatPercentage: Number(tempStockItems[0]?.vatPercentage) || 0,
+    },
+    status: "draft",
+    notes: "",
+  };
+
+  try {
+    if (editingStock) {
+      const response = await axiosInstance.put(
+        `/metal-transaction/${editingStock.id}`,
+        transactionData
       );
-      toast.error(
-        error.response?.data?.message || "Failed to save metal purchase",
-        {
-          style: {
-            background: "white",
-            color: "red",
-            border: "1px solid red",
-          },
-        }
+      toast.success("Metal purchase updated successfully!", {
+        style: {
+          background: "white",
+          color: "green",
+          border: "1px solid green",
+        },
+      });
+      setIsModalOpen(false);
+      fetchMetalTransactions();
+      setIsDownloadModalOpen(true);
+    } else {
+      const response = await axiosInstance.post(
+        "/metal-transaction",
+        transactionData
       );
-      console.error("Error creating/updating metal transaction:", error);
-    } finally {
-      setIsSaving(false); // Reset loading state
+      console.log("transaction",transactionData);
+      
+      const newTransaction = response.data.data;
+      const newStock = {
+        id: formData._id,
+        sl: editingStock
+          ? editingStock.sl
+          : Math.max(...metalPurchase.map((s) => s.sl), 0) + 1,
+        branch: "Main Branch",
+        vocType: formData.voucherType,
+        vocNo: formData.voucherCode,
+        vocDate: formData.voucherDate,
+        partyCode: formData.partyCode,
+        partyName: formData.partyName,
+        stockItems: tempStockItems,
+      };
+
+      setMetalPurchase((prev) =>
+        editingStock
+          ? prev.map((stock) =>
+              stock.sl === editingStock.sl ? newStock : stock
+            )
+          : [...prev, newStock]
+      );
+
+      setStockItems((prev) => [
+        ...prev,
+        ...newTransaction.stockItems.map((item) => ({
+          ...item,
+          transactionId: newTransaction._id,
+          voucherNumber: newTransaction.voucherNumber,
+        })),
+      ]);
+      setNewlyCreatedSale(newStock);
+      setSelectedPurchase(newStock);
+
+      setShowPreviewAfterSave(true);
+
+      toast.success("Metal purchase created successfully!", {
+        style: {
+          background: "white",
+          color: "green",
+          border: "1px solid green",
+        },
+      });
+      setIsModalOpen(false);
+      fetchMetalTransactions();
     }
-  }, [
-    formData,
-    tempStockItems,
-    editingStock,
-    metalPurchase,
-    fetchMetalTransactions,
-  ]);
+  } catch (error) {
+    setError(
+      error.response?.data?.message || "Failed to save metal purchase"
+    );
+    toast.error(
+      error.response?.data?.message || "Failed to save metal purchase",
+      {
+        style: {
+          background: "white",
+          color: "red",
+          border: "1px solid red",
+        },
+      }
+    );
+  } finally {
+    setIsSaving(false);
+  }
+}, [
+  formData,
+  tempStockItems,
+  editingStock,
+  metalPurchase,
+  fetchMetalTransactions,
+]);
 
   const handleDelete = useCallback(() => {
     if (!editingStock || !editingStock.id) {

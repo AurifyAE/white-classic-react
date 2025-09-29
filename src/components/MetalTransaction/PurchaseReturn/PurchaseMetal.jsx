@@ -1,4 +1,4 @@
-""
+"purchase metal purchase metal";
 import React, {
   useState,
   useEffect,
@@ -20,7 +20,7 @@ import {
   TrashIcon,
 } from "lucide-react";
 import Select from "react-select";
-import PDFPreviewModal from "./PdfPreview"; 
+import PDFPreviewModal from "./PdfPreview"; // Adjust path if in a different folder
 import PartyCodeField from "./PartyCodeField";
 import ProductDetailsModal from "./ProductDetailsModal";
 import SearchableInput from "./SearchInputField/SearchableInput";
@@ -205,7 +205,7 @@ export default function purchasereturn() {
             id: transaction._id,
             sl: index + 1, // Simplified SL number (no pagination offset needed)
             branch: transaction.branch || "Default Branch",
-            vocType: transaction.voucherType || "PUR",
+            vocType: transaction.voucherType || "PR",
             vocNo: transaction.voucherNumber || "N/A",
             vocDate: formattedDate, // Always YYYY-MM-DD
             partyCode: transaction.partyCode?.accountCode || "N/A",
@@ -237,9 +237,6 @@ export default function purchasereturn() {
     }
   }, []); // Remove currentPage, itemsPerPage from dependencies
 
-
-
-  
   // Combined initial data load
   useEffect(() => {
     const loadData = async () => {
@@ -302,7 +299,7 @@ export default function purchasereturn() {
 
       return {
         voucherCode: data.voucherNumber,
-        voucherType: data.voucherType || "PUR",
+        voucherType: data.voucherType || "PR",
         prefix: data.prefix,
       };
     } catch (error) {
@@ -521,7 +518,6 @@ export default function purchasereturn() {
     [fetchPartyDetails]
   );
 
-
 const handleConversionRateChange = useCallback((e) => {
   const newRate = e.target.value;
   setFormData((prev) => ({
@@ -533,7 +529,7 @@ const handleConversionRateChange = useCallback((e) => {
       conversionRate: newRate,  // Update the conversionRate in the partyCurrency object for passing to ProductDetailsModal
     },
   }));
-}, [])
+}, []);
 
 const handleCurrencyChange = (option) => {
   setFormData((prev) => ({
@@ -546,7 +542,6 @@ const handleCurrencyChange = (option) => {
     itemCurrencyValue: option?.data?.conversionRate || "",
   }));
 };
-
   const selectedParty = tradeDebtors.find(
     (d) => d.customerName === formData.partyName
   );
@@ -558,680 +553,336 @@ const handleCurrencyChange = (option) => {
       data: c.currency,
     })) || [];
 
-  const handleDownloadPDF = async (purchaseId) => {
-    // Utility function for Western number formatting
-    const formatNumber = (num) => {
-      if (num === null || num === undefined || isNaN(num)) return "0.00";
-      return Number(num).toLocaleString("en-US", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      });
-    };
-
-    // Function to convert number to Dirham words
-    const numberToDirhamWords = (amount) => {
-      if (
-        amount === null ||
-        amount === undefined ||
-        isNaN(amount) ||
-        amount === ""
-      ) {
-        return "INVALID AMOUNT";
-      }
-
-      const num = Number(amount);
-      const isNegative = num < 0;
-      const absoluteNum = Math.abs(num);
-      const [dirhamPart, filsPartRaw] = absoluteNum.toFixed(2).split(".");
-      const dirham = parseInt(dirhamPart, 10) || 0;
-      const fils = parseInt(filsPartRaw, 10) || 0;
-
-      const a = [
-        "",
-        "ONE",
-        "TWO",
-        "THREE",
-        "FOUR",
-        "FIVE",
-        "SIX",
-        "SEVEN",
-        "EIGHT",
-        "NINE",
-        "TEN",
-        "ELEVEN",
-        "TWELVE",
-        "THIRTEEN",
-        "FOURTEEN",
-        "FIFTEEN",
-        "SIXTEEN",
-        "SEVENTEEN",
-        "EIGHTEEN",
-        "NINETEEN",
-      ];
-      const b = [
-        "",
-        "",
-        "TWENTY",
-        "THIRTY",
-        "FORTY",
-        "FIFTY",
-        "SIXTY",
-        "SEVENTY",
-        "EIGHTY",
-        "NINETY",
-      ];
-
-      const convert = (num) => {
-        if (num === 0) return "";
-        if (num < 20) return a[num];
-        if (num < 100)
-          return b[Math.floor(num / 10)] + (num % 10 ? " " + a[num % 10] : "");
-        if (num < 1000)
-          return (
-            a[Math.floor(num / 100)] +
-            " HUNDRED" +
-            (num % 100 ? " " + convert(num % 100) : "")
-          );
-        if (num < 100000)
-          return (
-            convert(Math.floor(num / 1000)) +
-            " THOUSAND" +
-            (num % 1000 ? " " + convert(num % 1000) : "")
-          );
-        if (num < 10000000)
-          return (
-            convert(Math.floor(num / 100000)) +
-            " LAKH" +
-            (num % 100000 ? " " + convert(num % 100000) : "")
-          );
-        if (num < 1000000000)
-          return (
-            convert(Math.floor(num / 10000000)) +
-            " CRORE" +
-            (num % 10000000 ? " " + convert(num % 10000000) : "")
-          );
-        if (num <= 9999999999)
-          return (
-            convert(Math.floor(num / 10000000)) +
-            " CRORE" +
-            (num % 10000000 ? " " + convert(num % 10000000) : "")
-          );
-        return "NUMBER TOO LARGE";
-      };
-
-      let words = "";
-      if (dirham > 0) words += convert(dirham) + " DIRHAM";
-      if (fils > 0)
-        words += (dirham > 0 ? " AND " : "") + convert(fils) + " FILS";
-      if (words === "") words = "ZERO DIRHAM";
-
-      return (isNegative ? "MINUS " : "") + words + " ONLY";
-    };
-
-    try {
-      const res = await axiosInstance.get(`/metal-transaction/${purchaseId}`);
-      const purchaseData = res.data;
-      console.log("particular data", purchaseData);
-
-      const purchase = purchaseData.data;
-      console.log("purchase data", purchase.vatottucherNumber);
-
-      // tableData with formatted numbers
-      const tableData = purchase.stockItems?.map((item) => {
-        const grossWeight = parseFloat(item.grossWeight) || 0;
-        const makingChargesTotal =
-          parseFloat(item.itemTotal?.makingChargesTotal) || 0;
-        const calculatedRate = makingChargesTotal / grossWeight || 0;
-        return {
-          description: item.description || "",
-          grossWt: formatNumber(item.grossWeight || 0),
-          purity: item.purity || 0,
-          pureWt: formatNumber(item.pureWeight || 0),
-          makingRate: formatNumber(item.makingRate || 0),
-          makingAmount: formatNumber(item.makingAmount || 0),
-          taxableAmt: formatNumber(item.taxableAmt || 0),
-          vatPercent: formatNumber(item.vatPercent || 0),
-          vatAmt: formatNumber(item.itemTotal?.vatAmount || 0),
-          totalAmt: purchase.fixed
-            ? formatNumber(item.itemTotal?.itemTotalAmount || 0)
-            : "0.00",
-          type: item.unfix,
-          rate: formatNumber(calculatedRate),
-          amount: formatNumber(item.itemTotal?.makingChargesTotal || 0),
-        };
-      });
-      console.log("tableData", tableData);
-
-      const doc = new jsPDF();
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const centerX = pageWidth / 2;
-
-      // === HEADER SECTION ===
-          const headingTitle = purchase.fixed ? 'METAL PURCHASE RETURN FIXING' : 'METAL PURCHASE RETURN UNFIXING';
-
-      const logoImg = "/assets/logo.png";
-
-      const boxStartYs = 5;
-      const logoWidth = 20;
-      const logoHeight = 20;
-      const logoX = pageWidth / 2 - logoWidth / 2;
-      const logoY = boxStartYs + 2;
-
-      // === CENTERED LOGO ===
-      doc.addImage(logoImg, "PNG", logoX, logoY, logoWidth, logoHeight);
-
-      // === HEADING TITLE ===
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(12);
-      doc.text(headingTitle, pageWidth - 14, logoY + logoHeight + 4, {
-        align: "right",
-      });
-
-      // === Separator Line ===
-      const separatorY = logoY + logoHeight + 8;
-      doc.setDrawColor(223, 223, 223);
-      doc.setLineWidth(0.3);
-      doc.line(14, separatorY, pageWidth - 14, separatorY);
-
-      // === INFO BOX ===
-      const infoStartY = separatorY + 6;
-      const leftX = 14;
-      const rightX = pageWidth / 2 + 4;
-      const lineSpacing = 5;
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
-
-      // LEFT SIDE: Party Info
-      doc.text(
-        `Party Name : ${purchase.partyCode.customerName || "N/A"}`,
-        leftX,
-        infoStartY
-      );
-      doc.text(
-        `Phone      : ${purchase.partyCode.addresses.phoneNumber1 || "N/A"}`,
-        leftX,
-        infoStartY + lineSpacing
-      );
-      doc.text(
-        `Email      : ${purchase.partyCode.addresses.email || "N/A"}`,
-        leftX,
-        infoStartY + lineSpacing * 2
-      );
-
-      // RIGHT SIDE: Purchase Info
-      doc.text(
-        `PUR NO     : ${purchase.voucherNumber || "N/A"}`,
-        rightX,
-        infoStartY
-      );
-      doc.text(
-        `Date       : ${purchase.formattedVoucherDate || "N/A"}`,
-        rightX,
-        infoStartY + lineSpacing
-      );
-      doc.text(
-        `Terms      : ${purchase.paymentTerms || "Cash"}`,
-        rightX,
-        infoStartY + lineSpacing * 2
-      );
-      doc.text(
-        `Salesman   : ${purchase.salesman || "N/A"}`,
-        rightX,
-        infoStartY + lineSpacing * 3
-      );
-      const goldRate = formatNumber(
-        purchase.stockItems?.[0]?.metalRateRequirements?.rate || 0
-      );
-      doc.text(
-        `Gold Rate  : ${goldRate} /GOZ`,
-        rightX,
-        infoStartY + lineSpacing * 4
-      );
-
-      // === BOX BORDERS ===
-      const boxTopY = infoStartY - 6;
-      const boxBottomY = infoStartY + lineSpacing * 5;
-      doc.setDrawColor(205, 205, 205);
-      doc.setLineWidth(0.5);
-
-      // Top border
-      doc.line(14, boxTopY, pageWidth - 14, boxTopY);
-
-      // Bottom border
-      doc.line(14, boxBottomY, pageWidth - 14, boxBottomY);
-
-      // Middle vertical divider
-      const centerXs = pageWidth / 2;
-      doc.line(centerXs, boxTopY, centerX, boxBottomY);
-
-      // === MAIN ITEMS TABLE ===
-      let tableStartY = logoY + logoHeight + 50;
-
-      // Calculate totals
-      const totalAmt = purchase.fixed
-        ? tableData.reduce((acc, curr) => {
-            const value = parseFloat(curr.totalAmt.replace(/,/g, "") || "0");
-            return acc + (isNaN(value) ? 0 : value);
-          }, 0)
-        : 0;
-
-      const totalGrossWt = tableData.reduce((acc, curr) => {
-        const value = parseFloat(curr.grossWt.replace(/,/g, "") || "0");
-        return acc + (isNaN(value) ? 0 : value);
-      }, 0);
-
-      const totalPureWt = tableData.reduce((acc, curr) => {
-        const value = parseFloat(curr.pureWt.replace(/,/g, "") || "0");
-        return acc + (isNaN(value) ? 0 : value);
-      }, 0);
-
-      const totalVAT = purchase.fixed
-        ? tableData.reduce((acc, curr) => {
-            const value = parseFloat(curr.vatAmt.replace(/,/g, "") || "0");
-            return acc + (isNaN(value) ? 0 : value);
-          }, 0)
-        : 0;
-
-      const totalMakingAmount = purchase.fixed
-        ? tableData.reduce((acc, curr) => {
-            const value = parseFloat(
-              curr.makingAmount.replace(/,/g, "") || "0"
-            );
-            return acc + (isNaN(value) ? 0 : value);
-          }, 0)
-        : 0;
-
-      const totalTaxableAmt = purchase.fixed
-        ? tableData.reduce((acc, curr) => {
-            const value = parseFloat(curr.taxableAmt.replace(/,/g, "") || "0");
-            return acc + (isNaN(value) ? 0 : value);
-          }, 0)
-        : 0;
-
-      const avgVATPercent =
-        purchase.fixed && tableData.length > 0
-          ? tableData.reduce((acc, curr) => {
-              const value = parseFloat(
-                curr.vatPercent.replace(/,/g, "") || "0"
-              );
-              return acc + (isNaN(value) ? 0 : value);
-            }, 0) / tableData.length
-          : 0;
-
-      // Table columns (same for both fixing and unfixing)
-      const tableColumns = [
-        {
-          content: "#",
-          rowSpan: 2,
-          styles: { halign: "center", valign: "middle" },
-        },
-        {
-          content: "Stock Description",
-          rowSpan: 2,
-          styles: { halign: "center", valign: "middle" },
-        },
-        {
-          content: "Gross Wt.",
-          rowSpan: 2,
-          styles: { halign: "center", valign: "middle" },
-        },
-        {
-          content: "Purity",
-          rowSpan: 2,
-          styles: { halign: "center", valign: "middle" },
-        },
-        {
-          content: "Pure Wt.",
-          rowSpan: 2,
-          styles: { halign: "center", valign: "middle" },
-        },
-        {
-          content: "Making (AED)",
-          colSpan: 2,
-          styles: { halign: "center", valign: "middle" },
-        },
-        {
-          content: "Taxable Amt (AED)",
-          rowSpan: 2,
-          styles: { halign: "center", valign: "middle" },
-        },
-        {
-          content: "VAT%",
-          rowSpan: 2,
-          styles: { halign: "center", valign: "middle" },
-        },
-        {
-          content: "VAT Amt (AED)",
-          rowSpan: 2,
-          styles: { halign: "center", valign: "middle" },
-        },
-        {
-          content: "Total Amt (AED)",
-          rowSpan: 2,
-          styles: { halign: "center", valign: "middle" },
-        },
-      ];
-
-      const tableSubColumns = [
-        { content: "Rate", styles: { halign: "center", valign: "middle" } },
-        { content: "Amount", styles: { halign: "center", valign: "middle" } },
-      ];
-
-      // Table body
-      const tableBody = tableData.map((item, index) => [
-        { content: (index + 1).toString(), styles: { halign: "center" } },
-        { content: item.description, styles: { halign: "left" } },
-        { content: item.grossWt, styles: { halign: "right" } },
-        { content: item.purity, styles: { halign: "right" } },
-        { content: item.pureWt, styles: { halign: "right" } },
-        { content: item.rate, styles: { halign: "right" } },
-        { content: item.amount, styles: { halign: "right" } },
-        { content: item.taxableAmt, styles: { halign: "right" } },
-        { content: item.vatPercent, styles: { halign: "right" } },
-        { content: item.vatAmt, styles: { halign: "right" } },
-        { content: item.totalAmt, styles: { halign: "right" } },
-      ]);
-
-      autoTable(doc, {
-        startY: tableStartY,
-        head: [tableColumns, tableSubColumns],
-        body: tableBody,
-        theme: "grid",
-        styles: {
-          fontSize: 8,
-          font: "helvetica",
-          textColor: 0,
-          lineWidth: 0.3,
-        },
-        headStyles: {
-          fillColor: [230, 230, 230],
-          textColor: 0,
-          fontStyle: "bold",
-          fontSize: 8,
-          halign: "center",
-          valign: "middle",
-        },
-        bodyStyles: {
-          fontSize: 8,
-          valign: "middle",
-        },
-        margin: { left: 14, right: 14 },
-        tableWidth: "auto",
-        tableheight: "auto",
-        didParseCell: function (data) {
-          const isFirstColumn = data.column.index === 0;
-          const isLastColumn =
-            data.column.index === data.table.columns.length - 1;
-
-          if (isFirstColumn) {
-            data.cell.styles.lineWidth = {
-              left: 0,
-              right: 0.3,
-              top: 0.3,
-              bottom: 0.3,
-            };
-          } else if (isLastColumn) {
-            data.cell.styles.lineWidth = {
-              left: 0.3,
-              right: 0,
-              top: 0.3,
-              bottom: 0.3,
-            };
-          }
-        },
-      });
-
-      // === TOTALS SUMMARY BOX ===
-      const totalsStartY = doc.lastAutoTable.finalY;
-      const tableWidth = pageWidth / 3;
-      const leftMargin = pageWidth - tableWidth - 14;
-
-      let totalBoxHeight = 0;
-      let totalBoxTopY = totalsStartY;
-
-      const totalsBody = purchase.fixed
-        ? [
-            [
-              {
-                content: "VAT %",
-                styles: { fontStyle: "bold", halign: "center" },
-              },
-              {
-                content: formatNumber(avgVATPercent),
-                styles: { fontStyle: "bold", halign: "center" },
-              },
-            ],
-            [
-              {
-                content: "VAT Amount (AED)",
-                styles: { fontStyle: "bold", halign: "center" },
-              },
-              {
-                content: formatNumber(totalVAT),
-                styles: { fontStyle: "bold", halign: "center" },
-              },
-            ],
-            [
-              {
-                content: "Taxable Amount (AED)",
-                styles: { fontStyle: "bold", halign: "center" },
-              },
-              {
-                content: formatNumber(totalTaxableAmt),
-                styles: { fontStyle: "bold", halign: "center" },
-              },
-            ],
-            [
-              {
-                content: "Total Amount (AED)",
-                styles: { fontStyle: "bold", halign: "center" },
-              },
-              {
-                content: formatNumber(totalAmt),
-                styles: { fontStyle: "bold", halign: "center" },
-              },
-            ],
-          ]
-        : [
-            [
-              {
-                content: "Total Gross Wt.",
-                styles: { fontStyle: "bold", halign: "center" },
-              },
-              {
-                content: formatNumber(totalGrossWt),
-                styles: { fontStyle: "bold", halign: "center" },
-              },
-            ],
-          ];
-
-      autoTable(doc, {
-        startY: totalsStartY,
-        body: totalsBody,
-        theme: "plain",
-        styles: {
-          fontSize: 8,
-          font: "helvetica",
-          textColor: 0,
-          lineWidth: 0,
-          cellPadding: { top: 1, bottom: 4, left: 2, right: 2 },
-        },
-        columnStyles: {
-          0: { cellWidth: tableWidth / 2 },
-          1: { cellWidth: tableWidth / 2 },
-        },
-        margin: { left: leftMargin, right: 14 },
-        tableWidth: tableWidth,
-        showHead: "never",
-        didDrawPage: (data) => {
-          totalBoxHeight = data.cursor.y - totalBoxTopY;
-          doc.setDrawColor(205, 205, 205);
-          doc.setLineWidth(0.3);
-
-          // Draw only top, left, and bottom
-          doc.line(
-            leftMargin,
-            totalBoxTopY,
-            leftMargin + tableWidth,
-            totalBoxTopY
-          );
-          doc.line(
-            leftMargin,
-            totalBoxTopY,
-            leftMargin,
-            totalBoxTopY + totalBoxHeight
-          );
-          doc.line(
-            leftMargin,
-            totalBoxTopY + totalBoxHeight,
-            leftMargin + tableWidth,
-            totalBoxTopY + totalBoxHeight
-          );
-        },
-      });
-
-      // === ACCOUNT UPDATE SECTION ===
-      const accountUpdateY = (doc.lastAutoTable?.finalY || 120) + 15;
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
-      doc.setTextColor(0, 0, 0);
-      doc.text("Your account has been updated with:", 14, accountUpdateY);
-
-      // Values
-      const creditAmount = purchase.fixed ? formatNumber(totalAmt) : "0.00";
-      const creditWords = purchase.fixed
-        ? numberToDirhamWords(totalAmt)
-        : "ZERO UAE DIRHAMS ONLY";
-      const pureWeightGrams = formatNumber(totalPureWt * 1000);
-
-      // Shared styles
-      const sharedStyles = {
-        fontSize: 8,
-        font: "helvetica",
-        textColor: 0,
-        cellPadding: { top: 1.5, bottom: 1.5, left: 3, right: 3 },
-        lineColor: [0, 0, 0],
-        lineWidth: 0.3,
-      };
-
-      let boxStartY = accountUpdateY + 4;
-
-      // === Box 1 ===
-      autoTable(doc, {
-        startY: boxStartY,
-        body: [
-          [
-            {
-              content: `${creditAmount} CREDITED`,
-              styles: { ...sharedStyles, fontStyle: "bold", halign: "left" },
-            },
-            {
-              content: creditWords,
-              styles: { ...sharedStyles, fontStyle: "italic", halign: "left" },
-            },
-          ],
-        ],
-        theme: "plain",
-        styles: sharedStyles,
-        columnStyles: {
-          0: { cellWidth: 80 },
-          1: { cellWidth: pageWidth - 108 },
-        },
-        margin: { left: 14, right: 14 },
-        showHead: "never",
-        didDrawPage: (data) => {
-          boxStartY = data.cursor.y;
-        },
-      });
-
-      // === Box 2 ===
-      autoTable(doc, {
-        startY: boxStartY,
-        body: [
-          [
-            {
-              content: `${pureWeightGrams} GMS CREDITED`,
-              styles: { ...sharedStyles, fontStyle: "bold", halign: "left" },
-            },
-            {
-              content: `GOLD ${pureWeightGrams} Point Gms`,
-              styles: { ...sharedStyles, fontStyle: "italic", halign: "left" },
-            },
-          ],
-        ],
-        theme: "plain",
-        styles: sharedStyles,
-        columnStyles: {
-          0: { cellWidth: 80 },
-          1: { cellWidth: pageWidth - 108 },
-        },
-        margin: { left: 14, right: 14 },
-        showHead: "never",
-        didDrawPage: (data) => {
-          boxStartY = data.cursor.y;
-        },
-      });
-
-      // === Box 3 ===
-      autoTable(doc, {
-        startY: boxStartY,
-        body: [
-          [
-            {
-              content: `${
-                purchase.fixed ? "fix" : "unfix"
-              } buy pure gold ${pureWeightGrams} gm @`,
-              colSpan: 2,
-              styles: { ...sharedStyles, halign: "left" },
-            },
-          ],
-        ],
-        theme: "plain",
-        styles: sharedStyles,
-        columnStyles: {
-          0: { cellWidth: pageWidth - 28 },
-        },
-        margin: { left: 14, right: 14 },
-        showHead: "never",
-      });
-
-      // === FOOTER SECTION ===
-      const footerY = doc.lastAutoTable.finalY + 15;
-      const signedBy = purchase.salesman || "AUTHORIZED SIGNATORY";
-
-      doc.setFont("helvetica", "italic");
-      doc.setFontSize(9);
-      doc.text("Confirmed on behalf of", 14, footerY);
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
-      doc.text(signedBy, 14, footerY + 5);
-
-      // === SIGNATURE SECTION ===
-      const sigY = footerY + 25;
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
-      doc.setTextColor(0, 0, 0);
-
-      // Signature lines
-      doc.setLineWidth(0.3);
-      doc.setDrawColor(150, 150, 150);
-      doc.line(20, sigY - 2, 70, sigY - 2);
-      doc.line(80, sigY - 2, 130, sigY - 2);
-      doc.line(140, sigY - 2, 190, sigY - 2);
-
-      doc.text("PARTY'S SIGNATURE", 45, sigY + 3, null, null, "center");
-      doc.text("CHECKED BY", 105, sigY + 3, null, null, "center");
-      doc.text("AUTHORIZED SIGNATORY", 165, sigY + 3, null, null, "center");
-
-      // === SAVE PDF ===
-      doc.save(`metal-purchase-${purchase.voucherNumber || "N/A"}.pdf`);
-    } catch (error) {
-      console.error("Error generating PDF:", error);
-    }
+const handleDownloadPDF = async (purchaseId) => {
+  const formatNumber = (num, decimals = 2) => {
+    if (num === null || num === undefined || isNaN(num)) return "0.00";
+    return Number(num).toLocaleString("en-US", {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    });
   };
+
+  const numberToDirhamWords = (amount) => {
+    if (amount === null || amount === undefined || isNaN(amount) || amount === "") {
+      return "INVALID AMOUNT";
+    }
+    const num = Number(amount);
+    const isNegative = num < 0;
+    const absoluteNum = Math.abs(num);
+    const [integerPart, decimalPartRaw] = absoluteNum.toFixed(2).split(".");
+    const integer = parseInt(integerPart, 10) || 0;
+    const decimal = parseInt(decimalPartRaw, 10) || 0;
+
+    const a = [
+      "", "ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE",
+      "TEN", "ELEVEN", "TWELVE", "THIRTEEN", "FOURTEEN", "FIFTEEN", "SIXTEEN",
+      "SEVENTEEN", "EIGHTEEN", "NINETEEN",
+    ];
+    const b = ["", "", "TWENTY", "THIRTY", "FORTY", "FIFTY", "SIXTY", "SEVENTY", "EIGHTY", "NINETY"];
+
+    const convert = (num) => {
+      if (num === 0) return "";
+      if (num < 20) return a[num];
+      if (num < 100) return b[Math.floor(num / 10)] + (num % 10 ? " " + a[num % 10] : "");
+      if (num < 1000) return a[Math.floor(num / 100)] + " HUNDRED" + (num % 100 ? " " + convert(num % 100) : "");
+      if (num < 100000) return convert(Math.floor(num / 1000)) + " THOUSAND" + (num % 1000 ? " " + convert(num % 1000) : "");
+      if (num < 10000000) return convert(Math.floor(num / 100000)) + " LAKH" + (num % 100000 ? " " + convert(num % 100000) : "");
+      if (num < 1000000000) return convert(Math.floor(num / 10000000)) + " CRORE" + (num % 10000000 ? " " + convert(num % 10000000) : "");
+      return "NUMBER TOO LARGE";
+    };
+
+    let words = "";
+    if (integer > 0) words += convert(integer) + ` ${formData.partyCurrencyCode || "AED"}`;
+    if (decimal > 0) words += (integer > 0 ? " AND " : "") + convert(decimal) + " FILS";
+    if (words === "") words = `ZERO ${formData.partyCurrencyCode || "AED"}`;
+    return (isNegative ? "MINUS " : "") + words + " ONLY";
+  };
+
+  try {
+    const res = await axiosInstance.get(`/metal-transaction/${purchaseId}`);
+    const purchaseData = res.data;
+    const purchase = purchaseData.data;
+
+    // Use the currency from formData or fall back to purchase data
+    const currencyCode = formData.partyCurrencyCode || purchase.partyCurrency?.currencyCode || "AED";
+
+    const tableData = purchase.stockItems?.map((item) => {
+      const grossWeight = parseFloat(item.grossWeight) || 0;
+      const makingChargesTotal = parseFloat(item.itemTotal?.makingChargesTotal) || 0;
+      const calculatedRate = makingChargesTotal / grossWeight || 0;
+      return {
+        description: item.description || "",
+        grossWt: formatNumber(item.grossWeight || 0, 3),
+        purity: formatNumber(item.purity || 0, 6),
+        pureWt: formatNumber(item.pureWeight || 0, 3),
+        makingRate: formatNumber(item.makingRate || 0, 2),
+        makingAmount: formatNumber(item.makingAmount || 0, 2),
+        taxableAmt: formatNumber(item.taxableAmt || 0, 2),
+        vatPercent: formatNumber(item.vatPercent || item.itemTotal?.vatPercentage || 0, 2),
+        vatAmt: formatNumber(item.itemTotal?.vatAmount || 0, 2),
+        totalAmt: purchase.fixed ? formatNumber(item.itemTotal?.itemTotalAmount || 0, 2) : "0.00",
+        type: item.unfix ? "Unfix" : "Fix",
+        rate: formatNumber(calculatedRate, 2),
+        amount: formatNumber(item.itemTotal?.makingChargesTotal || 0, 2),
+      };
+    }) || [];
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const centerX = pageWidth / 2;
+
+    // Header Section
+    const headingTitle = purchase.fixed ? "METAL PURCHASE RETURN FIXING" : "METAL PURCHASE RETURN UNFIXING";
+    const logoImg = "/assets/logo.png";
+    const boxStartYs = 5;
+    const logoWidth = 20;
+    const logoHeight = 20;
+    const logoX = pageWidth / 2 - logoWidth / 2;
+    const logoY = boxStartYs + 2;
+
+    doc.addImage(logoImg, "PNG", logoX, logoY, logoWidth, logoHeight);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text(headingTitle, pageWidth - 14, logoY + logoHeight + 4, { align: "right" });
+
+    const separatorY = logoY + logoHeight + 8;
+    doc.setDrawColor(223, 223, 223);
+    doc.setLineWidth(0.3);
+    doc.line(14, separatorY, pageWidth - 14, separatorY);
+
+    // Info Box
+    const infoStartY = separatorY + 6;
+    const leftX = 14;
+    const rightX = pageWidth / 2 + 4;
+    const lineSpacing = 5;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text(`Party Name : ${purchase.partyCode?.customerName || "N/A"}`, leftX, infoStartY);
+    doc.text(`Phone      : ${purchase.partyCode?.addresses?.phoneNumber1 || "N/A"}`, leftX, infoStartY + lineSpacing);
+    doc.text(`Email      : ${purchase.partyCode?.addresses?.email || "N/A"}`, leftX, infoStartY + lineSpacing * 2);
+
+    doc.text(`PUR NO     : ${purchase.voucherNumber || "N/A"}`, rightX, infoStartY);
+    doc.text(`Date       : ${purchase.formattedVoucherDate || purchase.voucherDate.split("T")[0] || "N/A"}`, rightX, infoStartY + lineSpacing);
+    doc.text(`Terms      : ${purchase.paymentTerms || "Cash"}`, rightX, infoStartY + lineSpacing * 2);
+    doc.text(`Salesman   : ${purchase.salesman || "N/A"}`, rightX, infoStartY + lineSpacing * 3);
+    const goldRate = formatNumber(purchase.stockItems?.[0]?.metalRateRequirements?.rate || 0, 2);
+    doc.text(`Gold Rate  : ${goldRate} ${currencyCode}/KGBAR`, rightX, infoStartY + lineSpacing * 4);
+
+    const boxTopY = infoStartY - 6;
+    const boxBottomY = infoStartY + lineSpacing * 5;
+    doc.setDrawColor(205, 205, 205);
+    doc.setLineWidth(0.5);
+    doc.line(14, boxTopY, pageWidth - 14, boxTopY);
+    doc.line(14, boxBottomY, pageWidth - 14, boxBottomY);
+    const centerXs = pageWidth / 2;
+    doc.line(centerXs, boxTopY, centerX, boxBottomY);
+
+    // Main Items Table
+    let tableStartY = logoY + logoHeight + 50;
+    const totalAmt = purchase.fixed
+      ? tableData.reduce((acc, curr) => acc + parseFloat(curr.totalAmt.replace(/,/g, "") || "0"), 0)
+      : 0;
+    const totalGrossWt = tableData.reduce((acc, curr) => acc + parseFloat(curr.grossWt.replace(/,/g, "") || "0"), 0);
+    const totalPureWt = tableData.reduce((acc, curr) => acc + parseFloat(curr.pureWt.replace(/,/g, "") || "0"), 0);
+    const totalVAT = purchase.fixed
+      ? tableData.reduce((acc, curr) => acc + parseFloat(curr.vatAmt.replace(/,/g, "") || "0"), 0)
+      : 0;
+    const totalMakingAmount = purchase.fixed
+      ? tableData.reduce((acc, curr) => acc + parseFloat(curr.makingAmount.replace(/,/g, "") || "0"), 0)
+      : 0;
+    const totalTaxableAmt = purchase.fixed
+      ? tableData.reduce((acc, curr) => acc + parseFloat(curr.taxableAmt.replace(/,/g, "") || "0"), 0)
+      : 0;
+    const avgVATPercent = purchase.fixed && tableData.length > 0
+      ? tableData.reduce((acc, curr) => acc + parseFloat(curr.vatPercent.replace(/,/g, "") || "0"), 0) / tableData.length
+      : 0;
+
+    const tableColumns = [
+      { content: "#", rowSpan: 2, styles: { halign: "center", valign: "middle" } },
+      { content: "Stock Description", rowSpan: 2, styles: { halign: "center", valign: "middle" } },
+      { content: "Gross Wt.", rowSpan: 2, styles: { halign: "center", valign: "middle" } },
+      { content: "Purity", rowSpan: 2, styles: { halign: "center", valign: "middle" } },
+      { content: "Pure Wt.", rowSpan: 2, styles: { halign: "center", valign: "middle" } },
+      { content: `Making (${currencyCode})`, colSpan: 2, styles: { halign: "center", valign: "middle" } },
+      { content: `Taxable Amt (${currencyCode})`, rowSpan: 2, styles: { halign: "center", valign: "middle" } },
+      { content: "VAT%", rowSpan: 2, styles: { halign: "center", valign: "middle" } },
+      { content: `VAT Amt (${currencyCode})`, rowSpan: 2, styles: { halign: "center", valign: "middle" } },
+      { content: `Total Amt (${currencyCode})`, rowSpan: 2, styles: { halign: "center", valign: "middle" } },
+    ];
+
+    const tableSubColumns = [
+      { content: "Rate", styles: { halign: "center", valign: "middle" } },
+      { content: "Amount", styles: { halign: "center", valign: "middle" } },
+    ];
+
+    const tableBody = tableData.map((item, index) => [
+      { content: (index + 1).toString(), styles: { halign: "center" } },
+      { content: item.description, styles: { halign: "left" } },
+      { content: item.grossWt, styles: { halign: "right" } },
+      { content: item.purity, styles: { halign: "right" } },
+      { content: item.pureWt, styles: { halign: "right" } },
+      { content: item.rate, styles: { halign: "right" } },
+      { content: item.amount, styles: { halign: "right" } },
+      { content: item.taxableAmt, styles: { halign: "right" } },
+      { content: item.vatPercent, styles: { halign: "right" } },
+      { content: item.vatAmt, styles: { halign: "right" } },
+      { content: item.totalAmt, styles: { halign: "right" } },
+    ]);
+
+    autoTable(doc, {
+      startY: tableStartY,
+      head: [tableColumns, tableSubColumns],
+      body: tableBody,
+      theme: "grid",
+      styles: { fontSize: 8, font: "helvetica", textColor: 0, lineWidth: 0.3 },
+      headStyles: { fillColor: [230, 230, 230], textColor: 0, fontStyle: "bold", fontSize: 8, halign: "center", valign: "middle" },
+      bodyStyles: { fontSize: 8, valign: "middle" },
+      margin: { left: 14, right: 14 },
+      tableWidth: "auto",
+      didParseCell: function (data) {
+        const isFirstColumn = data.column.index === 0;
+        const isLastColumn = data.column.index === data.table.columns.length - 1;
+        if (isFirstColumn) {
+          data.cell.styles.lineWidth = { left: 0, right: 0.3, top: 0.3, bottom: 0.3 };
+        } else if (isLastColumn) {
+          data.cell.styles.lineWidth = { left: 0.3, right: 0, top: 0.3, bottom: 0.3 };
+        }
+      },
+    });
+
+    // Totals Summary Box
+    const totalsStartY = doc.lastAutoTable.finalY;
+    const tableWidth = pageWidth / 3;
+    const leftMargin = pageWidth - tableWidth - 14;
+
+    const totalsBody = purchase.fixed
+      ? [
+          [{ content: "VAT %", styles: { fontStyle: "bold", halign: "center" } }, { content: formatNumber(avgVATPercent, 2), styles: { fontStyle: "bold", halign: "center" } }],
+          [{ content: `VAT Amount (${currencyCode})`, styles: { fontStyle: "bold", halign: "center" } }, { content: formatNumber(totalVAT, 2), styles: { fontStyle: "bold", halign: "center" } }],
+          [{ content: `Taxable Amount (${currencyCode})`, styles: { fontStyle: "bold", halign: "center" } }, { content: formatNumber(totalTaxableAmt, 2), styles: { fontStyle: "bold", halign: "center" } }],
+          [{ content: `Total Amount (${currencyCode})`, styles: { fontStyle: "bold", halign: "center" } }, { content: formatNumber(totalAmt, 2), styles: { fontStyle: "bold", halign: "center" } }],
+        ]
+      : [
+          [{ content: "Total Gross Wt.", styles: { fontStyle: "bold", halign: "center" } }, { content: formatNumber(totalGrossWt, 3), styles: { fontStyle: "bold", halign: "center" } }],
+        ];
+
+    autoTable(doc, {
+      startY: totalsStartY,
+      body: totalsBody,
+      theme: "plain",
+      styles: { fontSize: 8, font: "helvetica", textColor: 0, lineWidth: 0, cellPadding: { top: 1, bottom: 4, left: 2, right: 2 } },
+      columnStyles: { 0: { cellWidth: tableWidth / 2 }, 1: { cellWidth: tableWidth / 2 } },
+      margin: { left: leftMargin, right: 14 },
+      tableWidth: tableWidth,
+      showHead: "never",
+      didDrawPage: (data) => {
+        const totalBoxHeight = data.cursor.y - totalsStartY;
+        doc.setDrawColor(205, 205, 205);
+        doc.setLineWidth(0.3);
+        doc.line(leftMargin, totalsStartY, leftMargin + tableWidth, totalsStartY);
+        doc.line(leftMargin, totalsStartY, leftMargin, totalsStartY + totalBoxHeight);
+        doc.line(leftMargin, totalsStartY + totalBoxHeight, leftMargin + tableWidth, totalsStartY + totalBoxHeight);
+      },
+    });
+
+    // Account Update Section
+    const accountUpdateY = (doc.lastAutoTable?.finalY || 120) + 15;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.text("Your account has been updated with:", 14, accountUpdateY);
+
+    const creditAmount = purchase.fixed ? formatNumber(totalAmt, 2) : "0.00";
+    const creditWords = purchase.fixed ? numberToDirhamWords(totalAmt) : `ZERO ${currencyCode} ONLY`;
+    const pureWeightGrams = formatNumber(totalPureWt * 1000, 3);
+
+    const sharedStyles = {
+      fontSize: 8,
+      font: "helvetica",
+      textColor: 0,
+      cellPadding: { top: 1.5, bottom: 1.5, left: 3, right: 3 },
+      lineColor: [0, 0, 0],
+      lineWidth: 0.3,
+    };
+
+    let boxStartY = accountUpdateY + 4;
+    autoTable(doc, {
+      startY: boxStartY,
+      body: [
+        [
+          { content: `${creditAmount} ${currencyCode} CREDITED`, styles: { ...sharedStyles, fontStyle: "bold", halign: "left" } },
+          { content: creditWords, styles: { ...sharedStyles, fontStyle: "italic", halign: "left" } },
+        ],
+      ],
+      theme: "plain",
+      styles: sharedStyles,
+      columnStyles: { 0: { cellWidth: 80 }, 1: { cellWidth: pageWidth - 108 } },
+      margin: { left: 14, right: 14 },
+      showHead: "never",
+      didDrawPage: (data) => { boxStartY = data.cursor.y; },
+    });
+
+    autoTable(doc, {
+      startY: boxStartY,
+      body: [
+        [
+          { content: `${pureWeightGrams} GMS CREDITED`, styles: { ...sharedStyles, fontStyle: "bold", halign: "left" } },
+          { content: `GOLD ${pureWeightGrams} Point Gms`, styles: { ...sharedStyles, fontStyle: "italic", halign: "left" } },
+        ],
+      ],
+      theme: "plain",
+      styles: sharedStyles,
+      columnStyles: { 0: { cellWidth: 80 }, 1: { cellWidth: pageWidth - 108 } },
+      margin: { left: 14, right: 14 },
+      showHead: "never",
+      didDrawPage: (data) => { boxStartY = data.cursor.y; },
+    });
+
+    autoTable(doc, {
+      startY: boxStartY,
+      body: [
+        [
+          { content: `${purchase.fixed ? "fix" : "unfix"} buy pure gold ${pureWeightGrams} gm @`, colSpan: 2, styles: { ...sharedStyles, halign: "left" } },
+        ],
+      ],
+      theme: "plain",
+      styles: sharedStyles,
+      columnStyles: { 0: { cellWidth: pageWidth - 28 } },
+      margin: { left: 14, right: 14 },
+      showHead: "never",
+    });
+
+    // Footer Section
+    const footerY = doc.lastAutoTable.finalY + 15;
+    const signedBy = purchase.salesman || "AUTHORIZED SIGNATORY";
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(9);
+    doc.text("Confirmed on behalf of", 14, footerY);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text(signedBy, 14, footerY + 5);
+
+    // Signature Section
+    const sigY = footerY + 25;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0);
+    doc.setLineWidth(0.3);
+    doc.setDrawColor(150, 150, 150);
+    doc.line(20, sigY - 2, 70, sigY - 2);
+    doc.line(80, sigY - 2, 130, sigY - 2);
+    doc.line(140, sigY - 2, 190, sigY - 2);
+    doc.text("PARTY'S SIGNATURE", 45, sigY + 3, null, null, "center");
+    doc.text("CHECKED BY", 105, sigY + 3, null, null, "center");
+    doc.text("AUTHORIZED SIGNATORY", 165, sigY + 3, null, null, "center");
+
+    // Save PDF
+    doc.save(`metal-purchase-return-${purchase.voucherNumber || "N/A"}.pdf`);
+  } catch (error) {
+    console.error("Error generating PDF:", error);
+    toast.error("Failed to generate PDF");
+  }
+};
 
   // Handle voucher query parameter to open edit modal
   useEffect(() => {
@@ -1634,7 +1285,7 @@ const handleCurrencyChange = (option) => {
         body: [
           [
             {
-              content: `GOLD VALUE @${goldRate}/GOZ(AED)`,
+              content: `GOLD VALUE @${goldRate}/KGBAR(AED)`,
               styles: { halign: "left", fontStyle: "bold" },
             },
             {
@@ -1778,7 +1429,7 @@ const handleCurrencyChange = (option) => {
       doc.text("AUTHORISED SIGNATORY", 170, sigY, null, null, "center");
 
       // Save PDF
-      doc.save("filtered-metal-purchase-return.pdf");
+      doc.save("filtered-metal-purchases-return.pdf");
       toast.success(
         "Filtered purchase return transactions exported to PDF successfully!"
       );
@@ -2027,7 +1678,6 @@ const handleEdit = useCallback(
 
       const transactionPartyCurrencyId = transaction.partyCurrency?._id || transaction.partyCurrency;
       const transactionItemCurrencyId = transaction.itemCurrency?._id || transaction.itemCurrency;
-
       if (transactionPartyCurrencyId) {
         try {
           const currencyResponse = await axiosInstance.get(`/currency-master/${transactionPartyCurrencyId}`);
@@ -2049,8 +1699,8 @@ const handleEdit = useCallback(
       setFormData({
         transactionType: "purchase",
         voucherCode: transaction.voucherNumber || "",
-        voucherType: transaction.voucherType || "PUR",
-        prefix: transaction.prefix || "PUR",
+        voucherType: transaction.voucherType || "PR",
+        prefix: transaction.prefix || "PR",
         voucherDate: transaction.voucherDate
           ? new Date(transaction.voucherDate).toISOString().split("T")[0]
           : today,
@@ -2075,7 +1725,7 @@ const handleEdit = useCallback(
       });
 
       setIsModalOpen(true);
-      showToast("Editing metal purchase", "success");
+      showToast("Editing metal purchase return", "success");
     } catch (error) {
       setError("Failed to fetch transaction data for editing");
       showToast("Failed to load transaction data", "error");
@@ -2084,198 +1734,212 @@ const handleEdit = useCallback(
   [today, axiosInstance, fetchPartyDetails, showToast]
 );
 
-  const handleSave = useCallback(async () => {
-    if (
-      !formData.voucherCode ||
-      !formData.partyCode ||
-      tempStockItems.length === 0
-    ) {
-      setError(
-        "Voucher Code, Party Code, and at least one Stock Item are required"
-      );
-      toast.error(
-        "Voucher Code, Party Code, and at least one Stock Item are required",
-        {
-          style: {
-            background: "white",
-            color: "red",
-            border: "1px solid red",
-          },
-        }
-      );
-      return;
-    }
-    setIsSaving(true); // Set loading state
-    const transactionData = {
-      transactionType: "purchaseReturn",
-      fix: formData.fixed ? formData.fixed : false,
-      unfix: formData.internalUnfix ? formData.internalUnfix : false,
-      voucherType: formData.voucherType,
-      voucherDate: formData.voucherDate,
-      voucherNumber: formData.voucherCode,
-      partyCode: formData.partyCode,
-      partyCurrency: formData.partyCurrencyId,
-      itemCurrency: formData.partyCurrencyId,
-      baseCurrency: formData.partyCurrencyId,
-      stockItems: tempStockItems.map((item) => ({
-        stockCode: item.stockId,
-        description: item.description,
-        pieces: Number(item.pcsCount) || 0,
-        grossWeight: Number(item.grossWeight) || 0,
-        purity: Number(item.purity) || 0,
-        pureWeight: Number(item.pureWeight) || 0,
-        purityWeight: Number(item.purityWeight) || 0,
-        weightInOz: Number(item.weightInOz) || 0,
-        metalRate: item.metalRate || "0",
-        metalRateRequirements: {
-          amount: Number(item.metalRateRequirements.amount) || 0,
-          rate: Number(item.metalRateRequirements.rate) || 0,
+const handleSave = useCallback(async () => {
+  if (
+    !formData.voucherCode ||
+    !formData.partyCode ||
+    tempStockItems.length === 0
+  ) {
+    setError(
+      "Voucher Code, Party Code, and at least one Stock Item are required"
+    );
+    toast.error(
+      "Voucher Code, Party Code, and at least one Stock Item are required",
+      {
+        style: {
+          background: "white",
+          color: "red",
+          border: "1px solid red",
         },
-        makingCharges: {
-          amount: Number(item.makingCharges.amount) || 0,
-          rate: Number(item.makingCharges.rate) || 0,
-        },
-        otherCharges: {
-          percentage: item.otherCharges.rate || item.otherCharges.percentage,
-          amount: Number(item.otherCharges.amount) || 0,
-          description: item.otherCharges.description || "",
-          totalAfterOtherCharges:
-            Number(item.otherCharges.totalAfterOtherCharges) || 0,
-        },
-        vat: {
-          vatPercentage: Number(item.itemTotal.vatPercentage) || 0,
-          vatAmount: Number(item.itemTotal.vatAmount) || 0,
-        },
-        premium: {
-          amount: Number(item.premium.amount) || 0,
-          rate: Number(item.premium.rate) || 0,
-        },
-        itemTotal: {
-          baseAmount: Number(item.itemTotal.baseAmount) || 0,
-          makingChargesTotal: Number(item.itemTotal.makingChargesTotal) || 0,
-          premiumTotal: Number(item.itemTotal.premiumTotal) || 0,
-          subTotal: Number(item.itemTotal.subTotal) || 0,
-          vatAmount: Number(item.itemTotal.vatAmount) || 0,
-          itemTotalAmount: Number(item.itemTotal.itemTotalAmount) || 0,
-        },
-        itemNotes: "",
-        itemStatus: "active",
-      })),
-      totalAmountSession: {
-        totalAmountAED: tempStockItems.reduce(
-          (sum, item) => sum + (Number(item.itemTotal.itemTotalAmount) || 0),
-          0
-        ),
-        netAmountAED: tempStockItems.reduce(
-          (sum, item) => sum + (Number(item.itemTotal.subTotal) || 0),
-          0
-        ),
-        vatAmount: tempStockItems.reduce(
-          (sum, item) => sum + (Number(item.itemTotal.vatAmount) || 0),
-          0
-        ),
-        vatPercentage: Number(tempStockItems[0]?.vatPercentage) || 0,
-      },
-      status: "draft",
-      notes: "",
-    };
-    console.log("Submitting transaction data:", transactionData);
-    
-
-    try {
-      if (editingStock) {
-        const response = await axiosInstance.put(
-          `/metal-transaction/${editingStock.id}`,
-          transactionData
-        );
-        console.log(response);
-        toast.success("Metal purchase return updated successfully!", {
-          style: {
-            background: "white",
-            color: "green",
-            border: "1px solid green",
-          },
-        });
-        setIsModalOpen(false);
-        fetchMetalTransactions();
-        setIsDownloadModalOpen(true);
-      } else {
-        const response = await axiosInstance.post(
-          "/metal-transaction",
-          transactionData
-        );
-        const newTransaction = response.data.data;
-        const newStock = {
-          id: formData._id,
-          sl: editingStock
-            ? editingStock.sl
-            : Math.max(...metalPurchase.map((s) => s.sl), 0) + 1,
-          branch: "Main Branch",
-          vocType: formData.voucherType,
-          vocNo: formData.voucherCode,
-          vocDate: formData.voucherDate,
-          partyCode: formData.partyCode,
-          partyName: formData.partyName,
-          stockItems: tempStockItems,
-        };
-
-        setMetalPurchase((prev) =>
-          editingStock
-            ? prev.map((stock) =>
-                stock.sl === editingStock.sl ? newStock : stock
-              )
-            : [...prev, newStock]
-        );
-
-        setStockItems((prev) => [
-          ...prev,
-          ...newTransaction.stockItems.map((item) => ({
-            ...item,
-            transactionId: newTransaction._id,
-            voucherNumber: newTransaction.voucherNumber,
-          })),
-        ]);
-        setNewlyCreatedSale(newStock);
-        setSelectedPurchase(newStock);
-
-        // Show preview after save
-        setShowPreviewAfterSave(true);
-
-        toast.success("Metal purchase return created successfully!", {
-          style: {
-            background: "white",
-            color: "green",
-            border: "1px solid green",
-          },
-        });
-        setIsModalOpen(false);
-        fetchMetalTransactions();
       }
-    } catch (error) {
-      setError(
-        error.response?.data?.message || "Failed to save metal purchase return"
+    );
+    return;
+  }
+
+  // Validate conversion rate
+  const conversionRate = parseFloat(formData.partyCurrencyValue);
+  if (isNaN(conversionRate) || conversionRate <= 0) {
+    setError("Please enter a valid conversion rate greater than 0");
+    toast.error("Please enter a valid conversion rate greater than 0", {
+      style: {
+        background: "white",
+        color: "red",
+        border: "1px solid red",
+      },
+  });
+    return;
+  }
+
+  setIsSaving(true); // Set loading state
+  const transactionData = {
+    transactionType: "purchaseReturn",
+    fix: formData.fixed ? formData.fixed : false,
+    unfix: formData.internalUnfix ? formData.internalUnfix : false,
+    voucherType: formData.voucherType,
+    voucherDate: formData.voucherDate,
+    voucherNumber: formData.voucherCode,
+    partyCode: formData.partyCode,
+    partyCurrency: formData.partyCurrencyId,
+    itemCurrency: formData.itemCurrencyId, 
+    baseCurrency: formData.partyCurrencyId,
+    effectivePartyCurrencyRate: conversionRate, 
+    effectiveItemCurrencyRate: conversionRate, 
+    stockItems: tempStockItems.map((item) => ({
+      stockCode: item.stockId,
+      description: item.description,
+      pieces: Number(item.pcsCount) || 0,
+      grossWeight: Number(item.grossWeight) || 0,
+      purity: Number(item.purity) || 0,
+      pureWeight: Number(item.pureWeight) || 0,
+      purityWeight: Number(item.purityWeight) || 0,
+      weightInOz: Number(item.weightInOz) || 0,
+      metalRate: item.metalRate || "0",
+      metalRateRequirements: {
+        amount: Number(item.metalRateRequirements.amount) || 0,
+        rate: Number(item.metalRateRequirements.rate) || 0,
+      },
+      makingCharges: {
+        amount: Number(item.makingCharges.amount) || 0,
+        rate: Number(item.makingCharges.rate) || 0,
+      },
+      otherCharges: {
+        percentage: item.otherCharges.rate || item.otherCharges.percentage,
+        amount: Number(item.otherCharges.amount) || 0,
+        description: item.otherCharges.description || "",
+        totalAfterOtherCharges:
+          Number(item.otherCharges.totalAfterOtherCharges) || 0,
+      },
+      vat: {
+        vatPercentage: Number(item.itemTotal.vatPercentage) || 0,
+        vatAmount: Number(item.itemTotal.vatAmount) || 0,
+      },
+      premium: {
+        amount: Number(item.premium.amount) || 0,
+        rate: Number(item.premium.rate) || 0,
+      },
+      itemTotal: {
+        baseAmount: Number(item.itemTotal.baseAmount) || 0,
+        makingChargesTotal: Number(item.itemTotal.makingChargesTotal) || 0,
+        premiumTotal: Number(item.itemTotal.premiumTotal) || 0,
+        subTotal: Number(item.itemTotal.subTotal) || 0,
+        vatAmount: Number(item.itemTotal.vatAmount) || 0,
+        itemTotalAmount: Number(item.itemTotal.itemTotalAmount) || 0,
+      },
+      itemNotes: "",
+      itemStatus: "active",
+    })),
+    totalAmountSession: {
+      totalAmountAED: tempStockItems.reduce(
+        (sum, item) => sum + (Number(item.itemTotal.itemTotalAmount) || 0),
+        0
+      ),
+      netAmountAED: tempStockItems.reduce(
+        (sum, item) => sum + (Number(item.itemTotal.subTotal) || 0),
+        0
+      ),
+      vatAmount: tempStockItems.reduce(
+        (sum, item) => sum + (Number(item.itemTotal.vatAmount) || 0),
+        0
+      ),
+      vatPercentage: Number(tempStockItems[0]?.vatPercentage) || 0,
+    },
+    status: "draft",
+    notes: "",
+  };
+
+  try {
+    if (editingStock) {
+      const response = await axiosInstance.put(
+        `/metal-transaction/${editingStock.id}`,
+        transactionData
       );
-      toast.error(
-        error.response?.data?.message || "Failed to save metal purchase return",
-        {
-          style: {
-            background: "white",
-            color: "red",
-            border: "1px solid red",
-          },
-        }
+      toast.success("Metal purchase return updated successfully!", {
+        style: {
+          background: "white",
+          color: "green",
+          border: "1px solid green",
+        },
+      });
+      setIsModalOpen(false);
+      fetchMetalTransactions();
+      setIsDownloadModalOpen(true);
+    } else {
+      const response = await axiosInstance.post(
+        "/metal-transaction",
+        transactionData
       );
-      console.error("Error creating/updating metal transaction:", error);
-    } finally {
-      setIsSaving(false); // Reset loading state
+      console.log("transaction",transactionData);
+      
+      const newTransaction = response.data.data;
+      const newStock = {
+        id: formData._id,
+        sl: editingStock
+          ? editingStock.sl
+          : Math.max(...metalPurchase.map((s) => s.sl), 0) + 1,
+        branch: "Main Branch",
+        vocType: formData.voucherType,
+        vocNo: formData.voucherCode,
+        vocDate: formData.voucherDate,
+        partyCode: formData.partyCode,
+        partyName: formData.partyName,
+        stockItems: tempStockItems,
+      };
+
+      setMetalPurchase((prev) =>
+        editingStock
+          ? prev.map((stock) =>
+              stock.sl === editingStock.sl ? newStock : stock
+            )
+          : [...prev, newStock]
+      );
+
+      setStockItems((prev) => [
+        ...prev,
+        ...newTransaction.stockItems.map((item) => ({
+          ...item,
+          transactionId: newTransaction._id,
+          voucherNumber: newTransaction.voucherNumber,
+        })),
+      ]);
+      setNewlyCreatedSale(newStock);
+      setSelectedPurchase(newStock);
+
+      setShowPreviewAfterSave(true);
+
+      toast.success("Metal purchase return created successfully!", {
+        style: {
+          background: "white",
+          color: "green",
+          border: "1px solid green",
+        },
+      });
+      setIsModalOpen(false);
+      fetchMetalTransactions();
     }
-  }, [
-    formData,
-    tempStockItems,
-    editingStock,
-    metalPurchase,
-    fetchMetalTransactions,
-  ]);
+  } catch (error) {
+    setError(
+      error.response?.data?.message || "Failed to save metal purchase return"
+    );
+    toast.error(
+      error.response?.data?.message || "Failed to save metal purchase return",
+      {
+        style: {
+          background: "white",
+          color: "red",
+          border: "1px solid red",
+        },
+      }
+    );
+  } finally {
+    setIsSaving(false);
+  }
+}, [
+  formData,
+  tempStockItems,
+  editingStock,
+  metalPurchase,
+  fetchMetalTransactions,
+]);
 
   const handleDelete = useCallback(() => {
     if (!editingStock || !editingStock.id) {
@@ -2306,7 +1970,7 @@ const handleEdit = useCallback(
         setStockItems((prev) =>
           prev.filter((item) => item.transactionId !== purchaseToDelete)
         );
-        showToast("Metal purchase deleted successfully", "success");
+        showToast("Metal purchase return deleted successfully", "success");
         await fetchMetalTransactions(); // Refetch to ensure data consistency
       } else {
         showToast(
@@ -2393,7 +2057,7 @@ const handleEdit = useCallback(
           <div className="flex items-center space-x-3">
             <Package className="w-8 h-8" />
             <div>
-              <h1 className="text-2xl font-bold">Metal Purchase Return Management</h1>
+              <h1 className="text-2xl font-bold">Metal Purchase return Management</h1>
               <p className="text-blue-100">Bullion Management System</p>
             </div>
           </div>
@@ -2569,7 +2233,7 @@ const handleEdit = useCallback(
                         colSpan="8"
                         className="px-6 py-12 text-center text-gray-500"
                       >
-                        No metal purchases Return  found
+                        No metal purchases found
                       </td>
                     </tr>
                   )}
@@ -2746,8 +2410,8 @@ const handleEdit = useCallback(
                       <div>
                         <h2 className="text-xl font-bold">
                           {editingStock
-                            ? "Edit Purchase Return Metal"
-                            : "Add Purchase Metal Return"}
+                            ? "Edit Purchase Metal"
+                            : "Add Purchase Metal"}
                         </h2>
                         <p className="text-blue-100 text-sm">
                           Professional Bullion Management
@@ -2899,7 +2563,7 @@ const handleEdit = useCallback(
                           </div>
                         </div>
 
-                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
   {currencyOptions.length > 0 && (
     <div className="space-y-2">
       <label className="block text-sm font-semibold text-slate-700">
@@ -2936,7 +2600,7 @@ const handleEdit = useCallback(
     </div>
   )}
 
-  {formData.partyCurrencyCode && (  // Show only when currency is selected
+  {formData.partyCurrencyCode && ( 
     <div className="space-y-2">
       <label className="block text-sm font-semibold text-slate-700">
         Conversion Rate <span className="text-red-500">*</span>
@@ -2953,9 +2617,8 @@ const handleEdit = useCallback(
     </div>
   )}
 
-  <div>
-    </div>
-    </div>
+  <div></div>
+</div>
                       </div>
 
                       <div className="p-6">
