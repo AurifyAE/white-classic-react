@@ -210,17 +210,17 @@ export default function ModeReceipt() {
     }
   };
 
-const fetchAllCashType = async () => {
-  try {
-    const response = await axiosInstance.get("/account");
-    console.log("=== DEBUG: fetchAllCashType ===");
-    console.log("Cash Types API Response:", response.data);
-    setCashTypes(response.data);
-  } catch (error) {
-    console.error("Error fetching cash types:", error);
-  }
-};
- 
+  const fetchAllCashType = async () => {
+    try {
+      const response = await axiosInstance.get("/account");
+      console.log("=== DEBUG: fetchAllCashType ===");
+      console.log("Cash Types API Response:", response.data);
+      setCashTypes(response.data);
+    } catch (error) {
+      console.error("Error fetching cash types:", error);
+    }
+  };
+
 
   const fetchAllCurrency = async () => {
     try {
@@ -422,10 +422,9 @@ const fetchAllCashType = async () => {
         infoStartY
       );
       doc.text(
-        `Date         : ${
-          payment.voucherDate
-            ? new Date(payment.voucherDate).toLocaleDateString("en-GB")
-            : "N/A"
+        `Date         : ${payment.voucherDate
+          ? new Date(payment.voucherDate).toLocaleDateString("en-GB")
+          : "N/A"
         }`,
         rightX,
         infoStartY + lineSpacing
@@ -493,25 +492,25 @@ const fetchAllCashType = async () => {
       );
       const totalVatAmount = hasVat
         ? formatNumber(
-            allCashItems.reduce(
-              (acc, row) =>
-                acc +
-                (row[4] !== "--"
-                  ? parseFloat(row[4].replace(/,/g, "") || 0)
-                  : 0),
-              0
-            ),
-            2
-          )
+          allCashItems.reduce(
+            (acc, row) =>
+              acc +
+              (row[4] !== "--"
+                ? parseFloat(row[4].replace(/,/g, "") || 0)
+                : 0),
+            0
+          ),
+          2
+        )
         : null;
       const totalWithVat = hasVat
         ? formatNumber(
-            parseFloat(totalAmount.replace(/,/g, "")) +
-              (totalVatAmount
-                ? parseFloat(totalVatAmount.replace(/,/g, ""))
-                : 0),
-            2
-          )
+          parseFloat(totalAmount.replace(/,/g, "")) +
+          (totalVatAmount
+            ? parseFloat(totalVatAmount.replace(/,/g, ""))
+            : 0),
+          2
+        )
         : totalAmount;
 
       // Define table headers dynamically based on VAT presence
@@ -548,8 +547,8 @@ const fetchAllCashType = async () => {
               halign: [0, 1, hasVat ? 5 : 3, hasVat ? 6 : 4].includes(i)
                 ? "right"
                 : [2, 3, 4].includes(i)
-                ? "right"
-                : "center",
+                  ? "right"
+                  : "center",
             },
           }))
         ),
@@ -840,7 +839,7 @@ const fetchAllCashType = async () => {
       );
       const totalWithVat = formatNumber(
         parseFloat(totalAmount.replace(/,/g, "")) +
-          parseFloat(totalVatAmount.replace(/,/g, "") || 0),
+        parseFloat(totalVatAmount.replace(/,/g, "") || 0),
         2
       );
 
@@ -895,8 +894,8 @@ const fetchAllCashType = async () => {
               halign: [0, 1, 7].includes(i)
                 ? "left"
                 : [3, 4, 5].includes(i)
-                ? "right"
-                : "center",
+                  ? "right"
+                  : "center",
             },
           }))
         ),
@@ -1126,7 +1125,7 @@ const fetchAllCashType = async () => {
   });
 
   const getCurrencyCode = (currencyId) => {
-    const currency = currencys.find((c) => c._id === currencyId);
+    const currency = currencys.find((c) => c._id === currencyId._id);
     return currency ? currency.currencyCode : "AED";
   };
   const options = partys.map((party) => ({
@@ -1135,51 +1134,50 @@ const fetchAllCashType = async () => {
     party,
     balanceInfo: `Cash: ${formatNumber(
       party.balances?.cashBalance?.amount || 0
-    )} ${
-      party.balances?.cashBalance?.currency
-        ? getCurrencyCode(party.balances.cashBalance.currency)
-        : "AED"
-    }, Gold: ${formatNumber(party.balances?.goldBalance?.totalGrams || 0)}g`,
+    )} ${party.balances?.cashBalance?.currency
+      ? getCurrencyCode(party.balances.cashBalance.currency)
+      : "AED"
+      }, Gold: ${formatNumber(party.balances?.goldBalance?.totalGrams || 0)}g`,
   }));
 
   // Cash type select options
- // Inside ModeReceipt component
-const cashTypeOptions = useMemo(() => {
-  console.log("=== DEBUG: Computing cashTypeOptions ===");
-  console.log("Selected Currency:", selectedCurrency);
-  console.log("Cash Types:", cashTypes);
+  // Inside ModeReceipt component
+  const cashTypeOptions = useMemo(() => {
+    console.log("=== DEBUG: Computing cashTypeOptions ===");
+    console.log("Selected Currency:", selectedCurrency);
+    console.log("Cash Types:", cashTypes);
 
-  if (!selectedCurrency?.value) {
-    console.log("No currency selected, returning empty cashTypeOptions");
-    return [];
-  }
+    if (!selectedCurrency?.value) {
+      console.log("No currency selected, returning empty cashTypeOptions");
+      return [];
+    }
 
-  const filteredCashTypes = cashTypes
-    .filter((cashType) => {
-      // Handle both string and object currencyId
-      const cashTypeCurrencyId =
-        typeof cashType.currencyId === "object" && cashType.currencyId?._id
-          ? cashType.currencyId._id
-          : cashType.currencyId;
-      const matchesCurrency = cashTypeCurrencyId === selectedCurrency.value;
-      console.log(
-        `Checking cashType ${cashType.name}:`,
-        cashTypeCurrencyId,
-        "matches",
-        selectedCurrency.value,
-        "?",
-        matchesCurrency
-      );
-      return matchesCurrency;
-    })
-    .map((cashType) => ({
-      value: cashType._id,
-      label: `${cashType.name} - ${cashType.uniqId}`,
-    }));
+    const filteredCashTypes = cashTypes
+      .filter((cashType) => {
+        // Handle both string and object currencyId
+        const cashTypeCurrencyId =
+          typeof cashType.currencyId === "object" && cashType.currencyId?._id
+            ? cashType.currencyId._id
+            : cashType.currencyId;
+        const matchesCurrency = cashTypeCurrencyId === selectedCurrency.value;
+        console.log(
+          `Checking cashType ${cashType.name}:`,
+          cashTypeCurrencyId,
+          "matches",
+          selectedCurrency.value,
+          "?",
+          matchesCurrency
+        );
+        return matchesCurrency;
+      })
+      .map((cashType) => ({
+        value: cashType._id,
+        label: `${cashType.name} - ${cashType.uniqId}`,
+      }));
 
-  console.log("Filtered Cash Types:", filteredCashTypes);
-  return filteredCashTypes;
-}, [cashTypes, selectedCurrency]);
+    console.log("Filtered Cash Types:", filteredCashTypes);
+    return filteredCashTypes;
+  }, [cashTypes, selectedCurrency]);
 
   // Handlers
   const handleAdd = async () => {
@@ -1210,14 +1208,13 @@ const cashTypeOptions = useMemo(() => {
 
     // Safely handle currencies
     const currencies = partyOption?.party?.acDefinition?.currencies || [];
-   
+
     const mappedCurrencies = currencies
       .filter((c) => c.isDefault)
       .map((c) => ({
         value: c.currency?._id,
-        label: `${c.currency?.currencyCode || ""} - ${
-          c.currency?.description || ""
-        }`,
+        label: `${c.currency?.currencyCode || ""} - ${c.currency?.description || ""
+          }`,
         currency: c.currency,
         // isDefault: c.isDefault,
       }));
@@ -1253,53 +1250,53 @@ const cashTypeOptions = useMemo(() => {
     setIsModalOpen(true);
   };
 
-const handleEditProduct = (index) => {
-  console.log("=== DEBUG: handleEditProduct ===");
-  console.log("Editing product at index:", index);
-  const product = productList[index];
-  console.log("Product data:", product);
+  const handleEditProduct = (index) => {
+    console.log("=== DEBUG: handleEditProduct ===");
+    console.log("Editing product at index:", index);
+    const product = productList[index];
+    console.log("Product data:", product);
 
-  setEditingProductIndex(index);
-  const validCashType = cashTypeOptions.find(
-    (option) => option.value === product.cashType?.value
-  );
-  console.log("Valid Cash Type for edit:", validCashType);
-  setCashType(validCashType || null); // Reset if not valid for current currency
-  setAmount(
-    typeof product.amount === "string"
-      ? product.amount
-      : formatNumber(product.amount, 2)
-  );
-  setAmountWithTnr(
-    typeof product.amountWithTnr === "string"
-      ? product.amountWithTnr
-      : formatNumber(product.amountWithTnr, 2)
-  );
-  setCurrency(product.currency);
-  setRemarks(product.remarks);
-
-  // Load VAT details if they exist
-  if (product.vatDetails) {
-    setIncludeVat(true);
-    setVatPercentage(product.vatDetails.percentage);
-    setVatTotal(product.vatDetails.amount);
-    const amountNum = parseFloat(product.amountWithTnr.replace(/,/g, ""));
-    const vatNum = parseFloat(product.vatDetails.amount.replace(/,/g, ""));
-    setTotalWithVat(
-      (amountNum + vatNum).toLocaleString("en-US", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })
+    setEditingProductIndex(index);
+    const validCashType = cashTypeOptions.find(
+      (option) => option.value === product.cashType?.value
     );
-  } else {
-    setIncludeVat(false);
-    setVatPercentage("");
-    setVatTotal("");
-    setTotalWithVat("");
-  }
+    console.log("Valid Cash Type for edit:", validCashType);
+    setCashType(validCashType || null); // Reset if not valid for current currency
+    setAmount(
+      typeof product.amount === "string"
+        ? product.amount
+        : formatNumber(product.amount, 2)
+    );
+    setAmountWithTnr(
+      typeof product.amountWithTnr === "string"
+        ? product.amountWithTnr
+        : formatNumber(product.amountWithTnr, 2)
+    );
+    setCurrency(product.currency);
+    setRemarks(product.remarks);
 
-  setIsProductModalOpen(true);
-};
+    // Load VAT details if they exist
+    if (product.vatDetails) {
+      setIncludeVat(true);
+      setVatPercentage(product.vatDetails.percentage);
+      setVatTotal(product.vatDetails.amount);
+      const amountNum = parseFloat(product.amountWithTnr.replace(/,/g, ""));
+      const vatNum = parseFloat(product.vatDetails.amount.replace(/,/g, ""));
+      setTotalWithVat(
+        (amountNum + vatNum).toLocaleString("en-US", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })
+      );
+    } else {
+      setIncludeVat(false);
+      setVatPercentage("");
+      setVatTotal("");
+      setTotalWithVat("");
+    }
+
+    setIsProductModalOpen(true);
+  };
 
   const handleSaveProduct = () => {
     if (!ArrayValidateForm()) return;
@@ -1380,20 +1377,20 @@ const handleEditProduct = (index) => {
   };
 
   // In your modal close handler
-const handleCloseProductModal = () => {
-  console.log("=== DEBUG: Closing product modal ===");
-  setIsProductModalOpen(false);
-  setEditingProductIndex(-1);
-  setCashType(null);
-  setAmount("");
-  setAmountWithTnr("");
-  setRemarks("");
-  setIncludeVat(false);
-  setVatPercentage("");
-  setVatTotal("");
-  setTotalWithVat("");
-  setArrayError({ cashType: "", amount: "", amountWithTnr: "" });
-};
+  const handleCloseProductModal = () => {
+    console.log("=== DEBUG: Closing product modal ===");
+    setIsProductModalOpen(false);
+    setEditingProductIndex(-1);
+    setCashType(null);
+    setAmount("");
+    setAmountWithTnr("");
+    setRemarks("");
+    setIncludeVat(false);
+    setVatPercentage("");
+    setVatTotal("");
+    setTotalWithVat("");
+    setArrayError({ cashType: "", amount: "", amountWithTnr: "" });
+  };
 
   const handleDelete = (id) => {
     setDeletePaymentId(id);
@@ -1432,40 +1429,40 @@ const handleCloseProductModal = () => {
     clearError("voucher");
   };
 
-const handlePartyChange = (option) => {
-  console.log("=== DEBUG: handlePartyChange ===");
-  console.log("Selected Party:", option);
+  const handlePartyChange = (option) => {
+    console.log("=== DEBUG: handlePartyChange ===");
+    console.log("Selected Party:", option);
 
-  setMainRemarks(`Currency receipt for ${option.label}`);
-  setSelectedParty(option);
-  clearError("party");
-  clearError("balance");
+    setMainRemarks(`Currency receipt for ${option.label}`);
+    setSelectedParty(option);
+    clearError("party");
+    clearError("balance");
 
-  const currencies = option?.party?.acDefinition?.currencies || [];
-  const mappedCurrencies = currencies
-    .map((c) => ({
-      value: c.currency?._id,
-      label: `${c.currency?.currencyCode} - ${c.currency?.description}`,
-      currency: c.currency,
-      isDefault: c.isDefault,
-    }));
+    const currencies = option?.party?.acDefinition?.currencies || [];
+    const mappedCurrencies = currencies
+      .map((c) => ({
+        value: c.currency?._id,
+        label: `${c.currency?.currencyCode} - ${c.currency?.description}`,
+        currency: c.currency,
+        isDefault: c.isDefault,
+      }));
 
-  console.log("Mapped Currencies:", mappedCurrencies);
-  setCurrencyOptions(mappedCurrencies);
-  const defaultCurrency = mappedCurrencies.find((c) => c.isDefault);
-  if (defaultCurrency) {
-    console.log("Setting default currency:", defaultCurrency);
-    setSelectedCurrency(defaultCurrency);
-    clearError("currency");
-  } else {
-    console.log("No default currency found, clearing selectedCurrency");
-    setSelectedCurrency(null);
-  }
+    console.log("Mapped Currencies:", mappedCurrencies);
+    setCurrencyOptions(mappedCurrencies);
+    const defaultCurrency = mappedCurrencies.find((c) => c.isDefault);
+    if (defaultCurrency) {
+      console.log("Setting default currency:", defaultCurrency);
+      setSelectedCurrency(defaultCurrency);
+      clearError("currency");
+    } else {
+      console.log("No default currency found, clearing selectedCurrency");
+      setSelectedCurrency(null);
+    }
 
-  // Reset cashType and product modal state when currency changes
-  setCashType(null);
-  setArrayError((prev) => ({ ...prev, cashType: "" }));
-};
+    // Reset cashType and product modal state when currency changes
+    setCashType(null);
+    setArrayError((prev) => ({ ...prev, cashType: "" }));
+  };
 
   // Product modal logic
   const handleProductModalOpen = () => {
@@ -1597,7 +1594,7 @@ const handlePartyChange = (option) => {
       party: selectedParty?.value || "",
       enteredBy: enteredBy || "",
       remarks: mainRemarks || "",
-     
+
       cash: productList.map((item) => {
         const vatPercentage =
           item.vatDetails?.percentage || item.vatPercentage || 0;
@@ -1613,7 +1610,7 @@ const handlePartyChange = (option) => {
           remarks: item.remarks || "",
           vatPercentage: Number(vatPercentage),
           vatAmount: vatAmount,
-           currencyId:item.currency?._id,
+          currencyId: item.currency?._id,
         };
       }),
     };
@@ -1673,9 +1670,8 @@ const handlePartyChange = (option) => {
       console.error("Error details:", error);
       console.error("Response data:", error.response?.data);
 
-      const errorMessage = `Failed to save cash receipt. ${
-        error.response?.data?.message || error.message
-      }`;
+      const errorMessage = `Failed to save cash receipt. ${error.response?.data?.message || error.message
+        }`;
       toast.error(errorMessage, { id: loadingToast });
     } finally {
       setIsSaving(false); // Clear loading state
@@ -1842,11 +1838,10 @@ const handlePartyChange = (option) => {
                     }
                   }}
                   disabled={isDeleting}
-                  className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white flex items-center gap-2 ${
-                    isDeleting
-                      ? "bg-red-400 cursor-not-allowed"
-                      : "bg-red-600 hover:bg-red-700"
-                  } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500`}
+                  className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white flex items-center gap-2 ${isDeleting
+                    ? "bg-red-400 cursor-not-allowed"
+                    : "bg-red-600 hover:bg-red-700"
+                    } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500`}
                 >
                   {isDeleting ? (
                     <>
@@ -2038,8 +2033,8 @@ const handlePartyChange = (option) => {
                         <td className="px-6 py-4 text-sm">
                           {payment?.voucherDate
                             ? new Date(payment.voucherDate).toLocaleDateString(
-                                "en-GB"
-                              )
+                              "en-GB"
+                            )
                             : "N/A"}
                         </td>
                         <td className="px-6 py-4 text-sm flex space-x-2">
@@ -2119,11 +2114,10 @@ const handlePartyChange = (option) => {
                             <button
                               key={page}
                               onClick={() => goToPage(page)}
-                              className={`px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
-                                currentPage === page
-                                  ? "bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg"
-                                  : "text-gray-700 bg-white border border-gray-300 hover:bg-gray-50"
-                              }`}
+                              className={`px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${currentPage === page
+                                ? "bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg"
+                                : "text-gray-700 bg-white border border-gray-300 hover:bg-gray-50"
+                                }`}
                             >
                               {page}
                             </button>
@@ -2269,10 +2263,9 @@ const handlePartyChange = (option) => {
                                 menuList: () =>
                                   "!max-h-[200px] !overflow-y-auto scrollbar-hide",
                                 option: ({ isSelected, isFocused }) =>
-                                  `!text-gray-900 ${
-                                    isSelected
-                                      ? "!bg-blue-500 !text-white"
-                                      : isFocused
+                                  `!text-gray-900 ${isSelected
+                                    ? "!bg-blue-500 !text-white"
+                                    : isFocused
                                       ? "!bg-blue-100"
                                       : "!bg-white"
                                   }`,
@@ -2311,23 +2304,22 @@ const handlePartyChange = (option) => {
                                   <span className="font-medium">
                                     Cash Balance:
                                   </span>{" "}
-                                  <span
-                                    className={
-                                      selectedParty.party.balances?.cashBalance
-                                        ?.amount < 0
-                                        ? "text-red-600"
-                                        : "text-green-600"
-                                    }
-                                  >
-                                    {formatNumber(
-                                      selectedParty.party.balances?.cashBalance
-                                        ?.amount || 0
-                                    )}{" "}
-                                    {getCurrencyCode(
-                                      selectedParty.party.balances?.cashBalance
-                                        ?.currency
-                                    )}
-                                  </span>
+                                  {/* list the cuurency and loop */}
+
+                                  <div className="space-x-2">
+                                    {selectedParty?.party?.balances?.cashBalance?.map((balance, index) => (
+                                      <span
+                                        key={index}
+                                        className={
+                                          balance?.amount < 0 ? "text-red-600" : "text-green-600"
+                                        }
+                                      >
+                                        {formatNumber(balance?.amount ?? 0)}{" "}
+                                        {getCurrencyCode(balance?.currency)}
+                                      </span>
+                                    ))}
+                                  </div>
+
                                 </div>
                                 <div>
                                   <span className="font-medium">
@@ -2491,11 +2483,10 @@ const handlePartyChange = (option) => {
                           <button
                             onClick={handleMainSave}
                             disabled={isSaving} // Disable button during save
-                            className={`px-4 py-2 rounded-lg text-white flex items-center gap-2 ${
-                              isSaving
-                                ? "bg-blue-400 cursor-not-allowed"
-                                : "bg-blue-500 hover:bg-blue-600"
-                            } transition-colors`}
+                            className={`px-4 py-2 rounded-lg text-white flex items-center gap-2 ${isSaving
+                              ? "bg-blue-400 cursor-not-allowed"
+                              : "bg-blue-500 hover:bg-blue-600"
+                              } transition-colors`}
                           >
                             {isSaving ? (
                               <>
@@ -2567,55 +2558,54 @@ const handlePartyChange = (option) => {
                     disabled
                   />
                 </div>
-<div>
-  <label className="block text-sm font-medium text-gray-700 mb-2">
-    Cash Type <span className="text-red-500">*</span>
-  </label>
-  <Select
-    options={cashTypeOptions}
-    value={cashType}
-    onChange={(selectedOption) => {
-      console.log("Selected Cash Type:", selectedOption);
-      setCashType(selectedOption);
-      setArrayError((prev) => ({ ...prev, cashType: "" }));
-    }}
-    isSearchable
-    placeholder={
-      cashTypeOptions.length > 0
-        ? "Select cash type..."
-        : "No cash types available for selected currency"
-    }
-    isDisabled={!selectedCurrency || cashTypeOptions.length === 0}
-  />
-  {cashType && (
-    <p className="text-sm mt-2 text-gray-600">
-      Balance:{" "}
-      <span
-        className={`font-medium ${
-          cashTypes.find((account) => account._id === cashType.value)
-            ?.openingBalance < 0
-            ? "text-red-600"
-            : "text-green-600"
-        }`}
-      >
-        {formatNumber(
-          cashTypes.find((account) => account._id === cashType.value)
-            ?.openingBalance || 0,
-          2
-        )}{" "}
-        {selectedCurrency?.label || "AED"}
-      </span>
-    </p>
-  )}
-  {arrayError.cashType && (
-    <p className="text-red-500 text-sm mt-1">{arrayError.cashType}</p>
-  )}
-  {!selectedCurrency && (
-    <p className="text-red-500 text-sm mt-1">
-      Please select a party currency first
-    </p>
-  )}
-</div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Cash Type <span className="text-red-500">*</span>
+                  </label>
+                  <Select
+                    options={cashTypeOptions}
+                    value={cashType}
+                    onChange={(selectedOption) => {
+                      console.log("Selected Cash Type:", selectedOption);
+                      setCashType(selectedOption);
+                      setArrayError((prev) => ({ ...prev, cashType: "" }));
+                    }}
+                    isSearchable
+                    placeholder={
+                      cashTypeOptions.length > 0
+                        ? "Select cash type..."
+                        : "No cash types available for selected currency"
+                    }
+                    isDisabled={!selectedCurrency || cashTypeOptions.length === 0}
+                  />
+                  {cashType && (
+                    <p className="text-sm mt-2 text-gray-600">
+                      Balance:{" "}
+                      <span
+                        className={`font-medium ${cashTypes.find((account) => account._id === cashType.value)
+                          ?.openingBalance < 0
+                          ? "text-red-600"
+                          : "text-green-600"
+                          }`}
+                      >
+                        {formatNumber(
+                          cashTypes.find((account) => account._id === cashType.value)
+                            ?.openingBalance || 0,
+                          2
+                        )}{" "}
+                        {selectedCurrency?.label || "AED"}
+                      </span>
+                    </p>
+                  )}
+                  {arrayError.cashType && (
+                    <p className="text-red-500 text-sm mt-1">{arrayError.cashType}</p>
+                  )}
+                  {!selectedCurrency && (
+                    <p className="text-red-500 text-sm mt-1">
+                      Please select a party currency first
+                    </p>
+                  )}
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Amount
