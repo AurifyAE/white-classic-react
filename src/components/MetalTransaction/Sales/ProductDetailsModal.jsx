@@ -32,7 +32,7 @@ const initialProductData = {
   premiumCurrencyValue: 3.674,
   weightInOz: "",
   metalRate: "",
-  metalRateUnit: "GOZ",
+  metalRateUnit: "KGBAR",
   totalValue: "",
   metalRateRequirements: { rate: "", amount: "" },
   convFactGms: "",
@@ -79,6 +79,7 @@ const ProductDetailsModal = ({
   fixed,
   editingItem,
 }) => {
+  console.log(partyCurrency);
   const [productData, setProductData] = useState(initialProductData);
   const [goldData, setGoldData] = useState(initialGoldData);
   const [metalRates, setMetalRates] = useState([]);
@@ -87,17 +88,19 @@ const ProductDetailsModal = ({
   const [fetchError, setFetchError] = useState("");
   const initialRenderWeights = useRef(true);
   const [focusedFields, setFocusedFields] = useState({});
-  const [lastEditedFields, setLastEditedFields] = useState({
-    makingCharges: "rate",
-    premium: "rate",
-    otherCharges: "rate",
-    vat: "percentage",
-  });
+const [lastEditedFields, setLastEditedFields] = useState({
+  makingCharges: "rate",
+  premium: "rate",
+  otherCharges: "rate",
+  vat: "percentage",
+  metalRateRequirements: "rate",
+});
 
   // Refs for input fields to maintain cursor position
   const premiumRateRef = useRef(null);
   const premiumAmountRef = useRef(null);
 
+  // Updated party currency details with effective rate handling
   const partyCurrDetails = useMemo(() => {
     if (
       !party ||
@@ -123,7 +126,7 @@ const ProductDetailsModal = ({
     };
   }, [party, partyCurrency]);
 
-  const spread = parseFloat(partyCurrDetails.ask) || 0;
+  const spread = parseFloat(partyCurrDetails.bid) || 0;
   const conversionRate = parseFloat(partyCurrency?.conversionRate) || 1;
   const effectiveRate =
     partyCurrDetails.currencyCode === "AED" ? 1 : conversionRate;
@@ -156,7 +159,7 @@ const ProductDetailsModal = ({
         vat: "percentage",
       });
     }
-  }, [isOpen, editingItem]);
+  }, [isOpen, editingItem, currencyCode]);
 
   // Memoize calculations to prevent unnecessary recalculations
   const { pureWeight, purityWeight, weightInOz } = useMemo(() => {
@@ -165,50 +168,18 @@ const ProductDetailsModal = ({
     const pureWeight = (grossWeight * purity).toFixed(2);
     const purityWeight = pureWeight;
     const weightInOz = (parseFloat(pureWeight) / 31.103).toFixed(2);
-
     return { pureWeight, purityWeight, weightInOz };
   }, [productData.grossWeight, productData.purity]);
 
-  const calculateMetalAmount = useCallback(
-    ({
-      rate,
-      convFactGms,
-      convertrate,
-      pureWeight,
-      metalRateUnit,
-      weightInOz,
-    }) => {
-      const parsedRate = parseFloat(rate) || 0;
-      const parsedConvFactGms = parseFloat(convFactGms) || 1;
-      const parsedConvertrate = parseFloat(convertrate) || 1;
-      const parsedPureWeight = parseFloat(pureWeight) || 0;
-      const parsedWeightInOz = parseFloat(weightInOz) || 0;
-
-      let metalAmount = "0.00";
-      if (metalRateUnit === "GOZ" && parsedRate && parsedWeightInOz) {
-        metalAmount = (parsedWeightInOz * parsedRate).toFixed(2);
-      } else if (
-        parsedRate &&
-        parsedConvFactGms &&
-        parsedConvertrate &&
-        parsedPureWeight
-      ) {
-        metalAmount = (
-          (parsedRate / parsedConvFactGms) *
-          parsedConvertrate *
-          parsedPureWeight
-        ).toFixed(2);
-      }
-
-      // Apply effectiveRate for INR
-      const convertedMetalAmount =
-        currencyCode === "AED"
-          ? metalAmount
-          : (parseFloat(metalAmount) * effectiveRate).toFixed(2);
-      return convertedMetalAmount;
-    },
-    [currencyCode, effectiveRate]
-  );
+const calculateMetalAmount = useCallback(
+  ({ rate, grossWeight }) => {
+    const parsedRate = parseFloat(rate) || 0;
+    const parsedGrossWeight = parseFloat(grossWeight) || 0;
+    const metalAmount = (parsedRate * parsedGrossWeight).toFixed(2);
+    return metalAmount;
+  },
+  []
+);
 
   // Updated profit calculation
   const calculateProfit = useCallback(() => {
@@ -335,7 +306,7 @@ const ProductDetailsModal = ({
 
       if (!editingItem) {
         const defaultRate =
-          mappedMetalRates.find((rate) => rate.rateType === "GOZ") ||
+          mappedMetalRates.find((rate) => rate.rateType === "KGBAR") ||
           mappedMetalRates[0];
         if (defaultRate) {
           setProductData((prev) => ({
@@ -364,24 +335,20 @@ const ProductDetailsModal = ({
     }
   }, [isOpen, fetchMetalRates]);
 
-  // Calculate gross weight based on pcs
   // Calculate gross weight based on pcsCount and totalValue, or pcsCount based on grossWeight
   useEffect(() => {
     const pcsCount = parseFloat(productData.pcsCount) || 0;
-    const totalValue = parseFloat(productData.totalValue) || 1000; // Default to 1000 grams per piece
+    const totalValue = parseFloat(productData.totalValue) || 1000;
     const grossWeight = parseFloat(productData.grossWeight) || 0;
 
     if (productData.pcs) {
-      // User edited pcsCount: calculate grossWeight
       if (pcsCount > 0 && focusedFields.pcsCount) {
         const calculatedGrossWeight = (pcsCount * totalValue).toFixed(2);
         setProductData((prev) => ({
           ...prev,
           grossWeight: calculatedGrossWeight,
         }));
-      }
-      // User edited grossWeight: calculate pcsCount
-      else if (
+      } else if (
         grossWeight >= 0 &&
         focusedFields.grossWeight &&
         totalValue > 0
@@ -391,9 +358,7 @@ const ProductDetailsModal = ({
           ...prev,
           pcsCount: calculatedPcsCount,
         }));
-      }
-      // Programmatic change (e.g., from stock selection): assume pcsCount is source, calculate grossWeight
-      else {
+      } else {
         const calculatedGrossWeight = (pcsCount * totalValue).toFixed(2);
         setProductData((prev) => ({
           ...prev,
@@ -416,211 +381,193 @@ const ProductDetailsModal = ({
   ]);
 
   // Optimize calculations with debouncing
-  const debouncedSetProductData = useCallback(
-    debounce((newData) => {
-      setProductData((prev) => {
-        const updated = typeof newData === "function" ? newData(prev) : newData;
-        const metalAmount =
-          editingItem && !initialRenderWeights.current
-            ? productData.metalRateRequirements.amount
-            : calculateMetalAmount({
-                rate: updated.metalRateRequirements.rate,
-                convFactGms: updated.convFactGms,
-                convertrate: updated.convertrate,
-                pureWeight,
-                metalRateUnit: updated.metalRateUnit,
-                weightInOz,
-              });
+const debouncedSetProductData = useCallback(
+  debounce((newData) => {
+    setProductData((prev) => {
+      const updated = typeof newData === "function" ? newData(prev) : newData;
+      const grossWeight = parseFloat(updated.grossWeight) || 0;
+      const purityWeight = parseFloat(updated.purityWeight) || 0;
+      const convFactGms = parseFloat(updated.convFactGms) || 1;
+      const convertrate = parseFloat(updated.convertrate) || 1;
 
-        const grossWeight = parseFloat(updated.grossWeight) || 0;
-        const subTotal = parseFloat(updated.itemTotal.subTotal) || 0;
+      // Apply currency conversion factor correctly
+      const conversionFactor = currencyCode === "AED" ? 1 : effectiveRate;
 
-        // Making Charges
-        let makingRateStr = updated.makingCharges.rate;
-        let makingAmountStr = updated.makingCharges.amount;
-        if (lastEditedFields.makingCharges === "rate") {
-          const parsedRate = parseFloat(makingRateStr);
-          makingAmountStr = isNaN(parsedRate)
-            ? "0.00"
-            : (parsedRate * grossWeight).toFixed(2);
-        } else {
-          const parsedAmount = parseFloat(makingAmountStr);
-          makingRateStr = isNaN(parsedAmount)
-            ? "0.00"
-            : grossWeight > 0
-            ? (parsedAmount / grossWeight).toFixed(2)
-            : "0.00";
-        }
+      // Define divisor for premium calculations with fallback
+      const divisor = purityWeight > 0 && convFactGms > 0 ? (purityWeight / convFactGms) * convertrate : 0;
 
-        // Premium - Apply effectiveRate for INR
-        let premiumRateStr = updated.premium.rate;
-        let premiumAmountStr = updated.premium.amount;
-        const convFactGms = parseFloat(updated.convFactGms) || 1;
-        const convertrate = parseFloat(updated.convertrate) || 1;
-        const divisor = (parseFloat(purityWeight) / convFactGms) * convertrate;
-        const appliedRate = currencyCode === "AED" ? 1 : effectiveRate;
-        if (lastEditedFields.premium === "rate") {
-          const parsedRate = parseFloat(premiumRateStr) || 0;
-          premiumAmountStr = isNaN(parsedRate)
-            ? "0.00"
-            : divisor > 0
-            ? (divisor * parsedRate * appliedRate).toFixed(2)
-            : "0.00";
-        } else {
-          const parsedAmount = parseFloat(premiumAmountStr) || 0;
-          premiumRateStr = isNaN(parsedAmount)
-            ? "0.00"
-            : divisor > 0
-            ? (parsedAmount / (divisor * appliedRate)).toFixed(2)
-            : "0.00";
-        }
+      // Metal Rate Requirements
+      let metalRateStr = updated.metalRateRequirements.rate;
+      let metalAmountStr = updated.metalRateRequirements.amount;
+      if (lastEditedFields.metalRateRequirements === "rate") {
+        const parsedRate = parseFloat(metalRateStr) || 0;
+        metalAmountStr = (parsedRate * grossWeight).toFixed(2);
+      } else {
+        const parsedAmount = parseFloat(metalAmountStr) || 0;
+        metalRateStr = grossWeight > 0 ? (parsedAmount / grossWeight).toFixed(2) : "0.00";
+      }
 
-        // Base amount
-        const baseAmount = parseFloat(metalAmount) || 0;
-        const validMakingAmount = parseFloat(makingAmountStr) || 0;
-        const validPremiumAmount = parseFloat(premiumAmountStr) || 0;
+      // Making Charges
+      let makingRateStr = updated.makingCharges.rate;
+      let makingAmountStr = updated.makingCharges.amount;
+      if (lastEditedFields.makingCharges === "rate") {
+        const parsedRate = parseFloat(makingRateStr);
+        makingAmountStr = isNaN(parsedRate)
+          ? "0.00"
+          : (parsedRate * grossWeight * conversionFactor).toFixed(2);
+      } else {
+        const parsedAmount = parseFloat(makingAmountStr);
+        makingRateStr = isNaN(parsedAmount)
+          ? "0.00"
+          : grossWeight > 0
+          ? (parsedAmount / (grossWeight * conversionFactor)).toFixed(2)
+          : "0.00";
+      }
 
-        // Sub total
-        const sumForSubTotal =
-          baseAmount + validMakingAmount + validPremiumAmount;
-        const subTotalCalc =
-          isFinite(sumForSubTotal) && !isNaN(sumForSubTotal)
-            ? sumForSubTotal.toFixed(4)
-            : "0.0000";
+      // Premium
+let premiumRateStr = updated.premium.rate;
+let premiumAmountStr = updated.premium.amount;
+if (lastEditedFields.premium === "rate") {
+  const parsedRate = parseFloat(premiumRateStr) || 0;
+  premiumAmountStr = divisor > 0
+    ? (divisor * parsedRate * conversionFactor).toFixed(2)
+    : "0.00";
+} else {
+  const parsedAmount = parseFloat(premiumAmountStr) || 0;
+  premiumRateStr = divisor > 0
+    ? (parsedAmount / (divisor * conversionFactor)).toFixed(2)
+    : "0.00";
+}
 
-        // Other Charges - Apply effectiveRate for INR
-        let otherChargesRateStr = updated.otherCharges.rate;
-        let otherChargesAmountStr = updated.otherCharges.amount;
-        if (lastEditedFields.otherCharges === "rate") {
-          const parsedRate = parseFloat(otherChargesRateStr);
-          otherChargesAmountStr = isNaN(parsedRate)
-            ? "0.00"
-            : isFinite(subTotalCalc)
-            ? (
-                ((parseFloat(subTotalCalc) * parsedRate) / 100) *
-                appliedRate
-              ).toFixed(2)
-            : "0.00";
-        } else {
-          const parsedAmount = parseFloat(otherChargesAmountStr);
-          otherChargesRateStr = isNaN(parsedAmount)
-            ? "0.00"
-            : parseFloat(subTotalCalc) > 0
-            ? (
-                (parsedAmount / (parseFloat(subTotalCalc) * appliedRate)) *
-                100
-              ).toFixed(2)
-            : "0.00";
-        }
-        const totalAfterOtherCharges = isFinite(subTotalCalc)
-          ? (
-              parseFloat(subTotalCalc) + parseFloat(otherChargesAmountStr)
-            ).toFixed(4)
+
+      // Calculate subTotal: metalAmount + makingCharges + premium
+      const parsedMetalAmount = parseFloat(metalAmountStr) || 0;
+      const parsedMakingAmount = parseFloat(makingAmountStr) || 0;
+      const parsedPremiumAmount = parseFloat(premiumAmountStr) || 0;
+      const subTotal = (parsedMetalAmount + parsedMakingAmount + parsedPremiumAmount).toFixed(4);
+
+      // Other Charges
+      let otherChargesRateStr = updated.otherCharges.rate;
+      let otherChargesAmountStr = updated.otherCharges.amount;
+      if (lastEditedFields.otherCharges === "rate") {
+        const parsedRate = parseFloat(otherChargesRateStr);
+        otherChargesAmountStr = isNaN(parsedRate)
+          ? "0.00"
+          : isFinite(subTotal)
+          ? (((parseFloat(subTotal) * parsedRate) / 100) * conversionFactor).toFixed(2)
+          : "0.00";
+      } else {
+        const parsedAmount = parseFloat(otherChargesAmountStr);
+        otherChargesRateStr = isNaN(parsedAmount)
+          ? "0.00"
+          : parseFloat(subTotal) > 0
+          ? ((parsedAmount / (parseFloat(subTotal) * conversionFactor)) * 100).toFixed(2)
+          : "0.00";
+      }
+      const totalAfterOtherCharges = isFinite(subTotal)
+        ? (parseFloat(subTotal) + parseFloat(otherChargesAmountStr)).toFixed(4)
+        : "0.0000";
+
+      // VAT
+      let vatPercentageStr = updated.itemTotal.vatPercentage;
+      let vatAmountStr = updated.itemTotal.vatAmount;
+      if (lastEditedFields.vat === "percentage") {
+        const parsedPercentage = parseFloat(vatPercentageStr);
+        vatAmountStr = isNaN(parsedPercentage)
+          ? "0.0000"
+          : isFinite(totalAfterOtherCharges)
+          ? (((parseFloat(totalAfterOtherCharges) * parsedPercentage) / 100) * conversionFactor).toFixed(4)
           : "0.0000";
+      } else {
+        const parsedAmount = parseFloat(vatAmountStr);
+        vatPercentageStr = isNaN(parsedAmount)
+          ? "0.00"
+          : parseFloat(totalAfterOtherCharges) > 0
+          ? ((parsedAmount / (parseFloat(totalAfterOtherCharges) * conversionFactor)) * 100).toFixed(4)
+          : "0.00";
+      }
 
-        // VAT - Apply effectiveRate for INR
-        let vatPercentageStr = updated.itemTotal.vatPercentage;
-        let vatAmountStr = updated.itemTotal.vatAmount;
-        if (lastEditedFields.vat === "percentage") {
-          const parsedPercentage = parseFloat(vatPercentageStr);
-          vatAmountStr = isNaN(parsedPercentage)
-            ? "0.0000"
-            : isFinite(totalAfterOtherCharges)
-            ? (
-                ((parseFloat(totalAfterOtherCharges) * parsedPercentage) /
-                  100) *
-                appliedRate
-              ).toFixed(4)
-            : "0.0000";
-        } else {
-          const parsedAmount = parseFloat(vatAmountStr);
-          vatPercentageStr = isNaN(parsedAmount)
-            ? "0.00"
-            : parseFloat(totalAfterOtherCharges) > 0
-            ? (
-                (parsedAmount /
-                  (parseFloat(totalAfterOtherCharges) * appliedRate)) *
-                100
-              ).toFixed(4)
-            : "0.00";
-        }
+      // Calculate itemTotalAmount
+      const itemTotalAmount = isFinite(totalAfterOtherCharges)
+        ? (parseFloat(totalAfterOtherCharges) + parseFloat(vatAmountStr)).toFixed(4)
+        : "0.0000";
 
-        const itemTotalAmount = isFinite(totalAfterOtherCharges)
-          ? (
-              parseFloat(totalAfterOtherCharges) + parseFloat(vatAmountStr)
-            ).toFixed(4)
-          : "0.0000";
+      const formattedBaseAmount = isFinite(parsedMetalAmount)
+        ? parsedMetalAmount.toFixed(4)
+        : "0.0000";
 
-        return {
-          ...updated,
-          pureWeight,
-          purityWeight,
-          weightInOz,
-          metalRateRequirements: {
-            ...updated.metalRateRequirements,
-            amount: metalAmount,
-          },
-          makingCharges: { rate: makingRateStr, amount: makingAmountStr },
-          premium: { rate: premiumRateStr, amount: premiumAmountStr },
-          otherCharges: {
-            ...updated.otherCharges,
-            rate: otherChargesRateStr,
-            amount: otherChargesAmountStr,
-          },
-          itemTotal: {
-            ...updated.itemTotal,
-            baseAmount: isFinite(baseAmount) ? baseAmount.toFixed(4) : "0.0000",
-            makingChargesTotal: isFinite(validMakingAmount)
-              ? validMakingAmount.toFixed(4)
-              : "0.0000",
-            premiumTotal: isFinite(validPremiumAmount)
-              ? validPremiumAmount.toFixed(4)
-              : "0.0000",
-            subTotal: subTotalCalc,
-            vatAmount: vatAmountStr,
-            vatPercentage: vatPercentageStr,
-            itemTotalAmount,
-          },
-        };
-      });
-    }, 300),
-    [
-      calculateMetalAmount,
-      pureWeight,
-      purityWeight,
-      weightInOz,
-      lastEditedFields,
-      effectiveRate,
-      currencyCode,
-    ]
-  );
-
-  useEffect(() => {
-    if (initialRenderWeights.current) {
-      initialRenderWeights.current = false;
-      return;
-    }
-    debouncedSetProductData((prev) => ({ ...prev }));
-  }, [
-    productData.grossWeight,
-    productData.purity,
-    productData.metalRateRequirements.rate,
-    productData.convFactGms,
-    productData.convertrate,
-    productData.metalRateUnit,
-    productData.makingCharges.rate,
-    productData.makingCharges.amount,
-    productData.premium.rate,
-    productData.premium.amount,
-    productData.otherCharges.rate,
-    productData.otherCharges.amount,
-    productData.itemTotal.vatPercentage,
-    productData.itemTotal.vatAmount,
+      return {
+        ...updated,
+        pureWeight,
+        purityWeight,
+        weightInOz,
+        metalRateRequirements: {
+          ...updated.metalRateRequirements,
+          rate: metalRateStr,
+          amount: metalAmountStr,
+        },
+        makingCharges: { rate: makingRateStr, amount: makingAmountStr },
+        premium: { rate: premiumRateStr, amount: premiumAmountStr },
+        otherCharges: {
+          ...updated.otherCharges,
+          rate: otherChargesRateStr,
+          amount: otherChargesAmountStr,
+        },
+        itemTotal: {
+          ...updated.itemTotal,
+          baseAmount: formattedBaseAmount,
+          makingChargesTotal: isFinite(parseFloat(makingAmountStr))
+            ? parseFloat(makingAmountStr).toFixed(4)
+            : "0.0000",
+          premiumTotal: isFinite(parseFloat(premiumAmountStr))
+            ? parseFloat(premiumAmountStr).toFixed(4)
+            : "0.0000",
+          subTotal: isFinite(subTotal) ? subTotal : "0.0000",
+          vatAmount: vatAmountStr,
+          vatPercentage: vatPercentageStr,
+          itemTotalAmount,
+        },
+      };
+    });
+  }, 300),
+  [
+    calculateMetalAmount,
+    pureWeight,
+    purityWeight,
+    weightInOz,
     lastEditedFields,
     effectiveRate,
     currencyCode,
-    debouncedSetProductData,
-  ]);
+  ]
+);
+
+useEffect(() => {
+  if (initialRenderWeights.current) {
+    initialRenderWeights.current = false;
+    return;
+  }
+  debouncedSetProductData((prev) => ({ ...prev }));
+}, [
+  productData.grossWeight,
+  productData.purity,
+  productData.metalRateRequirements.rate,
+  productData.metalRateRequirements.amount,
+  productData.convFactGms,
+  productData.convertrate,
+  productData.metalRateUnit,
+  productData.makingCharges.rate,
+  productData.makingCharges.amount,
+  productData.premium.rate,
+  productData.premium.amount,
+  productData.otherCharges.rate,
+  productData.otherCharges.amount,
+  productData.itemTotal.vatPercentage,
+  productData.itemTotal.vatAmount,
+  lastEditedFields,
+  effectiveRate,
+  currencyCode,
+  debouncedSetProductData,
+]);
 
   const validate = useCallback(() => {
     const newErrors = {};
@@ -672,9 +619,7 @@ const ProductDetailsModal = ({
       const normalizeNumber = (val, decimals = 2, allowNegative = false) => {
         if (val === "" || val === null || val === undefined) return "";
         const num = parseFloat(val);
-        if (isNaN(num) || (!allowNegative && num < 0)) {
-          return "0.00";
-        }
+        if (isNaN(num) || (!allowNegative && num < 0)) return "0.00";
         return num.toFixed(decimals);
       };
 
@@ -750,253 +695,301 @@ const ProductDetailsModal = ({
     return formatNumber(value);
   };
 
-  const handleInputChange = useCallback(
-    (e) => {
-      const { name, value, selectionStart } = e.target;
+const handleInputChange = useCallback(
+  (e) => {
+    const { name, value, selectionStart } = e.target;
 
-      // For text fields
-      if (name === "otherCharges.description" || name === "description") {
-        setProductData((prev) => {
-          if (name.includes(".")) {
-            const [parent, child] = name.split(".");
-            return {
-              ...prev,
-              [parent]: {
-                ...prev[parent],
-                [child]: value,
-              },
-            };
-          } else {
-            return {
-              ...prev,
-              [name]: value,
-            };
-          }
-        });
-        setErrors((prev) => ({ ...prev, [name]: "" }));
-        return;
-      }
-
-      // Allow negative values for premium fields
-      const isPremiumField = name.includes("premium");
-      const pattern = isPremiumField ? /^-?\d*\.?\d*$/ : /^\d*\.?\d*$/;
-
-      const rawValue = value.replace(/,/g, "");
-      if (rawValue !== "" && !pattern.test(rawValue)) {
-        return;
-      }
-
-      if (name.includes(".")) {
-        const [parent, child] = name.split(".");
-        setProductData((prev) => {
-          let updatedParent = { ...prev[parent], [child]: rawValue };
-          let updatedItemTotal = { ...prev.itemTotal };
-          const grossWeight = parseFloat(getRawValue(prev.grossWeight)) || 0;
-          const subTotal =
-            parseFloat(getRawValue(prev.itemTotal.subTotal)) || 0;
-          const purityWeight = parseFloat(getRawValue(prev.purityWeight)) || 0;
-          const convFactGms = parseFloat(getRawValue(prev.convFactGms)) || 1;
-          const convertrate = parseFloat(getRawValue(prev.convertrate)) || 1;
-          const totalAfterOtherCharges =
-            parseFloat(getRawValue(prev.otherCharges.totalAfterOtherCharges)) ||
-            0;
-          const appliedRate = currencyCode === "AED" ? 1 : effectiveRate;
-
-          if (parent === "makingCharges") {
-            setLastEditedFields((prevFields) => ({
-              ...prevFields,
-              makingCharges: child,
-            }));
-            if (child === "rate") {
-              const rate = parseFloat(rawValue) || 0;
-              updatedParent.amount = (rate * grossWeight).toFixed(2);
-            } else if (child === "amount") {
-              const amount = parseFloat(rawValue) || 0;
-              updatedParent.rate =
-                grossWeight > 0 ? (amount / grossWeight).toFixed(2) : "0.00";
-            }
-          }
-
-          if (parent === "premium") {
-            setLastEditedFields((prevFields) => ({
-              ...prevFields,
-              premium: child,
-            }));
-            if (child === "rate") {
-              const rate = parseFloat(rawValue) || 0;
-              const divisor = (purityWeight / convFactGms) * convertrate;
-              updatedParent.amount =
-                divisor > 0
-                  ? (divisor * rate * appliedRate).toFixed(2)
-                  : "0.00";
-            } else if (child === "amount") {
-              const amount = parseFloat(rawValue) || 0;
-              updatedParent.rate =
-                divisor > 0
-                  ? (amount / (divisor * appliedRate)).toFixed(2)
-                  : "0.00";
-            }
-          }
-
-          if (parent === "otherCharges") {
-            setLastEditedFields((prevFields) => ({
-              ...prevFields,
-              otherCharges: child,
-            }));
-            if (child === "rate") {
-              const rate = parseFloat(rawValue) || 0;
-              updatedParent.amount = isFinite(subTotal)
-                ? (((subTotal * rate) / 100) * appliedRate).toFixed(2)
-                : "0.00";
-            } else if (child === "amount") {
-              const amount = parseFloat(rawValue) || 0;
-              updatedParent.rate =
-                subTotal > 0
-                  ? ((amount / (subTotal * appliedRate)) * 100).toFixed(2)
-                  : "0.00";
-            }
-            const otherChargesAmount = parseFloat(updatedParent.amount) || 0;
-            updatedParent.totalAfterOtherCharges = isFinite(subTotal)
-              ? (subTotal + otherChargesAmount).toFixed(2)
-              : "0.00";
-            const vatPercentage =
-              parseFloat(getRawValue(updatedItemTotal.vatPercentage)) || 0;
-            const vatAmount = isFinite(updatedParent.totalAfterOtherCharges)
-              ? (
-                  ((parseFloat(updatedParent.totalAfterOtherCharges) *
-                    vatPercentage) /
-                    100) *
-                  appliedRate
-                ).toFixed(2)
-              : "0.00";
-            updatedItemTotal.vatAmount = vatAmount;
-            updatedItemTotal.itemTotalAmount = isFinite(
-              updatedParent.totalAfterOtherCharges
-            )
-              ? (
-                  parseFloat(updatedParent.totalAfterOtherCharges) +
-                  parseFloat(vatAmount)
-                ).toFixed(2)
-              : "0.00";
-          }
-
-          if (parent === "itemTotal") {
-            setLastEditedFields((prevFields) => ({
-              ...prevFields,
-              vat: child === "vatPercentage" ? "percentage" : "amount",
-            }));
-            if (child === "vatPercentage") {
-              const vatPercentage = parseFloat(rawValue) || 0;
-              updatedParent.vatAmount = isFinite(totalAfterOtherCharges)
-                ? (
-                    ((totalAfterOtherCharges * vatPercentage) / 100) *
-                    appliedRate
-                  ).toFixed(2)
-                : "0.00";
-              updatedParent.vatPercentage = vatPercentage.toString();
-            } else if (child === "vatAmount") {
-              const vatAmount = parseFloat(rawValue) || 0;
-              updatedParent.vatPercentage =
-                totalAfterOtherCharges > 0
-                  ? (
-                      (vatAmount / (totalAfterOtherCharges * appliedRate)) *
-                      100
-                    ).toFixed(2)
-                  : "0.00";
-              updatedParent.vatAmount = vatAmount.toString();
-            }
-
-            const vatAmountVal =
-              parseFloat(getRawValue(updatedParent.vatAmount)) || 0;
-            updatedParent.itemTotalAmount = isFinite(totalAfterOtherCharges)
-              ? (totalAfterOtherCharges + vatAmountVal).toFixed(2)
-              : "0.00";
-          }
-
+    // For text fields
+    if (name === "otherCharges.description" || name === "description") {
+      setProductData((prev) => {
+        if (name.includes(".")) {
+          const [parent, child] = name.split(".");
           return {
             ...prev,
-            [parent]: updatedParent,
-            itemTotal:
-              parent === "itemTotal" ? updatedParent : updatedItemTotal,
+            [parent]: {
+              ...prev[parent],
+              [child]: value,
+            },
           };
-        });
-      } else {
-        setProductData((prev) => ({
-          ...prev,
-          [name]: rawValue,
-        }));
-      }
+        } else {
+          return {
+            ...prev,
+            [name]: value,
+          };
+        }
+      });
       setErrors((prev) => ({ ...prev, [name]: "" }));
-
-      // Preserve cursor position for premium fields
-      if (isPremiumField) {
-        setTimeout(() => {
-          if (name === "premium.rate" && premiumRateRef.current) {
-            premiumRateRef.current.setSelectionRange(
-              selectionStart,
-              selectionStart
-            );
-          } else if (name === "premium.amount" && premiumAmountRef.current) {
-            premiumAmountRef.current.setSelectionRange(
-              selectionStart,
-              selectionStart
-            );
-          }
-        }, 0);
-      }
-    },
-    [effectiveRate, currencyCode]
-  );
-
-  const handlePremiumInput = useCallback(
-    (e, field) => {
-      const { value, selectionStart } = e.target;
-      const rawValue = value.replace(/,/g, "");
-
-      if (rawValue === "" || /^-?\d*\.?\d*$/.test(rawValue)) {
-        handleInputChange({
-          target: { name: `premium.${field}`, value: rawValue, selectionStart },
-        });
-      }
-    },
-    [handleInputChange]
-  );
-
-  const handleSave = useCallback(() => {
-    if (!validate()) {
-      const errorMessages = Object.values(errors).filter(Boolean);
-      if (errorMessages.length > 0) {
-        alert(errorMessages.join(", "));
-      }
       return;
     }
 
-    const transformedData = {
-      ...productData,
-      stockCode: productData.stockCode,
-      baseCurrency: productData.baseCurrencyId || currencyCode,
-      metalType: productData.metalTypeId,
-      profit: calculateProfit(),
-      convertedAmounts: {
-        metalAmount: parseFloat(productData.metalRateRequirements.amount) || 0,
-        premiumAmount: parseFloat(productData.premium.amount) || 0,
-        otherChargesAmount: parseFloat(productData.otherCharges.amount) || 0,
-        vatAmount: parseFloat(productData.itemTotal.vatAmount) || 0,
-        itemTotalAmount: parseFloat(productData.itemTotal.itemTotalAmount) || 0,
-        currencyCode,
-        effectiveRate: currencyCode === "AED" ? 1 : effectiveRate,
-      },
-    };
+    // Allow negative values for premium fields
+    const isPremiumField = name.includes("premium");
+    const pattern = isPremiumField ? /^-?\d*\.?\d*$/ : /^\d*\.?\d*$/;
 
-    onSave(transformedData);
-  }, [
-    validate,
-    productData,
-    onSave,
-    currencyCode,
-    calculateProfit,
-    effectiveRate,
-  ]);
+    const rawValue = value.replace(/,/g, "");
+    if (rawValue !== "" && !pattern.test(rawValue)) {
+      return;
+    }
+
+    if (name.includes(".")) {
+      const [parent, child] = name.split(".");
+      setProductData((prev) => {
+        let updatedParent = { ...prev[parent], [child]: rawValue };
+        let updatedItemTotal = { ...prev.itemTotal };
+        const grossWeight = parseFloat(getRawValue(prev.grossWeight)) || 0;
+        const purityWeight = parseFloat(getRawValue(prev.purityWeight)) || 0;
+        const convFactGms = parseFloat(getRawValue(prev.convFactGms)) || 1;
+        const convertrate = parseFloat(getRawValue(prev.convertrate)) || 1;
+        const appliedRate = currencyCode === "AED" ? 1 : effectiveRate;
+
+        // Define divisor for premium calculations
+        const divisor = purityWeight > 0 && convFactGms > 0 ? (purityWeight / convFactGms) * convertrate : 0;
+
+        if (parent === "metalRateRequirements") {
+          setLastEditedFields((prevFields) => ({
+            ...prevFields,
+            metalRateRequirements: child,
+          }));
+          if (child === "rate") {
+            const rate = parseFloat(rawValue) || 0;
+            updatedParent.amount = (rate * grossWeight).toFixed(2);
+          } else if (child === "amount") {
+            const amount = parseFloat(rawValue) || 0;
+            updatedParent.rate = grossWeight > 0 ? (amount / grossWeight).toFixed(2) : "0.00";
+          }
+        }
+
+        if (parent === "makingCharges") {
+          setLastEditedFields((prevFields) => ({
+            ...prevFields,
+            makingCharges: child,
+          }));
+          if (child === "rate") {
+            const rate = parseFloat(rawValue) || 0;
+            updatedParent.amount = (rate * grossWeight * appliedRate).toFixed(2);
+          } else if (child === "amount") {
+            const amount = parseFloat(rawValue) || 0;
+            updatedParent.rate = grossWeight > 0 && appliedRate > 0
+              ? (amount / (grossWeight * appliedRate)).toFixed(2)
+              : "0.00";
+          }
+        }
+
+        if (parent === "premium") {
+          setLastEditedFields((prevFields) => ({
+            ...prevFields,
+            premium: child,
+          }));
+          if (child === "rate") {
+            const rate = parseFloat(rawValue) || 0;
+            updatedParent.amount = divisor > 0
+              ? (divisor * rate * appliedRate).toFixed(2)
+              : "0.00";
+          } else if (child === "amount") {
+            const amount = parseFloat(rawValue) || 0;
+            updatedParent.rate = divisor > 0 && appliedRate > 0
+              ? (amount / (divisor * appliedRate)).toFixed(2)
+              : "0.00";
+          }
+          // Recalculate totals for premium changes
+          const parsedMetalAmount = parseFloat(prev.metalRateRequirements.amount) || 0;
+          const parsedMakingAmount = parseFloat(prev.makingCharges.amount) || 0;
+          const parsedPremiumAmount = parseFloat(updatedParent.amount) || 0;
+          updatedItemTotal.subTotal = (parsedMetalAmount + parsedMakingAmount + parsedPremiumAmount).toFixed(4);
+          const otherChargesAmount = parseFloat(prev.otherCharges.amount) || 0;
+          const totalAfterOtherCharges = isFinite(updatedItemTotal.subTotal)
+            ? (parseFloat(updatedItemTotal.subTotal) + otherChargesAmount).toFixed(4)
+            : "0.0000";
+          const vatPercentage = parseFloat(getRawValue(prev.itemTotal.vatPercentage)) || 0;
+          updatedItemTotal.vatAmount = isFinite(totalAfterOtherCharges)
+            ? (((parseFloat(totalAfterOtherCharges) * vatPercentage) / 100) * appliedRate).toFixed(4)
+            : "0.0000";
+          updatedItemTotal.itemTotalAmount = isFinite(totalAfterOtherCharges)
+            ? (parseFloat(totalAfterOtherCharges) + parseFloat(updatedItemTotal.vatAmount)).toFixed(4)
+            : "0.0000";
+        }
+
+        if (parent === "otherCharges") {
+          setLastEditedFields((prevFields) => ({
+            ...prevFields,
+            otherCharges: child,
+          }));
+          if (child === "rate") {
+            const rate = parseFloat(rawValue) || 0;
+            updatedParent.amount = isFinite(updatedItemTotal.subTotal)
+              ? (((parseFloat(updatedItemTotal.subTotal) * rate) / 100) * appliedRate).toFixed(2)
+              : "0.00";
+          } else if (child === "amount") {
+            const amount = parseFloat(rawValue) || 0;
+            updatedParent.rate = parseFloat(updatedItemTotal.subTotal) > 0 && appliedRate > 0
+              ? ((amount / (parseFloat(updatedItemTotal.subTotal) * appliedRate)) * 100).toFixed(2)
+              : "0.00";
+          }
+          const otherChargesAmount = parseFloat(updatedParent.amount) || 0;
+          const totalAfterOtherCharges = isFinite(updatedItemTotal.subTotal)
+            ? (parseFloat(updatedItemTotal.subTotal) + otherChargesAmount).toFixed(4)
+            : "0.0000";
+          const vatPercentage = parseFloat(getRawValue(prev.itemTotal.vatPercentage)) || 0;
+          updatedItemTotal.vatAmount = isFinite(totalAfterOtherCharges)
+            ? (((parseFloat(totalAfterOtherCharges) * vatPercentage) / 100) * appliedRate).toFixed(4)
+            : "0.0000";
+          updatedItemTotal.itemTotalAmount = isFinite(totalAfterOtherCharges)
+            ? (parseFloat(totalAfterOtherCharges) + parseFloat(updatedItemTotal.vatAmount)).toFixed(4)
+            : "0.0000";
+        }
+
+        if (parent === "itemTotal") {
+          setLastEditedFields((prevFields) => ({
+            ...prevFields,
+            vat: child === "vatPercentage" ? "percentage" : "amount",
+          }));
+          const totalAfterOtherCharges = parseFloat(prev.otherCharges.totalAfterOtherCharges) || 0;
+          if (child === "vatPercentage") {
+            const vatPercentage = parseFloat(rawValue) || 0;
+            updatedParent.vatAmount = isFinite(totalAfterOtherCharges)
+              ? (((totalAfterOtherCharges * vatPercentage) / 100) * appliedRate).toFixed(4)
+              : "0.0000";
+            updatedParent.vatPercentage = vatPercentage.toString();
+          } else if (child === "vatAmount") {
+            const vatAmount = parseFloat(rawValue) || 0;
+            updatedParent.vatPercentage = totalAfterOtherCharges > 0 && appliedRate > 0
+              ? ((vatAmount / (totalAfterOtherCharges * appliedRate)) * 100).toFixed(4)
+              : "0.00";
+            updatedParent.vatAmount = vatAmount.toString();
+          }
+          const vatAmountVal = parseFloat(getRawValue(updatedParent.vatAmount)) || 0;
+          updatedParent.itemTotalAmount = isFinite(totalAfterOtherCharges)
+            ? (totalAfterOtherCharges + vatAmountVal).toFixed(4)
+            : "0.0000";
+        }
+
+        return {
+          ...prev,
+          [parent]: updatedParent,
+          itemTotal: parent === "itemTotal" ? updatedParent : updatedItemTotal,
+        };
+      });
+    } else {
+      setProductData((prev) => ({
+        ...prev,
+        [name]: rawValue,
+      }));
+    }
+    setErrors((prev) => ({ ...prev, [name]: "" }));
+
+    // Preserve cursor position for premium fields
+    if (isPremiumField) {
+      setTimeout(() => {
+        if (name === "premium.rate" && premiumRateRef.current) {
+          premiumRateRef.current.setSelectionRange(selectionStart, selectionStart);
+        } else if (name === "premium.amount" && premiumAmountRef.current) {
+          premiumAmountRef.current.setSelectionRange(selectionStart, selectionStart);
+        }
+      }, 0);
+    }
+  },
+  [effectiveRate, currencyCode, premiumRateRef, premiumAmountRef]
+);
+
+const handlePremiumInput = useCallback(
+  (e, field) => {
+    const { value, selectionStart } = e.target;
+    const rawValue = value.replace(/,/g, "");
+
+    if (rawValue === "" || /^-?\d*\.?\d*$/.test(rawValue)) {
+      setProductData((prev) => {
+        const updatedPremium = { ...prev.premium };
+        
+        if (field === "rate") {
+          updatedPremium.rate = rawValue;
+          setLastEditedFields((prevFields) => ({
+            ...prevFields,
+            premium: "rate",
+          }));
+          
+          // Calculate amount based on rate
+          const rate = parseFloat(rawValue) || 0;
+          const purityWeight = parseFloat(prev.purityWeight) || 0;
+          const convFactGms = parseFloat(prev.convFactGms) || 1;
+          const convertrate = parseFloat(prev.convertrate) || 1;
+          const appliedRate = currencyCode === "AED" ? 1 : effectiveRate;
+          
+          const divisor = purityWeight > 0 && convFactGms > 0 ? 
+            (purityWeight / convFactGms) * convertrate : 0;
+          
+          updatedPremium.amount = divisor > 0 ? 
+            (divisor * rate * appliedRate).toFixed(2) : "0.00";
+            
+        } else if (field === "amount") {
+          updatedPremium.amount = rawValue;
+          setLastEditedFields((prevFields) => ({
+            ...prevFields,
+            premium: "amount",
+          }));
+          
+          // Calculate rate based on amount
+          const amount = parseFloat(rawValue) || 0;
+          const purityWeight = parseFloat(prev.purityWeight) || 0;
+          const convFactGms = parseFloat(prev.convFactGms) || 1;
+          const convertrate = parseFloat(prev.convertrate) || 1;
+          const appliedRate = currencyCode === "AED" ? 1 : effectiveRate;
+          
+          const divisor = purityWeight > 0 && convFactGms > 0 ? 
+            (purityWeight / convFactGms) * convertrate : 0;
+          
+          updatedPremium.rate = divisor > 0 ? 
+            (amount / (divisor * appliedRate)).toFixed(2) : "0.00";
+        }
+
+        return {
+          ...prev,
+          premium: updatedPremium,
+        };
+      });
+    }
+  },
+  [effectiveRate, currencyCode]
+);
+
+  const handleSave = useCallback(() => {
+  if (!validate()) {
+    const errorMessages = Object.values(errors).filter(Boolean);
+    if (errorMessages.length > 0) {
+      alert(errorMessages.join(", "));
+    }
+    return;
+  }
+
+  const transformedData = {
+    ...productData,
+    stockCode: productData.stockCode,
+    baseCurrency: productData.baseCurrencyId || currencyCode,
+    metalType: productData.metalTypeId,
+    profit: calculateProfit(),
+    conversionRate: parseFloat(partyCurrency?.conversionRate) || 1, // Add conversionRate explicitly
+    convertedAmounts: {
+      metalAmount: parseFloat(productData.metalRateRequirements.amount) || 0,
+      premiumAmount: parseFloat(productData.premium.amount) || 0,
+      otherChargesAmount: parseFloat(productData.otherCharges.amount) || 0,
+      vatAmount: parseFloat(productData.itemTotal.vatAmount) || 0,
+      itemTotalAmount: parseFloat(productData.itemTotal.itemTotalAmount) || 0,
+      currencyCode,
+      effectiveRate: currencyCode === "AED" ? 1 : effectiveRate,
+    },
+  };
+console.log('Transformed Data:', transformedData); // Debugging line
+
+  onSave(transformedData);
+}, [
+  validate,
+  productData,
+  onSave,
+  currencyCode,
+  calculateProfit,
+  effectiveRate,
+  partyCurrency, // Add to dependencies
+]);
+
 
   if (!isOpen) return null;
 
@@ -1240,62 +1233,75 @@ const ProductDetailsModal = ({
                   >
                     {metalRates.length > 0 ? (
                       metalRates
-                        .filter((rate) => rate.rateType.toUpperCase() === "GOZ")
+                        .filter((rate) => rate.rateType.toUpperCase() === "KGBAR")
                         .map((rate) => (
                           <option key={rate.no} value={rate.rateUnit}>
                             {rate.rateType}
                           </option>
                         ))
                     ) : (
-                      <option value="GOZ">Gold</option>
+                      <option value="KGBAR">Gold</option>
                     )}
                   </select>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Rate <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="metalRateRequirements.rate"
-                    value={getDisplayValue(
-                      productData.metalRateRequirements.rate,
-                      "metalRate"
-                    )}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/,/g, "");
-                      if (value === "" || !isNaN(value)) {
-                        handleInputChange({
-                          target: { name: "metalRateRequirements.rate", value },
-                        });
-                      }
-                    }}
-                    onFocus={() => handleFocus("metalRate")}
-                    onBlur={() => handleBlur("metalRate")}
-                    className="w-full px-4 py-3 border-0 rounded-xl focus:ring-4 focus:ring-blue-100 bg-gray-50 hover:bg-white focus:bg-white shadow-sm hover:shadow-md focus:shadow-lg transition-all duration-300"
-                    placeholder="Enter metal rate (e.g., 2500.00)"
-                  />
-                  {errors.metalRate && (
-                    <p className="text-red-500 text-xs mt-1">
-                      {errors.metalRate}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Metal Amount ({currencyCode})
-                  </label>
-                  <input
-                    type="text"
-                    name="metalRateRequirements.amount"
-                    value={formatNumber(
-                      productData.metalRateRequirements.amount
-                    )}
-                    readOnly
-                    className="w-full px-4 py-3 border-0 rounded-xl bg-gray-100 text-gray-500 shadow-sm transition-all duration-300"
-                    placeholder="Calculated automatically"
-                  />
-                </div>
+               <div>
+  <label className="block text-sm font-medium text-gray-700 mb-2">
+    Rate <span className="text-red-500">*</span>
+    <span className="text-green-500 ml-2">
+      (Live: {goldData.bid ? formatNumber(goldData.bid) : "Loading..."})
+    </span>
+  </label>
+  <input
+    type="text"
+    name="metalRateRequirements.rate"
+    value={getDisplayValue(
+      productData.metalRateRequirements.rate,
+      "metalRate"
+    )}
+    onChange={(e) => {
+      const value = e.target.value.replace(/,/g, "");
+      if (value === "" || !isNaN(value)) {
+        handleInputChange({
+          target: { name: "metalRateRequirements.rate", value },
+        });
+      }
+    }}
+    onFocus={() => handleFocus("metalRate")}
+    onBlur={() => handleBlur("metalRate")}
+    className="w-full px-4 py-3 border-0 rounded-xl focus:ring-4 focus:ring-blue-100 bg-gray-50 hover:bg-white focus:bg-white shadow-sm hover:shadow-md focus:shadow-lg transition-all duration-300"
+    placeholder="Enter metal rate (e.g., 2500.00)"
+  />
+  {errors.metalRate && (
+    <p className="text-red-500 text-xs mt-1">
+      {errors.metalRate}
+    </p>
+  )}
+</div>
+              <div>
+  <label className="block text-sm font-medium text-gray-700 mb-2">
+    Metal Amount ({currencyCode})
+  </label>
+  <input
+    type="text"
+    name="metalRateRequirements.amount"
+    value={getDisplayValue(
+      productData.metalRateRequirements.amount,
+      "metalAmount"
+    )}
+    onChange={(e) => {
+      const value = e.target.value.replace(/,/g, "");
+      if (value === "" || !isNaN(value)) {
+        handleInputChange({
+          target: { name: "metalRateRequirements.amount", value },
+        });
+      }
+    }}
+    onFocus={() => handleFocus("metalAmount")}
+    onBlur={() => handleBlur("metalAmount")}
+    className="w-full px-4 py-3 border-0 rounded-xl focus:ring-4 focus:ring-blue-100 bg-gray-50 hover:bg-white focus:bg-white shadow-sm hover:shadow-md focus:shadow-lg transition-all duration-300"
+    placeholder="Enter or calculated metal amount (e.g., 25000.00)"
+  />
+</div>
               </div>
             </div>
 
@@ -1355,79 +1361,98 @@ const ProductDetailsModal = ({
                 </div>
               </div>
             </div>
+<div className="border border-gray-200 rounded-xl p-4">
+  <h3 className="text-md font-semibold text-gray-800 mb-4">
+    Premium / Discount ({currencyCode})
+  </h3>
+  <div className="grid grid-cols-1 gap-4">
+    <div className="relative">
+      <label className="block text-sm font-medium text-gray-700 mb-2">
+        Currency Value (USD)
+      </label>
+      <div className="relative">
+        <div className="absolute inset-0 left-0 pl-4 flex items-center pointer-events-none">
+          <span className="text-gray-500 font-medium">USD</span>
+        </div>
+        <input
+          type="text"
+          name="premiumCurrencyValue"
+          value={getDisplayValue(
+            productData.premiumCurrencyValue,
+            "premiumCurrency"
+          )}
+          onChange={(e) => {
+            const value = e.target.value.replace(/,/g, "");
+            if (value === "" || !isNaN(value)) {
+              handleInputChange({
+                target: { name: "premiumCurrencyValue", value },
+              });
+            }
+          }}
+          onFocus={() => handleFocus("premiumCurrency")}
+          onBlur={() => handleBlur("premiumCurrency")}
+          className="w-full pl-16 pr-4 py-3 border-0 rounded-xl focus:ring-4 focus:ring-blue-100 bg-gray-50 hover:bg-white focus:bg-white shadow-sm hover:shadow-md focus:shadow-lg transition-all duration-300"
+          placeholder="Enter USD value (e.g., 3.674)"
+        />
+      </div>
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">
+        Rate
+      </label>
+      <input
+        ref={premiumRateRef}
+        type="text"
+        name="premium.rate"
+        value={getDisplayValue(
+          productData.premium.rate,
+          "premiumRate"
+        )}
+        onChange={(e) => handlePremiumInput(e, "rate")}
+        onFocus={() => {
+          handleFocus("premiumRate");
+          setLastEditedFields((prevFields) => ({
+            ...prevFields,
+            premium: "rate",
+          }));
+        }}
+        onBlur={() => handleBlur("premiumRate")}
+        className="w-full px-4 py-3 border-0 rounded-xl focus:ring-4 focus:ring-blue-100 bg-gray-50 hover:bg-white focus:bg-white shadow-sm hover:shadow-md focus:shadow-lg transition-all duration-300"
+        placeholder={`Enter rate in ${currencyCode} (e.g., 5.50 or -5.50)`}
+      />
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">
+        Amount ({currencyCode})
+      </label>
+      <input
+        ref={premiumAmountRef}
+        type="text"
+        name="premium.amount"
+        value={getDisplayValue(
+          productData.premium.amount,
+          "premiumAmount"
+        )}
+        onChange={(e) => handlePremiumInput(e, "amount")}
+        onFocus={() => {
+          handleFocus("premiumAmount");
+          setLastEditedFields((prevFields) => ({
+            ...prevFields,
+            premium: "amount",
+          }));
+        }}
+        onBlur={() => handleBlur("premiumAmount")}
+        className={`w-full px-4 py-3 border-0 rounded-xl focus:ring-4 focus:ring-blue-100 bg-gray-50 hover:bg-white focus:bg-white shadow-sm hover:shadow-md focus:shadow-lg transition-all duration-300 ${
+          parseFloat(getRawValue(productData.premium.amount)) < 0
+            ? "text-red-500"
+            : ""
+        }`}
+        placeholder={`Enter amount in ${currencyCode} (e.g., 50.00 or -50.00)`}
+      />
+    </div>
+  </div>
+</div>
 
-            <div className="border border-gray-200 rounded-xl p-4">
-              <h3 className="text-md font-semibold text-gray-800 mb-4">
-                Premium / Discount ({currencyCode})
-              </h3>
-              <div className="grid grid-cols-1 gap-4">
-                <div className="relative">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Currency Value (USD)
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <span className="text-gray-500 font-medium">USD</span>
-                    </div>
-                    <input
-                      type="text"
-                      name="premiumCurrencyValue"
-                      value={getDisplayValue(
-                        productData.premiumCurrencyValue,
-                        "premiumCurrency"
-                      )}
-                      onChange={handleInputChange}
-                      onFocus={() => handleFocus("premiumCurrency")}
-                      onBlur={() => handleBlur("premiumCurrency")}
-                      className="w-full pl-16 pr-4 py-3 border-0 rounded-xl focus:ring-4 focus:ring-blue-100 bg-gray-50 hover:bg-white focus:bg-white shadow-sm hover:shadow-md focus:shadow-lg transition-all duration-300"
-                      placeholder="Enter USD value (e.g., 3.674)"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Rate
-                  </label>
-                  <input
-                    ref={premiumRateRef}
-                    type="text"
-                    name="premium.rate"
-                    value={getDisplayValue(
-                      productData.premium.rate,
-                      "premiumRate"
-                    )}
-                    onChange={(e) => handlePremiumInput(e, "rate")}
-                    onFocus={() => handleFocus("premiumRate")}
-                    onBlur={() => handleBlur("premiumRate")}
-                    className="w-full px-4 py-3 border-0 rounded-xl focus:ring-4 focus:ring-blue-100 bg-gray-50 hover:bg-white focus:bg-white shadow-sm hover:shadow-md focus:shadow-lg transition-all duration-300"
-                    placeholder={`Enter rate in ${currencyCode} (e.g., 5.50 or -5.50)`}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Amount ({currencyCode})
-                  </label>
-                  <input
-                    ref={premiumAmountRef}
-                    type="text"
-                    name="premium.amount"
-                    value={getDisplayValue(
-                      productData.premium.amount,
-                      "premiumAmount"
-                    )}
-                    onChange={(e) => handlePremiumInput(e, "amount")}
-                    onFocus={() => handleFocus("premiumAmount")}
-                    onBlur={() => handleBlur("premiumAmount")}
-                    className={`w-full px-4 py-3 border-0 rounded-xl focus:ring-4 focus:ring-blue-100 bg-gray-50 hover:bg-white focus:bg-white shadow-sm hover:shadow-md focus:shadow-lg transition-all duration-300 ${
-                      parseFloat(getRawValue(productData.premium.amount)) < 0
-                        ? "text-red-500"
-                        : ""
-                    }`}
-                    placeholder={`Enter amount in ${currencyCode} (e.g., 50.00 or -50.00)`}
-                  />
-                </div>
-              </div>
-            </div>
 
             <div className="border border-gray-200 rounded-xl p-4">
               <h3 className="text-md font-semibold text-gray-800 mb-4">
@@ -1601,4 +1626,5 @@ const ProductDetailsModal = ({
     </div>
   );
 };
+
 export default ProductDetailsModal;
