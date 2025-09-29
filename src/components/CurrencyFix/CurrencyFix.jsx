@@ -21,9 +21,10 @@ const CurrencyTradingUI = () => {
   const [trades, setTrades] = useState([]);
   const [loadingTrades, setLoadingTrades] = useState(true);
   const [currentTradesPage, setCurrentTradesPage] = useState(1);
-  const [currentPage, setCurrentPage] = useState(1);
   const tradesPerPage = 10;
   const { marketData } = useMarketData(["GOLD"]);
+  const itemsPerPage = 10
+  const [currentPage, setCurrentPage] = useState(1);
   const [goldData, setGoldData] = useState({
     symbol: "GOLD",
     bid: null,
@@ -522,7 +523,7 @@ const CurrencyTradingUI = () => {
                 </div>
               </div>
             </div>
-            <div className="overflow-x-hidden">
+            <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-100">
                   <tr>
@@ -692,8 +693,6 @@ const CurrencyTradingUI = () => {
   };
 
   const renderTrading = () => {
-    const itemsPerPage = 10;
-    
 
     const filteredParties = tradingParties.filter((party) =>
       party.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -920,7 +919,7 @@ const CurrencyTradingUI = () => {
       finalPayAmount = parseFloat(payAmount) || 0;
       finalReceiveAmount = parseFloat(receiveAmount) || 0;
       const grossWeightValue = parseFloat(grossWeight) || 0;
-      if (finalPayAmount <= 0 || finalReceiveAmount <= 0 || grossWeightValue <= 0) {
+      if (finalPayAmount <= 0 || grossWeightValue <= 0) {
         toast.error('Pay amount, receive amount, and gross weight must be greater than zero');
         return;
       }
@@ -1225,7 +1224,22 @@ const CurrencyTradingUI = () => {
                     />
                   </div>
                 )}
-
+                {/* only show the recieve amount section to the cash aed/int , not to commodities */}
+                {isCommodity ? null : (
+                   <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Receive Amount ({receiveCurrency}{isCommodity && receiveCurrency === 'XAU' ? ' grams' : ''})
+                  </label>
+                  <input
+                    type="number"
+                    placeholder={`Enter amount in ${receiveCurrency}${isCommodity && receiveCurrency === 'XAU' ? ' grams' : ''}`}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                    value={receiveAmount || (isCommodity ? '' : converted)}
+                    onChange={(e) => handleReceiveAmountChange(e.target.value)}
+                  />
+                </div>
+                )}
+               
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Rate</label>
                   <input
