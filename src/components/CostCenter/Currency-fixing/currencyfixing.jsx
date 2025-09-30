@@ -436,10 +436,13 @@ const CurrencyTradingRegistry = () => {
                         Parties
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        pairs
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Base Currency
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        To Currency
+                        Trading with
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Rate
@@ -447,9 +450,9 @@ const CurrencyTradingRegistry = () => {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Converted
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Profit
-                      </th>
+                      </th> */}
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Date & Time
                       </th>
@@ -481,17 +484,21 @@ const CurrencyTradingRegistry = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
-                            {transaction?.partyId?.customerName} (
-                            {transaction?.partyId?.accountCode})
+                            {transaction?.partyId?.customerName}
+                          </div>
+                        </td>
+                         <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            {`${transaction?.baseCurrencyCode} / ${transaction?.targetCurrencyCode}`}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
                             {formatCurrency(
-                              transaction.converted,
-                              transaction.targetCurrencyCode === "XAU"
+                              transaction.amount,
+                              transaction.baseCurrencyCode === "XAU"
                                 ? "XAU"
-                                : transaction.toCurrency?.currencyCode || "N/A",
+                                : transaction.baseCurrency?.currencyCode || "N/A",
                               transaction.type === "BUY"
                                 ? "text-green-700"
                                 : "text-red-700"
@@ -503,7 +510,7 @@ const CurrencyTradingRegistry = () => {
                           <div className="text-sm text-gray-900">
                             {formatCurrency(
                               transaction.converted,
-                              transaction.toCurrency?.currencyCode,
+                              transaction.targetCurrencyCode === "XAU" ? "XAU" : transaction.toCurrency?.currencyCode || "N/A",
                               transaction.type === "BUY"
                                 ? "text-green-700"
                                 : "text-red-700"
@@ -526,11 +533,11 @@ const CurrencyTradingRegistry = () => {
                           </div>
                         </td>
 
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        {/* <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-semibold text-gray-900">
                             {formatCurrency(transaction.profit, "INR")}
                           </div>
-                        </td>
+                        </td> */}
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                           {formatDate(transaction.createdAt)}
                         </td>
@@ -585,11 +592,10 @@ const CurrencyTradingRegistry = () => {
                           <button
                             key={page}
                             onClick={() => handlePageChange(page)}
-                            className={`px-3 py-1 text-sm rounded-md ${
-                              currentPage === page
+                            className={`px-3 py-1 text-sm rounded-md ${currentPage === page
                                 ? "bg-blue-600 text-white"
                                 : "border border-gray-300 hover:bg-gray-50"
-                            }`}
+                              }`}
                           >
                             {page}
                           </button>
