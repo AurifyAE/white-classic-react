@@ -74,6 +74,7 @@ const ProductDetailsModal = ({
   isOpen,
   onClose,
   partyCurrency,
+    partyCurrencyValue,
   party,
   onSave,
   fixed,
@@ -126,7 +127,9 @@ const [lastEditedFields, setLastEditedFields] = useState({
   }, [party, partyCurrency]);
 
   const spread = parseFloat(partyCurrDetails.bid) || 0;
-  const conversionRate = parseFloat(partyCurrency?.conversionRate) || 1;
+  const conversionRate = partyCurrencyValue || 
+                        partyCurrency?.conversionRate || 
+                        "1.00"; 
   const effectiveRate =
     partyCurrDetails.currencyCode === "AED" ? 1 : conversionRate;
   const currencyCode = partyCurrDetails.currencyCode || "AED";

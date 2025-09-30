@@ -20,7 +20,7 @@ import {
   TrashIcon,
 } from "lucide-react";
 import Select from "react-select";
-import PDFPreviewModal from "./PdfPreview"; // Adjust path if in a different folder
+import PDFPreviewModal from "./PdfPreview"; 
 import PartyCodeField from "./PartyCodeField";
 import ProductDetailsModal from "./ProductDetailsModal";
 import SearchableInput from "./SearchInputField/SearchableInput";
@@ -107,7 +107,7 @@ export default function PurchaseMetal() {
 
   const today = new Date().toISOString().split("T")[0];
 
-  const [formData, setFormData] = useState({
+ const [formData, setFormData] = useState({
     transactionType: "purchase",
     voucherCode: "",
     voucherType: "",
@@ -116,11 +116,11 @@ export default function PurchaseMetal() {
     partyCode: "",
     partyName: "",
     partyCurrencyId: "",
-    partyCurrencyCode: "",
-    partyCurrencyValue: "",
+    partyCurrencyCode: "AED", 
+    partyCurrencyValue: "1", 
     itemCurrencyId: "",
-    itemCurrencyCode: "",
-    itemCurrencyValue: "",
+    itemCurrencyCode: "AED", 
+    itemCurrencyValue: "1", 
     baseCurrency: null,
     metalRateUnit: "KGBAR",
     metalRate: "",
@@ -130,7 +130,7 @@ export default function PurchaseMetal() {
     spp: "",
     fixed: false,
     internalUnfix: false,
-    partyCurrency: [],
+    partyCurrency: [], // Store full currency object if needed
   });
   // const handleDownloadClick = useCallback((purchase) => {
   //   setSelectedPurchase(purchase);
@@ -186,7 +186,7 @@ export default function PurchaseMetal() {
 
       if (!Array.isArray(data)) {
         setError("Invalid transaction data format");
-        console.error("API Response Data:", data); // Debug log
+        console.error("API Response Data:", data);
         return [];
       }
 
@@ -309,34 +309,30 @@ export default function PurchaseMetal() {
     }
   }, [currentModule, location.pathname, setError]);
 
-  const fetchPartyDetails = useCallback(
+ const fetchPartyDetails = useCallback(
     (partyName) => {
-      // Handle cases where partyName is an object (from react-select) or undefined
       const partyNameStr =
         typeof partyName === "object" && partyName !== null
           ? partyName.value || ""
           : partyName || "";
 
-      // Return early if no party name provided
       if (!partyNameStr) {
         return {
           partyName: "",
           partyCode: "",
           partyCurrencyId: "",
-          partyCurrencyCode: "",
-          partyCurrencyValue: "",
+          partyCurrencyCode: "AED", 
+          partyCurrencyValue: "1", 
           itemCurrencyId: "",
-          itemCurrencyCode: "",
-          itemCurrencyValue: "",
+          itemCurrencyCode: "AED",
+          itemCurrencyValue: "1", 
           partyId: "",
+          partyCurrency: [],
           error: null,
         };
       }
 
-      // Normalize the search term
       const normalizedPartyName = partyNameStr.trim().toLowerCase();
-
-      // Find creditor
       let creditor = tradeDebtors.find(
         (creditor) =>
           creditor.customerName.trim().toLowerCase() === normalizedPartyName
@@ -355,45 +351,36 @@ export default function PurchaseMetal() {
           partyName: partyNameStr,
           partyCode: "",
           partyCurrencyId: "",
-          partyCurrencyCode: "",
-          partyCurrencyValue: "",
+          partyCurrencyCode: "AED",
+          partyCurrencyValue: "1", 
           itemCurrencyId: "",
-          itemCurrencyCode: "",
-          itemCurrencyValue: "",
+          itemCurrencyCode: "AED", 
+          itemCurrencyValue: "1", 
           partyId: "",
+          partyCurrency: [],
           error: "No matching creditor found",
         };
       }
 
       const defaultCurrency =
         creditor.acDefinition?.currencies?.find((c) => c.isDefault) ||
-        creditor.acDefinition?.currencies?.[0];
-
-      if (!defaultCurrency) {
-        return {
-          partyName: creditor.customerName,
-          partyCode: creditor.id,
-          partyCurrencyId: "",
-          partyCurrencyCode: "",
-          partyCurrencyValue: "",
-          itemCurrencyId: "",
-          itemCurrencyCode: "",
-          itemCurrencyValue: "",
-          partyId: creditor.id,
-          partyCurrency: [],
-          error: "No default currency found for this party",
+        creditor.acDefinition?.currencies?.[0] || {
+          currency: {
+            _id: "",
+            currencyCode: "AED", 
+            conversionRate: "1",
+          },
         };
-      }
 
       return {
         partyName: creditor.customerName,
         partyCode: creditor.id,
         partyCurrencyId: defaultCurrency.currency?._id || "",
         partyCurrencyCode: defaultCurrency.currency?.currencyCode || "AED",
-        partyCurrencyValue: creditor.creditLimit?.netAmount || "",
+        partyCurrencyValue: defaultCurrency.currency?.conversionRate?.toString() || "1",
         itemCurrencyId: defaultCurrency.currency?._id || "",
         itemCurrencyCode: defaultCurrency.currency?.currencyCode || "AED",
-        itemCurrencyValue: creditor.creditLimit?.netAmount || "",
+        itemCurrencyValue: defaultCurrency.currency?.conversionRate?.toString() || "1",
         partyId: creditor.id,
         partyCurrency: defaultCurrency?.currency || [],
         error: null,
@@ -422,11 +409,11 @@ export default function PurchaseMetal() {
     }
   }, []);
 
-  useEffect(() => {
-    if (formData.partyCurrencyId) {
-      fetchCurrencyById(formData.partyCurrencyId);
-    }
-  }, [formData.partyCurrencyId]);
+  // useEffect(() => {
+  //   if (formData.partyCurrencyId) {
+  //     fetchCurrencyById(formData.partyCurrencyId);
+  //   }
+  // }, [formData.partyCurrencyId]);
 
   const validateMainModal = useCallback(() => {
     if (!formData.partyName?.trim()) {
@@ -519,29 +506,29 @@ export default function PurchaseMetal() {
   );
 
 const handleConversionRateChange = useCallback((e) => {
-  const newRate = e.target.value;
-  setFormData((prev) => ({
-    ...prev,
-    partyCurrencyValue: newRate,
-    itemCurrencyValue: newRate,
-    partyCurrency: {
-      ...prev.partyCurrency,
-      conversionRate: newRate, 
-    },
-  }));
-}, []);
+    const newRate = e.target.value;
+    setFormData((prev) => ({
+      ...prev,
+      partyCurrencyValue: newRate || "1", 
+      itemCurrencyValue: newRate || "1",
+      partyCurrency: {
+        ...prev.partyCurrency,
+        conversionRate: newRate || "1",
+      },
+    }));
+  }, []);
 
-const handleCurrencyChange = (option) => {
-  setFormData((prev) => ({
-    ...prev,
-    partyCurrencyCode: option?.value,
-    itemCurrencyCode: option?.value,
-    partyCurrency: option?.data,
-    partyCurrencyId: option?.data?._id,
-    partyCurrencyValue: option?.data?.conversionRate || "",  // Set initial value
-    itemCurrencyValue: option?.data?.conversionRate || "",
-  }));
-};
+const handleCurrencyChange = useCallback((option) => {
+    setFormData((prev) => ({
+      ...prev,
+      partyCurrencyCode: option?.value || "AED", 
+      itemCurrencyCode: option?.value || "AED",
+      partyCurrency: option?.data || [],
+      partyCurrencyId: option?.data?._id || "",
+      partyCurrencyValue: option?.data?.conversionRate?.toString() || "1", 
+      itemCurrencyValue: option?.data?.conversionRate?.toString() || "1", 
+    }));
+  }, []);
   const selectedParty = tradeDebtors.find(
     (d) => d.customerName === formData.partyName
   );
@@ -2927,6 +2914,8 @@ const handleSave = useCallback(async () => {
                 isOpen={isProductModalOpen}
                 onClose={handleProductModalClose}
                 partyCurrency={formData?.partyCurrency}
+                                 partyCurrencyValue={formData?.partyCurrencyValue}
+
                 party={selectedParty}
                 fixed={formData?.fixed}
                 onSave={(productData) => {
