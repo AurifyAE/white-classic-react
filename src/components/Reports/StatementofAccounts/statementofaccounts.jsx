@@ -201,7 +201,7 @@ export default function StatementOfAccounts() {
     accountType: [],
     stock: [],
     voucher: [],
-
+currencies: [],
     showGold: true,
     showCash: true,
   });
@@ -209,6 +209,7 @@ export default function StatementOfAccounts() {
     accountType: "",
     stock: "",
     voucher: "",
+    currencies: "",
 
   });
   const [stocks, setStocks] = useState([]);
@@ -216,6 +217,7 @@ export default function StatementOfAccounts() {
   const [accountTypes, setAccountTypes] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [filteredStatementData, setFilteredStatementData] = useState([]);
+  const [currencies, setCurrencies] = useState([]);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
   const navigateToVoucher = useVoucherNavigation();
 
@@ -239,6 +241,18 @@ export default function StatementOfAccounts() {
           url: "/account-type",
           setter: setAccountTypes,
         },
+       { 
+        key: "currencies",
+        url: "/currency-master",
+        setter: (data) => {
+          // Append static "Gold" option to the fetched currencies
+          const updatedCurrencies = [
+            ...data,
+            { _id: "gold", currencyCode: "XAU - XAU" } // Static gold object with id and display name
+          ];
+          setCurrencies(updatedCurrencies);
+        },
+      },
         {
           key: "vouchers",
           url: "/voucher",
@@ -324,6 +338,9 @@ export default function StatementOfAccounts() {
           })
           .filter((voucher) => voucher !== null);
       }
+      if (filters.currencies.length > 0) { 
+      body.currencies = filters.currencies;
+    }
 
       // Keep your showGold & showCash flags
       if (filters.showGold !== undefined) body.showGold = filters.showGold;
@@ -540,23 +557,29 @@ export default function StatementOfAccounts() {
     }));
   }, []);
 
-  const handleToggleAll = useCallback(
-    (field) => {
-      setFilters((prev) => {
-        const allIds =
-          field === "stock"
-            ? stocks.map((s) => s.id || s._id)
-            : accountTypes.map((a) => a.id || a._id);
+const handleToggleAll = useCallback(
+  (field) => {
+    setFilters((prev) => {
+      const allIds =
+        field === "stock"
+          ? stocks.map((s) => s.id || s._id)
+          : field === "accountType"
+            ? accountTypes.map((a) => a.id || a._id)
+            : field === "voucher"
+              ? vouchers.map((v) => v.id || v._id)
+              : field === "currencies"
+                ? currencies.map((c) => c.id || c._id)
+                : [];
 
-        const isAllSelected = prev[field].length === allIds.length;
-        return {
-          ...prev,
-          [field]: isAllSelected ? [] : allIds,
-        };
-      });
-    },
-    [stocks, accountTypes]
-  );
+      const isAllSelected = prev[field].length === allIds.length;
+      return {
+        ...prev,
+        [field]: isAllSelected ? [] : allIds,
+      };
+    });
+  },
+  [stocks, accountTypes, vouchers, currencies]
+);
 
   const handleDocClick = (docRef) => {
     if (!docRef) return;
@@ -589,6 +612,7 @@ export default function StatementOfAccounts() {
       accountType: [],
       stock: [],
       voucher: [],
+      currencies: [],
       showGold: true,
       showCash: true,
     });
@@ -596,6 +620,7 @@ export default function StatementOfAccounts() {
       accountType: "",
       stock: "",
       voucher: "",
+      currencies: "",
     });
     setFilteredStatementData([]);
     setCurrentPage(1);
@@ -959,6 +984,21 @@ export default function StatementOfAccounts() {
                   allSelected={filters.voucher.length === vouchers.length}
                   onToggleAll={handleToggleAll}
                 />
+                <CheckboxFilter
+    title="Currencies"
+    options={currencies.map((c) => ({
+      ...c,
+      name: c.currencyCode, // Display currencyCode (e.g., AED, INR)
+      checked: filters.currencies.includes(c.id || c._id),
+    }))}
+    field="currencies"
+    icon={DollarSign}
+    searchTerm={searchTerms.currencies}
+    onCheckboxChange={handleCheckboxChange}
+    onSearchChange={handleSearchChange}
+    allSelected={filters.currencies.length === currencies.length}
+    onToggleAll={handleToggleAll}
+  />
                 {/* <CheckboxFilter
                   title="Stock Code"
                   options={stocks.map((s) => ({
