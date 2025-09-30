@@ -523,7 +523,7 @@ const CurrencyTradingUI = () => {
                 </div>
               </div>
             </div>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-hidden">
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-100">
                   <tr>
