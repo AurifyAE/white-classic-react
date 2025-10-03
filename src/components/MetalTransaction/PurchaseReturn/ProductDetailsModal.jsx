@@ -74,12 +74,13 @@ const ProductDetailsModal = ({
   isOpen,
   onClose,
   partyCurrency,
+      partyCurrencyValue,
   party,
   onSave,
   fixed,
   editingItem,
 }) => {
-  console.log(partyCurrency);
+  // console.log(partyCurrency);
   const [productData, setProductData] = useState(initialProductData);
   const [goldData, setGoldData] = useState(initialGoldData);
   const [metalRates, setMetalRates] = useState([]);
@@ -127,7 +128,9 @@ const [lastEditedFields, setLastEditedFields] = useState({
   }, [party, partyCurrency]);
 
   const spread = parseFloat(partyCurrDetails.bid) || 0;
-  const conversionRate = parseFloat(partyCurrency?.conversionRate) || 1;
+   const conversionRate = partyCurrencyValue || 
+                        partyCurrency?.conversionRate || 
+                        "1.00"; 
   const effectiveRate =
     partyCurrDetails.currencyCode === "AED" ? 1 : conversionRate;
   const currencyCode = partyCurrDetails.currencyCode || "AED";

@@ -23,7 +23,7 @@ const CurrencyTradingUI = () => {
   const [currentTradesPage, setCurrentTradesPage] = useState(1);
   const tradesPerPage = 10;
   const { marketData } = useMarketData(["GOLD"]);
-  const itemsPerPage = 10
+  const itemsPerPage = 10;
   const [currentPage, setCurrentPage] = useState(1);
   const [goldData, setGoldData] = useState({
     symbol: "GOLD",
@@ -99,6 +99,24 @@ const CurrencyTradingUI = () => {
   const [inputCurrency, setInputCurrency] = useState('');
   const [grossWeight, setGrossWeight] = useState('1000'); // New state for gross weight
   const [metalType] = useState('Kilo'); // Constant metal type
+
+  const formatNumber = (num, decimals = 4) => {
+    if (num === null || num === undefined || isNaN(num)) {
+      console.warn(`formatNumber received invalid input: ${num}`);
+      return '0.0000';
+    }
+    return Number(num).toLocaleString('en-US', {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    });
+  };
+
+  const formatCurrencyWithCode = (value, currencyCode, decimals = 4) => {
+    const formattedValue = formatNumber(value, decimals);
+    const code = currencyCode || 'AED';
+    console.log(`Formatting value: ${value}, currencyCode: ${code}, result: ${code} ${formattedValue}`);
+    return `${code} ${formattedValue}`;
+  };
 
   useEffect(() => {
     const fetchTradingParties = async () => {
@@ -261,7 +279,7 @@ const CurrencyTradingUI = () => {
     setIsModalOpen(true);
     setPayAmount('');
     setReceiveAmount('');
-    setGrossWeight('1000'); // Default to 1000 grams
+    setGrossWeight('1000');
     setManualRate(23);
     setTradeType('buy');
     setSelectedTradeParty(selectedParty || '');
@@ -285,7 +303,7 @@ const CurrencyTradingUI = () => {
     setIsModalOpen(true);
     setPayAmount(trade.amount.toString());
     setReceiveAmount(trade.converted.toString());
-    setGrossWeight(trade.grossWeight ? trade.grossWeight.toString() : '1000'); // Set gross weight from trade or default
+    setGrossWeight(trade.grossWeight ? trade.grossWeight.toString() : '1000');
     setManualRate(trade.rate || 23);
     setTradeType(trade.type.toLowerCase());
     setSelectedTradeParty(trade.partyId.customerName);
@@ -345,11 +363,11 @@ const CurrencyTradingUI = () => {
           {trend && (
             <div className={`flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium ${trend > 0 ? 'text-green-700 bg-green-100' : 'text-red-700 bg-red-100'}`}>
               {trend > 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-              <span>{Math.abs(trend)}%</span>
+              <span>{formatNumber(Math.abs(trend), 2)}%</span>
             </div>
           )}
         </div>
-        <div className="text-3xl font-bold text-gray-900 mb-2">{value}</div>
+        <div className="text-3xl font-bold text-gray-900 mb-2">{title === 'Gold Price' ? formatCurrencyWithCode(value, 'AED', 2) : value}</div>
         <div className="text-sm font-medium text-gray-600">{title}</div>
         {subtitle && <div className="text-xs text-gray-500 mt-1">{subtitle}</div>}
       </div>
@@ -372,10 +390,10 @@ const CurrencyTradingUI = () => {
       </div>
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-lg font-bold text-gray-900">{pair.rate.toFixed(4)}</span>
+          <span className="text-lg font-bold text-gray-900">{formatNumber(pair.rate, 4)}</span>
           <div className={`flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-semibold ${pair.isUp ? 'text-green-700 bg-green-100' : 'text-red-700 bg-red-100'}`}>
             {pair.isUp ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-            <span>{pair.changePercent.toFixed(2)}%</span>
+            <span>{formatNumber(pair.changePercent, 2)}%</span>
           </div>
         </div>
         <div className="flex justify-between text-xs text-gray-500">
@@ -460,7 +478,7 @@ const CurrencyTradingUI = () => {
           <StatCard title="Active Pairs" value={tradingPairs.length} icon={TrendingUp} trend={2.3} color="green" />
           <StatCard
             title="Gold Price"
-            value={tradingPairs.find(p => p.pair === 'AED/XAU')?.rate.toFixed(2) || '0.00'}
+            value={tradingPairs.find(p => p.pair === 'AED/XAU')?.rate || 0}
             subtitle="per gram"
             icon={Zap}
             trend={-0.1}
@@ -557,16 +575,16 @@ const CurrencyTradingUI = () => {
                           </div>
                         </td>
                         <td className="px-8 py-5 whitespace-nowrap text-sm font-bold text-gray-900">
-                          {pair.rate.toFixed(4)}
+                          {formatNumber(pair.rate, 4)}
                         </td>
                         <td className="px-8 py-5 whitespace-nowrap">
                           <div className="text-sm font-bold text-green-700 bg-green-50 px-3 py-1 rounded-lg inline-block">
-                            {pair.buyRate.toFixed(4)}
+                            {formatNumber(pair.buyRate, 4)}
                           </div>
                         </td>
                         <td className="px-8 py-5 whitespace-nowrap">
                           <div className="text-sm font-bold text-red-700 bg-red-50 px-3 py-1 rounded-lg inline-block">
-                            {pair.sellRate.toFixed(4)}
+                            {formatNumber(pair.sellRate, 4)}
                           </div>
                         </td>
                       </tr>
@@ -608,7 +626,6 @@ const CurrencyTradingUI = () => {
                   <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Amount</th>
                   <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Rate</th>
                   <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Converted</th>
-                  {/* <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Status</th> */}
                   <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Date</th>
                 </tr>
               </thead>
@@ -640,14 +657,9 @@ const CurrencyTradingUI = () => {
                       </td>
                       <td className="px-8 py-5 whitespace-nowrap text-sm text-gray-600">{trade.partyId?.customerName || "NULLLLL"}</td>
                       <td className="px-8 py-5 whitespace-nowrap text-sm text-gray-600">{trade.baseCurrencyCode}/{trade.targetCurrencyCode}</td>
-                      <td className="px-8 py-5 whitespace-nowrap text-sm font-bold text-gray-900">{trade.amount.toFixed(2)}</td>
-                      <td className="px-8 py-5 whitespace-nowrap text-sm font-bold text-gray-900">{trade.rate.toFixed(4)}</td>
-                      <td className="px-8 py-5 whitespace-nowrap text-sm font-bold text-gray-900">{trade.converted.toFixed(2)}</td>
-                      {/* <td className="px-8 py-5 whitespace-nowrap">
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
-                          {trade.status}
-                        </span>
-                      </td> */}
+                      <td className="px-8 py-5 whitespace-nowrap text-sm font-bold text-gray-900">{formatNumber(trade.amount, 2)}</td>
+                      <td className="px-8 py-5 whitespace-nowrap text-sm font-bold text-gray-900">{formatNumber(trade.rate, 4)}</td>
+                      <td className="px-8 py-5 whitespace-nowrap text-sm font-bold text-gray-900">{formatNumber(trade.converted, 2)}</td>
                       <td className="px-8 py-5 whitespace-nowrap text-sm text-gray-500">{new Date(trade.createdAt).toLocaleString()}</td>
                     </tr>
                   ))
@@ -693,7 +705,6 @@ const CurrencyTradingUI = () => {
   };
 
   const renderTrading = () => {
-
     const filteredParties = tradingParties.filter((party) =>
       party.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       party.accountCode.toLowerCase().includes(searchTerm.toLowerCase())
@@ -876,16 +887,16 @@ const CurrencyTradingUI = () => {
                       </div>
                     </td>
                     <td className="px-8 py-5 whitespace-nowrap text-sm font-bold text-gray-900">
-                      {pair.rate.toFixed(4)}
+                      {formatNumber(pair.rate, 4)}
                     </td>
                     <td className="px-8 py-5 whitespace-nowrap">
                       <div className="text-sm font-bold text-green-700 bg-green-50 px-3 py-1 rounded-lg inline-block">
-                        {pair.buyRate.toFixed(4)}
+                        {formatNumber(pair.buyRate, 4)}
                       </div>
                     </td>
                     <td className="px-8 py-5 whitespace-nowrap">
                       <div className="text-sm font-bold text-red-700 bg-red-50 px-3 py-1 rounded-lg inline-block">
-                        {pair.sellRate.toFixed(4)}
+                        {formatNumber(pair.sellRate, 4)}
                       </div>
                     </td>
                     <td className="px-8 py-5 whitespace-nowrap">
@@ -1161,7 +1172,7 @@ const CurrencyTradingUI = () => {
                   <div className="text-3xl">{selectedPair.flag}</div>
                   <div>
                     <div className="text-lg font-bold text-gray-900">{selectedPair.pair}</div>
-                    <div className="text-sm text-gray-600">Mid Rate: {selectedPair.rate.toFixed(4)}</div>
+                    <div className="text-sm text-gray-600">Mid Rate: {formatNumber(selectedPair.rate, 4)}</div>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -1218,28 +1229,26 @@ const CurrencyTradingUI = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Value Per Gram ({payCurrency}/gram)</label>
                     <input
                       type="text"
-                      value={valuePerGram || '0.0000'}
+                      value={formatNumber(valuePerGram, 4)}
                       readOnly
                       className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-100 text-gray-700"
                     />
                   </div>
                 )}
-                {/* only show the recieve amount section to the cash aed/int , not to commodities */}
                 {isCommodity ? null : (
-                   <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Receive Amount ({receiveCurrency}{isCommodity && receiveCurrency === 'XAU' ? ' grams' : ''})
-                  </label>
-                  <input
-                    type="number"
-                    placeholder={`Enter amount in ${receiveCurrency}${isCommodity && receiveCurrency === 'XAU' ? ' grams' : ''}`}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                    value={receiveAmount || (isCommodity ? '' : converted)}
-                    onChange={(e) => handleReceiveAmountChange(e.target.value)}
-                  />
-                </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Receive Amount ({receiveCurrency}{isCommodity && receiveCurrency === 'XAU' ? ' grams' : ''})
+                    </label>
+                    <input
+                      type="number"
+                      placeholder={`Enter amount in ${receiveCurrency}${isCommodity && receiveCurrency === 'XAU' ? ' grams' : ''}`}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                      value={receiveAmount || (isCommodity ? '' : converted)}
+                      onChange={(e) => handleReceiveAmountChange(e.target.value)}
+                    />
+                  </div>
                 )}
-               
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Rate</label>
                   <input
@@ -1256,13 +1265,13 @@ const CurrencyTradingUI = () => {
                     <div>
                       <span className="text-xs text-gray-500 block">You Pay</span>
                       <div className="text-lg font-bold text-gray-900">
-                        {(payAmount || (isCommodity ? '0.0000' : converted))} {payCurrency}{isCommodity && payCurrency === 'XAU' ? ' grams' : ''}
+                        {formatNumber(payAmount || (isCommodity ? '0.0000' : converted), isCommodity ? 4 : 2)} {payCurrency}{isCommodity && payCurrency === 'XAU' ? ' grams' : ''}
                       </div>
                     </div>
                     <div>
                       <span className="text-xs text-gray-500 block">You Receive</span>
                       <div className="text-lg font-bold text-gray-900">
-                        {(receiveAmount || (isCommodity ? '0.0000' : converted))} {receiveCurrency}{isCommodity && receiveCurrency === 'XAU' ? ' grams' : ''}
+                        {formatNumber(receiveAmount || (isCommodity ? '0.0000' : converted), isCommodity ? 4 : 2)} {receiveCurrency}{isCommodity && receiveCurrency === 'XAU' ? ' grams' : ''}
                       </div>
                     </div>
                     {isCommodity && (
@@ -1273,18 +1282,18 @@ const CurrencyTradingUI = () => {
                         </div>
                         <div>
                           <span className="text-xs text-gray-500 block">Gross Weight</span>
-                          <div className="text-lg font-bold text-gray-900">{grossWeight || '0.0000'} grams</div>
+                          <div className="text-lg font-bold text-gray-900">{formatNumber(grossWeight, 4)} grams</div>
                         </div>
                         <div>
                           <span className="text-xs text-gray-500 block">Value Per Gram</span>
-                          <div className="text-lg font-bold text-gray-900">{valuePerGram || '0.0000'} {payCurrency}/gram</div>
+                          <div className="text-lg font-bold text-gray-900">{formatNumber(valuePerGram, 4)} {payCurrency}/gram</div>
                         </div>
                       </>
                     )}
                     <div>
                       <span className="text-xs text-gray-500 block">Rate</span>
                       <div className="text-lg font-bold text-gray-900">
-                        {manualRate.toFixed(4)} ({tradeType === 'buy' ? 'Buy' : 'Sell'})
+                        {formatNumber(manualRate, 4)} ({tradeType === 'buy' ? 'Buy' : 'Sell'})
                       </div>
                     </div>
                   </div>

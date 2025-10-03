@@ -29,6 +29,7 @@ import {
   Globe,
   Sparkles,
   TrendingUp,
+  DollarSign
 } from "lucide-react";
 import axios from "../../../api/axios";
 import { motion, AnimatePresence } from "framer-motion";
@@ -305,6 +306,7 @@ export default function SalesAnalysis() {
     transactionType: "sales",
     division: [],
     voucher: [],
+    currency: [],
     stock: [],
     karat: [],
     accountType: [],
@@ -350,6 +352,7 @@ export default function SalesAnalysis() {
     karat: "",
     accountType: "",
     groupBy: "",
+    currency:"",
     groupByRange: {
       stockCode: "",
       categoryCode: "",
@@ -374,6 +377,7 @@ export default function SalesAnalysis() {
   const [isManuallyEdited, setIsManuallyEdited] = useState(false);
   const [accountTypes, setAccountTypes] = useState([]);
   const [groupByOptions, setGroupByOptions] = useState({});
+  const[currency,setCurrency]=useState([])
   const [currentPage, setCurrentPage] = useState(1);
   const [filteredLedgerData, setFilteredLedgerData] = useState({});
 const [calculatedValues, setCalculatedValues] = useState({
@@ -468,6 +472,18 @@ useEffect(() => {
             },
             dataKey: "vouchers",
           },
+          { 
+        key: "currencies",
+        url: "/currency-master",
+        setter: (data) => {
+          // Append static "Gold" option to the fetched currencies
+          const updatedCurrencies = [
+            ...data,
+            // { _id: "gold", currencyCode: "Gold" } // Static gold object with id and display name
+          ];
+          setCurrency(updatedCurrencies);
+        },
+      },
           { key: "stocks", url: "/metal-stocks", setter: setStocks },
           { key: "karats", url: "/karats/karat", setter: setKarats },
           {
@@ -481,7 +497,7 @@ useEffect(() => {
             },
           },
         {
-  key: "currencies",
+  key: "currency",
   url: "/metal-rates",
   setter: (data) => {
     setMetalRates(data); // Store all metal rates data
@@ -698,6 +714,8 @@ const handleCurrencyChange = (newCurrency) => {
                 ? stocks.map((s) => s.id || s._id)
                 : field === "karat"
                   ? karats.map((k) => k.id || k._id)
+                  : field === "currency" 
+                ? currencies.map((c) => c.id || c._id)
                   : field === "groupBy"
                     ? ["stockCode", "categoryCode", "BrandCode", "Barcode", "CostCode", "DetailType", "Invoice", "Country", "CustBusinessType", "CustCategory", "CustRegion", "purchaseRef"]
                     : accountTypes.map((a) => a.id || a._id);
@@ -709,7 +727,7 @@ const handleCurrencyChange = (newCurrency) => {
         };
       });
     },
-    [divisions, vouchers, stocks, karats, accountTypes, groupByOptions]
+    [divisions, vouchers, stocks, karats,currency, accountTypes, groupByOptions]
   );
 
   const handleFilterChange = useCallback((field, value) => {
@@ -752,6 +770,10 @@ const handleCurrencyChange = (newCurrency) => {
           })
           .filter((voucher) => voucher !== null);
       }
+
+      if (filters.currency.length > 0) {  // Added: Include selected currencies in body
+  body.currency = filters.currency;
+}
 
       if (filters.stock.length > 0) body.stock = filters.stock;
       if (filters.karat.length > 0) body.karat = filters.karat;
@@ -821,7 +843,9 @@ const handleClearFilters = useCallback(() => {
   setFilters({
     fromDate: "",
     toDate: "",
-    transactionType: "sales",   // keep default transaction type
+    transactionType: "sales", 
+    currency:[],
+    // keep default transaction type
     // division: [],               // clear all
     // voucher: [],                // clear all
     division: divisions.map(d => d.id || d._id),
@@ -871,6 +895,7 @@ voucher: vouchers.map(v => v.id || v._id),
     stock: "",
     karat: "",
     accountType: "",
+    currency:"",
     groupBy: "",
     groupByRange: {
       stockCode: "",
@@ -1302,6 +1327,21 @@ Total Profit
                     allSelected={filters.division.length === divisions.length}
                     onToggleAll={handleToggleAll}
                   />
+                  <CheckboxFilter
+    title="Currencies"
+    options={currency.map((c) => ({
+      ...c,
+      name: c.currencyCode,  // Display currencyCode (e.g., AED, INR)
+      checked: filters.currency.includes(c.id || c._id),
+    }))}
+    field="currencies"
+    icon={DollarSign}
+    searchTerm={searchTerms.currency}
+    onCheckboxChange={handleCheckboxChange}
+    onSearchChange={handleSearchChange}
+    allSelected={filters.currency.length === currencies.length}
+    onToggleAll={handleToggleAll}
+  />
                   <CheckboxFilter
                     title="Transaction Type"
                     options={vouchers.map((v) => ({
