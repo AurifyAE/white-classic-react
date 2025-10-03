@@ -479,7 +479,7 @@ useEffect(() => {
           // Append static "Gold" option to the fetched currencies
           const updatedCurrencies = [
             ...data,
-            { _id: "gold", currencyCode: "Gold" } // Static gold object with id and display name
+            // { _id: "gold", currencyCode: "Gold" } // Static gold object with id and display name
           ];
           setCurrency(updatedCurrencies);
         },

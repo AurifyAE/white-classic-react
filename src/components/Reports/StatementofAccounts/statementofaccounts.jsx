@@ -248,7 +248,7 @@ currencies: [],
           // Append static "Gold" option to the fetched currencies
           const updatedCurrencies = [
             ...data,
-            { _id: "gold", currencyCode: "XAU - XAU" } // Static gold object with id and display name
+            // { _id: "gold", currencyCode: "XAU - XAU" } // Static gold object with id and display name
           ];
           setCurrencies(updatedCurrencies);
         },
