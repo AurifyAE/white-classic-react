@@ -80,6 +80,7 @@ const ProductDetailsModal = ({
   fixed,
   editingItem,
 }) => {
+  
   const [productData, setProductData] = useState(initialProductData);
   const [goldData, setGoldData] = useState(initialGoldData);
   const [metalRates, setMetalRates] = useState([]);

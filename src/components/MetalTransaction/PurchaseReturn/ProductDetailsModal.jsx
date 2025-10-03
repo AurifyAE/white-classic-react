@@ -80,7 +80,7 @@ const ProductDetailsModal = ({
   fixed,
   editingItem,
 }) => {
-  console.log(partyCurrency);
+  // console.log(partyCurrency);
   const [productData, setProductData] = useState(initialProductData);
   const [goldData, setGoldData] = useState(initialGoldData);
   const [metalRates, setMetalRates] = useState([]);

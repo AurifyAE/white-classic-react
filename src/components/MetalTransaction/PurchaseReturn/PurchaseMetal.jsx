@@ -108,30 +108,30 @@ export default function purchasereturn() {
   const today = new Date().toISOString().split("T")[0];
 
 const [formData, setFormData] = useState({
-    transactionType: "purchase",
-    voucherCode: "",
-    voucherType: "",
-    prefix: "",
-    voucherDate: "",
-    partyCode: "",
-    partyName: "",
-    partyCurrencyId: "",
-    partyCurrencyCode: "AED", 
-    partyCurrencyValue: "1",
-    itemCurrencyId: "",
-    itemCurrencyCode: "AED",
-    itemCurrencyValue: "1",
-    baseCurrency: null,
-    metalRateUnit: "KGBAR",
-    metalRate: "",
-    crDays: "",
-    creditDays: "",
-    enteredBy: "ADMIN",
-    spp: "",
-    fixed: false,
-    internalUnfix: false,
-    partyCurrency: [], // Store full currency object if needed
-  });
+  transactionType: "purchase",
+  voucherCode: "",
+  voucherType: "PR",
+  prefix: "PR",
+  voucherDate: today,
+  partyCode: "",
+  partyName: "",
+  partyCurrencyId: "",
+  partyCurrencyCode: "AED", 
+  partyCurrencyValue: "1", 
+  itemCurrencyId: "",
+  itemCurrencyCode: "AED",
+  itemCurrencyValue: "1",
+  baseCurrency: null,
+  metalRateUnit: "KGBAR",
+  metalRate: "",
+  crDays: "0",
+  creditDays: "0",
+  enteredBy: "ADMIN",
+  spp: "",
+  fixed: false,
+  internalUnfix: false,
+  partyCurrency: { currencyCode: "AED", conversionRate: "1" }, 
+});
   // const handleDownloadClick = useCallback((purchase) => {
   //   setSelectedPurchase(purchase);
   //   setIsDownloadModalOpen(true);
@@ -549,40 +549,39 @@ const handleDownloadPDF = async (purchaseId) => {
     });
   };
 
-  const numberToDirhamWords = (amount) => {
-    if (amount === null || amount === undefined || isNaN(amount) || amount === "") {
-      return "INVALID AMOUNT";
+  const numberToDirhamWords = (amount, currencyCode) => {
+    // Parse amount to remove commas and convert to number if string
+    let parsedAmount = typeof amount === 'string' ? parseFloat(amount.replace(/,/g, '')) : Number(amount);
+    if (isNaN(parsedAmount) || parsedAmount === null || parsedAmount === undefined || parsedAmount === '') {
+      return 'INVALID AMOUNT';
     }
-    const num = Number(amount);
-    const isNegative = num < 0;
-    const absoluteNum = Math.abs(num);
-    const [integerPart, decimalPartRaw] = absoluteNum.toFixed(2).split(".");
+    const isNegative = parsedAmount < 0;
+    parsedAmount = Math.abs(parsedAmount);
+    const num = parsedAmount.toFixed(2);
+    const [integerPart, decimalPartRaw] = num.split('.');
     const integer = parseInt(integerPart, 10) || 0;
-    const decimal = parseInt(decimalPartRaw, 10) || 0;
-
-    const a = [
-      "", "ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE",
-      "TEN", "ELEVEN", "TWELVE", "THIRTEEN", "FOURTEEN", "FIFTEEN", "SIXTEEN",
-      "SEVENTEEN", "EIGHTEEN", "NINETEEN",
-    ];
-    const b = ["", "", "TWENTY", "THIRTY", "FORTY", "FIFTY", "SIXTY", "SEVENTY", "EIGHTY", "NINETY"];
+    const fils = parseInt(decimalPartRaw, 10) || 0;
+    const a = ['', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'TEN', 'ELEVEN', 'TWELVE', 'THIRTEEN', 'FOURTEEN', 'FIFTEEN', 'SIXTEEN', 'SEVENTEEN', 'EIGHTEEN', 'NINETEEN'];
+    const b = ['', '', 'TWENTY', 'THIRTY', 'FORTY', 'FIFTY', 'SIXTY', 'SEVENTY', 'EIGHTY', 'NINETY'];
 
     const convert = (num) => {
-      if (num === 0) return "";
+      if (num === 0) return '';
       if (num < 20) return a[num];
-      if (num < 100) return b[Math.floor(num / 10)] + (num % 10 ? " " + a[num % 10] : "");
-      if (num < 1000) return a[Math.floor(num / 100)] + " HUNDRED" + (num % 100 ? " " + convert(num % 100) : "");
-      if (num < 100000) return convert(Math.floor(num / 1000)) + " THOUSAND" + (num % 1000 ? " " + convert(num % 1000) : "");
-      if (num < 10000000) return convert(Math.floor(num / 100000)) + " LAKH" + (num % 100000 ? " " + convert(num % 100000) : "");
-      if (num < 1000000000) return convert(Math.floor(num / 10000000)) + " CRORE" + (num % 10000000 ? " " + convert(num % 10000000) : "");
-      return "NUMBER TOO LARGE";
+      if (num < 100) return b[Math.floor(num / 10)] + (num % 10 ? ' ' + a[num % 10] : '');
+      if (num < 1000) return a[Math.floor(num / 100)] + ' HUNDRED' + (num % 100 ? ' ' + convert(num % 100) : '');
+      if (num < 100000) return convert(Math.floor(num / 1000)) + ' THOUSAND' + (num % 1000 ? ' ' + convert(num % 1000) : '');
+      if (num < 10000000) return convert(Math.floor(num / 100000)) + ' LAKH' + (num % 100000 ? ' ' + convert(num % 100000) : '');
+      if (num < 1000000000) return convert(Math.floor(num / 10000000)) + ' CRORE' + (num % 10000000 ? ' ' + convert(num % 10000000) : '');
+      return 'NUMBER TOO LARGE';
     };
 
-    let words = "";
-    if (integer > 0) words += convert(integer) + ` ${formData.partyCurrencyCode || "AED"}`;
-    if (decimal > 0) words += (integer > 0 ? " AND " : "") + convert(decimal) + " FILS";
-    if (words === "") words = `ZERO ${formData.partyCurrencyCode || "AED"}`;
-    return (isNegative ? "MINUS " : "") + words + " ONLY";
+    const currencyName = currencyCode.toUpperCase() === 'INR' ? 'RUPEES' : 'DIRHAM';
+
+    let words = '';
+    if (integer > 0) words += convert(integer) + ` ${currencyName}`;
+    if (fils > 0) words += (integer > 0 ? ' AND ' : '') + convert(fils) + ' FILS';
+    if (words === '') words = `ZERO ${currencyName}`;
+    return (isNegative ? 'MINUS ' : '') + words + ' ONLY';
   };
 
   try {
@@ -590,29 +589,47 @@ const handleDownloadPDF = async (purchaseId) => {
     const purchaseData = res.data;
     const purchase = purchaseData.data;
 
-    // Use the currency from formData or fall back to purchase data
+    // Use the currency from formData or fall back to purchase data (dynamic)
     const currencyCode = formData.partyCurrencyCode || purchase.partyCurrency?.currencyCode || "AED";
 
     const tableData = purchase.stockItems?.map((item) => {
       const grossWeight = parseFloat(item.grossWeight) || 0;
       const makingChargesTotal = parseFloat(item.itemTotal?.makingChargesTotal) || 0;
-      const calculatedRate = makingChargesTotal / grossWeight || 0;
+      const calculatedRate = grossWeight > 0 ? (makingChargesTotal / grossWeight) : 0;
+
+      // Try multiple possible locations for VAT percentage (matching preview logic)
+      const vatPercentage = 
+        item.vatPercentage || 
+        item.itemTotal?.vatPercentage || 
+        (item.otherCharges && item.otherCharges.rate) || 
+        0;
+
       return {
-        description: item.description || "",
-        grossWt: formatNumber(item.grossWeight || 0, 3),
-        purity: formatNumber(item.purity || 0, 6),
-        pureWt: formatNumber(item.pureWeight || 0, 3),
+        description: item.description || 'N/A',
+        grossWt: formatNumber(item.grossWeight || 0, 2),
+        purity: formatNumber(item.purity || 0, 2),
+        pureWt: formatNumber(item.pureWeight || 0, 2),
         makingRate: formatNumber(item.makingRate || 0, 2),
         makingAmount: formatNumber(item.makingAmount || 0, 2),
-        taxableAmt: formatNumber(item.taxableAmt || 0, 2),
-        vatPercent: formatNumber(item.vatPercent || item.itemTotal?.vatPercentage || 0, 2),
+        taxableAmt: formatNumber(item.otherCharges?.amount || item.taxableAmt || 0, 2),
+        vatPercent: formatNumber(vatPercentage, 2),
         vatAmt: formatNumber(item.itemTotal?.vatAmount || 0, 2),
-        totalAmt: purchase.fixed ? formatNumber(item.itemTotal?.itemTotalAmount || 0, 2) : "0.00",
-        type: item.unfix ? "Unfix" : "Fix",
+        totalAmt: formatNumber(item.itemTotal?.itemTotalAmount || 0, 2),
         rate: formatNumber(calculatedRate, 2),
         amount: formatNumber(item.itemTotal?.makingChargesTotal || 0, 2),
       };
     }) || [];
+
+    // Numerical totals for calculations (to avoid string parsing issues)
+    const totalGrossWtNum = tableData.reduce((acc, curr) => acc + parseFloat(curr.grossWt.replace(/,/g, "") || "0"), 0);
+    const totalPureWtNum = tableData.reduce((acc, curr) => acc + parseFloat(curr.pureWt.replace(/,/g, "") || "0"), 0);
+    const totalVATNum = tableData.reduce((acc, curr) => acc + parseFloat(curr.vatAmt.replace(/,/g, "") || "0"), 0);
+    const totalMakingAmountNum = tableData.reduce((acc, curr) => acc + parseFloat(curr.makingAmount.replace(/,/g, "") || "0"), 0);
+    const totalTaxableAmtNum = tableData.reduce((acc, curr) => acc + parseFloat(curr.taxableAmt.replace(/,/g, "") || "0"), 0);
+    const totalAmtNum = tableData.reduce((acc, curr) => acc + parseFloat(curr.totalAmt.replace(/,/g, "") || "0"), 0);
+    const avgVATPercent = tableData.length > 0
+      ? tableData.reduce((acc, curr) => acc + parseFloat(curr.vatPercent.replace(/,/g, "") || "0"), 0) / tableData.length
+      : 0;
 
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -637,7 +654,7 @@ const handleDownloadPDF = async (purchaseId) => {
     doc.setLineWidth(0.3);
     doc.line(14, separatorY, pageWidth - 14, separatorY);
 
-    // Info Box
+    // Info Box (matching preview data fields where possible)
     const infoStartY = separatorY + 6;
     const leftX = 14;
     const rightX = pageWidth / 2 + 4;
@@ -645,14 +662,14 @@ const handleDownloadPDF = async (purchaseId) => {
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
-    doc.text(`Party Name : ${purchase.partyCode?.customerName || "N/A"}`, leftX, infoStartY);
-    doc.text(`Phone      : ${purchase.partyCode?.addresses?.phoneNumber1 || "N/A"}`, leftX, infoStartY + lineSpacing);
-    doc.text(`Email      : ${purchase.partyCode?.addresses?.email || "N/A"}`, leftX, infoStartY + lineSpacing * 2);
+    doc.text(`Party Name : ${purchase.partyCode?.customerName || purchase.partyName || "N/A"}`, leftX, infoStartY);
+    doc.text(`Phone      : ${purchase.partyCode?.addresses?.phoneNumber1 || purchase.partyPhone || "N/A"}`, leftX, infoStartY + lineSpacing);
+    doc.text(`Email      : ${purchase.partyCode?.addresses?.email || purchase.partyEmail || "N/A"}`, leftX, infoStartY + lineSpacing * 2);
 
-    doc.text(`PUR NO     : ${purchase.voucherNumber || "N/A"}`, rightX, infoStartY);
-    doc.text(`Date       : ${purchase.formattedVoucherDate || purchase.voucherDate.split("T")[0] || "N/A"}`, rightX, infoStartY + lineSpacing);
+    doc.text(`PUR NO     : ${purchase.voucherNumber || purchase.vocNo || "N/A"}`, rightX, infoStartY);
+    doc.text(`Date       : ${purchase.formattedVoucherDate || purchase.voucherDate?.split("T")[0] || purchase.vocDate || "N/A"}`, rightX, infoStartY + lineSpacing);
     doc.text(`Terms      : ${purchase.paymentTerms || "Cash"}`, rightX, infoStartY + lineSpacing * 2);
-    doc.text(`Salesman   : ${purchase.salesman || "N/A"}`, rightX, infoStartY + lineSpacing * 3);
+    doc.text(`Salesman   : ${purchase.salesman || purchase.createdBy?.name || "N/A"}`, rightX, infoStartY + lineSpacing * 3);
     const goldRate = formatNumber(purchase.stockItems?.[0]?.metalRateRequirements?.rate || 0, 2);
     doc.text(`Gold Rate  : ${goldRate} ${currencyCode}/KGBAR`, rightX, infoStartY + lineSpacing * 4);
 
@@ -667,23 +684,6 @@ const handleDownloadPDF = async (purchaseId) => {
 
     // Main Items Table
     let tableStartY = logoY + logoHeight + 50;
-    const totalAmt = purchase.fixed
-      ? tableData.reduce((acc, curr) => acc + parseFloat(curr.totalAmt.replace(/,/g, "") || "0"), 0)
-      : 0;
-    const totalGrossWt = tableData.reduce((acc, curr) => acc + parseFloat(curr.grossWt.replace(/,/g, "") || "0"), 0);
-    const totalPureWt = tableData.reduce((acc, curr) => acc + parseFloat(curr.pureWt.replace(/,/g, "") || "0"), 0);
-    const totalVAT = purchase.fixed
-      ? tableData.reduce((acc, curr) => acc + parseFloat(curr.vatAmt.replace(/,/g, "") || "0"), 0)
-      : 0;
-    const totalMakingAmount = purchase.fixed
-      ? tableData.reduce((acc, curr) => acc + parseFloat(curr.makingAmount.replace(/,/g, "") || "0"), 0)
-      : 0;
-    const totalTaxableAmt = purchase.fixed
-      ? tableData.reduce((acc, curr) => acc + parseFloat(curr.taxableAmt.replace(/,/g, "") || "0"), 0)
-      : 0;
-    const avgVATPercent = purchase.fixed && tableData.length > 0
-      ? tableData.reduce((acc, curr) => acc + parseFloat(curr.vatPercent.replace(/,/g, "") || "0"), 0) / tableData.length
-      : 0;
 
     const tableColumns = [
       { content: "#", rowSpan: 2, styles: { halign: "center", valign: "middle" } },
@@ -738,21 +738,17 @@ const handleDownloadPDF = async (purchaseId) => {
       },
     });
 
-    // Totals Summary Box
+    // Totals Summary Box (always show VAT box like preview, no fixed check)
     const totalsStartY = doc.lastAutoTable.finalY;
     const tableWidth = pageWidth / 3;
     const leftMargin = pageWidth - tableWidth - 14;
 
-    const totalsBody = purchase.fixed
-      ? [
-          [{ content: "VAT %", styles: { fontStyle: "bold", halign: "center" } }, { content: formatNumber(avgVATPercent, 2), styles: { fontStyle: "bold", halign: "center" } }],
-          [{ content: `VAT Amount (${currencyCode})`, styles: { fontStyle: "bold", halign: "center" } }, { content: formatNumber(totalVAT, 2), styles: { fontStyle: "bold", halign: "center" } }],
-          [{ content: `Taxable Amount (${currencyCode})`, styles: { fontStyle: "bold", halign: "center" } }, { content: formatNumber(totalTaxableAmt, 2), styles: { fontStyle: "bold", halign: "center" } }],
-          [{ content: `Total Amount (${currencyCode})`, styles: { fontStyle: "bold", halign: "center" } }, { content: formatNumber(totalAmt, 2), styles: { fontStyle: "bold", halign: "center" } }],
-        ]
-      : [
-          [{ content: "Total Gross Wt.", styles: { fontStyle: "bold", halign: "center" } }, { content: formatNumber(totalGrossWt, 3), styles: { fontStyle: "bold", halign: "center" } }],
-        ];
+    const totalsBody = [
+      [{ content: "VAT %", styles: { fontStyle: "bold", halign: "center" } }, { content: formatNumber(avgVATPercent, 2), styles: { fontStyle: "bold", halign: "center" } }],
+      [{ content: `VAT Amount (${currencyCode})`, styles: { fontStyle: "bold", halign: "center" } }, { content: formatNumber(totalVATNum, 2), styles: { fontStyle: "bold", halign: "center" } }],
+      [{ content: `Taxable Amount (${currencyCode})`, styles: { fontStyle: "bold", halign: "center" } }, { content: formatNumber(totalTaxableAmtNum, 2), styles: { fontStyle: "bold", halign: "center" } }],
+      [{ content: `Total Amount (${currencyCode})`, styles: { fontStyle: "bold", halign: "center" } }, { content: formatNumber(totalAmtNum, 2), styles: { fontStyle: "bold", halign: "center" } }],
+    ];
 
     autoTable(doc, {
       startY: totalsStartY,
@@ -773,15 +769,15 @@ const handleDownloadPDF = async (purchaseId) => {
       },
     });
 
-    // Account Update Section
+    // Account Update Section (always show like preview, no fixed check for amounts)
     const accountUpdateY = (doc.lastAutoTable?.finalY || 120) + 15;
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
     doc.text("Your account has been updated with:", 14, accountUpdateY);
 
-    const creditAmount = purchase.fixed ? formatNumber(totalAmt, 2) : "0.00";
-    const creditWords = purchase.fixed ? numberToDirhamWords(totalAmt) : `ZERO ${currencyCode} ONLY`;
-    const pureWeightGrams = formatNumber(totalPureWt * 1000, 3);
+    const creditAmount = formatNumber(totalAmtNum, 2);
+    const creditWords = numberToDirhamWords(totalAmtNum, currencyCode);
+    const pureWeightGrams = formatNumber(totalPureWtNum * 1000, 3); // Assuming weights in kg, convert to grams with 3 decimals (as original PDF)
 
     const sharedStyles = {
       fontSize: 8,
@@ -841,7 +837,7 @@ const handleDownloadPDF = async (purchaseId) => {
 
     // Footer Section
     const footerY = doc.lastAutoTable.finalY + 15;
-    const signedBy = purchase.salesman || "AUTHORIZED SIGNATORY";
+    const signedBy = purchase.salesman || purchase.createdBy?.name || "AUTHORIZED SIGNATORY";
     doc.setFont("helvetica", "italic");
     doc.setFontSize(9);
     doc.text("Confirmed on behalf of", 14, footerY);
@@ -864,7 +860,7 @@ const handleDownloadPDF = async (purchaseId) => {
     doc.text("AUTHORIZED SIGNATORY", 165, sigY + 3, null, null, "center");
 
     // Save PDF
-    doc.save(`metal-purchase-return-${purchase.voucherNumber || "N/A"}.pdf`);
+    doc.save(`metal-purchase-${purchase.voucherNumber || "N/A"}.pdf`);
   } catch (error) {
     console.error("Error generating PDF:", error);
     toast.error("Failed to generate PDF");
@@ -1587,13 +1583,14 @@ const handleEdit = useCallback(
         partyCode: "",
         partyName: "",
         partyCurrencyId: "",
-        partyCurrencyCode: "",
-        partyCurrencyValue: "",
+        partyCurrencyCode: "AED",
+        partyCurrencyValue: "1",
         itemCurrencyId: "",
-        itemCurrencyCode: "",
-        itemCurrencyValue: "",
+        itemCurrencyCode: "AED",
+        itemCurrencyValue: "1",
         partyId: "",
         error: null,
+        partyCurrency: { currencyCode: "AED", conversionRate: "1" }, // Default object
       };
 
       try {
@@ -1659,9 +1656,9 @@ const handleEdit = useCallback(
 
       setTempStockItems(mappedStockItems);
 
-      // Fetch currency details for both party and item currencies
-      let partyCurrencyData = null;
-      let itemCurrencyData = null;
+      // Fetch currency details
+      let partyCurrencyData = { currencyCode: "AED", conversionRate: "1" }; 
+      let itemCurrencyData = { currencyCode: "AED", conversionRate: "1" }; 
 
       const transactionPartyCurrencyId = transaction.partyCurrency?._id || transaction.partyCurrency;
       const transactionItemCurrencyId = transaction.itemCurrency?._id || transaction.itemCurrency;
@@ -1669,7 +1666,7 @@ const handleEdit = useCallback(
       if (transactionPartyCurrencyId) {
         try {
           const currencyResponse = await axiosInstance.get(`/currency-master/${transactionPartyCurrencyId}`);
-          partyCurrencyData = currencyResponse.data.data;
+          partyCurrencyData = currencyResponse.data.data || { currencyCode: "AED", conversionRate: "1" };
         } catch (error) {
           console.error("Error fetching party currency:", error);
         }
@@ -1678,11 +1675,13 @@ const handleEdit = useCallback(
       if (transactionItemCurrencyId) {
         try {
           const currencyResponse = await axiosInstance.get(`/currency-master/${transactionItemCurrencyId}`);
-          itemCurrencyData = currencyResponse.data.data;
+          itemCurrencyData = currencyResponse.data.data || { currencyCode: "AED", conversionRate: "1" };
         } catch (error) {
           console.error("Error fetching item currency:", error);
         }
       }
+
+      console.log("Setting formData with partyCurrency:", partyCurrencyData);
 
       setFormData({
         transactionType: "purchase",
@@ -1695,11 +1694,11 @@ const handleEdit = useCallback(
         partyCode: partyDetails.partyCode || transaction.partyCode?._id || "",
         partyName: partyDetails.partyName || partyName,
         partyCurrencyId: transactionPartyCurrencyId || partyDetails.partyCurrencyId || "",
-        partyCurrencyCode: partyCurrencyData?.currencyCode || transaction.partyCurrency?.currencyCode || partyDetails.partyCurrencyCode || "AED",
-        partyCurrencyValue: transaction.effectivePartyCurrencyRate?.toString() || partyCurrencyData?.conversionRate?.toString() || partyDetails.partyCurrencyValue || "",
+        partyCurrencyCode: partyCurrencyData.currencyCode || transaction.partyCurrency?.currencyCode || partyDetails.partyCurrencyCode || "AED",
+        partyCurrencyValue: transaction.effectivePartyCurrencyRate?.toString() || partyCurrencyData.conversionRate?.toString() || partyDetails.partyCurrencyValue || "1",
         itemCurrencyId: transactionItemCurrencyId || partyDetails.itemCurrencyId || transactionPartyCurrencyId || "",
-        itemCurrencyCode: itemCurrencyData?.currencyCode || transaction.itemCurrency?.currencyCode || partyDetails.itemCurrencyCode || "AED",
-        itemCurrencyValue: transaction.effectiveItemCurrencyRate?.toString() || itemCurrencyData?.conversionRate?.toString() || partyDetails.itemCurrencyValue || "",
+        itemCurrencyCode: itemCurrencyData.currencyCode || transaction.itemCurrency?.currencyCode || partyDetails.itemCurrencyCode || "AED",
+        itemCurrencyValue: transaction.effectiveItemCurrencyRate?.toString() || itemCurrencyData.conversionRate?.toString() || partyDetails.itemCurrencyValue || "1",
         baseCurrency: transaction.baseCurrency?._id || transactionPartyCurrencyId || null,
         metalRateUnit: transaction.metalRateUnit || "KGBAR",
         metalRate: transaction.metalRate || "",
@@ -1709,12 +1708,7 @@ const handleEdit = useCallback(
         spp: transaction.spp || "",
         fixed: transaction.fix || false,
         internalUnfix: transaction.unfix || false,
-        partyCurrency: partyCurrencyData || partyDetails.partyCurrency || [],
-      });
-
-      console.log("Form Data on Edit:", {
-        partyCurrencyValue: transaction.effectivePartyCurrencyRate?.toString(),
-        itemCurrencyValue: transaction.effectiveItemCurrencyRate?.toString(),
+        partyCurrency: partyCurrencyData, 
       });
 
       setIsModalOpen(true);
@@ -1759,11 +1753,11 @@ const handleSave = useCallback(async () => {
         color: "red",
         border: "1px solid red",
       },
-  });
+    });
     return;
   }
 
-  setIsSaving(true); // Set loading state
+  setIsSaving(true);
   const transactionData = {
     transactionType: "purchaseReturn",
     fix: formData.fixed ? formData.fixed : false,
@@ -1773,10 +1767,10 @@ const handleSave = useCallback(async () => {
     voucherNumber: formData.voucherCode,
     partyCode: formData.partyCode,
     partyCurrency: formData.partyCurrencyId,
-    itemCurrency: formData.itemCurrencyId, 
+    itemCurrency: formData.itemCurrencyId,
     baseCurrency: formData.partyCurrencyId,
-    effectivePartyCurrencyRate: conversionRate, 
-    effectiveItemCurrencyRate: conversionRate, 
+    effectivePartyCurrencyRate: conversionRate,
+    effectiveItemCurrencyRate: conversionRate,
     stockItems: tempStockItems.map((item) => ({
       stockCode: item.stockId,
       description: item.description,
@@ -1861,14 +1855,10 @@ const handleSave = useCallback(async () => {
         "/metal-transaction",
         transactionData
       );
-      console.log("transaction",transactionData);
-      
       const newTransaction = response.data.data;
       const newStock = {
-        id: formData._id,
-        sl: editingStock
-          ? editingStock.sl
-          : Math.max(...metalPurchase.map((s) => s.sl), 0) + 1,
+        id: newTransaction._id,
+        sl: Math.max(...metalPurchase.map((s) => s.sl), 0) + 1,
         branch: "Main Branch",
         vocType: formData.voucherType,
         vocNo: formData.voucherCode,
@@ -1876,6 +1866,8 @@ const handleSave = useCallback(async () => {
         partyCode: formData.partyCode,
         partyName: formData.partyName,
         stockItems: tempStockItems,
+        partyCurrency: formData.partyCurrency || { currencyCode: "AED", conversionRate: formData.partyCurrencyValue || "1" }, // Ensure object
+        partyCurrencyValue: formData.partyCurrencyValue || "1",
       };
 
       setMetalPurchase((prev) =>
@@ -1896,6 +1888,8 @@ const handleSave = useCallback(async () => {
       ]);
       setNewlyCreatedSale(newStock);
       setSelectedPurchase(newStock);
+
+      console.log("newStock.partyCurrency:", newStock.partyCurrency);
 
       setShowPreviewAfterSave(true);
 
@@ -2034,6 +2028,8 @@ const handleSave = useCallback(async () => {
     <div className="min-h-screen w-full">
       <PDFPreviewModal
         isOpen={isDownloadModalOpen || showPreviewAfterSave}
+          partyCurrency={formData?.partyCurrency} 
+  partyCurrencyValue={formData?.partyCurrencyValue} 
         onClose={() => {
           setIsDownloadModalOpen(false);
           setShowPreviewAfterSave(false);
