@@ -1271,7 +1271,7 @@ const CurrencyTradingUI = () => {
                     <div>
                       <span className="text-xs text-gray-500 block">You Receive</span>
                       <div className="text-lg font-bold text-gray-900">
-                        {formatNumber(receiveAmount || (isCommodity ? '0.0000' : converted), isCommodity ? 4 : 2)} {receiveCurrency}{isCommodity && receiveCurrency === 'XAU' ? ' grams' : ''}
+                        {formatNumber(receiveAmount || (isCommodity ?grossWeight : converted), isCommodity ? 4 : 2)} {receiveCurrency}{isCommodity && receiveCurrency === 'XAU' ? ' grams' : ''}
                       </div>
                     </div>
                     {isCommodity && (
