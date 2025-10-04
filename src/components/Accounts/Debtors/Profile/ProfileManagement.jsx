@@ -7,6 +7,7 @@ import { useEffect } from "react";
 import { useParams } from "react-router-dom";
 import axiosInstance from "../../../../api/axios";
 
+
 const ProfileManagement = () => {
   const [activeTab, setActiveTab] = useState("profile");
   const { debtorId } = useParams();

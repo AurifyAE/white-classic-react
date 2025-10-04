@@ -1,8 +1,15 @@
 import React from 'react';
 import { X, DownloadIcon } from 'lucide-react';
 
-const formatNumber = (num, decimals = 2) => {
+const formatNumber = (num, decimals = 2, isPurity = false) => {
   if (num === null || num === undefined || isNaN(num)) return '0.00';
+  if (isPurity) {
+    // For purity, preserve exact decimal places without forcing minimum/maximum
+    return Number(num).toLocaleString('en-US', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 3,
+    });
+  }
   return Number(num).toLocaleString('en-US', {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
@@ -70,7 +77,7 @@ const PDFPreviewModal = ({ isOpen, onClose, purchase, onDownload, partyCurrency,
     return {
       description: item.description || 'N/A',
       grossWt: formatNumber(item.grossWeight || 0, 2),
-      purity: formatNumber(item.purity || 0, 2),
+      purity: formatNumber(item.purity || 0, 3, true), // Pass isPurity=true for purity
       pureWt: formatNumber(item.pureWeight || 0, 2),
       makingRate: formatNumber(item.makingRate || 0, 2),
       makingAmount: formatNumber(item.makingAmount || 0, 2),
