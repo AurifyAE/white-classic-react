@@ -170,7 +170,7 @@ const ProductDetailsModal = ({
   const { pureWeight, purityWeight, weightInOz } = useMemo(() => {
     const grossWeight = parseFloat(productData.grossWeight) || 0;
     const purity = parseFloat(productData.purity) || 0;
-    const pureWeightCalc = (grossWeight * (purity / 100)).toFixed(2);
+    const pureWeightCalc = (grossWeight*purity).toFixed(2)
     const purityWeight = pureWeightCalc;
     const weightInOz = (parseFloat(pureWeightCalc) / 31.103).toFixed(2);
     return { pureWeight: pureWeightCalc, purityWeight, weightInOz };
@@ -373,7 +373,7 @@ const ProductDetailsModal = ({
         const updated = typeof newData === "function" ? newData(prev) : newData;
         const grossWeight = parseFloat(updated.grossWeight) || 0;
         const purity = parseFloat(updated.purity) || 0;
-        const pureWeight = (grossWeight * (purity / 100)).toFixed(2);
+        const pureWeight = (grossWeight * purity).toFixed(2);
         const purityWeight = pureWeight;
         const weightInOz = (parseFloat(pureWeight) / 31.103).toFixed(2);
         const convFactGms = parseFloat(updated.convFactGms) || 1;
