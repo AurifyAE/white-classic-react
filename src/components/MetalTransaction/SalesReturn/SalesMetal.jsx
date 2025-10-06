@@ -549,39 +549,39 @@ const handleDownloadPDF = async (purchaseId) => {
   };
 
   const numberToDirhamWords = (amount, currencyCode) => {
-    // Parse amount to remove commas and convert to number if string
-    let parsedAmount = typeof amount === 'string' ? parseFloat(amount.replace(/,/g, '')) : Number(amount);
-    if (isNaN(parsedAmount) || parsedAmount === null || parsedAmount === undefined || parsedAmount === '') {
-      return 'INVALID AMOUNT';
-    }
-    const isNegative = parsedAmount < 0;
-    parsedAmount = Math.abs(parsedAmount);
-    const num = parsedAmount.toFixed(2);
-    const [integerPart, decimalPartRaw] = num.split('.');
-    const integer = parseInt(integerPart, 10) || 0;
-    const fils = parseInt(decimalPartRaw, 10) || 0;
-    const a = ['', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'TEN', 'ELEVEN', 'TWELVE', 'THIRTEEN', 'FOURTEEN', 'FIFTEEN', 'SIXTEEN', 'SEVENTEEN', 'EIGHTEEN', 'NINETEEN'];
-    const b = ['', '', 'TWENTY', 'THIRTY', 'FORTY', 'FIFTY', 'SIXTY', 'SEVENTY', 'EIGHTY', 'NINETY'];
+  // Parse amount to remove commas and convert to number if string
+  let parsedAmount = typeof amount === 'string' ? parseFloat(amount.replace(/,/g, '')) : Number(amount);
+  if (isNaN(parsedAmount) || parsedAmount === null || parsedAmount === undefined || parsedAmount === '') {
+    return 'INVALID AMOUNT';
+  }
+  const isNegative = parsedAmount < 0;
+  parsedAmount = Math.abs(parsedAmount);
+  const num = parsedAmount.toFixed(2);
+  const [integerPart, decimalPartRaw] = num.split('.');
+  const integer = parseInt(integerPart, 10) || 0;
+  const fils = parseInt(decimalPartRaw, 10) || 0;
+  const a = ['', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'TEN', 'ELEVEN', 'TWELVE', 'THIRTEEN', 'FOURTEEN', 'FIFTEEN', 'SIXTEEN', 'SEVENTEEN', 'EIGHTEEN', 'NINETEEN'];
+  const b = ['', '', 'TWENTY', 'THIRTY', 'FORTY', 'FIFTY', 'SIXTY', 'SEVENTY', 'EIGHTY', 'NINETY'];
 
-    const convert = (num) => {
-      if (num === 0) return '';
-      if (num < 20) return a[num];
-      if (num < 100) return b[Math.floor(num / 10)] + (num % 10 ? ' ' + a[num % 10] : '');
-      if (num < 1000) return a[Math.floor(num / 100)] + ' HUNDRED' + (num % 100 ? ' ' + convert(num % 100) : '');
-      if (num < 100000) return convert(Math.floor(num / 1000)) + ' THOUSAND' + (num % 1000 ? ' ' + convert(num % 1000) : '');
-      if (num < 10000000) return convert(Math.floor(num / 100000)) + ' LAKH' + (num % 100000 ? ' ' + convert(num % 100000) : '');
-      if (num < 1000000000) return convert(Math.floor(num / 10000000)) + ' CRORE' + (num % 10000000 ? ' ' + convert(num % 10000000) : '');
-      return 'NUMBER TOO LARGE';
-    };
-
-    const currencyName = currencyCode.toUpperCase() === 'INR' ? 'RUPEES' : 'DIRHAM';
-
-    let words = '';
-    if (integer > 0) words += convert(integer) + ` ${currencyName}`;
-    if (fils > 0) words += (integer > 0 ? ' AND ' : '') + convert(fils) + ' FILS';
-    if (words === '') words = `ZERO ${currencyName}`;
-    return (isNegative ? 'MINUS ' : '') + words + ' ONLY';
+  const convert = (num) => {
+    if (num === 0) return '';
+    if (num < 20) return a[num];
+    if (num < 100) return b[Math.floor(num / 10)] + (num % 10 ? ' ' + a[num % 10] : '');
+    if (num < 1000) return a[Math.floor(num / 100)] + ' HUNDRED' + (num % 100 ? ' ' + convert(num % 100) : '');
+    if (num < 100000) return convert(Math.floor(num / 1000)) + ' THOUSAND' + (num % 1000 ? ' ' + convert(num % 1000) : '');
+    if (num < 10000000) return convert(Math.floor(num / 100000)) + ' LAKH' + (num % 100000 ? ' ' + convert(num % 100000) : '');
+    if (num < 1000000000) return convert(Math.floor(num / 10000000)) + ' CRORE' + (num % 10000000 ? ' ' + convert(num % 10000000) : '');
+    return 'NUMBER TOO LARGE';
   };
+
+  const currencyName = currencyCode.toUpperCase() === 'INR' ? 'RUPEES' : 'DIRHAM';
+
+  let words = '';
+  if (integer > 0) words += convert(integer) + ` ${currencyName}`;
+  if (fils > 0) words += (integer > 0 ? ' AND ' : '') + convert(fils) + ' PAISE'; // Changed FILS to PAISE for INR
+  if (words === '') words = `ZERO ${currencyName}`;
+  return (isNegative ? 'MINUS ' : '') + words + ' ONLY';
+};
 
   try {
     const res = await axiosInstance.get(`/metal-transaction/${purchaseId}`);

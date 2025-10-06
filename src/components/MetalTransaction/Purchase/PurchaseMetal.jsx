@@ -116,11 +116,11 @@ const [formData, setFormData] = useState({
   partyCode: "",
   partyName: "",
   partyCurrencyId: "",
-  partyCurrencyCode: "AED", // Default to AED
-  partyCurrencyValue: "1", // Default conversion rate
+  partyCurrencyCode: "INR", 
+  partyCurrencyValue: "24.5",
   itemCurrencyId: "",
-  itemCurrencyCode: "AED",
-  itemCurrencyValue: "1",
+  itemCurrencyCode: "INR", 
+  itemCurrencyValue: "24.5",
   baseCurrency: null,
   metalRateUnit: "KGBAR",
   metalRate: "",
@@ -130,7 +130,7 @@ const [formData, setFormData] = useState({
   spp: "",
   fixed: false,
   internalUnfix: false,
-  partyCurrency: { currencyCode: "AED", conversionRate: "1" }, // Ensure this is an object
+  partyCurrency: { currencyCode: "INR", conversionRate: "24.5" },
 });
   // const handleDownloadClick = useCallback((purchase) => {
   //   setSelectedPurchase(purchase);
@@ -321,11 +321,11 @@ const [formData, setFormData] = useState({
           partyName: "",
           partyCode: "",
           partyCurrencyId: "",
-          partyCurrencyCode: "AED", 
-          partyCurrencyValue: "1", 
+          partyCurrencyCode: "INR", 
+          partyCurrencyValue: "24.5", 
           itemCurrencyId: "",
-          itemCurrencyCode: "AED",
-          itemCurrencyValue: "1", 
+          itemCurrencyCode: "INR",
+          itemCurrencyValue: "24.5", 
           partyId: "",
           partyCurrency: [],
           error: null,
@@ -351,11 +351,11 @@ const [formData, setFormData] = useState({
           partyName: partyNameStr,
           partyCode: "",
           partyCurrencyId: "",
-          partyCurrencyCode: "AED",
-          partyCurrencyValue: "1", 
+          partyCurrencyCode: "INR",
+          partyCurrencyValue: "24.5", 
           itemCurrencyId: "",
-          itemCurrencyCode: "AED", 
-          itemCurrencyValue: "1", 
+          itemCurrencyCode: "INR", 
+          itemCurrencyValue: "24.5", 
           partyId: "",
           partyCurrency: [],
           error: "No matching creditor found",
@@ -367,8 +367,8 @@ const [formData, setFormData] = useState({
         creditor.acDefinition?.currencies?.[0] || {
           currency: {
             _id: "",
-            currencyCode: "AED", 
-            conversionRate: "1",
+            currencyCode: "INR", 
+            conversionRate: "24.5",
           },
         };
 
@@ -376,11 +376,11 @@ const [formData, setFormData] = useState({
         partyName: creditor.customerName,
         partyCode: creditor.id,
         partyCurrencyId: defaultCurrency.currency?._id || "",
-        partyCurrencyCode: defaultCurrency.currency?.currencyCode || "AED",
-        partyCurrencyValue: defaultCurrency.currency?.conversionRate?.toString() || "1",
+        partyCurrencyCode: defaultCurrency.currency?.currencyCode || "INR",
+        partyCurrencyValue: defaultCurrency.currency?.conversionRate?.toString() || "24.5",
         itemCurrencyId: defaultCurrency.currency?._id || "",
-        itemCurrencyCode: defaultCurrency.currency?.currencyCode || "AED",
-        itemCurrencyValue: defaultCurrency.currency?.conversionRate?.toString() || "1",
+        itemCurrencyCode: defaultCurrency.currency?.currencyCode || "INR",
+        itemCurrencyValue: defaultCurrency.currency?.conversionRate?.toString() || "24.5",
         partyId: creditor.id,
         partyCurrency: defaultCurrency?.currency || [],
         error: null,
@@ -521,12 +521,12 @@ const handleConversionRateChange = useCallback((e) => {
 const handleCurrencyChange = useCallback((option) => {
     setFormData((prev) => ({
       ...prev,
-      partyCurrencyCode: option?.value || "AED", 
-      itemCurrencyCode: option?.value || "AED",
+      partyCurrencyCode: option?.value || "INR", 
+      itemCurrencyCode: option?.value || "INR",
       partyCurrency: option?.data || [],
       partyCurrencyId: option?.data?._id || "",
-      partyCurrencyValue: option?.data?.conversionRate?.toString() || "1", 
-      itemCurrencyValue: option?.data?.conversionRate?.toString() || "1", 
+      partyCurrencyValue: option?.data?.conversionRate?.toString() || "24.5", 
+      itemCurrencyValue: option?.data?.conversionRate?.toString() || "24.5", 
     }));
   }, []);
   const selectedParty = tradeDebtors.find(
