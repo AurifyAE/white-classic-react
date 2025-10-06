@@ -126,6 +126,16 @@ const ProductDetailsModal = ({
   const effectiveRate = partyCurrDetails.currencyCode === "AED" ? 1 : conversionRate;
   const currencyCode = partyCurrDetails.currencyCode || "AED";
 
+  // Function to render currency symbol
+  const renderCurrencySymbol = () => {
+    if (currencyCode === "INR") {
+      return "₹";
+    } else if (currencyCode === "AED") {
+      return <img src="/assets/uae-dirham.svg" alt="AED" className="inline-block h-4 w-4 mr-1" />;
+    }
+    return currencyCode;
+  };
+
   useEffect(() => {
     if (isOpen) {
       if (editingItem) {
@@ -170,7 +180,7 @@ const ProductDetailsModal = ({
   const { pureWeight, purityWeight, weightInOz } = useMemo(() => {
     const grossWeight = parseFloat(productData.grossWeight) || 0;
     const purity = parseFloat(productData.purity) || 0;
-    const pureWeightCalc = (grossWeight*purity).toFixed(2)
+    const pureWeightCalc = (grossWeight * purity).toFixed(2);
     const purityWeight = pureWeightCalc;
     const weightInOz = (parseFloat(pureWeightCalc) / 31.103).toFixed(2);
     return { pureWeight: pureWeightCalc, purityWeight, weightInOz };
@@ -1248,7 +1258,7 @@ const ProductDetailsModal = ({
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Metal Amount ({currencyCode})
+                    Metal Amount {renderCurrencySymbol()}
                   </label>
                   <input
                     type="text"
@@ -1268,7 +1278,7 @@ const ProductDetailsModal = ({
                     onFocus={() => handleFocus("metalAmount")}
                     onBlur={() => handleBlur("metalAmount")}
                     className="w-full px-4 py-3 border-0 rounded-xl focus:ring-4 focus:ring-blue-100 bg-gray-50 hover:bg-white focus:bg-white shadow-sm hover:shadow-md focus:shadow-lg transition-all duration-300"
-                    placeholder="Enter or calculated metal amount (e.g., 25000.00)"
+                    placeholder={`Enter or calculated metal amount (e.g., 25000.00)`}
                   />
                 </div>
               </div>
@@ -1309,7 +1319,7 @@ const ProductDetailsModal = ({
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Total Amount ({currencyCode})
+                    Total Amount {renderCurrencySymbol()}
                   </label>
                   <input
                     type="text"
@@ -1319,14 +1329,14 @@ const ProductDetailsModal = ({
                     onFocus={() => handleFocus("makingChargesAmount")}
                     onBlur={() => handleBlur("makingChargesAmount")}
                     className="w-full px-4 py-3 border-0 rounded-xl focus:ring-4 focus:ring-blue-100 bg-gray-50 hover:bg-white focus:bg-white shadow-sm hover:shadow-md focus:shadow-lg transition-all duration-300"
-                    placeholder={`Enter total making charges in ${currencyCode} (e.g., 100.00)`}
+                    placeholder={`Enter total making charges in ${renderCurrencySymbol()} (e.g., 100.00)`}
                   />
                 </div>
               </div>
             </div>
             <div className="border border-gray-200 rounded-xl p-4">
               <h3 className="text-md font-semibold text-gray-800 mb-4">
-                Premium / Discount ({currencyCode})
+                Premium / Discount {renderCurrencySymbol()}
               </h3>
               <div className="grid grid-cols-1 gap-4">
                 <div className="relative">
@@ -1367,12 +1377,12 @@ const ProductDetailsModal = ({
                     onFocus={() => handleFocus("premiumRate")}
                     onBlur={() => handleBlur("premiumRate")}
                     className="w-full px-4 py-3 border-0 rounded-xl focus:ring-4 focus:ring-blue-100 bg-gray-50 hover:bg-white focus:bg-white shadow-sm hover:shadow-md focus:shadow-lg transition-all duration-300"
-                    placeholder={`Enter rate in ${currencyCode} (e.g., 5.50 or -5.50)`}
+                    placeholder={`Enter rate in ${renderCurrencySymbol()} (e.g., 5.50 or -5.50)`}
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Amount ({currencyCode})
+                    Amount {renderCurrencySymbol()}
                   </label>
                   <input
                     ref={premiumAmountRef}
@@ -1385,7 +1395,7 @@ const ProductDetailsModal = ({
                     className={`w-full px-4 py-3 border-0 rounded-xl focus:ring-4 focus:ring-blue-100 bg-gray-50 hover:bg-white focus:bg-white shadow-sm hover:shadow-md focus:shadow-lg transition-all duration-300 ${
                       parseFloat(getRawValue(productData.premium.amount)) < 0 ? "text-red-500" : ""
                     }`}
-                    placeholder={`Enter amount in ${currencyCode} (e.g., 50.00 or -50.00)`}
+                    placeholder={`Enter amount in ${renderCurrencySymbol()} (e.g., 50.00 or -50.00)`}
                   />
                 </div>
               </div>
@@ -1426,7 +1436,7 @@ const ProductDetailsModal = ({
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Amount ({currencyCode})
+                    Amount {renderCurrencySymbol()}
                   </label>
                   <input
                     type="text"
@@ -1436,7 +1446,7 @@ const ProductDetailsModal = ({
                     onFocus={() => handleFocus("otherChargesAmount")}
                     onBlur={() => handleBlur("otherChargesAmount")}
                     className="w-full px-4 py-3 border-0 rounded-xl focus:ring-4 focus:ring-blue-100 bg-gray-50 hover:bg-white focus:bg-white shadow-sm hover:shadow-md focus:shadow-lg transition-all duration-300"
-                    placeholder={`Enter amount in ${currencyCode} (e.g., 25.00)`}
+                    placeholder={`Enter amount in ${renderCurrencySymbol()} (e.g., 25.00)`}
                   />
                 </div>
               </div>
@@ -1466,7 +1476,7 @@ const ProductDetailsModal = ({
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    VAT Amount ({currencyCode})
+                    VAT Amount {renderCurrencySymbol()}
                   </label>
                   <input
                     type="text"
@@ -1476,12 +1486,12 @@ const ProductDetailsModal = ({
                     onFocus={() => handleFocus("vatAmount")}
                     onBlur={() => handleBlur("vatAmount")}
                     className="w-full px-4 py-3 border-0 rounded-xl focus:ring-4 focus:ring-blue-100 bg-gray-50 hover:bg-white focus:bg-white shadow-sm hover:shadow-md focus:shadow-lg transition-all duration-300"
-                    placeholder={`Enter VAT amount in ${currencyCode} (e.g., 50.00)`}
+                    placeholder={`Enter VAT amount in ${renderCurrencySymbol()} (e.g., 50.00)`}
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Total Amount ({currencyCode})
+                    Total Amount {renderCurrencySymbol()}
                   </label>
                   <input
                     type="text"

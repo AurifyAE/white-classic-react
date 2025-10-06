@@ -117,7 +117,7 @@ const [formData, setFormData] = useState({
   partyName: "",
   partyCurrencyId: "",
   partyCurrencyCode: "AED", // Default to AED
-  partyCurrencyValue: "1", // Default conversion rate
+  partyCurrencyValue: "1", 
   itemCurrencyId: "",
   itemCurrencyCode: "AED",
   itemCurrencyValue: "1",
