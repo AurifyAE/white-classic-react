@@ -194,7 +194,7 @@ const fetchCurrencyMaster = async (setCurrencies, setFilteredCurrencies) => {
       currency: currency.currencyCode,
       minRate: currency.minRate || 1.0,
       maxRate: currency.maxRate || 1.0,
-      default: currency.currencyCode === "AED",
+      default: currency.currencyCode === "INR",
       description: currency.description || "",
     }));
 
@@ -269,7 +269,7 @@ export default function TradeDebtors() {
     branch: null,
     creditLimit: {
       limitType: "Fixed",
-      currency: "AED",
+      currency: "INR",
       unfixGold: "",
       netAmount: "",
       creditDaysAmt: "",
@@ -398,10 +398,10 @@ export default function TradeDebtors() {
     setAcDefinitionData({
       currencies: [
         {
-          currency: "AED",
-          no: currencies.find((c) => c.currency === "AED")?.no || "",
-          minRate: currencies.find((c) => c.currency === "AED")?.minRate || 1.0,
-          maxRate: currencies.find((c) => c.currency === "AED")?.maxRate || 1.0,
+          currency: "INR",
+          no: currencies.find((c) => c.currency === "INR")?.no || "",
+          minRate: currencies.find((c) => c.currency === "INR")?.minRate || 1.0,
+          maxRate: currencies.find((c) => c.currency === "INR")?.maxRate || 1.0,
           isDefault: true,
           ask: 0,
           bid: 0,
@@ -410,7 +410,7 @@ export default function TradeDebtors() {
       branch: null,
       creditLimit: {
         limitType: "Fixed",
-        currency: "AED",
+        currency: "INR",
         unfixGold: "",
         netAmount: "",
         creditDaysAmt: "",
@@ -509,12 +509,12 @@ export default function TradeDebtors() {
       setAcDefinitionData({
         currencies: debtor.currencies || [
           {
-            currency: "AED",
-            no: currencies.find((c) => c.currency === "AED")?.no || "",
+            currency: "INR",
+            no: currencies.find((c) => c.currency === "INR")?.no || "",
             minRate:
-              currencies.find((c) => c.currency === "AED")?.minRate || 1.0,
+              currencies.find((c) => c.currency === "IMR")?.minRate || 1.0,
             maxRate:
-              currencies.find((c) => c.currency === "AED")?.maxRate || 1.0,
+              currencies.find((c) => c.currency === "INR")?.maxRate || 1.0,
             isDefault: true,
             ask: 0,
             bid: 0,
