@@ -2277,26 +2277,31 @@ export default function ModeReceipt() {
                               </p>
                             )}
                           </div>
-                          {selectedParty && (
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Party Currency{" "}
-                                <span className="text-red-500">*</span>
-                              </label>
-                              <Select
-                                options={currencyOptions}
-                                value={selectedCurrency}
-                                onChange={setSelectedCurrency}
-                                isSearchable
-                                placeholder="Select a currency..."
-                              />
-                              {errors.currency && (
-                                <p className="text-red-500 text-sm mt-1">
-                                  {errors.currency}
-                                </p>
-                              )}
-                            </div>
-                          )}
+                        {selectedCurrency && (
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-2">
+      Party Currency <span className="text-red-500">*</span>
+    </label>
+    <Select
+      options={currencyOptions}
+      value={selectedCurrency}
+      onChange={setSelectedCurrency}
+      isSearchable
+      placeholder="Select a currency..."
+      formatOptionLabel={(option) => (
+        <div>
+          {option.label.includes('undefined') 
+            ? option.label.split(' - ')[0] 
+            : option.label
+          }
+        </div>
+      )}
+    />
+    {errors.currency && (
+      <p className="text-red-500 text-sm mt-1">{errors.currency}</p>
+    )}
+  </div>
+)}
                           {selectedParty && (
                             <div className="mt-2 text-sm text-gray-600">
                               <div className="flex space-x-4">

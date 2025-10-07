@@ -1,4 +1,3 @@
-"purchase metal purchase metal";
 import React, {
   useState,
   useEffect,
@@ -117,7 +116,7 @@ const [formData, setFormData] = useState({
   partyName: "",
   partyCurrencyId: "",
   partyCurrencyCode: "AED", // Default to AED
-  partyCurrencyValue: "1", 
+  partyCurrencyValue: "1", // Default conversion rate
   itemCurrencyId: "",
   itemCurrencyCode: "AED",
   itemCurrencyValue: "1",
@@ -2976,3 +2975,7 @@ const handleSave = useCallback(async () => {
     </div>
   );
 }
+
+
+
+

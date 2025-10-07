@@ -451,10 +451,10 @@ const AcDefinitionTab = ({
   const [searchInput, setSearchInput] = useState("");
   const [filteredCurrencies, setFilteredCurrencies] = useState(currencyOptions);
   const [checkedCurrencies, setCheckedCurrencies] = useState(
-    acDefinitionData.currencies?.map((c) => c.currency) || ["AED"]
+    acDefinitionData.currencies?.map((c) => c.currency) || ["INR"]
   );
   const [defaultCurrency, setDefaultCurrency] = useState(
-    acDefinitionData.currencies?.find((c) => c.isDefault)?.currency || "AED"
+    acDefinitionData.currencies?.find((c) => c.isDefault)?.currency || "INR"
   );
   const [spreads, setSpreads] = useState(
     acDefinitionData.currencies?.reduce(
@@ -466,31 +466,31 @@ const AcDefinitionTab = ({
         },
       }),
       {}
-    ) || { AED: { askSpread: "", bidSpread: "" } } // Initialize AED spreads
+    ) || { INR: { askSpread: "", bidSpread: "" } } // Initialize AED spreads
   );
 
   // Initialize AED if not present
-  useEffect(() => {
-    if (!checkedCurrencies.includes("AED")) {
-      setCheckedCurrencies((prev) => [...prev, "AED"]);
-      const aedCurrency = currencyOptions.find((c) => c.currency === "AED");
-      if (aedCurrency) {
-        setAcDefinitionData((prev) => ({
-          ...prev,
-          currencies: [
-            ...(prev.currencies || []),
-            {
-              currency: aedCurrency.currency,
-              no: aedCurrency.no,
-              minRate: aedCurrency.minRate,
-              maxRate: aedCurrency.maxRate,
-              isDefault: !prev.currencies?.length,
-              ask: spreads.AED?.askSpread || 0,
-              bid: spreads.AED?.bidSpread || 0,
-            },
-          ],
-        }));
-      }
+ useEffect(() => {
+    const inrCurrency = currencyOptions.find((c) => c.currency === "INR");
+    if (!checkedCurrencies.includes("INR") && inrCurrency) {
+      setCheckedCurrencies((prev) => [...prev.filter((c) => c !== "AED"), "INR"]); // Remove AED, add INR
+      setAcDefinitionData((prev) => ({
+        ...prev,
+        currencies: [
+          // Exclude AED from default currencies
+          ...(prev.currencies || []).filter((c) => c.currency !== "AED"),
+          {
+            currency: inrCurrency.currency,
+            no: inrCurrency.no,
+            minRate: inrCurrency.minRate,
+            maxRate: inrCurrency.maxRate,
+            isDefault: true, // Explicitly set INR as default
+            ask: spreads.INR?.askSpread || 0,
+            bid: spreads.INR?.bidSpread || 0,
+          },
+        ],
+      }));
+      setDefaultCurrency("INR"); // Ensure INR is default
     }
   }, [currencyOptions, checkedCurrencies, setAcDefinitionData, spreads]);
 
@@ -515,13 +515,16 @@ const AcDefinitionTab = ({
     setAcDefinitionData((prev) => ({
       ...prev,
       currencies: [
-        ...(prev.currencies || []),
+        ...(prev.currencies || []).map((c) => ({
+          ...c,
+          isDefault: c.currency === "INR", // Ensure only INR is default
+        })),
         {
           currency: currency.currency,
           no: currency.no,
           minRate: currency.minRate,
           maxRate: currency.maxRate,
-          isDefault: !prev.currencies?.length,
+          isDefault: currency.currency === "INR", // Set INR as default if added
           ask: spreads[currency.currency]?.askSpread || 0,
           bid: spreads[currency.currency]?.bidSpread || 0,
         },
@@ -533,9 +536,9 @@ const AcDefinitionTab = ({
     }));
   };
 
-  const handleRemoveCurrency = (currencyCode) => {
-    if (currencyCode === "AED") {
-      toast.error("AED cannot be removed.");
+   const handleRemoveCurrency = (currencyCode) => {
+    if (currencyCode === "INR") {
+      toast.error("INR cannot be removed.");
       return;
     }
     if (currencyCode === defaultCurrency) {
@@ -556,7 +559,7 @@ const AcDefinitionTab = ({
     });
   };
 
-  const handleDefaultCurrencyChange = (currencyCode) => {
+ const handleDefaultCurrencyChange = (currencyCode) => {
     if (currencyCode === defaultCurrency) return;
 
     toast.custom(
@@ -597,7 +600,7 @@ const AcDefinitionTab = ({
     );
   };
 
-  const handleSpreadChange = (currency, field, value) => {
+   const handleSpreadChange = (currency, field, value) => {
     setSpreads((prev) => ({
       ...prev,
       [currency]: {
@@ -618,7 +621,7 @@ const AcDefinitionTab = ({
     }));
   };
 
-  const handleBranchChange = (branch) => {
+   const handleBranchChange = (branch) => {
     setAcDefinitionData({
       ...acDefinitionData,
       branch,
@@ -635,11 +638,11 @@ const AcDefinitionTab = ({
     });
   };
 
-  const filteredTableCurrencies = currencyOptions.filter((c) =>
+   const filteredTableCurrencies = currencyOptions.filter((c) =>
     checkedCurrencies.includes(c.currency)
   );
 
-  return (
+ return (
     <div className="space-y-6">
       <Toaster position="top-right" />
       <div className="bg-gradient-to-br from-emerald-50 to-teal-50 p-6 rounded-xl border-emerald-100">
@@ -772,15 +775,15 @@ const AcDefinitionTab = ({
                     <td className="px-4 py-3">
                       <button
                         onClick={() => handleRemoveCurrency(curr.currency)}
-                        disabled={curr.currency === "AED"}
+                        disabled={curr.currency === "INR"}
                         className={`p-1 rounded-full transition-colors ${
-                          curr.currency === "AED"
+                          curr.currency === "INR"
                             ? "text-gray-300 cursor-not-allowed"
                             : "text-red-500 hover:bg-red-100 hover:text-red-700"
                         }`}
                         title={
-                          curr.currency === "AED"
-                            ? "AED cannot be removed"
+                          curr.currency === "INR"
+                            ? "INR cannot be removed"
                             : "Remove currency"
                         }
                       >
