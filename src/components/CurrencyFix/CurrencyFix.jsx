@@ -1028,77 +1028,77 @@ const CurrencyTradingUI = () => {
     const payCurrency = tradeType === 'buy' ? base : quote;
     const receiveCurrency = tradeType === 'buy' ? quote : base;
 
- const calculateConvertedAmount = () => {
-  if (isCommodity) {
-    const pay = parseFloat(payAmount) || 0;
-    const receive = parseFloat(receiveAmount) || 0;
-    const gw = parseFloat(grossWeight) || 0;
-    // valuePerGram now uses the effective rate per gram for consistency
-    const ratePerGram = manualRate / 1000; // Convert kg rate to per gram
-    const vpg = gw > 0 ? ratePerGram.toFixed(4) : '0.0000'; // Use rate-based vpg instead of pay/gw
-    // Ensure Pay Amount aligns with calculation if it's a buy trade
-    if (tradeType === 'buy' && gw > 0) {
-      const expectedPay = (ratePerGram * gw).toFixed(2);
-      if (Math.abs(pay - parseFloat(expectedPay)) > 0.01) {
-        setPayAmount(expectedPay); // Auto-correct Pay Amount
-      }
-    }
-    return { converted: receive.toFixed(4), valuePerGram: vpg };
-  } else {
-    if (!effectiveRate) return { converted: '0.0000', valuePerGram: null };
-    if (inputCurrency === payCurrency) {
-      const amount = parseFloat(payAmount) || 0;
-      const converted = (amount * effectiveRate).toFixed(4);
-      return { converted, valuePerGram: null };
-    } else {
-      const amount = parseFloat(receiveAmount) || 0;
-      const converted = (amount / effectiveRate).toFixed(4);
-      return { converted: amount.toFixed(4), valuePerGram: null };
-    }
-  }
-};
-
- const handlePayAmountChange = (value) => {
-  setPayAmount(value);
-  setInputCurrency(payCurrency);
-  if (!isCommodity) {
-    if (value) {
-      const amount = parseFloat(value);
-      if (!isNaN(amount) && effectiveRate) {
-        const converted = (amount * effectiveRate).toFixed(4);
-        setReceiveAmount(converted);
+    const calculateConvertedAmount = () => {
+      if (isCommodity) {
+        const pay = parseFloat(payAmount) || 0;
+        const receive = parseFloat(receiveAmount) || 0;
+        const gw = parseFloat(grossWeight) || 0;
+        // valuePerGram now uses the effective rate per gram for consistency
+        const ratePerGram = manualRate / 1000; // Convert kg rate to per gram
+        const vpg = gw > 0 ? ratePerGram.toFixed(4) : '0.0000'; // Use rate-based vpg instead of pay/gw
+        // Ensure Pay Amount aligns with calculation if it's a buy trade
+        if (tradeType === 'buy' && gw > 0) {
+          const expectedPay = (ratePerGram * gw).toFixed(2);
+          if (Math.abs(pay - parseFloat(expectedPay)) > 0.01) {
+            setPayAmount(expectedPay); // Auto-correct Pay Amount
+          }
+        }
+        return { converted: receive.toFixed(4), valuePerGram: vpg };
       } else {
-        setReceiveAmount('');
+        if (!effectiveRate) return { converted: '0.0000', valuePerGram: null };
+        if (inputCurrency === payCurrency) {
+          const amount = parseFloat(payAmount) || 0;
+          const converted = (amount * effectiveRate).toFixed(4);
+          return { converted, valuePerGram: null };
+        } else {
+          const amount = parseFloat(receiveAmount) || 0;
+          const converted = (amount / effectiveRate).toFixed(4);
+          return { converted: amount.toFixed(4), valuePerGram: null };
+        }
       }
-    } else {
-      setReceiveAmount('');
-    }
-  } else {
-    // For commodity: Recalculate valuePerGram if payAmount changes manually
-    const gw = parseFloat(grossWeight) || 0;
-    if (gw > 0 && value) {
-      // Optional: You can add reverse calc here if needed, e.g., update grossWeight or rate
-    }
-  }
-};
+    };
+
+    const handlePayAmountChange = (value) => {
+      setPayAmount(value);
+      setInputCurrency(payCurrency);
+      if (!isCommodity) {
+        if (value) {
+          const amount = parseFloat(value);
+          if (!isNaN(amount) && effectiveRate) {
+            const converted = (amount * effectiveRate).toFixed(4);
+            setReceiveAmount(converted);
+          } else {
+            setReceiveAmount('');
+          }
+        } else {
+          setReceiveAmount('');
+        }
+      } else {
+        // For commodity: Recalculate valuePerGram if payAmount changes manually
+        const gw = parseFloat(grossWeight) || 0;
+        if (gw > 0 && value) {
+          // Optional: You can add reverse calc here if needed, e.g., update grossWeight or rate
+        }
+      }
+    };
 
 
-const handleGrossWeightChange = (value) => {
-  setGrossWeight(value);
-  if (isCommodity && manualRate && value) {
-    const gw = parseFloat(value);
-    const ratePerGram = manualRate / 1000; // Convert kg rate to per gram
-    if (tradeType === 'buy') {
-      // For buy: Pay Amount (AED/INR) = ratePerGram * grossWeight (receive XAU grams)
-      const calculatedPay = (ratePerGram * gw).toFixed(2);
-      setPayAmount(calculatedPay);
-    } else if (tradeType === 'sell') {
-      // For sell: Receive Amount (AED/INR) = ratePerGram * grossWeight (pay XAU grams)
-      const calculatedReceive = (ratePerGram * gw).toFixed(2);
-      setReceiveAmount(calculatedReceive);
-    }
-  }
-};
+    const handleGrossWeightChange = (value) => {
+      setGrossWeight(value);
+      if (isCommodity && manualRate && value) {
+        const gw = parseFloat(value);
+        const ratePerGram = manualRate / 1000; // Convert kg rate to per gram
+        if (tradeType === 'buy') {
+          // For buy: Pay Amount (AED/INR) = ratePerGram * grossWeight (receive XAU grams)
+          const calculatedPay = (ratePerGram * gw).toFixed(2);
+          setPayAmount(calculatedPay);
+        } else if (tradeType === 'sell') {
+          // For sell: Receive Amount (AED/INR) = ratePerGram * grossWeight (pay XAU grams)
+          const calculatedReceive = (ratePerGram * gw).toFixed(2);
+          setReceiveAmount(calculatedReceive);
+        }
+      }
+    };
 
     const handleReceiveAmountChange = (value) => {
       setReceiveAmount(value);
@@ -1118,41 +1118,41 @@ const handleGrossWeightChange = (value) => {
       }
     };
 
- const handleRateChange = (value) => {
-  setManualRate(parseFloat(value) || 0);
-  if (!isCommodity) {
-    if (payAmount && inputCurrency === payCurrency) {
-      const amount = parseFloat(payAmount);
-      if (!isNaN(amount) && value) {
-        const converted = (amount * parseFloat(value)).toFixed(4);
-        setReceiveAmount(converted);
+    const handleRateChange = (value) => {
+      setManualRate(parseFloat(value) || 0);
+      if (!isCommodity) {
+        if (payAmount && inputCurrency === payCurrency) {
+          const amount = parseFloat(payAmount);
+          if (!isNaN(amount) && value) {
+            const converted = (amount * parseFloat(value)).toFixed(4);
+            setReceiveAmount(converted);
+          } else {
+            setReceiveAmount('');
+          }
+        } else if (receiveAmount && inputCurrency === receiveCurrency) {
+          const amount = parseFloat(receiveAmount);
+          if (!isNaN(amount) && value) {
+            const converted = (amount / parseFloat(value)).toFixed(4);
+            setPayAmount(converted);
+          } else {
+            setPayAmount('');
+          }
+        }
       } else {
-        setReceiveAmount('');
+        // For commodity: Recalculate Pay/Receive based on new rate and current grossWeight
+        const gw = parseFloat(grossWeight) || 0;
+        if (gw > 0 && value) {
+          const ratePerGram = parseFloat(value) / 1000;
+          if (tradeType === 'buy') {
+            const calculatedPay = (ratePerGram * gw).toFixed(2);
+            setPayAmount(calculatedPay);
+          } else if (tradeType === 'sell') {
+            const calculatedReceive = (ratePerGram * gw).toFixed(2);
+            setReceiveAmount(calculatedReceive);
+          }
+        }
       }
-    } else if (receiveAmount && inputCurrency === receiveCurrency) {
-      const amount = parseFloat(receiveAmount);
-      if (!isNaN(amount) && value) {
-        const converted = (amount / parseFloat(value)).toFixed(4);
-        setPayAmount(converted);
-      } else {
-        setPayAmount('');
-      }
-    }
-  } else {
-    // For commodity: Recalculate Pay/Receive based on new rate and current grossWeight
-    const gw = parseFloat(grossWeight) || 0;
-    if (gw > 0 && value) {
-      const ratePerGram = parseFloat(value) / 1000;
-      if (tradeType === 'buy') {
-        const calculatedPay = (ratePerGram * gw).toFixed(2);
-        setPayAmount(calculatedPay);
-      } else if (tradeType === 'sell') {
-        const calculatedReceive = (ratePerGram * gw).toFixed(2);
-        setReceiveAmount(calculatedReceive);
-      }
-    }
-  }
-};
+    };
 
     const { converted, valuePerGram } = calculateConvertedAmount();
 
@@ -1246,18 +1246,18 @@ const handleGrossWeightChange = (value) => {
                     />
                   </div>
                 )}
-             {isCommodity && (
-  <div>
-    <label className="block text-sm font-medium text-gray-700 mb-2">Gross Weight (grams)</label>
-    <input
-      type="number"
-      placeholder="Enter gross weight in grams"
-      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-      value={grossWeight}
-      onChange={(e) => handleGrossWeightChange(e.target.value)} // Use new handler
-    />
-  </div>
-)}
+                {isCommodity && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Gross Weight (grams)</label>
+                    <input
+                      type="number"
+                      placeholder="Enter gross weight in grams"
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                      value={grossWeight}
+                      onChange={(e) => handleGrossWeightChange(e.target.value)} // Use new handler
+                    />
+                  </div>
+                )}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Pay Amount ({payCurrency}{isCommodity && payCurrency === 'XAU' ? ' grams' : ''})
@@ -1270,17 +1270,17 @@ const handleGrossWeightChange = (value) => {
                     onChange={(e) => handlePayAmountChange(e.target.value)}
                   />
                 </div>
-              {isCommodity && (
-  <div>
-    <label className="block text-sm font-medium text-gray-700 mb-2">Value Per Gram ({payCurrency}/gram)</label>
-    <input
-      type="text"
-      value={formatNumber(manualRate / 1000, 4)} // Display rate / 1000 directly
-      readOnly
-      className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-100 text-gray-700"
-    />
-  </div>
-)}
+                {isCommodity && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Value Per Gram ({payCurrency}/gram)</label>
+                    <input
+                      type="text"
+                      value={formatNumber(manualRate / 1000, 4)} // Display rate / 1000 directly
+                      readOnly
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-100 text-gray-700"
+                    />
+                  </div>
+                )}
                 {isCommodity ? null : (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
