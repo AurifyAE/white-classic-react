@@ -541,7 +541,7 @@ const CurrencyTradingUI = () => {
                 </div>
               </div>
             </div>
-            <div className="overflow-x-hidden">
+            <div className="overflow-x-hiddenw">
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-100">
                   <tr>
@@ -990,7 +990,7 @@ const CurrencyTradingUI = () => {
       } else {
         res = await axiosInstance.post('/currency-trading/trades', payload);
       }
-      if (res.data.success) {
+      if (res.data.success || res.status === 200 || res.status === 201) {
         toast.success(isEditMode ? 'Trade updated successfully' : 'Trade created successfully');
         closeModal();
         fetchTrades();
