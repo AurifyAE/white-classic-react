@@ -484,9 +484,10 @@ const OrderStatementsTab = ({
         <div className="flex flex-col justify-between p-5 bg-gradient-to-br from-green-50 to-green-100 border border-green-300 rounded-2xl w-full sm:w-[calc(25%-1rem)] shadow hover:shadow-md transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-green-800 font-semibold text-lg">
-                Credit (AED)
-              </h2>
+            <h2 className="text-green-800 font-semibold text-lg flex items-center gap-2">
+        <img src={DirhamIcon} alt="AED" className="w-5 h-5" />
+        Credit (AED)
+      </h2>
               <p className="text-3xl font-bold text-green-800">
                 {summary.AED.credit.toLocaleString("en-US", {
                   minimumFractionDigits: 3,
@@ -504,9 +505,10 @@ const OrderStatementsTab = ({
         <div className="flex flex-col justify-between p-5 bg-gradient-to-br from-red-50 to-red-100 border border-red-300 rounded-2xl w-full sm:w-[calc(25%-1rem)] shadow hover:shadow-md transition-shadow duration-200">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-red-800 font-semibold text-lg">
-                Debit (AED)
-              </h2>
+             <h2 className="text-red-800 font-semibold text-lg flex items-center gap-2">
+        <img src={DirhamIcon} alt="AED" className="w-5 h-5" />
+        Debit (AED)
+      </h2>
               <p className="text-3xl font-bold text-red-800">
                 {summary.AED.debit.toLocaleString("en-US", {
                   minimumFractionDigits: 3,
