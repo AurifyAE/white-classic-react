@@ -52,167 +52,138 @@ const OrderStatementsTab = ({
     return `${day}/${month}/${year}`;
   };
 
-  useEffect(() => {
-    const fetchRegistry = async () => {
-      try {
-        setLoading(true);
+useEffect(() => {
+  const fetchRegistry = async () => {
+    try {
+      setLoading(true);
 
-        const res = await axiosInstance.get(
-          `/registry/get-by-party/${debtorId}`
-        );
-        const { data } = res.data;
+      const res = await axiosInstance.get(`/registry/get-by-party/${debtorId}`);
+      const { data } = res.data;
 
-        console.log("Raw data:", data);
+      console.log("Raw data:", data);
 
-        console.log(
-          "All txn types from backend:",
-          data.map((txn) => txn.type)
-        );
+      // Sort data in chronological order for balance calculation (oldest to newest)
+      const chronologicalData = [...data].sort(
+        (a, b) => new Date(a.transactionDate) - new Date(b.transactionDate)
+      );
 
-        const goldTypes = ["PARTY_GOLD_BALANCE"];
-        const cashTypes = [
-          "PARTY_CASH_BALANCE",
-          "MAKING_CHARGES",
-          "PREMIUM",
-          "DISCOUNT",
-          "OTHER_CHARGES",
-        ];
+      // Initialize running balances for each asset type
+      let aedRunningBalance = 0;
+      let inrRunningBalance = 0;
+      let goldRunningBalance = 0;
 
-        const filteredData = data.filter(
-          (txn) => goldTypes.includes(txn.type) || cashTypes.includes(txn.type)
-        );
+      const mappedRegistry = chronologicalData.map((txn) => {
+        const debit = txn.debit || 0;
+        const credit = txn.credit || 0;
+        const assetType = txn.assetType || "AED"; // Default to AED if not specified
 
-        console.log("Filtered data (only gold & cash types):", filteredData);
+        // Update running balances based on assetType
+        if (assetType === "XAU") {
+          goldRunningBalance = txn.runningBalance || goldRunningBalance + credit - debit;
+        } else if (assetType === "AED") {
+          aedRunningBalance = txn.runningBalance || aedRunningBalance + credit - debit;
+        } else if (assetType === "INR") {
+          inrRunningBalance = txn.runningBalance || inrRunningBalance + credit - debit;
+        }
 
-        // Process in chronological order for balance calculation (oldest to newest)
-        const chronologicalData = [...filteredData].sort(
-          (a, b) => new Date(a.transactionDate) - new Date(b.transactionDate)
-        );
-
-        let aedRunningBalance = 0;
-        let inrRunningBalance = 0;
-        let goldRunningBalance = 0;
-
-        const mappedRegistry = chronologicalData.map((txn) => {
-          const type = txn.type;
-          const debit = txn.debit || 0;
-          const credit = txn.credit || 0;
-          const currency = txn.partyCurrency?.currencyCode || "AED"; // Default to AED if not specified
-
-          // Calculate balance: credit (+) and debit (-)
-          if (goldTypes.includes(type)) {
-            goldRunningBalance = goldRunningBalance + credit - debit;
-          } else if (cashTypes.includes(type)) {
-            if (currency === "AED") {
-              aedRunningBalance = aedRunningBalance + credit - debit;
-            } else if (currency === "INR") {
-              inrRunningBalance = inrRunningBalance + credit - debit;
-            }
-          }
-
-          return {
-            docDate: formatDate(txn.transactionDate),
-            docRef: txn.reference || "",
-            branch: txn.branch || "HO",
-            particulars: txn.description || "",
-            type,
-            debit,
-            credit,
-            currency,
-            balance: currency === "AED" ? aedRunningBalance : inrRunningBalance, // For backward compatibility
-            goldInGMS: goldTypes.includes(type)
+        return {
+          docDate: formatDate(txn.transactionDate),
+          docRef: txn.reference || "",
+          branch: txn.branch || "HO",
+          particulars: txn.description || "",
+          type: txn.type,
+          debit,
+          credit,
+          currency: assetType,
+          balance: assetType === "AED" ? aedRunningBalance : inrRunningBalance, // For backward compatibility
+          goldInGMS:
+            assetType === "XAU"
               ? { debit, credit, balance: goldRunningBalance }
               : { debit: 0, credit: 0, balance: 0 },
-            aed:
-              cashTypes.includes(type) && currency === "AED"
-                ? { debit, credit, balance: aedRunningBalance }
-                : { debit: 0, credit: 0, balance: 0 },
-            inr:
-              cashTypes.includes(type) && currency === "INR"
-                ? { debit, credit, balance: inrRunningBalance }
-                : { debit: 0, credit: 0, balance: 0 },
-          };
-        });
+          aed:
+            assetType === "AED"
+              ? { debit, credit, balance: aedRunningBalance }
+              : { debit: 0, credit: 0, balance: 0 },
+          inr:
+            assetType === "INR"
+              ? { debit, credit, balance: inrRunningBalance }
+              : { debit: 0, credit: 0, balance: 0 },
+        };
+      });
 
-        console.log("Mapped registry:", mappedRegistry);
+      console.log("Mapped registry:", mappedRegistry);
 
-        // Reverse for display (newest first, LIFO)
-        const displayRegistry = [...mappedRegistry].reverse();
+      // Reverse for display (newest first, LIFO)
+      const displayRegistry = [...mappedRegistry].reverse();
 
-        setRegistries(displayRegistry);
-        setFilteredRegistries(displayRegistry);
-        setTotalItems(displayRegistry.length);
+      setRegistries(displayRegistry);
+      setFilteredRegistries(displayRegistry);
+      setTotalItems(displayRegistry.length);
 
-        // Calculate summary: total debit, total credit, and net balance
-        const goldTxns = mappedRegistry.filter((txn) =>
-          goldTypes.includes(txn.type)
-        );
-        const goldCredit = goldTxns.reduce(
-          (sum, txn) => sum + (txn.goldInGMS.credit || 0),
-          0
-        );
-        const goldDebit = goldTxns.reduce(
-          (sum, txn) => sum + (txn.goldInGMS.debit || 0),
-          0
-        );
-        const goldBalance = goldCredit - goldDebit;
+      // Calculate summary: total debit, total credit, and net balance
+      const goldTxns = mappedRegistry.filter((txn) => txn.currency === "XAU");
+      const goldCredit = goldTxns.reduce(
+        (sum, txn) => sum + (txn.goldInGMS.credit || 0),
+        0
+      );
+      const goldDebit = goldTxns.reduce(
+        (sum, txn) => sum + (txn.goldInGMS.debit || 0),
+        0
+      );
+      const goldBalance = goldTxns.length > 0 ? goldTxns[goldTxns.length - 1].goldInGMS.balance : 0;
 
-        const aedTxns = mappedRegistry.filter(
-          (txn) => cashTypes.includes(txn.type) && txn.currency === "AED"
-        );
-        const aedCredit = aedTxns.reduce(
-          (sum, txn) => sum + (txn.aed.credit || 0),
-          0
-        );
-        const aedDebit = aedTxns.reduce(
-          (sum, txn) => sum + (txn.aed.debit || 0),
-          0
-        );
-        const aedBalance = aedCredit - aedDebit;
+      const aedTxns = mappedRegistry.filter((txn) => txn.currency === "AED");
+      const aedCredit = aedTxns.reduce(
+        (sum, txn) => sum + (txn.aed.credit || 0),
+        0
+      );
+      const aedDebit = aedTxns.reduce(
+        (sum, txn) => sum + (txn.aed.debit || 0),
+        0
+      );
+      const aedBalance = aedTxns.length > 0 ? aedTxns[aedTxns.length - 1].aed.balance : 0;
 
-        const inrTxns = mappedRegistry.filter(
-          (txn) => cashTypes.includes(txn.type) && txn.currency === "INR"
-        );
-        const inrCredit = inrTxns.reduce(
-          (sum, txn) => sum + (txn.inr.credit || 0),
-          0
-        );
-        const inrDebit = inrTxns.reduce(
-          (sum, txn) => sum + (txn.inr.debit || 0),
-          0
-        );
-        const inrBalance = inrCredit - inrDebit;
+      const inrTxns = mappedRegistry.filter((txn) => txn.currency === "INR");
+      const inrCredit = inrTxns.reduce(
+        (sum, txn) => sum + (txn.inr.credit || 0),
+        0
+      );
+      const inrDebit = inrTxns.reduce(
+        (sum, txn) => sum + (txn.inr.debit || 0),
+        0
+      );
+      const inrBalance = inrTxns.length > 0 ? inrTxns[inrTxns.length - 1].inr.balance : 0;
 
-        console.log("Summary gold:", {
-          debit: goldDebit,
-          credit: goldCredit,
-          balance: goldBalance,
-        });
-        console.log("Summary AED:", {
-          debit: aedDebit,
-          credit: aedCredit,
-          balance: aedBalance,
-        });
-        console.log("Summary INR:", {
-          debit: inrDebit,
-          credit: inrCredit,
-          balance: inrBalance,
-        });
+      console.log("Summary gold:", {
+        debit: goldDebit,
+        credit: goldCredit,
+        balance: goldBalance,
+      });
+      console.log("Summary AED:", {
+        debit: aedDebit,
+        credit: aedCredit,
+        balance: aedBalance,
+      });
+      console.log("Summary INR:", {
+        debit: inrDebit,
+        credit: inrCredit,
+        balance: inrBalance,
+      });
 
-        setSummary({
-          gold: { debit: goldDebit, credit: goldCredit, balance: goldBalance },
-          AED: { debit: aedDebit, credit: aedCredit, balance: aedBalance },
-          INR: { debit: inrDebit, credit: inrCredit, balance: inrBalance },
-        });
-      } catch (error) {
-        console.error("Error fetching registry:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+      setSummary({
+        gold: { debit: goldDebit, credit: goldCredit, balance: goldBalance },
+        AED: { debit: aedDebit, credit: aedCredit, balance: aedBalance },
+        INR: { debit: inrDebit, credit: inrCredit, balance: inrBalance },
+      });
+    } catch (error) {
+      console.error("Error fetching registry:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    fetchRegistry();
-  }, [debtorId]);
+  fetchRegistry();
+}, [debtorId]);
 
   useEffect(() => {
     let filtered = registries.filter(
