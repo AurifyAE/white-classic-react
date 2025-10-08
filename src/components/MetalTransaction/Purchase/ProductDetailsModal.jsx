@@ -399,15 +399,15 @@ const ProductDetailsModal = ({
             : 0;
 
         // Metal Rate Requirements
-        let metalRateStr = updated.metalRateRequirements.rate;
-        let metalAmountStr = updated.metalRateRequirements.amount;
-        if (lastEditedFields.metalRateRequirements === "rate") {
-          const parsedRate = parseFloat(metalRateStr) || 0;
-          metalAmountStr = (parsedRate * grossWeight).toFixed(2);
-        } else {
-          const parsedAmount = parseFloat(metalAmountStr) || 0;
-          metalRateStr = grossWeight > 0 ? (parsedAmount / grossWeight).toFixed(2) : "0.00";
-        }
+      let metalRateStr = updated.metalRateRequirements.rate;
+      let metalAmountStr = updated.metalRateRequirements.amount;
+      if (lastEditedFields.metalRateRequirements === "rate") {
+        const parsedRate = parseFloat(metalRateStr) || 0;
+        metalAmountStr = (parsedRate / 1000 * grossWeight).toFixed(2);  // NEW: /1000 for per gram, then * grossWeight
+      } else {
+        const parsedAmount = parseFloat(metalAmountStr) || 0;
+        metalRateStr = grossWeight > 0 ? (parsedAmount / grossWeight * 1000).toFixed(2) : "0.00";  // NEW: *1000 to back-calc rate per KG
+      }
 
         // Making Charges - Simplified calculation without currency conversion
         let makingRateStr = updated.makingCharges.rate;
@@ -704,13 +704,13 @@ const ProductDetailsModal = ({
               metalRateRequirements: child,
             }));
 
-            if (child === "rate") {
-              const rate = parseFloat(rawValue) || 0;
-              updatedParent.amount = (rate * grossWeight).toFixed(2);
-            } else if (child === "amount") {
-              const amount = parseFloat(rawValue) || 0;
-              updatedParent.rate = grossWeight > 0 ? (amount / grossWeight).toFixed(2) : "0.00";
-            }
+           if (child === "rate") {
+            const rate = parseFloat(rawValue) || 0;
+            updatedParent.amount = (rate / 1000 * grossWeight).toFixed(2);  // NEW: /1000 * grossWeight
+          } else if (child === "amount") {
+            const amount = parseFloat(rawValue) || 0;
+            updatedParent.rate = grossWeight > 0 ? (amount / grossWeight * 1000).toFixed(2) : "0.00";  // NEW: /grossWeight *1000
+          }
 
             const parsedMetalAmount = parseFloat(updatedParent.amount) || 0;
             const parsedMakingAmount = parseFloat(prev.makingCharges.amount) || 0;
@@ -1185,103 +1185,117 @@ const ProductDetailsModal = ({
               <h3 className="text-md font-semibold text-gray-800 mb-4">
                 Metal Rate & Requirements
               </h3>
-              <div className="grid grid-cols-1 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Metal Rate <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    name="metalRateUnit"
-                    value={productData.metalRateUnit}
-                    onChange={(e) => {
-                      const selectedUnit = e.target.value;
-                      const selectedRate = metalRates.find(
-                        (rate) => rate.rateUnit === selectedUnit
-                      );
-                      setProductData((prev) => ({
-                        ...prev,
-                        metalRateUnit: selectedUnit,
-                        convertrate: selectedRate?.convertrate || "1",
-                        convFactGms: selectedRate?.convFactGms || "1",
-                        metalRate: selectedRate ? selectedRate.no : "",
-                        metalRateRequirements: {
-                          ...prev.metalRateRequirements,
-                          rate: selectedRate ? selectedRate.rate : "",
-                        },
-                      }));
-                    }}
-                    className="w-full px-4 py-3 border-0 rounded-xl focus:ring-4 focus:ring-blue-100 bg-gray-50 hover:bg-white focus:bg-white shadow-sm hover:shadow-md focus:shadow-lg transition-all duration-300"
-                  >
-                    {metalRates.length > 0 ? (
-                      metalRates
-                        .filter((rate) => rate.rateType.toUpperCase() === "KGBAR")
-                        .map((rate) => (
-                          <option key={rate.no} value={rate.rateUnit}>
-                            {rate.rateType}
-                          </option>
-                        ))
-                    ) : (
-                      <option value="GOZ">Gold</option>
-                    )}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Rate <span className="text-red-500">*</span>
-                    <span className="text-green-500 ml-2">
-                      (Live: {goldData.bid ? formatNumber(goldData.bid) : "Loading..."})
-                    </span>
-                  </label>
-                  <input
-                    type="text"
-                    name="metalRateRequirements.rate"
-                    value={getDisplayValue(
-                      productData.metalRateRequirements.rate,
-                      "metalRate"
-                    )}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/,/g, "");
-                      if (value === "" || !isNaN(value)) {
-                        handleInputChange({
-                          target: { name: "metalRateRequirements.rate", value },
-                        });
-                      }
-                    }}
-                    onFocus={() => handleFocus("metalRate")}
-                    onBlur={() => handleBlur("metalRate")}
-                    className="w-full px-4 py-3 border-0 rounded-xl focus:ring-4 focus:ring-blue-100 bg-gray-50 hover:bg-white focus:bg-white shadow-sm hover:shadow-md focus:shadow-lg transition-all duration-300"
-                    placeholder="Enter metal rate (e.g., 2500.00)"
-                  />
-                  {errors.metalRate && (
-                    <p className="text-red-500 text-xs mt-1">{errors.metalRate}</p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Metal Amount {renderCurrencySymbol()}
-                  </label>
-                  <input
-                    type="text"
-                    name="metalRateRequirements.amount"
-                    value={getDisplayValue(
-                      productData.metalRateRequirements.amount,
-                      "metalAmount"
-                    )}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/,/g, "");
-                      if (value === "" || !isNaN(value)) {
-                        handleInputChange({
-                          target: { name: "metalRateRequirements.amount", value },
-                        });
-                      }
-                    }}
-                    onFocus={() => handleFocus("metalAmount")}
-                    onBlur={() => handleBlur("metalAmount")}
-                    className="w-full px-4 py-3 border-0 rounded-xl focus:ring-4 focus:ring-blue-100 bg-gray-50 hover:bg-white focus:bg-white shadow-sm hover:shadow-md focus:shadow-lg transition-all duration-300"
-                    placeholder={`Enter or calculated metal amount (e.g., 25000.00)`}
-                  />
-                </div>
-              </div>
+             <div className="grid grid-cols-1 gap-4">
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-2">
+      Metal Rate <span className="text-red-500">*</span>
+    </label>
+    <select
+      name="metalRateUnit"
+      value={productData.metalRateUnit}
+      onChange={(e) => {
+        const selectedUnit = e.target.value;
+        const selectedRate = metalRates.find(
+          (rate) => rate.rateUnit === selectedUnit
+        );
+        setProductData((prev) => ({
+          ...prev,
+          metalRateUnit: selectedUnit,
+          convertrate: selectedRate?.convertrate || "1",
+          convFactGms: selectedRate?.convFactGms || "1",
+          metalRate: selectedRate ? selectedRate.no : "",
+          metalRateRequirements: {
+            ...prev.metalRateRequirements,
+            rate: selectedRate ? selectedRate.rate : "",
+          },
+        }));
+      }}
+      className="w-full px-4 py-3 border-0 rounded-xl focus:ring-4 focus:ring-blue-100 bg-gray-50 hover:bg-white focus:bg-white shadow-sm hover:shadow-md focus:shadow-lg transition-all duration-300"
+    >
+      {metalRates.length > 0 ? (
+        metalRates
+          .filter((rate) => rate.rateType.toUpperCase() === "KGBAR")
+          .map((rate) => (
+            <option key={rate.no} value={rate.rateUnit}>
+              {rate.rateType}
+            </option>
+          ))
+      ) : (
+        <option value="GOZ">Gold</option>
+      )}
+    </select>
+  </div>
+  <div className="grid grid-cols-2 gap-4">
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">
+        Rate of 1 KG <span className="text-red-500">*</span>
+        <span className="text-green-500 ml-2">
+          (Live: {goldData.bid ? formatNumber(goldData.bid) : "Loading..."})
+        </span>
+      </label>
+      <input
+        type="text"
+        name="metalRateRequirements.rate"
+        value={getDisplayValue(
+          productData.metalRateRequirements.rate,
+          "metalRate"
+        )}
+        onChange={(e) => {
+          const value = e.target.value.replace(/,/g, "");
+          if (value === "" || !isNaN(value)) {
+            handleInputChange({
+              target: { name: "metalRateRequirements.rate", value },
+            });
+          }
+        }}
+        onFocus={() => handleFocus("metalRate")}
+        onBlur={() => handleBlur("metalRate")}
+        className="w-full px-4 py-3 border-0 rounded-xl focus:ring-4 focus:ring-blue-100 bg-gray-50 hover:bg-white focus:bg-white shadow-sm hover:shadow-md focus:shadow-lg transition-all duration-300"
+        placeholder="Enter rate per 1 KG (e.g., 2500000.00)"
+      />
+      {errors.metalRate && (
+        <p className="text-red-500 text-xs mt-1">{errors.metalRate}</p>
+      )}
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">
+        Rate of 1 GM
+      </label>
+      <input
+        type="text"
+        value={formatNumber(parseFloat(productData.metalRateRequirements.rate) / 1000 || 0, 2)}
+        readOnly
+        className="w-full px-4 py-3 border-0 rounded-xl bg-gray-100 text-gray-500 shadow-sm transition-all duration-300"
+        placeholder="Calculated automatically"
+      />
+    </div>
+  </div>
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-2">
+      Metal Amount {renderCurrencySymbol()}
+    </label>
+    <input
+      type="text"
+      name="metalRateRequirements.amount"
+      value={getDisplayValue(
+        productData.metalRateRequirements.amount,
+        "metalAmount"
+      )}
+      onChange={(e) => {
+        const value = e.target.value.replace(/,/g, "");
+        if (value === "" || !isNaN(value)) {
+          handleInputChange({
+            target: { name: "metalRateRequirements.amount", value },
+          });
+        }
+      }}
+      onFocus={() => handleFocus("metalAmount")}
+      onBlur={() => handleBlur("metalAmount")}
+      className="w-full px-4 py-3 border-0 rounded-xl focus:ring-4 focus:ring-blue-100 bg-gray-50 hover:bg-white focus:bg-white shadow-sm hover:shadow-md focus:shadow-lg transition-all duration-300"
+      placeholder={`Enter or calculated metal amount (e.g., 25000.00)`}
+    />
+  </div>
+</div>
             </div>
 
             <div className="border border-gray-200 rounded-xl p-4">

@@ -500,6 +500,25 @@ const OtherChargeCenter = () => {
                   </select>
                 </div>
 
+   <div>
+    <label className="block text-sm font-medium text-gray-700 mb-1">
+      Items Per Page
+    </label>
+    <select
+      value={itemsPerPage}
+      onChange={(e) => {
+        setItemsPerPage(Number(e.target.value));
+        setCurrentPage(1);
+      }}
+      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+    >
+      <option value={10}>10 per page</option>
+      <option value={20}>20 per page</option>
+      <option value={50}>50 per page</option>
+    </select>
+  </div>
+
+
                 <div className="relative">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     From Date

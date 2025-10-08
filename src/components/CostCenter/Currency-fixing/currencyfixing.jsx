@@ -40,11 +40,12 @@ const CurrencyTradingRegistry = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(20);
+  // const [itemsPerPage] = useState(20);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("ALL");
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
   const navigateToVoucher = useVoucherNavigation();
@@ -370,6 +371,24 @@ const CurrencyTradingRegistry = () => {
                     <option value="SELL">Sell Only</option>
                   </select>
                 </div>
+
+<div>
+    <label className="block text-sm font-medium text-gray-700 mb-1">
+      Items Per Page
+    </label>
+    <select
+      value={itemsPerPage}
+      onChange={(e) => {
+        setItemsPerPage(Number(e.target.value));
+        setCurrentPage(1);
+      }}
+      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+    >
+      <option value={10}>10 per page</option>
+      <option value={20}>20 per page</option>
+      <option value={50}>50 per page</option>
+    </select>
+  </div>                
 
                 <div className="relative">
                   <label className="block text-sm font-medium text-gray-700 mb-1">

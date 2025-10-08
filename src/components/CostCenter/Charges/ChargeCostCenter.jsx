@@ -510,7 +510,7 @@ const MakingChargeCenter = () => {
                   </select>
                 </div>
 
-                {/* <div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Items Per Page
                   </label>
@@ -526,7 +526,7 @@ const MakingChargeCenter = () => {
                     <option value={20}>20 per page</option>
                     <option value={50}>50 per page</option>
                   </select>
-                </div> */}
+                </div>
 
                 <div className="relative">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
