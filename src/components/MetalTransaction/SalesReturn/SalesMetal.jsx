@@ -1765,14 +1765,8 @@ const handleSave = useCallback(async () => {
     voucherDate: formData.voucherDate,
     voucherNumber: formData.voucherCode,
     partyCode: formData.partyCode,
-    partyCurrency: {
-    _id: formData.partyCurrencyId,
-    currencyCode: formData.partyCurrencyCode,
-  },
-  itemCurrency: {
-    _id: formData.itemCurrencyId,
-    currencyCode: formData.itemCurrencyCode,
-  },
+    partyCurrency: formData.partyCurrencyId,
+    itemCurrency: formData.itemCurrencyId,
     baseCurrency: formData.partyCurrencyId,
     effectivePartyCurrencyRate: conversionRate,
     effectiveItemCurrencyRate: conversionRate,
