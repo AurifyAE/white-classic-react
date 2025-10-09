@@ -317,7 +317,7 @@ currencies: [],
     fetchData();
   }, [fetchData]);
 
-  const handleApplyFilters = useCallback(async () => {
+   const handleApplyFilters = useCallback(async () => {
     setSearchLoading(true);
     try {
       const body = {};
@@ -338,19 +338,18 @@ currencies: [],
           })
           .filter((voucher) => voucher !== null);
       }
-      if (filters.currencies.length > 0) { 
-      body.currencies = filters.currencies;
-    }
+      if (filters.currencies.length > 0) {
+        body.currencies = filters.currencies;
+      }
 
-      // Keep your showGold & showCash flags
       if (filters.showGold !== undefined) body.showGold = filters.showGold;
       if (filters.showCash !== undefined) body.showCash = filters.showCash;
 
       console.log("Filter body (Statement of Account):", JSON.stringify(body, null, 2));
 
       const response = await axios.post("reports/account-statements", body);
+      console.log(response.data, "response");
 
-      // Validate the response
       if (!response.data || !response.data.success || !Array.isArray(response.data.data)) {
         throw new Error(response.data?.message || "Invalid API response format");
       }
@@ -363,20 +362,32 @@ currencies: [],
         return;
       }
 
-      // Process API data into table-friendly format
-      let runningCashBalance = 0;
+      let runningCashBalanceAED = 0;
+      let runningCashBalanceINR = 0;
       let runningGoldBalance = 0;
 
       const processedData = apiData.flatMap((party) =>
         party.transactions.map((transaction) => {
-          // Cash
           const cashDebit = parseFloat(transaction.cash?.debit) || 0;
           const cashCredit = parseFloat(transaction.cash?.credit) || 0;
-          runningCashBalance += cashDebit - cashCredit;
-
-          // Gold
           const goldDebit = parseFloat(transaction.goldInGMS?.debit) || 0;
           const goldCredit = parseFloat(transaction.goldInGMS?.credit) || 0;
+
+          let aedDebit = 0;
+          let aedCredit = 0;
+          let inrDebit = 0;
+          let inrCredit = 0;
+
+          if (transaction.assetType === "AED") {
+            aedDebit = cashDebit;
+            aedCredit = cashCredit;
+            runningCashBalanceAED += cashDebit - cashCredit;
+          } else if (transaction.assetType === "INR") {
+            inrDebit = cashDebit;
+            inrCredit = cashCredit;
+            runningCashBalanceINR += cashDebit - cashCredit;
+          }
+
           runningGoldBalance += goldDebit - goldCredit;
 
           return {
@@ -385,12 +396,16 @@ currencies: [],
             docRef: transaction.docRef,
             branch: transaction.branch,
             particulars: `${transaction.particulars} - ${party.partyName}`,
-            aedDebit: cashDebit,
-            aedCredit: cashCredit,
+            aedDebit,
+            aedCredit,
+            inrDebit,
+            inrCredit,
             goldDebit,
             goldCredit,
-            aedBalanceValue: Math.abs(runningCashBalance),
-            aedBalanceType: runningCashBalance >= 0 ? "CR" : "DR",
+            aedBalanceValue: Math.abs(runningCashBalanceAED),
+            aedBalanceType: runningCashBalanceAED >= 0 ? "CR" : "DR",
+            inrBalanceValue: Math.abs(runningCashBalanceINR),
+            inrBalanceType: runningCashBalanceINR >= 0 ? "CR" : "DR",
             goldBalanceValue: Math.abs(runningGoldBalance),
             goldBalanceType: runningGoldBalance >= 0 ? "CR" : "DR",
             partyName: party.partyName,
@@ -415,7 +430,31 @@ currencies: [],
     }
   }, [filters, showToast, vouchers]);
 
+ const totalInrDebit = useMemo(() => {
+    return filteredStatementData.reduce(
+      (sum, item) => sum + (item.inrDebit || 0),
+      0
+    );
+  }, [filteredStatementData]);
 
+  const totalInrCredit = useMemo(() => {
+    return filteredStatementData.reduce(
+      (sum, item) => sum + (item.inrCredit || 0),
+      0
+    );
+  }, [filteredStatementData]);
+
+  const finalInrBalanceValue = useMemo(() => {
+    return filteredStatementData.length > 0
+      ? filteredStatementData[filteredStatementData.length - 1].inrBalanceValue
+      : 0;
+  }, [filteredStatementData]);
+
+  const finalInrBalanceType = useMemo(() => {
+    return filteredStatementData.length > 0
+      ? filteredStatementData[filteredStatementData.length - 1].inrBalanceType
+      : "CR";
+  }, [filteredStatementData]);
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
 
@@ -1066,245 +1105,305 @@ const handleToggleAll = useCallback(
           </div>
         </div>
         <div className="overflow-x-auto">
-          {filteredStatementData.length === 0 ? (
-            <div className="p-6 text-center text-gray-600">
-              No statement data available. Try adjusting the filters or fetching
-              again.
-            </div>
-          ) : (
-            <table className="min-w-full divide-y divide-gray-100 bg-white text-sm">
-              <thead className="bg-gradient-to-r from-gray-50 to-gray-100 text-xs text-gray-600 uppercase tracking-wider font-semibold">
-                <tr>
-                  <th className="px-6 py-4 text-left" colSpan="4"></th>
-                  {filters.showCash && (
-                    <th
-                      className="px-6 py-4 text-center border-l border-gray-200"
-                      colSpan="3"
-                    >
-                      Amount in AED
-                    </th>
-                  )}
-                  {filters.showGold && (
-                    <th
-                      className="px-6 py-4 text-center border-l border-gray-200"
-                      colSpan="3"
-                    >
-                      Gold in GMS
-                    </th>
-                  )}
-                </tr>
-                <tr className="border-b border-gray-200">
-                  <th
-                    className="px-6 py-3 text-left cursor-pointer"
-                    onDoubleClick={() => handleSort("docDate")}
-                  >
-                    Doc Date
-                    {sortConfig.key === "docDate" &&
-                      (sortConfig.direction === "asc" ? "↑" : "↓")}
-                  </th>
-                  <th
-                    className="px-6 py-3 text-left cursor-pointer"
-                    onDoubleClick={() => handleSort("docRef")}
-                  >
-                    Doc Ref
-                    {sortConfig.key === "docRef" &&
-                      (sortConfig.direction === "asc" ? "↑" : "↓")}
-                  </th>
-                  <th
-                    className="px-6 py-3 text-left cursor-pointer"
-                    onDoubleClick={() => handleSort("branch")}
-                  >
-                    Branch
-                    {sortConfig.key === "branch" &&
-                      (sortConfig.direction === "asc" ? "↑" : "↓")}
-                  </th>
-                  <th
-                    className="px-6 py-3 text-left cursor-pointer"
-                    onDoubleClick={() => handleSort("particulars")}
-                  >
-                    Particulars
-                    {sortConfig.key === "particulars" &&
-                      (sortConfig.direction === "asc" ? "↑" : "↓")}
-                  </th>
-                  {filters.showCash && (
-                    <>
-                      <th
-                        className="px-6 py-3 text-center border-l border-gray-200 cursor-pointer"
-                        onDoubleClick={() => handleSort("aedDebit")}
-                      >
-                        Debit
-                        {sortConfig.key === "aedDebit" &&
-                          (sortConfig.direction === "asc" ? "↑" : "↓")}
-                      </th>
-                      <th
-                        className="px-6 py-3 text-center cursor-pointer"
-                        onDoubleClick={() => handleSort("aedCredit")}
-                      >
-                        Credit
-                        {sortConfig.key === "aedCredit" &&
-                          (sortConfig.direction === "asc" ? "↑" : "↓")}
-                      </th>
-                      <th
-                        className="px-6 py-3 text-center cursor-pointer"
-                        onDoubleClick={() => handleSort("aedBalanceValue")}
-                      >
-                        Balance
-                        {sortConfig.key === "aedBalanceValue" &&
-                          (sortConfig.direction === "asc" ? "↑" : "↓")}
-                      </th>
-                    </>
-                  )}
-                  {filters.showGold && (
-                    <>
-                      <th
-                        className="px-6 py-3 text-center border-l border-gray-200 cursor-pointer"
-                        onDoubleClick={() => handleSort("goldDebit")}
-                      >
-                        Debit
-                        {sortConfig.key === "goldDebit" &&
-                          (sortConfig.direction === "asc" ? "↑" : "↓")}
-                      </th>
-                      <th
-                        className="px-6 py-3 text-center cursor-pointer"
-                        onDoubleClick={() => handleSort("goldCredit")}
-                      >
-                        Credit
-                        {sortConfig.key === "goldCredit" &&
-                          (sortConfig.direction === "asc" ? "↑" : "↓")}
-                      </th>
-                      <th
-                        className="px-6 py-3 text-center cursor-pointer"
-                        onDoubleClick={() => handleSort("goldBalanceValue")}
-                      >
-                        Balance
-                        {sortConfig.key === "goldBalanceValue" &&
-                          (sortConfig.direction === "asc" ? "↑" : "↓")}
-                      </th>
-                    </>
-                  )}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 text-sm text-gray-900">
-                {currentData.map((item) => (
-                  <tr
-                    key={item.id}
-                    className="hover:bg-gray-50 transition-all duration-200"
-                  >
-                    <td className="px-6 py-4">
-                      {formatDate(item.docDate)}
-                    </td>
-                    <td onClick={() => navigateToVoucher(item.docRef)} className="px-6 py-4 text-blue-700 font-semibold hover:underline cursor-pointer">
-                      {item.docRef || "N/A"}
-                    </td>
-                    <td className="px-6 py-4">{item.branch || "HO"}</td>
-                    <td className="px-6 py-4">{item.particulars || "N/A"}</td>
-                    {filters.showCash && (
-                      <>
-                        <td className="px-6 py-4 text-center border-l border-gray-200 text-red-600 font-semibold">
-                          {item.aedDebit.toLocaleString("en-US", {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
-                        </td>
-
-                        <td className="px-6 py-4 text-center text-green-600 font-semibold">
-                          {item.aedCredit.toLocaleString("en-US", {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
-                        </td>
-
-                        <td className="px-6 py-4 text-center font-bold text-blue-700">
-                          {item.aedBalanceValue.toLocaleString("en-US", {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })} {item.aedBalanceType}
-                        </td>
-
-                      </>
-                    )}
-                    {filters.showGold && (
-                      <>
-                        <td className="px-6 py-4 text-center border-l border-gray-200 text-red-600 font-semibold">
-                          {item.goldDebit.toLocaleString("en-US", {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
-                        </td>
-
-                        <td className="px-6 py-4 text-center text-green-600 font-semibold">
-                          {item.goldCredit.toLocaleString("en-US", {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
-                        </td>
-
-                        <td className="px-6 py-4 text-center font-bold text-blue-700">
-                          {item.goldBalanceValue.toLocaleString("en-US", {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })} {item.goldBalanceType}
-                        </td>
-
-                      </>
-                    )}
-                  </tr>
-                ))}
-                <tr className="bg-gradient-to-r from-gray-50 to-gray-100 font-semibold border-t-2 border-gray-300">
-                  <td className="px-6 py-4" colSpan="4">
-                    Balance Carried Forward
+    {filteredStatementData.length === 0 ? (
+      <div className="p-6 text-center text-gray-600">
+        No statement data available. Try adjusting the filters or fetching again.
+      </div>
+    ) : (
+      <table className="min-w-full divide-y divide-gray-100 bg-white text-sm">
+        <thead className="bg-gradient-to-r from-gray-50 to-gray-100 text-xs text-gray-600 uppercase tracking-wider font-semibold">
+          <tr>
+            <th className="px-6 py-4 text-left" colSpan="4"></th>
+            {filters.showCash && (
+              <>
+                <th
+                  className="px-6 py-4 text-center border-l border-gray-200"
+                  colSpan="3"
+                >
+                  Amount in AED
+                </th>
+                <th
+                  className="px-6 py-4 text-center border-l border-gray-200"
+                  colSpan="3"
+                >
+                  Amount in INR
+                </th>
+              </>
+            )}
+            {filters.showGold && (
+              <th
+                className="px-6 py-4 text-center border-l border-gray-200"
+                colSpan="3"
+              >
+                Gold in GMS
+              </th>
+            )}
+          </tr>
+          <tr className="border-b border-gray-200">
+            <th
+              className="px-6 py-3 text-left cursor-pointer"
+              onDoubleClick={() => handleSort("docDate")}
+            >
+              Doc Date
+              {sortConfig.key === "docDate" &&
+                (sortConfig.direction === "asc" ? "↑" : "↓")}
+            </th>
+            <th
+              className="px-6 py-3 text-left cursor-pointer"
+              onDoubleClick={() => handleSort("docRef")}
+            >
+              Doc Ref
+              {sortConfig.key === "docRef" &&
+                (sortConfig.direction === "asc" ? "↑" : "↓")}
+            </th>
+            <th
+              className="px-6 py-3 text-left cursor-pointer"
+              onDoubleClick={() => handleSort("branch")}
+            >
+              Branch
+              {sortConfig.key === "branch" &&
+                (sortConfig.direction === "asc" ? "↑" : "↓")}
+            </th>
+            <th
+              className="px-6 py-3 text-left cursor-pointer"
+              onDoubleClick={() => handleSort("particulars")}
+            >
+              Particulars
+              {sortConfig.key === "particulars" &&
+                (sortConfig.direction === "asc" ? "↑" : "↓")}
+            </th>
+            {filters.showCash && (
+              <>
+                <th
+                  className="px-6 py-3 text-center border-l border-gray-200 cursor-pointer"
+                  onDoubleClick={() => handleSort("aedDebit")}
+                >
+                  Debit
+                  {sortConfig.key === "aedDebit" &&
+                    (sortConfig.direction === "asc" ? "↑" : "↓")}
+                </th>
+                <th
+                  className="px-6 py-3 text-center cursor-pointer"
+                  onDoubleClick={() => handleSort("aedCredit")}
+                >
+                  Credit
+                  {sortConfig.key === "aedCredit" &&
+                    (sortConfig.direction === "asc" ? "↑" : "↓")}
+                </th>
+                <th
+                  className="px-6 py-3 text-center cursor-pointer"
+                  onDoubleClick={() => handleSort("aedBalanceValue")}
+                >
+                  Balance
+                  {sortConfig.key === "aedBalanceValue" &&
+                    (sortConfig.direction === "asc" ? "↑" : "↓")}
+                </th>
+                <th
+                  className="px-6 py-3 text-center border-l border-gray-200 cursor-pointer"
+                  onDoubleClick={() => handleSort("inrDebit")}
+                >
+                  Debit
+                  {sortConfig.key === "inrDebit" &&
+                    (sortConfig.direction === "asc" ? "↑" : "↓")}
+                </th>
+                <th
+                  className="px-6 py-3 text-center cursor-pointer"
+                  onDoubleClick={() => handleSort("inrCredit")}
+                >
+                  Credit
+                  {sortConfig.key === "inrCredit" &&
+                    (sortConfig.direction === "asc" ? "↑" : "↓")}
+                </th>
+                <th
+                  className="px-6 py-3 text-center cursor-pointer"
+                  onDoubleClick={() => handleSort("inrBalanceValue")}
+                >
+                  Balance
+                  {sortConfig.key === "inrBalanceValue" &&
+                    (sortConfig.direction === "asc" ? "↑" : "↓")}
+                </th>
+              </>
+            )}
+            {filters.showGold && (
+              <>
+                <th
+                  className="px-6 py-3 text-center border-l border-gray-200 cursor-pointer"
+                  onDoubleClick={() => handleSort("goldDebit")}
+                >
+                  Debit
+                  {sortConfig.key === "goldDebit" &&
+                    (sortConfig.direction === "asc" ? "↑" : "↓")}
+                </th>
+                <th
+                  className="px-6 py-3 text-center cursor-pointer"
+                  onDoubleClick={() => handleSort("goldCredit")}
+                >
+                  Credit
+                  {sortConfig.key === "goldCredit" &&
+                    (sortConfig.direction === "asc" ? "↑" : "↓")}
+                </th>
+                <th
+                  className="px-6 py-3 text-center cursor-pointer"
+                  onDoubleClick={() => handleSort("goldBalanceValue")}
+                >
+                  Balance
+                  {sortConfig.key === "goldBalanceValue" &&
+                    (sortConfig.direction === "asc" ? "↑" : "↓")}
+                </th>
+              </>
+            )}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100 text-sm text-gray-900">
+          {currentData.map((item) => (
+            <tr
+              key={item.id}
+              className="hover:bg-gray-50 transition-all duration-200"
+            >
+              <td className="px-6 py-4">{formatDate(item.docDate)}</td>
+              <td
+                onClick={() => navigateToVoucher(item.docRef)}
+                className="px-6 py-4 text-blue-700 font-semibold hover:underline cursor-pointer"
+              >
+                {item.docRef || "N/A"}
+              </td>
+              <td className="px-6 py-4">{item.branch || "HO"}</td>
+              <td className="px-6 py-4">{item.particulars || "N/A"}</td>
+              {filters.showCash && (
+                <>
+                  <td className="px-6 py-4 text-center border-l border-gray-200 text-red-600 font-semibold">
+                    {item.aedDebit.toLocaleString("en-US", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
                   </td>
-                  {filters.showCash && (
-                    <>
-                      <td className="px-6 py-4 text-center border-l border-gray-200">
-                        {totalAedDebit.toLocaleString("en-US", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        {totalAedCredit.toLocaleString("en-US", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </td>
-                      <td className="px-6 py-4 text-center text-blue-700 font-bold">
-                        {finalAedBalanceValue.toLocaleString("en-US", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })} {finalAedBalanceType}
-                      </td>
-
-                    </>
-                  )}
-                  {filters.showGold && (
-                    <>
-                      <td className="px-6 py-4 text-center border-l border-gray-200">
-                        {totalGoldDebit.toLocaleString("en-US", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        {totalGoldCredit.toLocaleString("en-US", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </td>
-                      <td className="px-6 py-4 text-center text-blue-700 font-bold">
-                        {finalGoldBalanceValue.toLocaleString("en-US", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })} {finalGoldBalanceType}
-                      </td>
-
-                    </>
-                  )}
-                </tr>
-              </tbody>
-            </table>
-          )}
-        </div>
+                  <td className="px-6 py-4 text-center text-green-600 font-semibold">
+                    {item.aedCredit.toLocaleString("en-US", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </td>
+                  <td className="px-6 py-4 text-center font-bold text-blue-700">
+                    {item.aedBalanceValue.toLocaleString("en-US", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })} {item.aedBalanceType}
+                  </td>
+                  <td className="px-6 py-4 text-center border-l border-gray-200 text-red-600 font-semibold">
+                    {item.inrDebit.toLocaleString("en-US", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </td>
+                  <td className="px-6 py-4 text-center text-green-600 font-semibold">
+                    {item.inrCredit.toLocaleString("en-US", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </td>
+                  <td className="px-6 py-4 text-center font-bold text-blue-700">
+                    {item.inrBalanceValue.toLocaleString("en-US", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })} {item.inrBalanceType}
+                  </td>
+                </>
+              )}
+              {filters.showGold && (
+                <>
+                  <td className="px-6 py-4 text-center border-l border-gray-200 text-red-600 font-semibold">
+                    {item.goldDebit.toLocaleString("en-US", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </td>
+                  <td className="px-6 py-4 text-center text-green-600 font-semibold">
+                    {item.goldCredit.toLocaleString("en-US", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </td>
+                  <td className="px-6 py-4 text-center font-bold text-blue-700">
+                    {item.goldBalanceValue.toLocaleString("en-US", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })} {item.goldBalanceType}
+                  </td>
+                </>
+              )}
+            </tr>
+          ))}
+          <tr className="bg-gradient-to-r from-gray-50 to-gray-100 font-semibold border-t-2 border-gray-300">
+            <td className="px-6 py-4" colSpan="4">
+              Balance Carried Forward
+            </td>
+            {filters.showCash && (
+              <>
+                <td className="px-6 py-4 text-center border-l border-gray-200">
+                  {totalAedDebit.toLocaleString("en-US", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </td>
+                <td className="px-6 py-4 text-center">
+                  {totalAedCredit.toLocaleString("en-US", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </td>
+                <td className="px-6 py-4 text-center text-blue-700 font-bold">
+                  {finalAedBalanceValue.toLocaleString("en-US", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })} {finalAedBalanceType}
+                </td>
+                <td className="px-6 py-4 text-center border-l border-gray-200">
+                  {totalInrDebit.toLocaleString("en-US", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </td>
+                <td className="px-6 py-4 text-center">
+                  {totalInrCredit.toLocaleString("en-US", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </td>
+                <td className="px-6 py-4 text-center text-blue-700 font-bold">
+                  {finalInrBalanceValue.toLocaleString("en-US", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })} {finalInrBalanceType}
+                </td>
+              </>
+            )}
+            {filters.showGold && (
+              <>
+                <td className="px-6 py-4 text-center border-l border-gray-200">
+                  {totalGoldDebit.toLocaleString("en-US", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </td>
+                <td className="px-6 py-4 text-center">
+                  {totalGoldCredit.toLocaleString("en-US", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </td>
+                <td className="px-6 py-4 text-center text-blue-700 font-bold">
+                  {finalGoldBalanceValue.toLocaleString("en-US", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })} {finalGoldBalanceType}
+                </td>
+              </>
+            )}
+          </tr>
+        </tbody>
+      </table>
+    )}
+  </div>
         {filteredStatementData.length > 0 && (
           <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
             <div className="flex items-center justify-between">
