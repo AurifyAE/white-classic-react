@@ -468,11 +468,17 @@ export default function MetalStockLedger() {
               setAccountTypes(filteredAccounts);
             },
           },
-          {
+           {
             key: "currencies",
             url: "/currency-master",
             setter: (data) => {
-              setCurrencies(data);
+              setGroupByOptions((prev) => ({
+                ...prev,
+                currencies: data.map((item) => ({
+                  id: item.id || item._id,
+                  code: item.code || item.currencyCode,
+                })),
+              }));
             },
           },
           {

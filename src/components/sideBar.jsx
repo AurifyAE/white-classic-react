@@ -394,28 +394,36 @@ const Sidebar = () => {
                   />
                 ))}
               </SidebarSection>
-              {section.key === 'generalMaster' && (
-                <>
-                  <SidebarItem
-                    icon={<HandCoins strokeWidth={1.5} size={22} />}
-                    text="Ceditors Management"
-                    to="/ceditors"
-                    active={location.pathname === "/ceditors"}
-                  />
-                  <SidebarItem
-                    icon={<Wallet2 strokeWidth={1.5} size={22} />}
-                    text="Debtor Management"
-                    to="/debtor"
-                    active={location.pathname === "/debtor"}
-                  />
-                  {/* <SidebarItem
-                    icon={<Building2 strokeWidth={1.5} size={22} />}
-                    text="Bank Management"
-                    to="/bank"
-                    active={location.pathname === "/bank"}
-                  /> */}
-                </>
-              )}
+            {section.key === 'generalMaster' && (
+  <>
+    <Link to="/ceditors" className="block">
+      <div
+        className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200 ${
+          location.pathname === "/ceditors"
+            ? "bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-medium shadow-md"
+            : "text-slate-700 hover:bg-slate-100"
+        }`}
+      >
+        <HandCoins strokeWidth={1.5} size={22} />
+        <span className="font-medium flex-1 truncate">Ceditors Management</span>
+        <ChevronRight strokeWidth={1.5} size={18} />
+      </div>
+    </Link>
+    <Link to="/debtor" className="block">
+      <div
+        className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200 ${
+          location.pathname === "/debtor"
+            ? "bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-medium shadow-md"
+            : "text-slate-700 hover:bg-slate-100"
+        }`}
+      >
+        <Wallet2 strokeWidth={1.5} size={22} />
+        <span className="font-medium flex-1 truncate">Debtor Management</span>
+        <ChevronRight strokeWidth={1.5} size={18} />
+      </div>
+    </Link>
+  </>
+)}
             </div>
           ))}
           <div className="pt-6">

@@ -1573,10 +1573,14 @@ const handleEdit = useCallback(
   async (stock) => {
     setEditingStock(stock);
     setError(null);
+    setIsModalOpen(false); // Reset modal state to avoid stale state issues
 
     try {
+      console.log("Fetching transaction for ID:", stock.id);
       const response = await axiosInstance.get(`/metal-transaction/${stock.id}`);
       const transaction = response.data.data;
+
+      console.log("Transaction Data:", transaction); // Log full transaction data
 
       let partyName = "Unknown Party";
       let partyDetails = {
@@ -1590,17 +1594,24 @@ const handleEdit = useCallback(
         itemCurrencyValue: "1",
         partyId: "",
         error: null,
-        partyCurrency: { currencyCode: "AED", conversionRate: "1" }, // Default object
+        partyCurrency: { currencyCode: "AED", conversionRate: "1" },
       };
 
+      // Fetch party details
       try {
-        const partyResponse = await axiosInstance.get(`/account-type/${transaction.partyCode?._id}`);
-        partyName = partyResponse.data.data.customerName || "Unknown Party";
-        partyDetails = fetchPartyDetails(partyName);
+        if (transaction.partyCode?._id) {
+          const partyResponse = await axiosInstance.get(`/account-type/${transaction.partyCode._id}`);
+          partyName = partyResponse.data.data?.customerName || "Unknown Party";
+          partyDetails = fetchPartyDetails(partyName);
+        } else {
+          console.warn("No partyCode._id found in transaction:", transaction.partyCode);
+        }
       } catch (error) {
+        console.error("Error fetching party details:", error);
         showToast("Failed to fetch party details", "error");
       }
 
+      // Map stock items
       const mappedStockItems = (transaction.stockItems || []).map((item) => {
         const calculatedVatPercentage = item.vat?.percentage || item.vatPercentage || 0;
 
@@ -1657,8 +1668,8 @@ const handleEdit = useCallback(
       setTempStockItems(mappedStockItems);
 
       // Fetch currency details
-      let partyCurrencyData = { currencyCode: "AED", conversionRate: "1" }; 
-      let itemCurrencyData = { currencyCode: "AED", conversionRate: "1" }; 
+      let partyCurrencyData = { currencyCode: "AED", conversionRate: "1" };
+      let itemCurrencyData = { currencyCode: "AED", conversionRate: "1" };
 
       const transactionPartyCurrencyId = transaction.partyCurrency?._id || transaction.partyCurrency;
       const transactionItemCurrencyId = transaction.itemCurrency?._id || transaction.itemCurrency;
@@ -1669,6 +1680,7 @@ const handleEdit = useCallback(
           partyCurrencyData = currencyResponse.data.data || { currencyCode: "AED", conversionRate: "1" };
         } catch (error) {
           console.error("Error fetching party currency:", error);
+          showToast("Failed to fetch party currency, using default", "error");
         }
       }
 
@@ -1678,10 +1690,15 @@ const handleEdit = useCallback(
           itemCurrencyData = currencyResponse.data.data || { currencyCode: "AED", conversionRate: "1" };
         } catch (error) {
           console.error("Error fetching item currency:", error);
+          showToast("Failed to fetch item currency, using default", "error");
         }
       }
 
-      console.log("Setting formData with partyCurrency:", partyCurrencyData);
+      // Ensure fixed and internalUnfix are correctly set
+      const isFixed = transaction.fix === true || transaction.fixed === true;
+      const isUnfixed = transaction.unfix === true || transaction.internalUnfix === true;
+
+      console.log("Fix/Unfix State:", { isFixed, isUnfixed, fix: transaction.fix, fixed: transaction.fixed, unfix: transaction.unfix, internalUnfix: transaction.internalUnfix });
 
       setFormData({
         transactionType: "purchase",
@@ -1706,16 +1723,18 @@ const handleEdit = useCallback(
         creditDays: transaction.creditDays?.toString() || "0",
         enteredBy: transaction.createdBy?.name || "ADMIN",
         spp: transaction.spp || "",
-        fixed: transaction.fix || false,
-        internalUnfix: transaction.unfix || false,
-        partyCurrency: partyCurrencyData, 
+        fixed: isFixed,
+        internalUnfix: !isFixed && isUnfixed, // Ensure mutual exclusivity
+        partyCurrency: partyCurrencyData,
       });
 
-      setIsModalOpen(true);
+      setIsModalOpen(true); // Ensure modal opens
       showToast("Editing metal purchase return", "success");
     } catch (error) {
+      console.error("Error in handleEdit:", error);
       setError("Failed to fetch transaction data for editing");
       showToast("Failed to load transaction data", "error");
+      setIsModalOpen(true); // Open modal even on error to allow manual correction
     }
   },
   [today, axiosInstance, fetchPartyDetails, showToast]
