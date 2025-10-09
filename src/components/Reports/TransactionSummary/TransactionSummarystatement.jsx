@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 const TransactionSummaryStatement = ({ transactionData, fromDate, toDate }) => {
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [expandedDescriptions, setExpandedDescriptions] = useState(new Set());
-  const [expandedIds, setExpandedIds] = useState(new Set());
+  const [expandedRefs, setExpandedRefs] = useState(new Set());
 
   const normalizedData = useMemo(() => {
     if (!Array.isArray(transactionData)) return [];
@@ -12,7 +12,8 @@ const TransactionSummaryStatement = ({ transactionData, fromDate, toDate }) => {
     return transactionData.map((item, index) => ({
       id: item.id || item._id || `temp_${index}`,
       transactionId: item.transactionId,
-      code: item.code || item.stockCode || 'N/A',
+      reference: item.reference || 'N/A',
+      code: item.code || item.stockCode || 'CF',
       description: item.description || item.name || item.stockName || 'N/A',
       pcs: item.pcs || item.pieces || item.quantity || 0,
       grossWt: item.grossWt || item.grossWeight || 0,
@@ -22,6 +23,7 @@ const TransactionSummaryStatement = ({ transactionData, fromDate, toDate }) => {
       pureWt: item.pureWt || item.pureWeight || 0,
       metalValue: item.metalValue || item.value || 0,
       makingCharge: item.makingCharge || item.making || 0,
+      value: item.value || 0,
       total: item.total || item.totalAmount || 0,
     }));
   }, [transactionData]);
@@ -51,6 +53,7 @@ const TransactionSummaryStatement = ({ transactionData, fromDate, toDate }) => {
       pureWt: normalizedData.reduce((acc, item) => acc + (item.pureWt || 0), 0),
       metalValue: normalizedData.reduce((acc, item) => acc + (item.metalValue || 0), 0),
       makingCharge: normalizedData.reduce((acc, item) => acc + (item.makingCharge || 0), 0),
+      value: normalizedData.reduce((acc, item) => acc + (item.value || 0), 0),
       total: normalizedData.reduce((acc, item) => acc + (item.total || 0), 0),
     }),
     [normalizedData]
@@ -74,12 +77,16 @@ const TransactionSummaryStatement = ({ transactionData, fromDate, toDate }) => {
     });
   };
 
-  // Helper function to format numbers in Western format
   const formatNumber = (num, decimals = 2) => {
     return num ? Number(num).toLocaleString('en-US', {
       minimumFractionDigits: decimals,
       maximumFractionDigits: decimals,
     }) : '0.00';
+  };
+
+  const getDisplayCode = (code) => {
+    if (code === 0 || code === '0') return 'CF';
+    return code || 'CF';
   };
 
   return (
@@ -128,7 +135,7 @@ const TransactionSummaryStatement = ({ transactionData, fromDate, toDate }) => {
           <thead className="bg-gradient-to-r from-gray-50 to-gray-100 text-xs text-gray-600 uppercase tracking-wider font-semibold ">
             <tr className="border-b border-gray-200 ">
               <th scope="col" className="px-6 py-3 text-left w-[60px]">SL</th>
-              <th scope="col" className="px-6 py-3 text-left w-[120px]">ID</th>
+              <th scope="col" className="px-6 py-3 text-left w-[120px]">Voucher</th>
               <th
                 scope="col"
                 className="px-6 py-3 text-left cursor-pointer w-[100px]"
@@ -137,14 +144,13 @@ const TransactionSummaryStatement = ({ transactionData, fromDate, toDate }) => {
                 Code {sortConfig?.key === 'code' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
               </th>
               <th scope="col" className="px-6 py-3 text-left w-[200px]">Description</th>
-              <th scope="col" className="px-6 py-3 text-center w-[80px]">Pcs</th>
               <th scope="col" className="px-6 py-3 text-center w-[100px]">Gross Wt</th>
-              <th scope="col" className="px-2 py-3 text-center w-[100px]">Premium/ <span>Discount</span></th>
-              {/* <th scope="col" className="px-6 py-3 text-center w-[100px]">Net Wt</th> */}
               <th scope="col" className="px-6 py-3 text-center w-[80px]">Purity</th>
               <th scope="col" className="px-6 py-3 text-center w-[100px]">Pure Wt</th>
-              <th scope="col" className="px-6 py-3 text-center w-[120px]">Metal Value</th>
+              <th scope="col" className="px-2 py-3 text-center w-[100px]">Premium/ <span>Discount</span></th>
               <th scope="col" className="px-6 py-3 text-center w-[120px]">Making Charge</th>
+              <th scope="col" className="px-6 py-3 text-center w-[120px]">Rate</th>
+              <th scope="col" className="px-6 py-3 text-center w-[120px]">Value</th>
               <th scope="col" className="px-6 py-3 text-center w-[120px]">Total</th>
             </tr>
           </thead>
@@ -153,13 +159,13 @@ const TransactionSummaryStatement = ({ transactionData, fromDate, toDate }) => {
               <tr key={item.id} className="hover:bg-blue-50 border-b border-gray-200 text-sm transition-all duration-200  ">
                 <td className="px-4 py-3 text-gray-700 font-medium text-center">{(index + 1).toLocaleString('en-US')}</td>
                 <td
-                  className={`px-4 py-3 text-gray-600 ${expandedIds.has(index) ? 'whitespace-normal break-words' : 'truncate'} cursor-pointer`}
-                  onClick={() => toggleExpand(setExpandedIds, index)}
+                  className={`px-4 py-3 text-gray-600 ${expandedRefs.has(index) ? 'whitespace-normal break-words' : 'truncate'} cursor-pointer`}
+                  onClick={() => toggleExpand(setExpandedRefs, index)}
                   title="Click to expand/collapse"
                 >
-                  {item.transactionId || 'N/A'}
+                  {item.reference}
                 </td>
-                <td className="px-4 py-3 text-gray-600 text-center">{item.code || 'N/A'}</td>
+                <td className="px-4 py-3 text-gray-600 text-center">{getDisplayCode(item.code)}</td>
                 <td
                   className={`px-4 py-3 text-gray-800 ${expandedDescriptions.has(index) ? 'whitespace-normal break-words' : 'truncate'} cursor-pointer`}
                   onClick={() => toggleExpand(setExpandedDescriptions, index)}
@@ -167,14 +173,13 @@ const TransactionSummaryStatement = ({ transactionData, fromDate, toDate }) => {
                 >
                   {item.description || 'N/A'}
                 </td>
-                <td className="px-4 py-3 text-center">{formatNumber(item.pcs, 0)}</td>
                 <td className="px-4 py-3 text-center">{formatNumber(item.grossWt)}</td>
-                <td className="px-4 py-3 text-center">{formatNumber(item.stoneWt)}</td>
-                {/* <td className="px-4 py-3 text-center">{formatNumber(item.netWt)}</td> */}
-                <td className="px-4 py-3 text-center">{formatNumber(item.purity, 0)}</td>
+                <td className="px-4 py-3 text-center">{formatNumber(item.purity, 3)}</td>
                 <td className="px-4 py-3 text-center">{formatNumber(item.pureWt)}</td>
-                <td className="px-4 py-3 text-center">{formatNumber(item.metalValue)}</td>
+                <td className="px-4 py-3 text-center">{formatNumber(item.stoneWt)}</td>
                 <td className="px-4 py-3 text-center">{formatNumber(item.makingCharge)}</td>
+                <td className="px-4 py-3 text-center">{formatNumber(item.metalValue)}</td>
+                <td className="px-4 py-3 text-center">{formatNumber(item.value)}</td>
                 <td className="px-4 py-3 text-center text-blue-700 font-bold">{formatNumber(item.total)}</td>
               </tr>
             ))}
@@ -183,14 +188,13 @@ const TransactionSummaryStatement = ({ transactionData, fromDate, toDate }) => {
               <td className="px-6 py-4 w-[120px]"></td>
               <td className="px-6 py-4 w-[100px]"></td>
               <td className="px-6 py-4 w-[200px]"></td>
-              <td className="px-6 py-4 text-center w-[80px] text-green-600">{formatNumber(totals.pcs, 0)}</td>
               <td className="px-6 py-4 text-center w-[100px] text-green-600">{formatNumber(totals.grossWt)}</td>
-              <td className="px-6 py-4 text-center w-[100px] text-green-600">{formatNumber(totals.stoneWt)}</td>
-              <td className="px-6 py-4 text-center w-[100px] text-green-600">{formatNumber(totals.netWt)}</td>
               <td className="px-6 py-4 text-center w-[80px]"></td>
               <td className="px-6 py-4 text-center w-[100px] text-green-600">{formatNumber(totals.pureWt)}</td>
-              <td className="px-6 py-4 text-center w-[120px] text-green-600">{formatNumber(totals.metalValue)}</td>
+              <td className="px-6 py-4 text-center w-[100px] text-green-600">{formatNumber(totals.stoneWt)}</td>
               <td className="px-6 py-4 text-center w-[120px] text-green-600">{formatNumber(totals.makingCharge)}</td>
+              <td className="px-6 py-4 text-center w-[120px] text-green-600">{formatNumber(totals.metalValue)}</td>
+              <td className="px-6 py-4 text-center w-[120px] text-green-600">{formatNumber(totals.value)}</td>
               <td className="px-6 py-4 text-center w-[120px] text-green-600">{formatNumber(totals.total)}</td>
             </tr>
           </tbody>

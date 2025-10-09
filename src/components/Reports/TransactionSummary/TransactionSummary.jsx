@@ -1480,7 +1480,7 @@ export default function MetalStockLedger() {
           handleToggleAll={handleToggleAll}
         />
       </div>
-      <div className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl border border-white/30 p-6 max-w-[160vh] mx-auto scrollbar-hide">
+      <div className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl border border-white/30 p-6 max-w-[160vh] -my-96 scrollbar-hide ">
         <TransactionSummaryStatement transactionData={filteredLedgerData} />
       </div>
     </>
