@@ -704,13 +704,17 @@ const ProductDetailsModal = ({
               metalRateRequirements: child,
             }));
 
-           if (child === "rate") {
-            const rate = parseFloat(rawValue) || 0;
-            updatedParent.amount = (rate / 1000 * grossWeight).toFixed(2);  // NEW: /1000 * grossWeight
-          } else if (child === "amount") {
-            const amount = parseFloat(rawValue) || 0;
-            updatedParent.rate = grossWeight > 0 ? (amount / grossWeight * 1000).toFixed(2) : "0.00";  // NEW: /grossWeight *1000
-          }
+            if (child === "rate") {
+              const rate = parseFloat(rawValue) || 0;
+              updatedParent.amount = (rate / 1000 * grossWeight).toFixed(2);
+            } else if (child === "amount") {
+              const amount = parseFloat(rawValue) || 0;
+              updatedParent.rate = grossWeight > 0 ? (amount / grossWeight * 1000).toFixed(2) : "0.00";
+            } else if (child === "ratePerGram") {
+              const ratePerGram = parseFloat(rawValue) || 0;
+              updatedParent.rate = (ratePerGram * 1000).toFixed(2); // Convert Rate of 1 GM to Rate of 1 KG
+              updatedParent.amount = (ratePerGram * grossWeight).toFixed(2); // Calculate metal amount using Rate of 1 GM
+            }
 
             const parsedMetalAmount = parseFloat(updatedParent.amount) || 0;
             const parsedMakingAmount = parseFloat(prev.makingCharges.amount) || 0;
@@ -1257,18 +1261,31 @@ const ProductDetailsModal = ({
         <p className="text-red-500 text-xs mt-1">{errors.metalRate}</p>
       )}
     </div>
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-2">
-        Rate of 1 GM
-      </label>
-      <input
-        type="text"
-        value={formatNumber(parseFloat(productData.metalRateRequirements.rate) / 1000 || 0, 2)}
-        readOnly
-        className="w-full px-4 py-3 border-0 rounded-xl bg-gray-100 text-gray-500 shadow-sm transition-all duration-300"
-        placeholder="Calculated automatically"
-      />
-    </div>
+ <div>
+    <label className="block text-sm font-medium text-gray-700 mb-2">
+      Rate of 1 GM
+    </label>
+    <input
+      type="text"
+      name="metalRateRequirements.ratePerGram"
+      value={getDisplayValue(productData.metalRateRequirements.rate / 1000, "ratePerGram")}
+      onChange={(e) => {
+        const value = e.target.value.replace(/,/g, "");
+        if (value === "" || !isNaN(value)) {
+          handleInputChange({
+            target: {
+              name: "metalRateRequirements.ratePerGram",
+              value,
+            },
+          });
+        }
+      }}
+      onFocus={() => handleFocus("ratePerGram")}
+      onBlur={() => handleBlur("ratePerGram")}
+      className="w-full px-4 py-3 border-0 rounded-xl focus:ring-4 focus:ring-blue-100 bg-gray-50 hover:bg-white focus:bg-white shadow-sm hover:shadow-md focus:shadow-lg transition-all duration-300"
+      placeholder="Enter rate per 1 GM (e.g., 2500.00)"
+    />
+  </div>
   </div>
   <div>
     <label className="block text-sm font-medium text-gray-700 mb-2">
