@@ -81,7 +81,7 @@ const TransactionSummaryStatement = ({ transactionData, fromDate, toDate }) => {
     return num ? Number(num).toLocaleString('en-US', {
       minimumFractionDigits: decimals,
       maximumFractionDigits: decimals,
-    }) : '0.00';
+    }) : '--';
   };
 
   const getDisplayCode = (code) => {

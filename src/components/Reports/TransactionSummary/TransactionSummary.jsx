@@ -468,19 +468,26 @@ export default function MetalStockLedger() {
               setAccountTypes(filteredAccounts);
             },
           },
-           {
-            key: "currencies",
-            url: "/currency-master",
-            setter: (data) => {
-              setGroupByOptions((prev) => ({
-                ...prev,
-                currencies: data.map((item) => ({
-                  id: item.id || item._id,
-                  code: item.code || item.currencyCode,
-                })),
-              }));
-            },
-          },
+         {
+  key: "currencies",
+  url: "/currency-master",
+  setter: (data) => {
+    setCurrencies(data.map((item) => ({
+      id: item.id || item._id,
+      code: item.code || item.currencyCode,
+      name: item.currencyName || item.code || item.currencyCode, 
+    })));
+    
+    setGroupByOptions((prev) => ({
+      ...prev,
+      currencies: data.map((item) => ({
+        id: item.id || item._id,
+        code: item.code || item.currencyCode,
+        name: item.currencyName || item.code || item.currencyCode,
+      })),
+    }));
+  },
+},
           {
             key: "stockCode",
             url: "/metal-stocks",
