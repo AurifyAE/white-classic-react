@@ -280,7 +280,28 @@ const CurrencyTradingUI = () => {
     setPayAmount('');
     setReceiveAmount('');
     setGrossWeight('1000');
-    setManualRate('10000000');
+ let initialRate = 0;
+  if (pair.isCommodity) {
+    initialRate = '10000000'; // Rate for 1kg gold bar
+  } else {
+    // For currency pairs, get rate from currency master
+    const baseCurrency = pair.pair.split('/')[0];
+    const targetCurrency = pair.pair.split('/')[1];
+    
+    if (baseCurrency === 'AED') {
+      // If base is AED, rate is the conversion rate for target currency
+      const targetCurrencyData = currencies.find(c => c.currencyCode === targetCurrency);
+      initialRate = targetCurrencyData?.conversionRate || pair.rate;
+    } else if (targetCurrency === 'AED') {
+      // If target is AED, rate should be 1 (since AED is base)
+      initialRate = 1;
+    } else {
+      // For other pairs, use the pair rate
+      initialRate = pair.rate;
+    }
+  }
+  
+  setManualRate(initialRate);
     setTradeType('buy');
     setSelectedTradeParty(selectedParty || '');
     setInputCurrency(pair.pair.split('/')[0]);
@@ -1295,16 +1316,18 @@ const handleGrossWeightChange = (value) => {
                     />
                   </div>
                 )}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Rate for one KGBAR</label>
-                  <input
-                    type="number"
-                    step="0.0001"
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                    value={manualRate}
-                    onChange={(e) => handleRateChange(e.target.value)}
-                  />
-                </div>
+               <div>
+  <label className="block text-sm font-medium text-gray-700 mb-2">
+    {selectedPair.isCommodity ? 'Rate of one KGBAR' : 'Rate'}
+  </label>
+  <input
+    type="number"
+    step="0.0001"
+    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+    value={manualRate}
+    onChange={(e) => handleRateChange(e.target.value)}
+  />
+</div>
                 <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
                   <div className="text-sm font-semibold text-gray-700 mb-2">Trade Summary</div>
                   <div className="grid grid-cols-2 gap-4">
