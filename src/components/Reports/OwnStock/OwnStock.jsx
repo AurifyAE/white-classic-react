@@ -352,7 +352,7 @@ export default function SalesAnalysis() {
     karat: "",
     accountType: "",
     groupBy: "",
-    currency:"",
+    currency: "",
     groupByRange: {
       stockCode: "",
       categoryCode: "",
@@ -377,18 +377,18 @@ export default function SalesAnalysis() {
   const [isManuallyEdited, setIsManuallyEdited] = useState(false);
   const [accountTypes, setAccountTypes] = useState([]);
   const [groupByOptions, setGroupByOptions] = useState({});
-  const[currency,setCurrency]=useState([])
+  const [currency, setCurrency] = useState([])
   const [currentPage, setCurrentPage] = useState(1);
   const [filteredLedgerData, setFilteredLedgerData] = useState({});
-const [calculatedValues, setCalculatedValues] = useState({
-  profit: 0,
-  receivableValue: 0,
-  payableValue: 0,
-  netPurchaseValue: 0,
-  netSalesValue: 0,
-  netPurchaseGrams: 0,
-  netSalesGrams: 0
-});
+  const [calculatedValues, setCalculatedValues] = useState({
+    profit: 0,
+    receivableValue: 0,
+    payableValue: 0,
+    netPurchaseValue: 0,
+    netSalesValue: 0,
+    netPurchaseGrams: 0,
+    netSalesGrams: 0
+  });
   const transactionTypes = [
     "Sales",
     "Sales Return",
@@ -413,22 +413,22 @@ const [calculatedValues, setCalculatedValues] = useState({
   }, []);
 
 
-useEffect(() => {
-  if (marketData?.bid && !isInputFocused && !isManuallyEdited) {
-    const currentConvFactGms = getConvFactGms(filters.metalValueCurrency);
-    
-    setFilters((prev) => {
-      let newMetalValueAmount = marketData.bid.toString();
-      if (prev.metalValueCurrency !== "GOZ" && currentConvFactGms) {
-        newMetalValueAmount = ((marketData.bid / currentConvFactGms) * 3.674).toFixed(2);
-      }
-      return {
-        ...prev,
-        metalValueAmount: newMetalValueAmount,
-      };
-    });
-  }
-}, [marketData?.bid, isInputFocused, isManuallyEdited, filters.metalValueCurrency, metalRates]);
+  useEffect(() => {
+    if (marketData?.bid && !isInputFocused && !isManuallyEdited) {
+      const currentConvFactGms = getConvFactGms(filters.metalValueCurrency);
+
+      setFilters((prev) => {
+        let newMetalValueAmount = marketData.bid.toString();
+        if (prev.metalValueCurrency !== "GOZ" && currentConvFactGms) {
+          newMetalValueAmount = ((marketData.bid / currentConvFactGms) * 3.674).toFixed(2);
+        }
+        return {
+          ...prev,
+          metalValueAmount: newMetalValueAmount,
+        };
+      });
+    }
+  }, [marketData?.bid, isInputFocused, isManuallyEdited, filters.metalValueCurrency, metalRates]);
   const handleInputChange = (e) => {
     setIsManuallyEdited(true); // Mark as manually edited when user types
     handleFilterChange("metalValueAmount", e.target.value);
@@ -472,18 +472,18 @@ useEffect(() => {
             },
             dataKey: "vouchers",
           },
-          { 
-        key: "currencies",
-        url: "/currency-master",
-        setter: (data) => {
-          // Append static "Gold" option to the fetched currencies
-          const updatedCurrencies = [
-            ...data,
-            // { _id: "gold", currencyCode: "Gold" } // Static gold object with id and display name
-          ];
-          setCurrency(updatedCurrencies);
-        },
-      },
+          {
+            key: "currencies",
+            url: "/currency-master",
+            setter: (data) => {
+              // Append static "Gold" option to the fetched currencies
+              const updatedCurrencies = [
+                ...data,
+                // { _id: "gold", currencyCode: "Gold" } // Static gold object with id and display name
+              ];
+              setCurrency(updatedCurrencies);
+            },
+          },
           { key: "stocks", url: "/metal-stocks", setter: setStocks },
           { key: "karats", url: "/karats/karat", setter: setKarats },
           {
@@ -496,20 +496,20 @@ useEffect(() => {
               setAccountTypes(filteredAccounts);
             },
           },
-        {
-  key: "currency",
-  url: "/metal-rates",
-  setter: (data) => {
-    setMetalRates(data); // Store all metal rates data
-    const currencyList = data.map((item) => item.rateType).filter(Boolean);
-    setCurrencies(currencyList);
-    // Set initial convFactGms for default currency (GOZ)
-    const defaultRate = data.find(rate => rate.rateType === "GOZ");
-    if (defaultRate) {
-      setConvFactGms(defaultRate.convFactGms);
-    }
-  },
-},
+          {
+            key: "currency",
+            url: "/metal-rates",
+            setter: (data) => {
+              setMetalRates(data); // Store all metal rates data
+              const currencyList = data.map((item) => item.rateType).filter(Boolean);
+              setCurrencies(currencyList);
+              // Set initial convFactGms for default currency (GOZ)
+              const defaultRate = data.find(rate => rate.rateType === "GOZ");
+              if (defaultRate) {
+                setConvFactGms(defaultRate.convFactGms);
+              }
+            },
+          },
         ];
 
         const promises = endpoints.map(({ url, setter, dataKey }) =>
@@ -618,29 +618,29 @@ useEffect(() => {
   }, [filteredLedgerData, currentPage]);
 
 
-const getConvFactGms = (rateType) => {
-  const rate = metalRates.find(r => r.rateType === rateType);
-  return rate ? rate.convFactGms : 31.1035; // Default to troy ounce if not found
-};
+  const getConvFactGms = (rateType) => {
+    const rate = metalRates.find(r => r.rateType === rateType);
+    return rate ? rate.convFactGms : 31.1035; // Default to troy ounce if not found
+  };
 
-const handleCurrencyChange = (newCurrency) => {
-  // Find the corresponding metal rate
-  const selectedRate = metalRates.find(rate => rate.rateType === newCurrency);
-  const newConvFactGms = selectedRate ? selectedRate.convFactGms : 31.1035;
-  
-  setConvFactGms(newConvFactGms);
-  
-  // Recalculate metalValueAmount based on new currency
-  if (marketData?.bid) {
-    const newMetalValueAmount =
-      newCurrency === "GOZ"
-        ? marketData.bid.toString()
-        : ((marketData.bid / newConvFactGms) * 3.647).toFixed(2);
-    handleFilterChange("metalValueAmount", newMetalValueAmount);
-  }
-  
-  handleFilterChange("metalValueCurrency", newCurrency);
-};
+  const handleCurrencyChange = (newCurrency) => {
+    // Find the corresponding metal rate
+    const selectedRate = metalRates.find(rate => rate.rateType === newCurrency);
+    const newConvFactGms = selectedRate ? selectedRate.convFactGms : 31.1035;
+
+    setConvFactGms(newConvFactGms);
+
+    // Recalculate metalValueAmount based on new currency
+    if (marketData?.bid) {
+      const newMetalValueAmount =
+        newCurrency === "GOZ"
+          ? marketData.bid.toString()
+          : ((marketData.bid / newConvFactGms) * 3.647).toFixed(2);
+      handleFilterChange("metalValueAmount", newMetalValueAmount);
+    }
+
+    handleFilterChange("metalValueCurrency", newCurrency);
+  };
 
   const handleCheckboxChange = useCallback((field, value) => {
     setFilters((prev) => {
@@ -714,11 +714,11 @@ const handleCurrencyChange = (newCurrency) => {
                 ? stocks.map((s) => s.id || s._id)
                 : field === "karat"
                   ? karats.map((k) => k.id || k._id)
-                 : field === "currency" 
-                ? currency.map((c) => c.id || c._id)
-                  : field === "groupBy"
-                    ? ["stockCode", "categoryCode", "BrandCode", "Barcode", "CostCode", "DetailType", "Invoice", "Country", "CustBusinessType", "CustCategory", "CustRegion", "purchaseRef"]
-                    : accountTypes.map((a) => a.id || a._id);
+                  : field === "currency"
+                    ? currency.map((c) => c.id || c._id)
+                    : field === "groupBy"
+                      ? ["stockCode", "categoryCode", "BrandCode", "Barcode", "CostCode", "DetailType", "Invoice", "Country", "CustBusinessType", "CustCategory", "CustRegion", "purchaseRef"]
+                      : accountTypes.map((a) => a.id || a._id);
 
         const isAllSelected = prev[field].length === allIds.length;
         return {
@@ -727,7 +727,7 @@ const handleCurrencyChange = (newCurrency) => {
         };
       });
     },
-    [divisions, vouchers, stocks, karats,currency, accountTypes, groupByOptions]
+    [divisions, vouchers, stocks, karats, currency, accountTypes, groupByOptions]
   );
 
   const handleFilterChange = useCallback((field, value) => {
@@ -772,8 +772,8 @@ const handleCurrencyChange = (newCurrency) => {
       }
 
       if (filters.currency.length > 0) {  // Added: Include selected currencies in body
-  body.currency = filters.currency;
-}
+        body.currencies = filters.currency;
+      }
 
       if (filters.stock.length > 0) body.stock = filters.stock;
       if (filters.karat.length > 0) body.karat = filters.karat;
@@ -827,99 +827,99 @@ const handleCurrencyChange = (newCurrency) => {
   }, [filters, showToast, currencies]);
 
 
- const handleCalculatedValues = useCallback((values) => {
-  setCalculatedValues({
-    profit: values.profit,
-    receivableValue: values.receivableValue,
-    payableValue: values.payableValue,
-    netPurchaseValue: values.netPurchaseValue,
-    netSalesValue: values.netSalesValue,
-    netPurchaseGrams: values.netPurchaseGrams,
-    netSalesGrams: values.netSalesGrams
-  });
-}, []);
+  const handleCalculatedValues = useCallback((values) => {
+    setCalculatedValues({
+      profit: values.profit,
+      receivableValue: values.receivableValue,
+      payableValue: values.payableValue,
+      netPurchaseValue: values.netPurchaseValue,
+      netSalesValue: values.netSalesValue,
+      netPurchaseGrams: values.netPurchaseGrams,
+      netSalesGrams: values.netSalesGrams
+    });
+  }, []);
 
-const handleClearFilters = useCallback(() => {
-  setFilters({
-    fromDate: "",
-    toDate: "",
-    transactionType: "sales", 
-    currency:[],
-    // keep default transaction type
-    // division: [],               // clear all
-    // voucher: [],                // clear all
-    division: divisions.map(d => d.id || d._id),
-voucher: vouchers.map(v => v.id || v._id),
-    stock: [],
-    karat: [],
-    accountType: [],
-    grossWeight: false,
-    pureWeight: false,
-    showMoved: false,
-    showNetMovement: false,
-    showMetalValue: false,
-    showPurchaseSales: false,
-    showPicture: false,
-    showVatReports: false,
-    showSummaryOnly: false,
-    showWastage: false,
-    withoutSap: false,
-    showRfnDetails: false,
-    showRetails: false,
-    showCostIn: false,
-    costCurrency: "AED",
-    costAmount: "100000",
-    metalValueCurrency: "AED",
-    metalValueAmount: "",
-    groupBy: [],
-    rateType: "avg",
-    groupByRange: {
-      stockCode: [],
-      categoryCode: [],
-      BrandCode: [],
-      Barcode: [],
-      CostCode: [],
-      DetailType: [],
-      Invoice: [],
-      Country: [],
-      CustBusinessType: [],
-      CustCategory: [],
-      CustRegion: [],
-      purchaseRef: [],
-    },
-  });
+  const handleClearFilters = useCallback(() => {
+    setFilters({
+      fromDate: "",
+      toDate: "",
+      transactionType: "sales",
+      currency: [],
+      // keep default transaction type
+      // division: [],               // clear all
+      // voucher: [],                // clear all
+      division: divisions.map(d => d.id || d._id),
+      voucher: vouchers.map(v => v.id || v._id),
+      stock: [],
+      karat: [],
+      accountType: [],
+      grossWeight: false,
+      pureWeight: false,
+      showMoved: false,
+      showNetMovement: false,
+      showMetalValue: false,
+      showPurchaseSales: false,
+      showPicture: false,
+      showVatReports: false,
+      showSummaryOnly: false,
+      showWastage: false,
+      withoutSap: false,
+      showRfnDetails: false,
+      showRetails: false,
+      showCostIn: false,
+      costCurrency: "AED",
+      costAmount: "100000",
+      metalValueCurrency: "AED",
+      metalValueAmount: "",
+      groupBy: [],
+      rateType: "avg",
+      groupByRange: {
+        stockCode: [],
+        categoryCode: [],
+        BrandCode: [],
+        Barcode: [],
+        CostCode: [],
+        DetailType: [],
+        Invoice: [],
+        Country: [],
+        CustBusinessType: [],
+        CustCategory: [],
+        CustRegion: [],
+        purchaseRef: [],
+      },
+    });
 
-  setSearchTerms({
-    division: "",
-    voucher: "",
-    stock: "",
-    karat: "",
-    accountType: "",
-    currency:"",
-    groupBy: "",
-    groupByRange: {
-      stockCode: "",
-      categoryCode: "",
-      BrandCode: "",
-      Barcode: "",
-      CostCode: "",
-      DetailType: "",
-      Invoice: "",
-      Country: "",
-      CustBusinessType: "",
-      CustCategory: "",
-      CustRegion: "",
-      purchaseRef: "",
-    },
-  });
+    setSearchTerms({
+      division: "",
+      voucher: "",
+      stock: "",
+      karat: "",
+      accountType: "",
+      currency: "",
+      groupBy: "",
+      groupByRange: {
+        stockCode: "",
+        categoryCode: "",
+        BrandCode: "",
+        Barcode: "",
+        CostCode: "",
+        DetailType: "",
+        Invoice: "",
+        Country: "",
+        CustBusinessType: "",
+        CustCategory: "",
+        CustRegion: "",
+        purchaseRef: "",
+      },
+    });
 
-  // Empty the table right away
-  setOwnStockData([]);
-  setFilteredLedgerData([]);
-  setCurrentPage(1);
+    // Empty the table right away
+    setOwnStockData([]);
+    setFilteredLedgerData([]);
+    setCurrentPage(1);
 
-  showToast("Filters cleared, table emptied");
-}, [showToast]);
+    showToast("Filters cleared, table emptied");
+  }, [showToast]);
 
 
 
@@ -1054,7 +1054,7 @@ voucher: vouchers.map(v => v.id || v._id),
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-blue-200 text-sm font-medium">
-Total Profit
+                      Total Profit
                     </p>
                     <p className="text-3xl font-bold text-white mt-1">
                       {calculatedValues.profit}
@@ -1214,22 +1214,22 @@ Total Profit
               >
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="space-y-4">
-                     <div className="space-y-2">
-      <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700">
-        <div className="p-1.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg">
-          <Calendar className="w-4 h-4 text-white" />
-        </div>
-        <span>From Date</span>
-      </label>
-      <input
-        type="date"
-        value={filters.fromDate}
-        max={new Date().toISOString().split('T')[0]} // Prevent future dates
-        onClick={(e) => e.target.showPicker?.()}
-        onChange={(e) => handleFilterChange("fromDate", e.target.value)}
-        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 backdrop-blur-sm transition-all duration-200 hover:bg-white"
-      />
-    </div>
+                    <div className="space-y-2">
+                      <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700">
+                        <div className="p-1.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg">
+                          <Calendar className="w-4 h-4 text-white" />
+                        </div>
+                        <span>From Date</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={filters.fromDate}
+                        max={new Date().toISOString().split('T')[0]} // Prevent future dates
+                        onClick={(e) => e.target.showPicker?.()}
+                        onChange={(e) => handleFilterChange("fromDate", e.target.value)}
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 backdrop-blur-sm transition-all duration-200 hover:bg-white"
+                      />
+                    </div>
                     <div className="space-y-2">
                       <div className="grid grid-rows-2 gap-4">
 
@@ -1264,22 +1264,22 @@ Total Profit
                     </div>
                   </div>
                   <div className="space-y-4">
-                   <div className="space-y-2">
-      <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700">
-        <div className="p-1.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg">
-          <Calendar className="w-4 h-4 text-white" />
-        </div>
-        <span>To Date</span>
-      </label>
-      <input
-        type="date"
-        value={filters.toDate}
-        max={new Date().toISOString().split('T')[0]} // Prevent future dates
-        onClick={(e) => e.target.showPicker?.()}
-        onChange={(e) => handleFilterChange("toDate", e.target.value)}
-        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 backdrop-blur-sm transition-all duration-200 hover:bg-white"
-      />
-    </div>
+                    <div className="space-y-2">
+                      <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700">
+                        <div className="p-1.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg">
+                          <Calendar className="w-4 h-4 text-white" />
+                        </div>
+                        <span>To Date</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={filters.toDate}
+                        max={new Date().toISOString().split('T')[0]} // Prevent future dates
+                        onClick={(e) => e.target.showPicker?.()}
+                        onChange={(e) => handleFilterChange("toDate", e.target.value)}
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 backdrop-blur-sm transition-all duration-200 hover:bg-white"
+                      />
+                    </div>
                     <div className="space-y-2">
                       <BooleanFilter
                         title="Position By Average Rate"
@@ -1293,13 +1293,13 @@ Total Profit
                         checked={filters.pureWeight}
                         onChange={handleBooleanFilterChange}
                       />
-                     
+
 
                     </div>
                   </div>
                   <div className="space-y-4">
                     <div className="space-y-2">
-                     
+
                     </div>
                     <div className="space-y-2 my-24">
                       <BooleanFilter
@@ -1308,7 +1308,7 @@ Total Profit
                         checked={filters.showWastage}
                         onChange={handleBooleanFilterChange}
                       />
-                    
+
                     </div>
                   </div>
                 </div>
@@ -1327,21 +1327,21 @@ Total Profit
                     allSelected={filters.division.length === divisions.length}
                     onToggleAll={handleToggleAll}
                   />
-                 <CheckboxFilter
-  title="Currencies"
-  options={currency.map((c) => ({
-    ...c,
-    name: c.currencyCode,  // Display currencyCode (e.g., AED, INR)
-    checked: (filters.currency || []).includes(c.id || c._id),
-  }))}
-  field="currency" 
-  icon={DollarSign}
-  searchTerm={searchTerms.currency}
-  onCheckboxChange={handleCheckboxChange}
-  onSearchChange={handleSearchChange}
-  allSelected={(filters.currency || []).length === currency.length}
-  onToggleAll={handleToggleAll}
-/>
+                  <CheckboxFilter
+                    title="Currencies"
+                    options={currency.map((c) => ({
+                      ...c,
+                      name: c.currencyCode,  // Display currencyCode (e.g., AED, INR)
+                      checked: (filters.currency || []).includes(c.id || c._id),
+                    }))}
+                    field="currency"
+                    icon={DollarSign}
+                    searchTerm={searchTerms.currency}
+                    onCheckboxChange={handleCheckboxChange}
+                    onSearchChange={handleSearchChange}
+                    allSelected={(filters.currency || []).length === currency.length}
+                    onToggleAll={handleToggleAll}
+                  />
                   <CheckboxFilter
                     title="Transaction Type"
                     options={vouchers.map((v) => ({
@@ -1354,8 +1354,8 @@ Total Profit
                     onCheckboxChange={handleCheckboxChange}
                     onSearchChange={handleSearchChange}
                     allSelected={filters.voucher.length === vouchers.length}
-                    onToggleAll={handleToggleAll}  />
-              
+                    onToggleAll={handleToggleAll} />
+
                   <div className="p-4 rounded-xl bg-white shadow space-y-4 h-[180px]">
                     <h2 className="text-lg font-semibold text-gray-800">Opening Rate</h2>
                     <div className="flex items-center space-x-6 text-sm font-medium text-gray-700">
@@ -1387,17 +1387,17 @@ Total Profit
                         <span>Rate Type</span>
                       </label>
                       <div className="flex space-x-2">
-                    <select
-  value={filters.metalValueCurrency}
-  onChange={(e) => handleCurrencyChange(e.target.value)}
-  className="w-1/6.6 px-4 py-2 border esfera border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 backdrop-blur-sm transition-all duration-200 hover:bg-white text-sm"
->
-  {currencies.map((currency) => (
-    <option key={currency} value={currency}>
-      {currency}
-    </option>
-  ))}
-</select>
+                        <select
+                          value={filters.metalValueCurrency}
+                          onChange={(e) => handleCurrencyChange(e.target.value)}
+                          className="w-1/6.6 px-4 py-2 border esfera border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 backdrop-blur-sm transition-all duration-200 hover:bg-white text-sm"
+                        >
+                          {currencies.map((currency) => (
+                            <option key={currency} value={currency}>
+                              {currency}
+                            </option>
+                          ))}
+                        </select>
 
                         <input
                           type="number"
@@ -1429,17 +1429,17 @@ Total Profit
         />
       </div>
       <div className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl border border-white/30 p-6 max-w-[150vh] mx-auto scrollbar-hide">
-        <OwnStockStatement 
-        stockData={ownStockData}
-         excludeOpening={filters.pureWeight}
-         bidPrice={marketData?.bid}
+        <OwnStockStatement
+          stockData={ownStockData}
+          excludeOpening={filters.pureWeight}
+          bidPrice={marketData?.bid}
           metalValueAmount={filters.metalValueAmount}
- convFactGms={getConvFactGms(filters.metalValueCurrency)}      
-      fromDate={filters.fromDate}
+          convFactGms={getConvFactGms(filters.metalValueCurrency)}
+          fromDate={filters.fromDate}
           toDate={filters.toDate}
           metalValueCurrency={filters.metalValueCurrency}
           rateType={filters.rateType}
-                  onCalculatedValues={setCalculatedValues}
+          onCalculatedValues={setCalculatedValues}
 
         />
       </div>
