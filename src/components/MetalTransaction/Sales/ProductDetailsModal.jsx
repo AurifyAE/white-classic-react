@@ -138,45 +138,49 @@ const ProductDetailsModal = ({
     return currencyCode;
   };
 
-  useEffect(() => {
-    if (isOpen) {
-      if (editingItem) {
-        setProductData({
-          ...initialProductData,
-          ...editingItem,
-          metalTypeId: editingItem.metalType,
-          baseCurrency: currencyCode,
-          premium: {
-            rate: editingItem.premium?.rate || "0.00",
-            amount: editingItem.premium?.amount || "0.00",
-          },
-        });
-        setLastEditedFields({
-          makingCharges: "rate",
-          premium: "rate",
-          otherCharges: "rate",
-          vat: "percentage",
-          metalRateRequirements: "rate",
-        });
-      } else {
-        setProductData({
-          ...initialProductData,
-          baseCurrency: currencyCode,
-        });
-        setLastEditedFields({
-          makingCharges: "rate",
-          premium: "rate",
-          otherCharges: "rate",
-          vat: "percentage",
-          metalRateRequirements: "rate",
-        });
-      }
-      setErrors({});
-      setFetchError("");
-      initialRenderWeights.current = true;
-      setFocusedFields({});
+useEffect(() => {
+  if (isOpen) {
+    if (editingItem) {
+      setProductData({
+        ...initialProductData,
+        ...editingItem,
+        metalTypeId: editingItem.metalType,
+        baseCurrency: currencyCode,
+        premium: {
+          rate: editingItem.premium?.rate || "0.00",
+          amount: editingItem.premium?.amount || "0.00",
+        },
+        grossWeight: editingItem.grossWeight || initialProductData.grossWeight,
+        pureWeight: editingItem.pureWeight || initialProductData.pureWeight,
+        purityWeight: editingItem.purityWeight || initialProductData.purityWeight,
+        purity: editingItem.purity || initialProductData.purity,
+      });
+      setLastEditedFields({
+        makingCharges: "rate",
+        premium: "rate",
+        otherCharges: "rate",
+        vat: "percentage",
+        metalRateRequirements: "rate",
+      });
+    } else {
+      setProductData({
+        ...initialProductData,
+        baseCurrency: currencyCode,
+      });
+      setLastEditedFields({
+        makingCharges: "rate",
+        premium: "rate",
+        otherCharges: "rate",
+        vat: "percentage",
+        metalRateRequirements: "rate",
+      });
     }
-  }, [isOpen, editingItem, currencyCode]);
+    setErrors({});
+    setFetchError("");
+    initialRenderWeights.current = true;
+    setFocusedFields({});
+  }
+}, [isOpen, editingItem, currencyCode]);
 
   // Memoize calculations to prevent unnecessary recalculations
   const { pureWeight, purityWeight, weightInOz } = useMemo(() => {

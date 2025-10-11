@@ -714,8 +714,8 @@ const handleCurrencyChange = (newCurrency) => {
                 ? stocks.map((s) => s.id || s._id)
                 : field === "karat"
                   ? karats.map((k) => k.id || k._id)
-                  : field === "currency" 
-                ? currencies.map((c) => c.id || c._id)
+                 : field === "currency" 
+                ? currency.map((c) => c.id || c._id)
                   : field === "groupBy"
                     ? ["stockCode", "categoryCode", "BrandCode", "Barcode", "CostCode", "DetailType", "Invoice", "Country", "CustBusinessType", "CustCategory", "CustRegion", "purchaseRef"]
                     : accountTypes.map((a) => a.id || a._id);
@@ -1327,21 +1327,21 @@ Total Profit
                     allSelected={filters.division.length === divisions.length}
                     onToggleAll={handleToggleAll}
                   />
-                  <CheckboxFilter
-    title="Currencies"
-    options={currency.map((c) => ({
-      ...c,
-      name: c.currencyCode,  // Display currencyCode (e.g., AED, INR)
-      checked: filters.currency.includes(c.id || c._id),
-    }))}
-    field="currencies"
-    icon={DollarSign}
-    searchTerm={searchTerms.currency}
-    onCheckboxChange={handleCheckboxChange}
-    onSearchChange={handleSearchChange}
-    allSelected={filters.currency.length === currencies.length}
-    onToggleAll={handleToggleAll}
-  />
+                 <CheckboxFilter
+  title="Currencies"
+  options={currency.map((c) => ({
+    ...c,
+    name: c.currencyCode,  // Display currencyCode (e.g., AED, INR)
+    checked: (filters.currency || []).includes(c.id || c._id),
+  }))}
+  field="currency" 
+  icon={DollarSign}
+  searchTerm={searchTerms.currency}
+  onCheckboxChange={handleCheckboxChange}
+  onSearchChange={handleSearchChange}
+  allSelected={(filters.currency || []).length === currency.length}
+  onToggleAll={handleToggleAll}
+/>
                   <CheckboxFilter
                     title="Transaction Type"
                     options={vouchers.map((v) => ({
