@@ -74,6 +74,8 @@ const ProductDetailsModal = ({
   fixed,
   editingItem,
 }) => {
+  console.log(editingItem,"editing ");
+  
   const [productData, setProductData] = useState(initialProductData);
   const [goldData, setGoldData] = useState(initialGoldData);
   const [metalRates, setMetalRates] = useState([]);
@@ -333,49 +335,54 @@ const ProductDetailsModal = ({
     }
   }, [isOpen, fetchMetalRates]);
 
-  useEffect(() => {
-    const pcsCount = parseFloat(productData.pcsCount) || 0;
-    const totalValue = parseFloat(productData.totalValue) || 1000;
-    const grossWeight = parseFloat(productData.grossWeight) || 0;
+ useEffect(() => {
+  if (editingItem && initialRenderWeights.current) {
+    return;
+  }
 
-    if (productData.pcs) {
-      if (pcsCount > 0 && focusedFields.pcsCount) {
-        const calculatedGrossWeight = (pcsCount * totalValue).toFixed(2);
-        setProductData((prev) => ({
-          ...prev,
-          grossWeight: calculatedGrossWeight,
-        }));
-      } else if (
-        grossWeight >= 0 &&
-        focusedFields.grossWeight &&
-        totalValue > 0
-      ) {
-        const calculatedPcsCount = (grossWeight / totalValue).toFixed(2);
-        setProductData((prev) => ({
-          ...prev,
-          pcsCount: calculatedPcsCount,
-        }));
-      } else {
-        const calculatedGrossWeight = (pcsCount * totalValue).toFixed(2);
-        setProductData((prev) => ({
-          ...prev,
-          grossWeight: calculatedGrossWeight,
-        }));
-      }
-    } else {
+  const pcsCount = parseFloat(productData.pcsCount) || 0;
+  const totalValue = parseFloat(productData.totalValue) || 1000;
+  const grossWeight = parseFloat(productData.grossWeight) || 0;
+
+  if (productData.pcs) {
+    if (pcsCount > 0 && focusedFields.pcsCount) {
+      const calculatedGrossWeight = (pcsCount * totalValue).toFixed(2);
       setProductData((prev) => ({
         ...prev,
-        grossWeight: prev.grossWeight || "0.00",
-        pcsCount: "0.00",
+        grossWeight: calculatedGrossWeight,
+      }));
+    } else if (
+      grossWeight >= 0 &&
+      focusedFields.grossWeight &&
+      totalValue > 0
+    ) {
+      const calculatedPcsCount = (grossWeight / totalValue).toFixed(2);
+      setProductData((prev) => ({
+        ...prev,
+        pcsCount: calculatedPcsCount,
+      }));
+    } else if (!editingItem) {
+      const calculatedGrossWeight = (pcsCount * totalValue).toFixed(2);
+      setProductData((prev) => ({
+        ...prev,
+        grossWeight: calculatedGrossWeight,
       }));
     }
-  }, [
-    productData.pcs,
-    productData.pcsCount,
-    productData.grossWeight,
-    productData.totalValue,
-    focusedFields,
-  ]);
+  } else if (!editingItem) {
+    setProductData((prev) => ({
+      ...prev,
+      grossWeight: prev.grossWeight || "0.00",
+      pcsCount: "0.00",
+    }));
+  }
+}, [
+  productData.pcs,
+  productData.pcsCount,
+  productData.grossWeight,
+  productData.totalValue,
+  focusedFields,
+  editingItem,
+]);
 
   const debouncedSetProductData = useCallback(
     debounce((newData) => {
