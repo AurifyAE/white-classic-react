@@ -253,104 +253,115 @@ export default function ModeReceipt() {
   };
 
   // Function to convert number to Dirham words
-  const numberToDirhamWords = (amount) => {
-    if (
-      amount === null ||
-      amount === undefined ||
-      isNaN(amount) ||
-      amount === ""
-    ) {
-      return "INVALID AMOUNT";
-    }
+// Function to convert number to words based on currency
+const numberToWords = (amount, currencyCode) => {
+  if (
+    amount === null ||
+    amount === undefined ||
+    isNaN(amount) ||
+    amount === ""
+  ) {
+    return "INVALID AMOUNT";
+  }
 
-    const num = Number(amount);
-    const isNegative = num < 0;
-    const absoluteNum = Math.abs(num);
-    const [dirhamPart, filsPartRaw] = absoluteNum.toFixed(2).split(".");
-    const dirham = parseInt(dirhamPart, 10) || 0;
-    const fils = parseInt(filsPartRaw, 10) || 0;
+  const num = Number(amount);
+  const isNegative = num < 0;
+  const absoluteNum = Math.abs(num);
+  const [integerPart, decimalPartRaw] = absoluteNum.toFixed(2).split(".");
+  const integer = parseInt(integerPart, 10) || 0;
+  const decimal = parseInt(decimalPartRaw, 10) || 0;
 
-    const a = [
-      "",
-      "ONE",
-      "TWO",
-      "THREE",
-      "FOUR",
-      "FIVE",
-      "SIX",
-      "SEVEN",
-      "EIGHT",
-      "NINE",
-      "TEN",
-      "ELEVEN",
-      "TWELVE",
-      "THIRTEEN",
-      "FOURTEEN",
-      "FIFTEEN",
-      "SIXTEEN",
-      "SEVENTEEN",
-      "EIGHTEEN",
-      "NINETEEN",
-    ];
-    const b = [
-      "",
-      "",
-      "TWENTY",
-      "THIRTY",
-      "FORTY",
-      "FIFTY",
-      "SIXTY",
-      "SEVENTY",
-      "EIGHTY",
-      "NINETY",
-    ];
+  const a = [
+    "",
+    "ONE",
+    "TWO",
+    "THREE",
+    "FOUR",
+    "FIVE",
+    "SIX",
+    "SEVEN",
+    "EIGHT",
+    "NINE",
+    "TEN",
+    "ELEVEN",
+    "TWELVE",
+    "THIRTEEN",
+    "FOURTEEN",
+    "FIFTEEN",
+    "SIXTEEN",
+    "SEVENTEEN",
+    "EIGHTEEN",
+    "NINETEEN",
+  ];
+  const b = [
+    "",
+    "",
+    "TWENTY",
+    "THIRTY",
+    "FORTY",
+    "FIFTY",
+    "SIXTY",
+    "SEVENTY",
+    "EIGHTY",
+    "NINETY",
+  ];
 
-    const convert = (num) => {
-      if (num === 0) return "";
-      if (num < 20) return a[num];
-      if (num < 100)
-        return b[Math.floor(num / 10)] + (num % 10 ? " " + a[num % 10] : "");
-      if (num < 1000)
-        return (
-          a[Math.floor(num / 100)] +
-          " HUNDRED" +
-          (num % 100 ? " " + convert(num % 100) : "")
-        );
-      if (num < 1000000)
-        return (
-          convert(Math.floor(num / 1000)) +
-          " THOUSAND" +
-          (num % 1000 ? " " + convert(num % 1000) : "")
-        );
-      if (num < 1000000000)
-        return (
-          convert(Math.floor(num / 1000000)) +
-          " MILLION" +
-          (num % 1000000 ? " " + convert(num % 1000000) : "")
-        );
-      if (num < 1000000000000)
-        return (
-          convert(Math.floor(num / 1000000000)) +
-          " BILLION" +
-          (num % 1000000000 ? " " + convert(num % 1000000000) : "")
-        );
-      if (num < 1000000000000000)
-        return (
-          convert(Math.floor(num / 1000000000000)) +
-          " TRILLION" +
-          (num % 1000000000000 ? " " + convert(num % 1000000000000) : "")
-        );
-      return "NUMBER TOO LARGE";
-    };
-
-    let words = "";
-    if (dirham > 0) words += convert(dirham) + " DIRHAM";
-    if (fils > 0)
-      words += (dirham > 0 ? " AND " : "") + convert(fils) + " FILS";
-    if (words === "") words = "ZERO DIRHAM";
-
-    return (isNegative ? "MINUS " : "") + words + " ONLY";
+  const convert = (num) => {
+    if (num === 0) return "";
+    if (num < 20) return a[num];
+    if (num < 100)
+      return b[Math.floor(num / 10)] + (num % 10 ? " " + a[num % 10] : "");
+    if (num < 1000)
+      return (
+        a[Math.floor(num / 100)] +
+        " HUNDRED" +
+        (num % 100 ? " " + convert(num % 100) : "")
+      );
+    if (num < 1000000)
+      return (
+        convert(Math.floor(num / 1000)) +
+        " THOUSAND" +
+        (num % 1000 ? " " + convert(num % 1000) : "")
+      );
+    if (num < 1000000000)
+      return (
+        convert(Math.floor(num / 1000000)) +
+        " MILLION" +
+        (num % 1000000 ? " " + convert(num % 1000000) : "")
+      );
+    if (num < 1000000000000)
+      return (
+        convert(Math.floor(num / 1000000000)) +
+        " BILLION" +
+        (num % 1000000000 ? " " + convert(num % 1000000000) : "")
+      );
+    if (num < 1000000000000000)
+      return (
+        convert(Math.floor(num / 1000000000000)) +
+        " TRILLION" +
+        (num % 1000000000000 ? " " + convert(num % 1000000000000) : "")
+      );
+    return "NUMBER TOO LARGE";
   };
+
+  // Currency-specific formatting
+  const currencyFormats = {
+    AED: { integer: "DIRHAM", decimal: "FILS" },
+    INR: { integer: "RUPEES", decimal: "PAISE" },
+    // Add more currencies as needed
+    DEFAULT: { integer: "CURRENCY", decimal: "CENTS" },
+  };
+
+  const format = currencyFormats[currencyCode] || currencyFormats.DEFAULT;
+
+  let words = "";
+  if (integer > 0) words += convert(integer) + ` ${format.integer}`;
+  if (decimal > 0)
+    words += (integer > 0 ? " AND " : "") + convert(decimal) + ` ${format.decimal}`;
+  if (words === "") words = `ZERO ${format.integer}`;
+
+  return (isNegative ? "MINUS " : "") + words + " ONLY";
+};
 
   // Export single payment by ID to PDF
   const handleExportByIdToPDF = async (id) => {
@@ -2598,7 +2609,7 @@ export default function ModeReceipt() {
                             ?.openingBalance || 0,
                           2
                         )}{" "}
-                        {selectedCurrency?.label || "AED"}
+                        {/* {selectedCurrency?.label || "AED"} */}
                       </span>
                     </p>
                   )}
@@ -2857,24 +2868,25 @@ export default function ModeReceipt() {
                   </div>
                 )}
 
-                <div className="col-span-1 md:col-span-2 mt-6">
-                  <label className="block text-sm font-semibold text-gray-800 mb-2 tracking-wide">
-                    Amount in Words
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full px-4 py-3 bg-gray-100/80 border-0 rounded-xl text-gray-500 font-medium shadow-inner transition-all duration-200 cursor-not-allowed"
-                    value={numberToDirhamWords(
-                      parseFloat(
-                        includeVat && totalWithVat
-                          ? totalWithVat.replace(/,/g, "")
-                          : amount.replace(/,/g, "") || "0"
-                      )
-                    )}
-                    readOnly
-                    placeholder="Amount in words"
-                  />
-                </div>
+              <div className="col-span-1 md:col-span-2 mt-6">
+  <label className="block text-sm font-semibold text-gray-800 mb-2 tracking-wide">
+    Amount in Words
+  </label>
+  <input
+    type="text"
+    className="w-full px-4 py-3 bg-gray-100/80 border-0 rounded-xl text-gray-500 font-medium shadow-inner transition-all duration-200 cursor-not-allowed"
+    value={numberToWords(
+      parseFloat(
+        includeVat && totalWithVat
+          ? totalWithVat.replace(/,/g, "")
+          : amount.replace(/,/g, "") || "0"
+      ),
+      currency?.label?.split(" - ")[0] || "AED" 
+    )}
+    readOnly
+    placeholder="Amount in words"
+  />
+</div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Currency

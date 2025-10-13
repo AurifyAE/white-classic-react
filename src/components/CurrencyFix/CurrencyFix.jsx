@@ -100,7 +100,7 @@ const CurrencyTradingUI = () => {
   const [grossWeight, setGrossWeight] = useState('1000'); // New state for gross weight
   const [metalType] = useState('Kilo'); // Constant metal type
 
-  const formatNumber = (num, decimals = 4) => {
+  const formatNumber = (num, decimals = 2) => {
     if (num === null || num === undefined || isNaN(num)) {
       console.warn(`formatNumber received invalid input: ${num}`);
       return '0.0000';
@@ -411,7 +411,7 @@ const CurrencyTradingUI = () => {
       </div>
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-lg font-bold text-gray-900">{formatNumber(pair.rate, 4)}</span>
+          <span className="text-lg font-bold text-gray-900">{formatNumber(pair.rate, 2)}</span>
           <div className={`flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-semibold ${pair.isUp ? 'text-green-700 bg-green-100' : 'text-red-700 bg-red-100'}`}>
             {pair.isUp ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
             <span>{formatNumber(pair.changePercent, 2)}%</span>
@@ -596,16 +596,16 @@ const CurrencyTradingUI = () => {
                           </div>
                         </td>
                         <td className="px-8 py-5 whitespace-nowrap text-sm font-bold text-gray-900">
-                          {formatNumber(pair.rate, 4)}
+                          {formatNumber(pair.rate, 2)}
                         </td>
                         <td className="px-8 py-5 whitespace-nowrap">
                           <div className="text-sm font-bold text-green-700 bg-green-50 px-3 py-1 rounded-lg inline-block">
-                            {formatNumber(pair.buyRate, 4)}
+                            {formatNumber(pair.buyRate, 2)}
                           </div>
                         </td>
                         <td className="px-8 py-5 whitespace-nowrap">
                           <div className="text-sm font-bold text-red-700 bg-red-50 px-3 py-1 rounded-lg inline-block">
-                            {formatNumber(pair.sellRate, 4)}
+                            {formatNumber(pair.sellRate, 2)}
                           </div>
                         </td>
                       </tr>
@@ -679,7 +679,7 @@ const CurrencyTradingUI = () => {
                       <td className="px-8 py-5 whitespace-nowrap text-sm text-gray-600">{trade.partyId?.customerName || "NULLLLL"}</td>
                       <td className="px-8 py-5 whitespace-nowrap text-sm text-gray-600">{trade.baseCurrencyCode}/{trade.targetCurrencyCode}</td>
                       <td className="px-8 py-5 whitespace-nowrap text-sm font-bold text-gray-900">{formatNumber(trade.amount, 2)}</td>
-                      <td className="px-8 py-5 whitespace-nowrap text-sm font-bold text-gray-900">{formatNumber(trade.rate, 4)}</td>
+                      <td className="px-8 py-5 whitespace-nowrap text-sm font-bold text-gray-900">{formatNumber(trade.rate, 2)}</td>
                       <td className="px-8 py-5 whitespace-nowrap text-sm font-bold text-gray-900">{formatNumber(trade.converted, 2)}</td>
                       <td className="px-8 py-5 whitespace-nowrap text-sm text-gray-500">{new Date(trade.createdAt).toLocaleString()}</td>
                     </tr>
@@ -908,16 +908,16 @@ const CurrencyTradingUI = () => {
                       </div>
                     </td>
                     <td className="px-8 py-5 whitespace-nowrap text-sm font-bold text-gray-900">
-                      {formatNumber(pair.rate, 4)}
+                      {formatNumber(pair.rate, 2)}
                     </td>
                     <td className="px-8 py-5 whitespace-nowrap">
                       <div className="text-sm font-bold text-green-700 bg-green-50 px-3 py-1 rounded-lg inline-block">
-                        {formatNumber(pair.buyRate, 4)}
+                        {formatNumber(pair.buyRate, 2)}
                       </div>
                     </td>
                     <td className="px-8 py-5 whitespace-nowrap">
                       <div className="text-sm font-bold text-red-700 bg-red-50 px-3 py-1 rounded-lg inline-block">
-                        {formatNumber(pair.sellRate, 4)}
+                        {formatNumber(pair.sellRate, 2)}
                       </div>
                     </td>
                     <td className="px-8 py-5 whitespace-nowrap">
@@ -955,7 +955,7 @@ const CurrencyTradingUI = () => {
         toast.error('Pay amount, receive amount, and gross weight must be greater than zero');
         return;
       }
-      valuePerGram = grossWeightValue > 0 ? (finalPayAmount / grossWeightValue).toFixed(4) : '0.0000';
+      valuePerGram = grossWeightValue > 0 ? (finalPayAmount / grossWeightValue).toFixed(2) : '0.00';
     } else {
       const calculatedRate = tradeType === 'buy' ? buyRate : sellRate;
       const effectiveRate = manualRate || calculatedRate;
@@ -965,14 +965,14 @@ const CurrencyTradingUI = () => {
           toast.error('Amount must be greater than zero');
           return;
         }
-        finalReceiveAmount = (finalPayAmount * effectiveRate).toFixed(4);
+        finalReceiveAmount = (finalPayAmount * effectiveRate).toFixed(2);
       } else {
         finalReceiveAmount = parseFloat(receiveAmount) || 0;
         if (finalReceiveAmount <= 0) {
           toast.error('Amount must be greater than zero');
           return;
         }
-        finalPayAmount = (finalReceiveAmount / effectiveRate).toFixed(4);
+        finalPayAmount = (finalReceiveAmount / effectiveRate).toFixed(2);
       }
       valuePerGram = null;
     }
@@ -1056,7 +1056,7 @@ const CurrencyTradingUI = () => {
     const gw = parseFloat(grossWeight) || 0;
     // valuePerGram now uses the effective rate per gram for consistency
     const ratePerGram = manualRate / 1000; // Convert kg rate to per gram
-    const vpg = gw > 0 ? ratePerGram.toFixed(4) : '0.0000'; // Use rate-based vpg instead of pay/gw
+    const vpg = gw > 0 ? ratePerGram.toFixed(2) : '0.00'; // Use rate-based vpg instead of pay/gw
     // Ensure Pay Amount aligns with calculation if it's a buy trade
     if (tradeType === 'buy' && gw > 0) {
       const expectedPay = (ratePerGram * gw).toFixed(2);
@@ -1064,17 +1064,17 @@ const CurrencyTradingUI = () => {
         setPayAmount(expectedPay); // Auto-correct Pay Amount
       }
     }
-    return { converted: receive.toFixed(4), valuePerGram: vpg };
+    return { converted: receive.toFixed(2), valuePerGram: vpg };
   } else {
-    if (!effectiveRate) return { converted: '0.0000', valuePerGram: null };
+    if (!effectiveRate) return { converted: '0.00', valuePerGram: null };
     if (inputCurrency === payCurrency) {
       const amount = parseFloat(payAmount) || 0;
-      const converted = (amount * effectiveRate).toFixed(4);
+      const converted = (amount * effectiveRate).toFixed(2);
       return { converted, valuePerGram: null };
     } else {
       const amount = parseFloat(receiveAmount) || 0;
-      const converted = (amount / effectiveRate).toFixed(4);
-      return { converted: amount.toFixed(4), valuePerGram: null };
+      const converted = (amount / effectiveRate).toFixed(2);
+      return { converted: amount.toFixed(2), valuePerGram: null };
     }
   }
 };
@@ -1086,7 +1086,7 @@ const CurrencyTradingUI = () => {
     if (value) {
       const amount = parseFloat(value);
       if (!isNaN(amount) && effectiveRate) {
-        const converted = (amount * effectiveRate).toFixed(4);
+        const converted = (amount * effectiveRate).toFixed(2);
         setReceiveAmount(converted);
       } else {
         setReceiveAmount('');
@@ -1128,7 +1128,7 @@ const handleGrossWeightChange = (value) => {
         if (value) {
           const amount = parseFloat(value);
           if (!isNaN(amount) && effectiveRate) {
-            const converted = (amount / effectiveRate).toFixed(4);
+            const converted = (amount / effectiveRate).toFixed(2);
             setPayAmount(converted);
           } else {
             setPayAmount('');
@@ -1145,7 +1145,7 @@ const handleGrossWeightChange = (value) => {
     if (payAmount && inputCurrency === payCurrency) {
       const amount = parseFloat(payAmount);
       if (!isNaN(amount) && value) {
-        const converted = (amount * parseFloat(value)).toFixed(4);
+        const converted = (amount * parseFloat(value)).toFixed(2);
         setReceiveAmount(converted);
       } else {
         setReceiveAmount('');
@@ -1153,7 +1153,7 @@ const handleGrossWeightChange = (value) => {
     } else if (receiveAmount && inputCurrency === receiveCurrency) {
       const amount = parseFloat(receiveAmount);
       if (!isNaN(amount) && value) {
-        const converted = (amount / parseFloat(value)).toFixed(4);
+        const converted = (amount / parseFloat(value)).toFixed(2);
         setPayAmount(converted);
       } else {
         setPayAmount('');
@@ -1239,7 +1239,7 @@ const handleGrossWeightChange = (value) => {
                   <div className="text-3xl">{selectedPair.flag}</div>
                   <div>
                     <div className="text-lg font-bold text-gray-900">{selectedPair.pair}</div>
-                    <div className="text-sm text-gray-600">Mid Rate: {formatNumber(selectedPair.rate, 4)}</div>
+                    <div className="text-sm text-gray-600">Mid Rate: {formatNumber(selectedPair.rate, 2)}</div>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -1296,7 +1296,7 @@ const handleGrossWeightChange = (value) => {
     <label className="block text-sm font-medium text-gray-700 mb-2">Value Per Gram ({payCurrency}/gram)</label>
     <input
       type="text"
-      value={formatNumber(manualRate / 1000, 4)} // Display rate / 1000 directly
+      value={formatNumber(manualRate / 1000, 2)} // Display rate / 1000 directly
       readOnly
       className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-100 text-gray-700"
     />
@@ -1335,14 +1335,14 @@ const handleGrossWeightChange = (value) => {
     <span className="text-xs text-gray-500 block">You Pay</span>
     <div className="text-lg font-bold text-gray-900">
       {formatNumber(payAmount || '0.00', 2)} {payCurrency}{isCommodity && payCurrency === 'XAU' ? ' grams' : ''}
-      {isCommodity && tradeType === 'buy' && <span className="text-xs text-gray-500 block">(Calculated: {formatNumber(manualRate / 1000, 4)} AED/gram × {grossWeight}g)</span>}
+      {isCommodity && tradeType === 'buy' && <span className="text-xs text-gray-500 block">(Calculated: {formatNumber(manualRate / 1000, 2)} AED/gram × {grossWeight}g)</span>}
     </div>
   </div>
 
                     <div>
                       <span className="text-xs text-gray-500 block">You Receive</span>
                       <div className="text-lg font-bold text-gray-900">
-                        {formatNumber(receiveAmount || (isCommodity ? '0.0000' : converted), isCommodity ? 4 : 2)} {receiveCurrency}{isCommodity && receiveCurrency === 'XAU' ? ' grams' : ''}
+                        {formatNumber(receiveAmount || (isCommodity ? '0.0000' : converted), isCommodity ? 2 : 2)} {receiveCurrency}{isCommodity && receiveCurrency === 'XAU' ? ' grams' : ''}
                       </div>
                     </div>
                     {isCommodity && (
@@ -1353,18 +1353,18 @@ const handleGrossWeightChange = (value) => {
                         </div>
                         <div>
                           <span className="text-xs text-gray-500 block">Gross Weight</span>
-                          <div className="text-lg font-bold text-gray-900">{formatNumber(grossWeight, 4)} grams</div>
+                          <div className="text-lg font-bold text-gray-900">{formatNumber(grossWeight, 2)} grams</div>
                         </div>
                         <div>
                           <span className="text-xs text-gray-500 block">Value Per Gram</span>
-                          <div className="text-lg font-bold text-gray-900">{formatNumber(valuePerGram, 4)} {payCurrency}/gram</div>
+                          <div className="text-lg font-bold text-gray-900">{formatNumber(valuePerGram, 2)} {payCurrency}/gram</div>
                         </div>
                       </>
                     )}
                     <div>
                       <span className="text-xs text-gray-500 block">Rate</span>
                       <div className="text-lg font-bold text-gray-900">
-                        {formatNumber(manualRate, 4)} ({tradeType === 'buy' ? 'Buy' : 'Sell'})
+                        {formatNumber(manualRate, 2)} ({tradeType === 'buy' ? 'Buy' : 'Sell'})
                       </div>
                     </div>
                   </div>
