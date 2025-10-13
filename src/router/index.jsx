@@ -72,15 +72,16 @@ import FixingRegistryPage from "../pages/FixingResgitry.jsx";
 import StatementofAccountsPage from "../pages/statementofaccount.jsx";
 import CurrencyFixing from "../components/CurrencyFix/CurrencyFix.jsx";
 import CurrencyFix from "../pages/currencyfixing.jsx";
+import Footer from '../components/footer.jsx'
 export default function UserRouter() {
   return (
     <Routes>
       <Route path="/" element={<Login />} />
-
+  
       <Route element={<Layout />}>
         {/* Dashboard */}
         <Route path="/dashboard" element={<MetalStock />} />
-
+<Route path="/" element={<Footer/>} />
         {/* Masters */}
         <Route path="/division-master" element={<DivisionPage />} />
         <Route path="/karat-master" element={<KaratPage />} />
