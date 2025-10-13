@@ -482,6 +482,9 @@ export default function SalesAnalysis() {
                 // { _id: "gold", currencyCode: "Gold" } // Static gold object with id and display name
               ];
               setCurrency(updatedCurrencies);
+              console.log("Fetched Currencies:", currency);
+              
+              
             },
           },
           { key: "stocks", url: "/metal-stocks", setter: setStocks },
@@ -1440,6 +1443,10 @@ export default function SalesAnalysis() {
           metalValueCurrency={filters.metalValueCurrency}
           rateType={filters.rateType}
           onCalculatedValues={setCalculatedValues}
+selectedCurrencies={filters.currency.map(currencyId => {
+    const currencyObj = currency.find(c => (c.id || c._id) === currencyId);
+    return currencyObj ? currencyObj.currencyCode : currencyId;
+  })}
 
         />
       </div>

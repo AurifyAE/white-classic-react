@@ -111,7 +111,7 @@ const CurrencyTradingUI = () => {
     });
   };
 
-  const formatCurrencyWithCode = (value, currencyCode, decimals = 4) => {
+  const formatCurrencyWithCode = (value, currencyCode, decimals = 2) => {
     const formattedValue = formatNumber(value, decimals);
     const code = currencyCode || 'AED';
     console.log(`Formatting value: ${value}, currencyCode: ${code}, result: ${code} ${formattedValue}`);
@@ -1339,22 +1339,26 @@ const handleGrossWeightChange = (value) => {
     </div>
   </div>
 
-                    <div>
-                      <span className="text-xs text-gray-500 block">You Receive</span>
-                      <div className="text-lg font-bold text-gray-900">
-                        {formatNumber(receiveAmount || (isCommodity ? '0.0000' : converted), isCommodity ? 2 : 2)} {receiveCurrency}{isCommodity && receiveCurrency === 'XAU' ? ' grams' : ''}
-                      </div>
-                    </div>
+                       {!isCommodity && (
+      <div>
+        <span className="text-xs text-gray-500 block">You Receive</span>
+        <div className="text-lg font-bold text-gray-900">
+          {formatNumber(receiveAmount || converted, 2)} {receiveCurrency}
+        </div>
+      </div>
+    )}
+
                     {isCommodity && (
                       <>
+                       <div>
+                          <span className="text-xs text-gray-500 block">Gross Weight</span>
+                          <div className="text-lg font-bold text-gray-900">{formatNumber(grossWeight, 2)} grams</div>
+                        </div>
                         <div>
                           <span className="text-xs text-gray-500 block">Metal Type</span>
                           <div className="text-lg font-bold text-gray-900">{metalType}</div>
                         </div>
-                        <div>
-                          <span className="text-xs text-gray-500 block">Gross Weight</span>
-                          <div className="text-lg font-bold text-gray-900">{formatNumber(grossWeight, 2)} grams</div>
-                        </div>
+                       
                         <div>
                           <span className="text-xs text-gray-500 block">Value Per Gram</span>
                           <div className="text-lg font-bold text-gray-900">{formatNumber(valuePerGram, 2)} {payCurrency}/gram</div>
