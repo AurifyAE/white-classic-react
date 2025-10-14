@@ -327,7 +327,7 @@ export default function SalesAnalysis() {
     showCostIn: false,
     costCurrency: "AED",
     costAmount: "100000",
-    metalValueCurrency: "GOZ",
+    metalValueCurrency: "KGBAR",
     metalValueAmount: "",
     groupBy: ["stockCode"],
     groupByRange: {
@@ -419,7 +419,7 @@ export default function SalesAnalysis() {
 
       setFilters((prev) => {
         let newMetalValueAmount = marketData.bid.toString();
-        if (prev.metalValueCurrency !== "GOZ" && currentConvFactGms) {
+        if (prev.metalValueCurrency !== "KGBAR" && currentConvFactGms) {
           newMetalValueAmount = ((marketData.bid / currentConvFactGms) * 3.674).toFixed(2);
         }
         return {
@@ -507,7 +507,7 @@ export default function SalesAnalysis() {
               const currencyList = data.map((item) => item.rateType).filter(Boolean);
               setCurrencies(currencyList);
               // Set initial convFactGms for default currency (GOZ)
-              const defaultRate = data.find(rate => rate.rateType === "GOZ");
+              const defaultRate = data.find(rate => rate.rateType === "KGBAR");
               if (defaultRate) {
                 setConvFactGms(defaultRate.convFactGms);
               }
@@ -636,7 +636,7 @@ export default function SalesAnalysis() {
     // Recalculate metalValueAmount based on new currency
     if (marketData?.bid) {
       const newMetalValueAmount =
-        newCurrency === "GOZ"
+        newCurrency === "KGBAR"
           ? marketData.bid.toString()
           : ((marketData.bid / newConvFactGms) * 3.647).toFixed(2);
       handleFilterChange("metalValueAmount", newMetalValueAmount);
