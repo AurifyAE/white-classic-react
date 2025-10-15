@@ -234,7 +234,7 @@ const orders = [
                 Account
               </h1>
               <p className="text-blue-100">
-                View user details and transaction statements\
+                View user details and transaction statements
               </p>
             </div>
             <div className="flex items-center space-x-4">

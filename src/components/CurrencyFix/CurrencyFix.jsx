@@ -25,6 +25,8 @@ const CurrencyTradingUI = () => {
   const { marketData } = useMarketData(["GOLD"]);
   const itemsPerPage = 10;
   const [currentPage, setCurrentPage] = useState(1);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+const [tradeToDelete, setTradeToDelete] = useState(null);
   const [goldData, setGoldData] = useState({
     symbol: "GOLD",
     bid: null,
@@ -39,10 +41,18 @@ const CurrencyTradingUI = () => {
     bidChanged: null,
     priceUpdateTimestamp: null,
   });
-  const partyOptions = tradingParties.map((party) => ({
-    value: party.customerName,
-    label: `${party.customerName} (${party.accountCode})`,
-  }));
+const getCurrencyCode = (currencyId) => {
+  const currency = currencies.find(c => c._id === currencyId);
+  return currency ? currency.currencyCode : 'AED';
+};
+
+// Update partyOptions to include full party object for balance access
+const partyOptions = tradingParties.map((party) => ({
+  value: party._id, // Use _id for unique value
+  label: `${party.customerName} - ${party.accountCode}`, // Display: Customer Name - Account Code
+  party, // Attach full party object for balance access
+}));
+
   const customSelectStyles = {
     control: (provided, state) => ({
       ...provided,
@@ -1025,145 +1035,98 @@ const CurrencyTradingUI = () => {
     }
   };
 
-  const handleDelete = async () => {
-    if (!window.confirm('Are you sure you want to delete this trade?')) return;
-    try {
-      await axiosInstance.delete(`/currency-trading/trades/${selectedTrade._id}`);
-      toast.success('Trade deleted successfully');
-      closeModal();
-      fetchTrades();
-    } catch (err) {
-      console.error('Error deleting trade:', err);
-      toast.error('Failed to delete trade');
+const handleDelete = async () => {
+  if (!tradeToDelete) return;
+  
+  try {
+    await axiosInstance.delete(`/currency-trading/trades/${tradeToDelete._id}`);
+    toast.success('Trade deleted successfully');
+    closeDeleteModal();
+     closeModal();
+    fetchTrades();
+  } catch (err) {
+    console.error('Error deleting trade:', err);
+    toast.error('Failed to delete trade');
+  }
+};
+
+const openDeleteModal = (trade) => {
+  setTradeToDelete(trade);
+  setIsDeleteModalOpen(true);
+};
+
+const closeDeleteModal = () => {
+  setIsDeleteModalOpen(false);
+  setTradeToDelete(null);
+};
+
+const renderModal = () => {
+  if (!isModalOpen || !selectedPair) return null;
+  const base = selectedPair.pair.split('/')[0];
+  const quote = selectedPair.pair.split('/')[1];
+  const { buyRate, sellRate, bid, ask } = getRatesForParty(selectedTradeParty, selectedPair);
+  const calculatedRate = tradeType === 'buy' ? buyRate : sellRate;
+  const effectiveRate = manualRate || calculatedRate;
+  const isCommodity = selectedPair.isCommodity || false;
+  const payCurrency = tradeType === 'buy' ? base : quote;
+  const receiveCurrency = tradeType === 'buy' ? quote : base;
+
+  const calculateConvertedAmount = () => {
+    if (isCommodity) {
+      const pay = parseFloat(payAmount) || 0;
+      const receive = parseFloat(receiveAmount) || 0;
+      const gw = parseFloat(grossWeight) || 0;
+      const ratePerGram = manualRate / 1000; // Convert kg rate to per gram
+      const vpg = gw > 0 ? ratePerGram.toFixed(2) : '0.00';
+      if (tradeType === 'buy' && gw > 0) {
+        const expectedPay = (ratePerGram * gw).toFixed(2);
+        if (Math.abs(pay - parseFloat(expectedPay)) > 0.01) {
+          setPayAmount(expectedPay);
+        }
+      }
+      return { converted: receive.toFixed(2), valuePerGram: vpg };
+    } else {
+      if (!effectiveRate) return { converted: '0.00', valuePerGram: null };
+      if (inputCurrency === payCurrency) {
+        const amount = parseFloat(payAmount) || 0;
+        const converted = (amount * effectiveRate).toFixed(2);
+        return { converted, valuePerGram: null };
+      } else {
+        const amount = parseFloat(receiveAmount) || 0;
+        const converted = (amount / effectiveRate).toFixed(2);
+        return { converted: amount.toFixed(2), valuePerGram: null };
+      }
     }
   };
 
-  const renderModal = () => {
-    if (!isModalOpen || !selectedPair) return null;
-    const base = selectedPair.pair.split('/')[0];
-    const quote = selectedPair.pair.split('/')[1];
-    const { buyRate, sellRate, bid, ask } = getRatesForParty(selectedTradeParty, selectedPair);
-    const calculatedRate = tradeType === 'buy' ? buyRate : sellRate;
-    const effectiveRate = manualRate || calculatedRate;
-    const isCommodity = selectedPair.isCommodity || false;
-    const payCurrency = tradeType === 'buy' ? base : quote;
-    const receiveCurrency = tradeType === 'buy' ? quote : base;
-
- const calculateConvertedAmount = () => {
-  if (isCommodity) {
-    const pay = parseFloat(payAmount) || 0;
-    const receive = parseFloat(receiveAmount) || 0;
-    const gw = parseFloat(grossWeight) || 0;
-    // valuePerGram now uses the effective rate per gram for consistency
-    const ratePerGram = manualRate / 1000; // Convert kg rate to per gram
-    const vpg = gw > 0 ? ratePerGram.toFixed(2) : '0.00'; // Use rate-based vpg instead of pay/gw
-    // Ensure Pay Amount aligns with calculation if it's a buy trade
-    if (tradeType === 'buy' && gw > 0) {
-      const expectedPay = (ratePerGram * gw).toFixed(2);
-      if (Math.abs(pay - parseFloat(expectedPay)) > 0.01) {
-        setPayAmount(expectedPay); // Auto-correct Pay Amount
-      }
-    }
-    return { converted: receive.toFixed(2), valuePerGram: vpg };
-  } else {
-    if (!effectiveRate) return { converted: '0.00', valuePerGram: null };
-    if (inputCurrency === payCurrency) {
-      const amount = parseFloat(payAmount) || 0;
-      const converted = (amount * effectiveRate).toFixed(2);
-      return { converted, valuePerGram: null };
-    } else {
-      const amount = parseFloat(receiveAmount) || 0;
-      const converted = (amount / effectiveRate).toFixed(2);
-      return { converted: amount.toFixed(2), valuePerGram: null };
-    }
-  }
-};
-
- const handlePayAmountChange = (value) => {
-  setPayAmount(value);
-  setInputCurrency(payCurrency);
-  if (!isCommodity) {
-    if (value) {
-      const amount = parseFloat(value);
-      if (!isNaN(amount) && effectiveRate) {
-        const converted = (amount * effectiveRate).toFixed(2);
-        setReceiveAmount(converted);
-      } else {
-        setReceiveAmount('');
-      }
-    } else {
-      setReceiveAmount('');
-    }
-  } else {
-    // For commodity: Recalculate valuePerGram if payAmount changes manually
-    const gw = parseFloat(grossWeight) || 0;
-    if (gw > 0 && value) {
-      // Optional: You can add reverse calc here if needed, e.g., update grossWeight or rate
-    }
-  }
-};
-
-
-const handleGrossWeightChange = (value) => {
-  setGrossWeight(value);
-  if (isCommodity && manualRate && value) {
-    const gw = parseFloat(value);
-    const ratePerGram = manualRate / 1000; // Convert kg rate to per gram
-    if (tradeType === 'buy') {
-      // For buy: Pay Amount (AED/INR) = ratePerGram * grossWeight (receive XAU grams)
-      const calculatedPay = (ratePerGram * gw).toFixed(2);
-      setPayAmount(calculatedPay);
-    } else if (tradeType === 'sell') {
-      // For sell: Receive Amount (AED/INR) = ratePerGram * grossWeight (pay XAU grams)
-      const calculatedReceive = (ratePerGram * gw).toFixed(2);
-      setReceiveAmount(calculatedReceive);
-    }
-  }
-};
-
-    const handleReceiveAmountChange = (value) => {
-      setReceiveAmount(value);
-      setInputCurrency(receiveCurrency);
-      if (!isCommodity) {
-        if (value) {
-          const amount = parseFloat(value);
-          if (!isNaN(amount) && effectiveRate) {
-            const converted = (amount / effectiveRate).toFixed(2);
-            setPayAmount(converted);
-          } else {
-            setPayAmount('');
-          }
+  const handlePayAmountChange = (value) => {
+    setPayAmount(value);
+    setInputCurrency(payCurrency);
+    if (!isCommodity) {
+      if (value) {
+        const amount = parseFloat(value);
+        if (!isNaN(amount) && effectiveRate) {
+          const converted = (amount * effectiveRate).toFixed(2);
+          setReceiveAmount(converted);
         } else {
-          setPayAmount('');
+          setReceiveAmount('');
         }
-      }
-    };
-
- const handleRateChange = (value) => {
-  setManualRate(parseFloat(value) || 0);
-  if (!isCommodity) {
-    if (payAmount && inputCurrency === payCurrency) {
-      const amount = parseFloat(payAmount);
-      if (!isNaN(amount) && value) {
-        const converted = (amount * parseFloat(value)).toFixed(2);
-        setReceiveAmount(converted);
       } else {
         setReceiveAmount('');
       }
-    } else if (receiveAmount && inputCurrency === receiveCurrency) {
-      const amount = parseFloat(receiveAmount);
-      if (!isNaN(amount) && value) {
-        const converted = (amount / parseFloat(value)).toFixed(2);
-        setPayAmount(converted);
-      } else {
-        setPayAmount('');
+    } else {
+      const gw = parseFloat(grossWeight) || 0;
+      if (gw > 0 && value) {
+        // Optional: Add reverse calc if needed
       }
     }
-  } else {
-    // For commodity: Recalculate Pay/Receive based on new rate and current grossWeight
-    const gw = parseFloat(grossWeight) || 0;
-    if (gw > 0 && value) {
-      const ratePerGram = parseFloat(value) / 1000;
+  };
+
+  const handleGrossWeightChange = (value) => {
+    setGrossWeight(value);
+    if (isCommodity && manualRate && value) {
+      const gw = parseFloat(value);
+      const ratePerGram = manualRate / 1000;
       if (tradeType === 'buy') {
         const calculatedPay = (ratePerGram * gw).toFixed(2);
         setPayAmount(calculatedPay);
@@ -1172,227 +1135,370 @@ const handleGrossWeightChange = (value) => {
         setReceiveAmount(calculatedReceive);
       }
     }
-  }
-};
+  };
 
-    const { converted, valuePerGram } = calculateConvertedAmount();
+  const handleReceiveAmountChange = (value) => {
+    setReceiveAmount(value);
+    setInputCurrency(receiveCurrency);
+    if (!isCommodity) {
+      if (value) {
+        const amount = parseFloat(value);
+        if (!isNaN(amount) && effectiveRate) {
+          const converted = (amount / effectiveRate).toFixed(2);
+          setPayAmount(converted);
+        } else {
+          setPayAmount('');
+        }
+      } else {
+        setPayAmount('');
+      }
+    }
+  };
 
-    return (
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-2xl p-8 w-full max-w-4xl shadow-2xl max-h-[90vh] overflow-y-auto">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-gray-900">{isEditMode ? 'Edit Trade' : 'Create Trade'}</h2>
-            <div className="flex items-center space-x-4">
-              {isEditMode && (
-                <button
-                  className="text-red-600 hover:text-red-800 text-sm font-semibold bg-red-50 px-3 py-1 rounded-lg hover:bg-red-100 transition-colors"
-                  onClick={handleDelete}
-                >
-                  Delete
-                </button>
-              )}
+  const handleRateChange = (value) => {
+    setManualRate(parseFloat(value) || 0);
+    if (!isCommodity) {
+      if (payAmount && inputCurrency === payCurrency) {
+        const amount = parseFloat(payAmount);
+        if (!isNaN(amount) && value) {
+          const converted = (amount * parseFloat(value)).toFixed(2);
+          setReceiveAmount(converted);
+        } else {
+          setReceiveAmount('');
+        }
+      } else if (receiveAmount && inputCurrency === receiveCurrency) {
+        const amount = parseFloat(receiveAmount);
+        if (!isNaN(amount) && value) {
+          const converted = (amount / parseFloat(value)).toFixed(2);
+          setPayAmount(converted);
+        } else {
+          setPayAmount('');
+        }
+      }
+    } else {
+      const gw = parseFloat(grossWeight) || 0;
+      if (gw > 0 && value) {
+        const ratePerGram = parseFloat(value) / 1000;
+        if (tradeType === 'buy') {
+          const calculatedPay = (ratePerGram * gw).toFixed(2);
+          setPayAmount(calculatedPay);
+        } else if (tradeType === 'sell') {
+          const calculatedReceive = (ratePerGram * gw).toFixed(2);
+          setReceiveAmount(calculatedReceive);
+        }
+      }
+    }
+  };
+
+  const { converted, valuePerGram } = calculateConvertedAmount();
+  const selectedPartyObj = tradingParties.find((party) => party._id === selectedTradeParty);
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl p-8 w-full max-w-4xl shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold text-gray-900">{isEditMode ? 'Edit Trade' : 'Create Trade'}</h2>
+          <div className="flex items-center space-x-4">
+            {isEditMode && (
               <button
-                onClick={closeModal}
-                className="text-gray-500 hover:text-gray-700 p-2 rounded-full hover:bg-gray-100 transition-colors"
+                className="text-red-600 hover:text-red-800 text-sm font-semibold bg-red-50 px-3 py-1 rounded-lg hover:bg-red-100 transition-colors"
+    onClick={() => openDeleteModal(selectedTrade)}
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                Delete
               </button>
+            )}
+            <button
+              onClick={closeModal}
+              className="text-gray-500 hover:text-gray-700 p-2 rounded-full hover:bg-gray-100 transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div className="space-y-6">
+          <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+            <div className="text-sm font-semibold text-gray-700 mb-3">Voucher Details</div>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <span className="text-xs text-gray-500 block">Voucher Code</span>
+                <div className="text-sm font-medium text-gray-900">{voucherCode || 'N/A'}</div>
+              </div>
+              <div>
+                <span className="text-xs text-gray-500 block">Prefix</span>
+                <div className="text-sm font-medium text-gray-900">{prefix || 'N/A'}</div>
+              </div>
+              <div>
+                <span className="text-xs text-gray-500 block">Voucher Type</span>
+                <div className="text-sm font-medium text-gray-900">{voucherType || 'N/A'}</div>
+              </div>
             </div>
           </div>
-          <div className="space-y-6">
-            <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
-              <div className="text-sm font-semibold text-gray-700 mb-3">Voucher Details</div>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <span className="text-xs text-gray-500 block">Voucher Code</span>
-                  <div className="text-sm font-medium text-gray-900">{voucherCode || 'N/A'}</div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Select Party</label>
+            <Select
+              options={partyOptions}
+              value={partyOptions.find((option) => option.value === selectedTradeParty) || null}
+              onChange={(selectedOption) => setSelectedTradeParty(selectedOption ? selectedOption.value : '')}
+              placeholder="Choose a party..."
+              isClearable
+              isSearchable
+              styles={customSelectStyles}
+              className="w-full"
+              classNamePrefix="select"
+            />
+            {selectedTradeParty && selectedPartyObj && (
+              <div className="mt-2 text-sm text-gray-600">
+                <div className="flex space-x-4">
+                  <div>
+                    <span className="font-medium">Cash Balance:</span>{" "}
+                    <div className="space-x-2">
+                      {selectedPartyObj.balances?.cashBalance?.map((balance, index) => (
+                        <span
+                          key={index}
+                          className={balance.amount < 0 ? "text-red-600" : "text-green-600"}
+                        >
+                          {formatNumber(balance.amount ?? 0)} {getCurrencyCode(balance.currency)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="font-medium">Gold Balance:</span>{" "}
+                    <span
+                      className={
+                        selectedPartyObj.balances?.goldBalance?.totalGrams < 0
+                          ? "text-red-600"
+                          : "text-green-600"
+                      }
+                    >
+                      {formatNumber(selectedPartyObj.balances?.goldBalance?.totalGrams || 0)}g
+                    </span>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-xs text-gray-500 block">Prefix</span>
-                  <div className="text-sm font-medium text-gray-900">{prefix || 'N/A'}</div>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center space-x-4 bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-xl">
+            <div className="text-3xl">{selectedPair.flag}</div>
+            <div>
+              <div className="text-lg font-bold text-gray-900">{selectedPair.pair}</div>
+              <div className="text-sm text-gray-600">Mid Rate: {formatNumber(selectedPair.rate, 2)}</div>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <button
+              onClick={() => setTradeType('buy')}
+              className={`py-3 rounded-xl font-semibold transition-colors ${tradeType === 'buy' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+            >
+              Buy {quote}
+            </button>
+            <button
+              onClick={() => setTradeType('sell')}
+              className={`py-3 rounded-xl font-semibold transition-colors ${tradeType === 'sell' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+            >
+              Sell {quote}
+            </button>
+          </div>
+          {isCommodity && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Metal Type</label>
+              <input
+                type="text"
+                value={metalType}
+                readOnly
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-100 text-gray-700"
+              />
+            </div>
+          )}
+          {isCommodity && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Gross Weight (grams)</label>
+              <input
+                type="number"
+                placeholder="Enter gross weight in grams"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                value={grossWeight}
+                onChange={(e) => handleGrossWeightChange(e.target.value)}
+              />
+            </div>
+          )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Pay Amount ({payCurrency}{isCommodity && payCurrency === 'XAU' ? ' grams' : ''})
+            </label>
+            <input
+              type="number"
+              placeholder={`Enter amount in ${payCurrency}${isCommodity && payCurrency === 'XAU' ? ' grams' : ''}`}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+              value={payAmount}
+              onChange={(e) => handlePayAmountChange(e.target.value)}
+            />
+          </div>
+          {isCommodity && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Value Per Gram ({payCurrency}/gram)</label>
+              <input
+                type="text"
+                value={formatNumber(manualRate / 1000, 2)}
+                readOnly
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-100 text-gray-700"
+              />
+            </div>
+          )}
+          {isCommodity ? null : (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Receive Amount ({receiveCurrency}{isCommodity && receiveCurrency === 'XAU' ? ' grams' : ''})
+              </label>
+              <input
+                type="number"
+                placeholder={`Enter amount in ${receiveCurrency}${isCommodity && receiveCurrency === 'XAU' ? ' grams' : ''}`}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                value={receiveAmount || converted}
+                onChange={(e) => handleReceiveAmountChange(e.target.value)}
+              />
+            </div>
+          )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              {selectedPair.isCommodity ? 'Rate of one KGBAR' : 'Rate'}
+            </label>
+            <input
+              type="number"
+              step="0.0001"
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+              value={manualRate}
+              onChange={(e) => handleRateChange(e.target.value)}
+            />
+          </div>
+          <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+            <div className="text-sm font-semibold text-gray-700 mb-2">Trade Summary</div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <span className="text-xs text-gray-500 block">You Pay</span>
+                <div className="text-lg font-bold text-gray-900">
+                  {formatNumber(payAmount || '0.00', 2)} {payCurrency}{isCommodity && payCurrency === 'XAU' ? ' grams' : ''}
+                  {isCommodity && tradeType === 'buy' && <span className="text-xs text-gray-500 block">(Calculated: {formatNumber(manualRate / 1000, 2)} AED/gram × {grossWeight}g)</span>}
                 </div>
+              </div>
+              {!isCommodity && (
                 <div>
-                  <span className="text-xs text-gray-500 block">Voucher Type</span>
-                  <div className="text-sm font-medium text-gray-900">{voucherType || 'N/A'}</div>
+                  <span className="text-xs text-gray-500 block">You Receive</span>
+                  <div className="text-lg font-bold text-gray-900">
+                    {formatNumber(receiveAmount || converted, 2)} {receiveCurrency}
+                  </div>
+                </div>
+              )}
+              {isCommodity && (
+                <>
+                  <div>
+                    <span className="text-xs text-gray-500 block">Gross Weight</span>
+                    <div className="text-lg font-bold text-gray-900">{formatNumber(grossWeight, 2)} grams</div>
+                  </div>
+                  <div>
+                    <span className="text-xs text-gray-500 block">Metal Type</span>
+                    <div className="text-lg font-bold text-gray-900">{metalType}</div>
+                  </div>
+                  <div>
+                    <span className="text-xs text-gray-500 block">Value Per Gram</span>
+                    <div className="text-lg font-bold text-gray-900">{formatNumber(valuePerGram, 2)} {payCurrency}/gram</div>
+                  </div>
+                </>
+              )}
+              <div>
+                <span className="text-xs text-gray-500 block">Rate</span>
+                <div className="text-lg font-bold text-gray-900">
+                  {formatNumber(manualRate, 2)} ({tradeType === 'buy' ? 'Buy' : 'Sell'})
                 </div>
               </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Select Party</label>
-              <Select
-                options={partyOptions}
-                value={partyOptions.find((option) => option.value === selectedTradeParty) || null}
-                onChange={(selectedOption) => setSelectedTradeParty(selectedOption ? selectedOption.value : '')}
-                placeholder="Choose a party..."
-                isClearable
-                isSearchable
-                styles={customSelectStyles}
-                className="w-full"
-                classNamePrefix="select"
-              />
-            </div>
-            {selectedTradeParty && (
-              <>
-                <div className="flex items-center space-x-4 bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-xl">
-                  <div className="text-3xl">{selectedPair.flag}</div>
-                  <div>
-                    <div className="text-lg font-bold text-gray-900">{selectedPair.pair}</div>
-                    <div className="text-sm text-gray-600">Mid Rate: {formatNumber(selectedPair.rate, 2)}</div>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <button
-                    onClick={() => setTradeType('buy')}
-                    className={`py-3 rounded-xl font-semibold transition-colors ${tradeType === 'buy' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                  >
-                    Buy {quote}
-                  </button>
-                  <button
-                    onClick={() => setTradeType('sell')}
-                    className={`py-3 rounded-xl font-semibold transition-colors ${tradeType === 'sell' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                  >
-                    Sell {quote}
-                  </button>
-                </div>
-                {isCommodity && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Metal Type</label>
-                    <input
-                      type="text"
-                      value={metalType}
-                      readOnly
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-100 text-gray-700"
-                    />
-                  </div>
-                )}
-             {isCommodity && (
-  <div>
-    <label className="block text-sm font-medium text-gray-700 mb-2">Gross Weight (grams)</label>
-    <input
-      type="number"
-      placeholder="Enter gross weight in grams"
-      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-      value={grossWeight}
-      onChange={(e) => handleGrossWeightChange(e.target.value)} // Use new handler
-    />
-  </div>
-)}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Pay Amount ({payCurrency}{isCommodity && payCurrency === 'XAU' ? ' grams' : ''})
-                  </label>
-                  <input
-                    type="number"
-                    placeholder={`Enter amount in ${payCurrency}${isCommodity && payCurrency === 'XAU' ? ' grams' : ''}`}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                    value={payAmount}
-                    onChange={(e) => handlePayAmountChange(e.target.value)}
-                  />
-                </div>
-              {isCommodity && (
-  <div>
-    <label className="block text-sm font-medium text-gray-700 mb-2">Value Per Gram ({payCurrency}/gram)</label>
-    <input
-      type="text"
-      value={formatNumber(manualRate / 1000, 2)} // Display rate / 1000 directly
-      readOnly
-      className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-100 text-gray-700"
-    />
-  </div>
-)}
-                {isCommodity ? null : (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Receive Amount ({receiveCurrency}{isCommodity && receiveCurrency === 'XAU' ? ' grams' : ''})
-                    </label>
-                    <input
-                      type="number"
-                      placeholder={`Enter amount in ${receiveCurrency}${isCommodity && receiveCurrency === 'XAU' ? ' grams' : ''}`}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                      value={receiveAmount || (isCommodity ? '' : converted)}
-                      onChange={(e) => handleReceiveAmountChange(e.target.value)}
-                    />
-                  </div>
-                )}
-               <div>
-  <label className="block text-sm font-medium text-gray-700 mb-2">
-    {selectedPair.isCommodity ? 'Rate of one KGBAR' : 'Rate'}
-  </label>
-  <input
-    type="number"
-    step="0.0001"
-    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-    value={manualRate}
-    onChange={(e) => handleRateChange(e.target.value)}
-  />
-</div>
-                <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
-                  <div className="text-sm font-semibold text-gray-700 mb-2">Trade Summary</div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-    <span className="text-xs text-gray-500 block">You Pay</span>
-    <div className="text-lg font-bold text-gray-900">
-      {formatNumber(payAmount || '0.00', 2)} {payCurrency}{isCommodity && payCurrency === 'XAU' ? ' grams' : ''}
-      {isCommodity && tradeType === 'buy' && <span className="text-xs text-gray-500 block">(Calculated: {formatNumber(manualRate / 1000, 2)} AED/gram × {grossWeight}g)</span>}
-    </div>
-  </div>
-
-                       {!isCommodity && (
-      <div>
-        <span className="text-xs text-gray-500 block">You Receive</span>
-        <div className="text-lg font-bold text-gray-900">
-          {formatNumber(receiveAmount || converted, 2)} {receiveCurrency}
-        </div>
-      </div>
-    )}
-
-                    {isCommodity && (
-                      <>
-                       <div>
-                          <span className="text-xs text-gray-500 block">Gross Weight</span>
-                          <div className="text-lg font-bold text-gray-900">{formatNumber(grossWeight, 2)} grams</div>
-                        </div>
-                        <div>
-                          <span className="text-xs text-gray-500 block">Metal Type</span>
-                          <div className="text-lg font-bold text-gray-900">{metalType}</div>
-                        </div>
-                       
-                        <div>
-                          <span className="text-xs text-gray-500 block">Value Per Gram</span>
-                          <div className="text-lg font-bold text-gray-900">{formatNumber(valuePerGram, 2)} {payCurrency}/gram</div>
-                        </div>
-                      </>
-                    )}
-                    <div>
-                      <span className="text-xs text-gray-500 block">Rate</span>
-                      <div className="text-lg font-bold text-gray-900">
-                        {formatNumber(manualRate, 2)} ({tradeType === 'buy' ? 'Buy' : 'Sell'})
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <button
-                  className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-                  onClick={handleSubmit}
-                  disabled={!selectedTradeParty || (!payAmount && !receiveAmount)}
-                >
-                  {isEditMode ? 'Update Trade' : 'Create Trade'}
-                </button>
-                <button
-                  className="w-full bg-gray-100 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-200 transition-colors"
-                  onClick={closeModal}
-                >
-                  Cancel
-                </button>
-              </>
-            )}
           </div>
+          <button
+            className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+            onClick={handleSubmit}
+            disabled={!selectedTradeParty || (!payAmount && !receiveAmount)}
+          >
+            {isEditMode ? 'Update Trade' : 'Create Trade'}
+          </button>
+          <button
+            className="w-full bg-gray-100 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-200 transition-colors"
+            onClick={closeModal}
+          >
+            Cancel
+          </button>
         </div>
       </div>
-    );
-  };
+    </div>
+  );
+};
+
+const renderDeleteModal = () => {
+  if (!isDeleteModalOpen || !tradeToDelete) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+        {/* Header */}
+        <div className="mb-5 flex items-center space-x-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
+            <svg
+              className="h-6 w-6 text-red-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 
+                1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 
+                0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+              />
+            </svg>
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900">
+            Confirm Deletion
+          </h3>
+        </div>
+
+        {/* Body */}
+        <p className="mb-6 text-sm text-gray-600">
+          Are you sure you want to delete trade{' '}
+          <strong className="text-gray-800">
+            {tradeToDelete.reference}
+          </strong>
+          ? This action cannot be undone.
+        </p>
+
+        {/* Actions */}
+        <div className="flex gap-3">
+         
+          <button
+            onClick={closeDeleteModal}
+            className="flex-1 rounded-xl bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-300"
+          >
+            Cancel
+          </button>
+           <button
+            onClick={handleDelete}
+            className="flex-1 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400"
+          >
+            Delete Trade
+          </button>
+          
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
@@ -1447,6 +1553,7 @@ const handleGrossWeightChange = (value) => {
         {activeTab === 'Overview' ? renderOverview() : renderTrading()}
       </div>
       {renderModal()}
+       {renderDeleteModal()}
     </div>
   );
 };
