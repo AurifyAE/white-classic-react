@@ -317,29 +317,29 @@ const partyOptions = tradingParties.map((party) => ({
     setInputCurrency(pair.pair.split('/')[0]);
   };
 
-  const openEditModal = (trade) => {
-    const pair = {
-      pair: `${trade.baseCurrencyCode}/${trade.targetCurrencyCode}`,
-      flag: trade.targetCurrencyCode === 'INR' ? '🇮🇳' : (trade.targetCurrencyCode === 'AED' ? '🇦🇪' : '💰'),
-      code: trade.targetCurrencyCode,
-      rate: trade.currentRate || 0,
-      isCommodity: trade.isGoldTrade || trade.targetCurrencyCode === 'XAU',
-    };
-    setSelectedPair(pair);
-    setSelectedTrade(trade);
-    setIsEditMode(true);
-    setVoucherCode(trade.reference);
-    setVoucherType("");
-    setPrefix("");
-    setIsModalOpen(true);
-    setPayAmount(trade.amount.toString());
-    setReceiveAmount(trade.converted.toString());
-    setGrossWeight(trade.grossWeight ? trade.grossWeight.toString() : '1000');
-    setManualRate(trade.rate || 23);
-    setTradeType(trade.type.toLowerCase());
-    setSelectedTradeParty(trade.partyId.customerName);
-    setInputCurrency(trade.baseCurrencyCode);
+ const openEditModal = (trade) => {
+  const pair = {
+    pair: `${trade.baseCurrencyCode}/${trade.targetCurrencyCode}`,
+    flag: trade.targetCurrencyCode === 'INR' ? '🇮🇳' : (trade.targetCurrencyCode === 'AED' ? '🇦🇪' : '💰'),
+    code: trade.targetCurrencyCode,
+    rate: trade.currentRate || 0,
+    isCommodity: trade.isGoldTrade || trade.targetCurrencyCode === 'XAU',
   };
+  setSelectedPair(pair);
+  setSelectedTrade(trade);
+  setIsEditMode(true);
+  setVoucherCode(trade.reference);
+  setVoucherType("");
+  setPrefix("");
+  setIsModalOpen(true);
+  setPayAmount(trade.amount.toString());
+  setReceiveAmount(trade.converted.toString());
+  setGrossWeight(trade.grossWeight ? trade.grossWeight.toString() : '1000');
+  setManualRate(trade.rate || 23);
+  setTradeType(trade.type.toLowerCase());
+  setSelectedTradeParty(trade.partyId?._id || ''); // Use partyId._id instead of customerName
+  setInputCurrency(trade.baseCurrencyCode);
+};
 
   const closeModal = () => {
     setIsModalOpen(false);
@@ -1492,7 +1492,7 @@ const renderDeleteModal = () => {
           >
             Delete Trade
           </button>
-          
+
         </div>
       </div>
     </div>
