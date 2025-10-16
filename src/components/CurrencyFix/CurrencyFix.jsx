@@ -337,7 +337,7 @@ const partyOptions = tradingParties.map((party) => ({
   setGrossWeight(trade.grossWeight ? trade.grossWeight.toString() : '1000');
   setManualRate(trade.rate || 23);
   setTradeType(trade.type.toLowerCase());
-  setSelectedTradeParty(trade.partyId?._id || ''); // Use partyId._id instead of customerName
+  setSelectedTradeParty(trade.partyId?._id || ''); 
   setInputCurrency(trade.baseCurrencyCode);
 };
 

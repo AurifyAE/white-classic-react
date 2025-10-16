@@ -63,9 +63,14 @@ useEffect(() => {
       console.log("Raw data:", data);
 
       // Filter out CURRENCY_EXCHANGE transactions
-      const filteredData = data.filter((txn) => txn.type !== "CURRENCY_EXCHANGE");
+   const filteredData = data.filter(
+  (txn) =>
+    txn.type !== "CURRENCY_EXCHANGE" &&
+    txn.type !== "VAT_AMOUNT" &&
+    txn.type !== "GOLD"
+);
 
-      console.log("Filtered data (excluding CURRENCY_EXCHANGE):", filteredData);
+console.log("Filtered data (excluding CURRENCY_EXCHANGE, VAT_AMOUNT, GOLD):", filteredData);
 
       // Sort data in chronological order for balance calculation (oldest to newest)
       const chronologicalData = [...filteredData].sort(
