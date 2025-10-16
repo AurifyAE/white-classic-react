@@ -88,14 +88,13 @@ console.log("Filtered data (excluding CURRENCY_EXCHANGE, VAT_AMOUNT, GOLD):", fi
         const assetType = txn.assetType || "AED"; // Default to AED if not specified
 
         // Update running balances based on assetType
-        if (assetType === "XAU") {
-          goldRunningBalance = txn.runningBalance || goldRunningBalance + credit - debit;
-        } else if (assetType === "AED") {
-          aedRunningBalance = txn.runningBalance || aedRunningBalance + credit - debit;
-        } else if (assetType === "INR") {
-          inrRunningBalance = txn.runningBalance || inrRunningBalance + credit - debit;
-        }
-
+       if (assetType === "XAU") {
+  goldRunningBalance += credit - debit;
+} else if (assetType === "AED") {
+  aedRunningBalance += credit - debit;
+} else if (assetType === "INR") {
+  inrRunningBalance += credit - debit;
+}
         return {
           docDate: formatDate(txn.transactionDate),
           docRef: txn.reference || "",
