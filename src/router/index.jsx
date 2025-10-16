@@ -77,11 +77,11 @@ export default function UserRouter() {
   return (
     <Routes>
       <Route path="/" element={<Login />} />
-  
+
       <Route element={<Layout />}>
         {/* Dashboard */}
         <Route path="/dashboard" element={<MetalStock />} />
-<Route path="/" element={<Footer/>} />
+        <Route path="/" element={<Footer />} />
         {/* Masters */}
         <Route path="/division-master" element={<DivisionPage />} />
         <Route path="/karat-master" element={<KaratPage />} />
@@ -114,7 +114,7 @@ export default function UserRouter() {
           path="/purchase-fix-management"
           element={<PurchaseFixManagementPage />}
         />
-                <Route path="currencyfix-management" element={<CurrencyFix />} />
+        <Route path="currencyfix-management" element={<CurrencyFix />} />
 
 
         {/* <Route path="/metal-stock-ledger" element={<MetalStockLedgerPage />} />
@@ -220,7 +220,7 @@ export default function UserRouter() {
           element={<StatementofAccountsPage />}
         />
 
-          <Route
+        <Route
           path="/currency-fix"
           element={<CurrencyFixing />}
         />

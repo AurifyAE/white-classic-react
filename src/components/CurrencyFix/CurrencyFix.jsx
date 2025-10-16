@@ -973,7 +973,7 @@ const partyOptions = tradingParties.map((party) => ({
       const effectiveRate = manualRate || calculatedRate;
       if (inputCurrency === (tradeType === 'buy' ? base : quote)) {
         finalPayAmount = parseFloat(payAmount) || 0;
-        if (finalPayAmount <= 0) {
+        if (finalPayAmount <= 0) {''
           toast.error('Amount must be greater than zero');
           return;
         }
