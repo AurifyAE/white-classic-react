@@ -63,6 +63,7 @@ import StockAnalysis from "../pages/StockAnalysis";
 import TransactionSummaryPage from "../pages/TransactionSummary";
 import StockAnalysisPage from "../pages/StockAnalysis";
 import OwnStockPage from "../pages/OwnStockPage.jsx";
+import OwnStockCurrencyPage from "../pages/OwnStockCurrencyPage.jsx";
 import StockMovementPCS from "../pages/StockMovementPCS.jsx";
 import StockBalance from "../pages/StockBalance.jsx";
 import SalesAnalysis from "../pages/SalesAnalysis.jsx";
@@ -205,6 +206,7 @@ export default function UserRouter() {
           element={<TransactionSummaryPage />}
         />
         <Route path="/reports/own-stock" element={<OwnStockPage />} />
+        <Route path="/reports/own-stock/currency" element={<OwnStockCurrencyPage />} />
         <Route
           path="/reports/stock-movement-pcs"
           element={<StockMovementPCS />}

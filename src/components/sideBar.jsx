@@ -234,7 +234,7 @@ const Sidebar = () => {
         // { icon: <ClipboardList strokeWidth={1.5} size={20} />, text: 'Stock Activity Log', to: '/inventory/activity-log', },
       ]
     },
- 
+
     {
       key: 'financialTransaction',
       icon: <Wallet2 strokeWidth={1.5} size={22} />,
@@ -262,8 +262,9 @@ const Sidebar = () => {
         { icon: <ChartPie strokeWidth={1.5} size={20} />, text: 'Sales Analysis', to: '/reports/sales-analysis' },
         { icon: <DollarSign strokeWidth={1.5} size={20} />, text: 'Fixing Registry', to: '/reports/fixing-registry' },
         { icon: <ListOrdered strokeWidth={1.5} size={20} />, text: 'Transaction Summary', to: '/reports/transaction-summary' },
-                { icon: <Folder strokeWidth={1.5} size={20} />, text: 'Statement of Account', to: '/reports/statements' },
-        { icon: <Folder strokeWidth={1.5} size={20} />, text: 'Own Stock', to: '/reports/own-stock' }
+        { icon: <Folder strokeWidth={1.5} size={20} />, text: 'Statement of Account', to: '/reports/statements' },
+        { icon: <Folder strokeWidth={1.5} size={20} />, text: 'Own Stock', to: '/reports/own-stock' },
+        { icon: <Folder strokeWidth={1.5} size={20} />, text: 'Own Stock currency', to: '/reports/own-stock/currency' }
       ]
     }
   ], []);
@@ -363,7 +364,7 @@ const Sidebar = () => {
 
   return (
     <div className="w-auto bg-white shadow-lg flex flex-col">
-        <div className="">
+      <div className="">
         <img src={logo} alt="Bullion System Logo" className="w-56 -mt-14 ml-7" />
       </div>
       <div className="flex-1 overflow-y-auto px-4 -mt-16 py-4 scrollbar-hide">
@@ -394,36 +395,34 @@ const Sidebar = () => {
                   />
                 ))}
               </SidebarSection>
-            {section.key === 'generalMaster' && (
-  <>
-    <Link to="/ceditors" className="block">
-      <div
-        className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200 ${
-          location.pathname === "/ceditors"
-            ? "bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-medium shadow-md"
-            : "text-slate-700 hover:bg-slate-100"
-        }`}
-      >
-        <HandCoins strokeWidth={1.5} size={22} />
-        <span className="font-medium flex-1 truncate">Ceditors Management</span>
-        <ChevronRight strokeWidth={1.5} size={18} />
-      </div>
-    </Link>
-    <Link to="/debtor" className="block">
-      <div
-        className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200 ${
-          location.pathname === "/debtor"
-            ? "bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-medium shadow-md"
-            : "text-slate-700 hover:bg-slate-100"
-        }`}
-      >
-        <Wallet2 strokeWidth={1.5} size={22} />
-        <span className="font-medium flex-1 truncate">Debtor Management</span>
-        <ChevronRight strokeWidth={1.5} size={18} />
-      </div>
-    </Link>
-  </>
-)}
+              {section.key === 'generalMaster' && (
+                <>
+                  <Link to="/ceditors" className="block">
+                    <div
+                      className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200 ${location.pathname === "/ceditors"
+                        ? "bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-medium shadow-md"
+                        : "text-slate-700 hover:bg-slate-100"
+                        }`}
+                    >
+                      <HandCoins strokeWidth={1.5} size={22} />
+                      <span className="font-medium flex-1 truncate">Ceditors Management</span>
+                      <ChevronRight strokeWidth={1.5} size={18} />
+                    </div>
+                  </Link>
+                  <Link to="/debtor" className="block">
+                    <div
+                      className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200 ${location.pathname === "/debtor"
+                        ? "bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-medium shadow-md"
+                        : "text-slate-700 hover:bg-slate-100"
+                        }`}
+                    >
+                      <Wallet2 strokeWidth={1.5} size={22} />
+                      <span className="font-medium flex-1 truncate">Debtor Management</span>
+                      <ChevronRight strokeWidth={1.5} size={18} />
+                    </div>
+                  </Link>
+                </>
+              )}
             </div>
           ))}
           <div className="pt-6">
