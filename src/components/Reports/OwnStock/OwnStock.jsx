@@ -284,7 +284,7 @@ const DivisionModal = ({ isOpen, onClose, divisions, filters, handleCheckboxChan
   );
 };
 
-export default function SalesAnalysis() {
+export default function OwnStock() {
   const [loading, setLoading] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
   const [showNotification, setShowNotification] = useState(false);

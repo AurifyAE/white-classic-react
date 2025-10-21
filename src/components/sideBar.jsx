@@ -263,8 +263,8 @@ const Sidebar = () => {
         { icon: <DollarSign strokeWidth={1.5} size={20} />, text: 'Fixing Registry', to: '/reports/fixing-registry' },
         { icon: <ListOrdered strokeWidth={1.5} size={20} />, text: 'Transaction Summary', to: '/reports/transaction-summary' },
         { icon: <Folder strokeWidth={1.5} size={20} />, text: 'Statement of Account', to: '/reports/statements' },
+        { icon: <Folder strokeWidth={1.5} size={20} />, text: 'Own Stock currency', to: '/reports/own-stock/currency' },
         { icon: <Folder strokeWidth={1.5} size={20} />, text: 'Own Stock', to: '/reports/own-stock' },
-        { icon: <Folder strokeWidth={1.5} size={20} />, text: 'Own Stock currency', to: '/reports/own-stock/currency' }
       ]
     }
   ], []);
@@ -518,7 +518,7 @@ const SidebarSection = React.memo(({ icon, text, children, expanded, onToggle, h
       </div>
     </div>
     <div
-      className={`overflow-hidden transition-all duration-300 ease-in-out ${expanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+      className={`overflow-hidden transition-all duration-300 ease-in-out ${expanded ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'
         }`}
     >
       <div className="ml-4 mt-1 space-y-1">

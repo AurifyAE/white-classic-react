@@ -67,7 +67,9 @@ useEffect(() => {
   (txn) =>
     txn.type !== "CURRENCY_EXCHANGE" &&
     txn.type !== "VAT_AMOUNT" &&
-    txn.type !== "GOLD"
+    txn.type !== "GOLD" &&
+    txn.type != "purchase-fixing"
+    
 );
 
 console.log("Filtered data (excluding CURRENCY_EXCHANGE, VAT_AMOUNT, GOLD):", filteredData);

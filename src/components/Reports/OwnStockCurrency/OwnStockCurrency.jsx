@@ -33,9 +33,10 @@ import {
 } from "lucide-react";
 import axios from "../../../api/axios";
 import { motion, AnimatePresence } from "framer-motion";
-import OwnStockStatement from "./OwnStockStatement";
+import OwnStockStatementCurrency from "./OwnStockStatement";
 import useMarketData from '../../marketData';
 import OwnStockPDF from './OwnStockPDF'
+
 const debounce = (func, wait) => {
     let timeout;
     return (...args) => {
@@ -115,8 +116,7 @@ const CheckboxFilter = React.memo(
                     <Search className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 transform -translate-y-1/2" />
                 </div>
                 <div
-                    className={`space-y-3 overflow-y-auto scrollbar-hide bg-white rounded-lg border border-gray-200 p-4 shadow-inner ${field === "division" || filteredOptions.length > 5 ? "max-h-[180px]" : "max-h-fit"
-                        }`}
+                    className={`space-y-3 overflow-y-auto scrollbar-hide bg-white rounded-lg border border-gray-200 p-4 shadow-inner ${field === "division" || filteredOptions.length > 5 ? "max-h-[180px]" : "max-h-fit"}`}
                 >
                     <label className="flex items-center space-x-3 cursor-pointer hover:bg-gradient-to-r hover:from-blue-50 hover:to-cyan-50 p-2 rounded-lg transition-all duration-200">
                         <input
@@ -144,8 +144,7 @@ const CheckboxFilter = React.memo(
                             />
                             <span className="text-sm text-gray-700 flex-1 hover:text-blue-700 transition-colors">
                                 {field === "accountType"
-                                    ? `${option.accountCode || "N/A"} - ${option.customerName || "Unknown"
-                                    }`
+                                    ? `${option.accountCode || "N/A"} - ${option.customerName || "Unknown"}`
                                     : field === "voucher"
                                         ? `${option.code || "N/A"} - ${option.description || "Unknown"}`
                                         : option.name ||
@@ -284,7 +283,7 @@ const DivisionModal = ({ isOpen, onClose, divisions, filters, handleCheckboxChan
     );
 };
 
-export default function SalesAnalysis() {
+export default function OwnStockCurrency() {
     const [loading, setLoading] = useState(false);
     const [searchLoading, setSearchLoading] = useState(false);
     const [showNotification, setShowNotification] = useState(false);
@@ -293,12 +292,10 @@ export default function SalesAnalysis() {
     const [showFilters, setShowFilters] = useState(false);
     const [showDivisionModal, setShowDivisionModal] = useState(false);
     const [viewMode, setViewMode] = useState("table");
-    const [ownStockData, setOwnStockData] = useState([]);
+    const [ownStockData, setOwnStockData] = useState({ summary: {}, categories: [] });
     const [metalRates, setMetalRates] = useState([]);
-    const [convFactGms, setConvFactGms] = useState(null);
+    const [convFactGms, setConvFactGms] = useState(31.1035); // Default to troy ounce
     const { marketData } = useMarketData(["GOLD"]);
-    // console.log("marketData:", marketData );
-
     const [selectedItems, setSelectedItems] = useState([]);
     const [filters, setFilters] = useState({
         fromDate: "",
@@ -319,7 +316,7 @@ export default function SalesAnalysis() {
         showPicture: false,
         showVatReports: false,
         showSummaryOnly: false,
-        rateType: "avg", // default
+        rateType: "avg",
         showWastage: false,
         withoutSap: false,
         showRfnDetails: false,
@@ -327,7 +324,7 @@ export default function SalesAnalysis() {
         showCostIn: false,
         costCurrency: "AED",
         costAmount: "100000",
-        metalValueCurrency: "KGBAR",
+        metalValueCurrency: "AED",
         metalValueAmount: "",
         groupBy: ["stockCode"],
         groupByRange: {
@@ -351,8 +348,8 @@ export default function SalesAnalysis() {
         stock: "",
         karat: "",
         accountType: "",
-        groupBy: "",
         currency: "",
+        groupBy: "",
         groupByRange: {
             stockCode: "",
             categoryCode: "",
@@ -373,22 +370,23 @@ export default function SalesAnalysis() {
     const [stocks, setStocks] = useState([]);
     const [karats, setKarats] = useState([]);
     const [currencies, setCurrencies] = useState([]);
+    const [currency, setCurrency] = useState([]);
     const [isInputFocused, setIsInputFocused] = useState(false);
     const [isManuallyEdited, setIsManuallyEdited] = useState(false);
     const [accountTypes, setAccountTypes] = useState([]);
     const [groupByOptions, setGroupByOptions] = useState({});
-    const [currency, setCurrency] = useState([])
     const [currentPage, setCurrentPage] = useState(1);
-    const [filteredLedgerData, setFilteredLedgerData] = useState({});
-    const [calculatedValues, setCalculatedValues] = useState({
-        profit: 0,
-        receivableValue: 0,
-        payableValue: 0,
-        netPurchaseValue: 0,
-        netSalesValue: 0,
-        netPurchaseGrams: 0,
-        netSalesGrams: 0
-    });
+    const [filteredLedgerData, setFilteredLedgerData] = useState([]);
+   const [calculatedValues, setCalculatedValues] = useState({
+    profit: 0,
+    receivableValue: 0,
+    payableValue: 0,
+    netPurchaseValue: 0,
+    netSalesValue: 0,
+    netPurchaseGrams: 0,
+    netSalesGrams: 0
+});
+
     const transactionTypes = [
         "Sales",
         "Sales Return",
@@ -403,8 +401,6 @@ export default function SalesAnalysis() {
         "All"
     ];
 
-    // const currencies = ["GOZ"];
-
     const showToast = useCallback((message, type = "success") => {
         setNotificationMessage(message);
         setNotificationType(type);
@@ -412,11 +408,9 @@ export default function SalesAnalysis() {
         setTimeout(() => setShowNotification(false), 4000);
     }, []);
 
-
     useEffect(() => {
         if (marketData?.bid && !isInputFocused && !isManuallyEdited) {
             const currentConvFactGms = getConvFactGms(filters.metalValueCurrency);
-
             setFilters((prev) => {
                 let newMetalValueAmount = marketData.bid.toString();
                 if (prev.metalValueCurrency !== "KGBAR" && currentConvFactGms) {
@@ -429,19 +423,19 @@ export default function SalesAnalysis() {
             });
         }
     }, [marketData?.bid, isInputFocused, isManuallyEdited, filters.metalValueCurrency, metalRates]);
+
     const handleInputChange = (e) => {
-        setIsManuallyEdited(true); // Mark as manually edited when user types
+        setIsManuallyEdited(true);
         handleFilterChange("metalValueAmount", e.target.value);
     };
 
     const handleInputFocus = () => {
-        setIsInputFocused(true); // Set focus state to true
+        setIsInputFocused(true);
     };
 
     const handleInputBlur = () => {
-        setIsInputFocused(false); // Clear focus state when input loses focus
-        // Optionally reset isManuallyEdited after a delay or specific condition
-        setTimeout(() => setIsManuallyEdited(false), 5000); // Reset after 5 seconds
+        setIsInputFocused(false);
+        setTimeout(() => setIsManuallyEdited(false), 5000);
     };
 
     useEffect(() => {
@@ -476,15 +470,11 @@ export default function SalesAnalysis() {
                         key: "currencies",
                         url: "/currency-master",
                         setter: (data) => {
-                            // Append static "Gold" option to the fetched currencies
-                            const updatedCurrencies = [
-                                ...data,
-                                // { _id: "gold", currencyCode: "Gold" } // Static gold object with id and display name
-                            ];
-                            setCurrency(updatedCurrencies);
-                            console.log("Fetched Currencies:", currency);
-
-
+                            setCurrency(data);
+                            setFilters((prev) => ({
+                                ...prev,
+                                currency: data.map((c) => c.id || c._id),
+                            }));
                         },
                     },
                     { key: "stocks", url: "/metal-stocks", setter: setStocks },
@@ -500,14 +490,13 @@ export default function SalesAnalysis() {
                         },
                     },
                     {
-                        key: "currency",
+                        key: "metalRates",
                         url: "/metal-rates",
                         setter: (data) => {
-                            setMetalRates(data); // Store all metal rates data
+                            setMetalRates(data);
                             const currencyList = data.map((item) => item.rateType).filter(Boolean);
                             setCurrencies(currencyList);
-                            // Set initial convFactGms for default currency (GOZ)
-                            const defaultRate = data.find(rate => rate.rateType === "KGBAR");
+                            const defaultRate = data.find(rate => rate.rateType === "AED");
                             if (defaultRate) {
                                 setConvFactGms(defaultRate.convFactGms);
                             }
@@ -574,42 +563,6 @@ export default function SalesAnalysis() {
     const itemsPerPage = 10;
     const safeLedgerData = Array.isArray(filteredLedgerData) ? filteredLedgerData : [];
 
-    const totalStockIn = useMemo(() => {
-        const data = Array.isArray(filteredLedgerData) ? filteredLedgerData : [];
-        return data.reduce((sum, item) => sum + (item.stockIn || 0), 0);
-    }, [filteredLedgerData]);
-
-
-    const totalStockOut = useMemo(() => {
-        const data = Array.isArray(filteredLedgerData) ? filteredLedgerData : [];
-        return data.reduce((sum, item) => sum + (item.stockOut || 0), 0);
-    }, [filteredLedgerData]);
-
-    const totalBalance = useMemo(() => {
-        return safeLedgerData.reduce((sum, item) => sum + (item.balance || 0), 0);
-    }, [safeLedgerData]);
-
-    const totalGrossWeight = useMemo(() => {
-        return safeLedgerData.reduce(
-            (sum, item) => sum + (item.grossWeight || 0),
-            0
-        );
-    }, [filteredLedgerData]);
-
-    const totalPureWeight = useMemo(() => {
-        return safeLedgerData.reduce(
-            (sum, item) => sum + (item.pureWeight || 0),
-            0
-        );
-    }, [filteredLedgerData]);
-
-    const totalPieces = useMemo(() => {
-        return safeLedgerData.reduce(
-            (sum, item) => sum + (parseInt(item.pieces) || 0),
-            0
-        );
-    }, [filteredLedgerData]);
-
     const totalPages = useMemo(() => {
         return Math.ceil(filteredLedgerData.length / itemsPerPage);
     }, [filteredLedgerData.length]);
@@ -620,25 +573,21 @@ export default function SalesAnalysis() {
         return safeLedgerData.slice(startIndex, endIndex);
     }, [filteredLedgerData, currentPage]);
 
-
     const getConvFactGms = (rateType) => {
         const rate = metalRates.find(r => r.rateType === rateType);
-        return rate ? rate.convFactGms : 31.1035; // Default to troy ounce if not found
+        return rate ? rate.convFactGms : 31.1035; // Default to troy ounce
     };
 
     const handleCurrencyChange = (newCurrency) => {
-        // Find the corresponding metal rate
         const selectedRate = metalRates.find(rate => rate.rateType === newCurrency);
         const newConvFactGms = selectedRate ? selectedRate.convFactGms : 31.1035;
-
         setConvFactGms(newConvFactGms);
 
-        // Recalculate metalValueAmount based on new currency
         if (marketData?.bid) {
             const newMetalValueAmount =
                 newCurrency === "KGBAR"
                     ? marketData.bid.toString()
-                    : ((marketData.bid / newConvFactGms) * 3.647).toFixed(2);
+                    : ((marketData.bid / newConvFactGms) * 3.674).toFixed(2);
             handleFilterChange("metalValueAmount", newMetalValueAmount);
         }
 
@@ -753,106 +702,100 @@ export default function SalesAnalysis() {
         });
     }, []);
 
+  const handleApplyFilters = useCallback(async () => {
+  setSearchLoading(true);
+  try {
+    const body = {};
+    if (filters.fromDate) body.fromDate = filters.fromDate;
+    if (filters.toDate) body.toDate = filters.toDate;
+    if (filters.transactionType) body.transactionType = filters.transactionType;
+    if (filters.division.length > 0) body.division = filters.division;
+    if (filters.voucher.length > 0) {
+      body.voucher = filters.voucher
+        .map((voucherId) => {
+          const voucher = vouchers.find((v) => (v.id || v._id) === voucherId);
+          return voucher ? { type: voucher.voucherType, prefix: voucher.prefix } : null;
+        })
+        .filter((voucher) => voucher !== null);
+    }
+    if (filters.currency.length > 0) {
+      body.currencies = filters.currency.map(currencyId => {
+        const currencyObj = currency.find(c => (c.id || c._id) === currencyId);
+        return currencyObj ? currencyObj.currencyCode : currencyId;
+      });
+    }
+    if (filters.stock.length > 0) body.stock = filters.stock;
+    if (filters.karat.length > 0) body.karat = filters.karat;
+    if (filters.accountType.length > 0) body.accountType = filters.accountType;
+    body.grossWeight = filters.grossWeight;
+    body.pureWeight = filters.pureWeight;
+    body.excludeOpening = filters.pureWeight;
+    body.showNetMovement = filters.showNetMovement;
+    body.showMetalValue = filters.showMetalValue;
+    body.showPurchaseSales = filters.showPurchaseSales;
+    body.showPicture = filters.showPicture;
+    body.showVatReports = filters.showVatReports;
+    body.showSummaryOnly = filters.showSummaryOnly;
+    body.showWastage = filters.showWastage;
+    body.withoutSap = filters.withoutSap;
+    body.showRfnDetails = filters.showRfnDetails;
+    body.showRetails = filters.showRetails;
+    body.showCostIn = filters.showCostIn;
+    if (filters.costCurrency && filters.showCostIn) body.costCurrency = filters.costCurrency;
+    if (filters.costAmount && filters.showCostIn) body.costAmount = filters.costAmount;
+    if (filters.metalValueCurrency && filters.showMetalValue) body.metalValueCurrency = filters.metalValueCurrency;
+    if (filters.metalValueAmount && filters.showMetalValue) body.metalValueAmount = filters.metalValueAmount;
+    if (filters.groupBy.length > 0) body.groupBy = filters.groupBy;
+    if (Object.keys(filters.groupByRange).some((key) => filters.groupByRange[key].length > 0)) {
+      body.groupByRange = filters.groupByRange;
+    }
+    body.rateType = filters.rateType;
 
+    const response = await axios.post("/reports/own-stock/currency", body);
+    const data = response.data?.data || {};
 
-    const handleApplyFilters = useCallback(async () => {
-        setSearchLoading(true);
-        try {
-            const body = {};
-            if (filters.fromDate) body.fromDate = filters.fromDate;
-            if (filters.toDate) body.toDate = filters.toDate;
-            if (filters.transactionType) body.transactionType = filters.transactionType;
-            if (filters.division.length > 0) body.division = filters.division;
-            if (filters.voucher.length > 0) {
-                body.voucher = filters.voucher
-                    .map((voucherId) => {
-                        const voucher = vouchers.find((v) => (v.id || v._id) === voucherId);
-                        return voucher
-                            ? { type: voucher.voucherType, prefix: voucher.prefix }
-                            : null;
-                    })
-                    .filter((voucher) => voucher !== null);
-            }
+    // Transform API response to match expected structure
+    const transformedData = {
+      data: data, // Directly use the API response as the data object
+      payablesAndReceivables: data.payablesAndReceivables || {}, // Fallback for payablesAndReceivables
+      totalRecords: data.totalRecords || 0
+    };
 
-            if (filters.currency.length > 0) {  // Added: Include selected currencies in body
-                body.currencies = filters.currency;
-            }
+    setOwnStockData(transformedData);
+    console.log("Transformed Data:", transformedData);
 
-            if (filters.stock.length > 0) body.stock = filters.stock;
-            if (filters.karat.length > 0) body.karat = filters.karat;
-            if (filters.accountType.length > 0) body.accountType = filters.accountType;
-            body.grossWeight = filters.grossWeight;
-            body.pureWeight = filters.pureWeight;
-            body.excludeOpening = filters.excludeOpening;
-            body.showNetMovement = filters.showNetMovement;
-            body.showMetalValue = filters.showMetalValue;
-            body.showPurchaseSales = filters.showPurchaseSales;
-            body.showPicture = filters.showPicture;
-            body.showVatReports = filters.showVatReports;
-            body.showSummaryOnly = filters.showSummaryOnly;
-            body.showWastage = filters.showWastage;
-            body.withoutSap = filters.withoutSap;
-            body.showRfnDetails = filters.showRfnDetails;
-            body.showRetails = filters.showRetails;
-            body.showCostIn = filters.showCostIn;
-            if (filters.costCurrency && filters.showCostIn) body.costCurrency = filters.costCurrency;
-            if (filters.costAmount && filters.showCostIn) body.costAmount = filters.costAmount;
-            if (filters.metalValueCurrency && filters.showMetalValue) body.metalValueCurrency = filters.metalValueCurrency;
-            if (filters.metalValueAmount && filters.showMetalValue) body.metalValueAmount = filters.metalValueAmount;
-            if (filters.groupBy.length > 0) body.groupBy = filters.groupBy;
-            if (Object.keys(filters.groupByRange).some((key) => filters.groupByRange[key].length > 0)) {
-                body.groupByRange = filters.groupByRange;
-            }
-            body.rateType = filters.rateType;
+    setFilteredLedgerData([]); // Clear categories as the API doesn't return it
+    setCurrentPage(1);
+    setShowDivisionModal(false);
+    showToast("Filters applied successfully");
+  } catch (error) {
+    showToast("Failed to apply filters", "error");
+    console.error("Filter API error:", error);
+  } finally {
+    setSearchLoading(false);
+  }
+}, [filters, showToast, vouchers, currency]);
 
-            console.log("Filter body:", body);
-            const response = await axios.post("/reports/own-stock", body);
-            console.log("API Response:", response.data);
-
-            // Handle API response
-            const data = response.data?.data || { categories: [], summary: {} };
-            // Log avgGrossWeight for debugging
-            data.categories.forEach((item, index) => {
-                console.log(`Category ${index}: ${item.category}, avgGrossWeight: ${item.avgGrossWeight}`);
-            });
-            setOwnStockData(data); // Update state with the entire data object
-            console.log("API Response Data:", data);
-
-            setCurrentPage(1);
-            setShowDivisionModal(false);
-            showToast("Filters applied successfully");
-        } catch (error) {
-            showToast("Failed to apply filters", "error");
-            console.error("Filter API error:", error);
-        } finally {
-            setSearchLoading(false);
-        }
-    }, [filters, showToast, currencies]);
-
-
-    const handleCalculatedValues = useCallback((values) => {
-        setCalculatedValues({
-            profit: values.profit,
-            receivableValue: values.receivableValue,
-            payableValue: values.payableValue,
-            netPurchaseValue: values.netPurchaseValue,
-            netSalesValue: values.netSalesValue,
-            netPurchaseGrams: values.netPurchaseGrams,
-            netSalesGrams: values.netSalesGrams
-        });
-    }, []);
+  const handleCalculatedValues = useCallback((values) => {
+    setCalculatedValues({
+        profit: Number(values?.profit) || 0,
+        receivableValue: Number(values?.receivableValue) || 0,
+        payableValue: Number(values?.payableValue) || 0,
+        netPurchaseValue: Number(values?.netPurchaseValue) || 0,
+        netSalesValue: Number(values?.netSalesValue) || 0,
+        netPurchaseGrams: Number(values?.netPurchaseGrams) || 0,
+        netSalesGrams: Number(values?.netSalesGrams) || 0
+    });
+}, []);
 
     const handleClearFilters = useCallback(() => {
         setFilters({
             fromDate: "",
             toDate: "",
             transactionType: "sales",
-            currency: [],
-            // keep default transaction type
-            // division: [],               // clear all
-            // voucher: [],                // clear all
             division: divisions.map(d => d.id || d._id),
             voucher: vouchers.map(v => v.id || v._id),
+            currency: currency.map(c => c.id || c._id),
             stock: [],
             karat: [],
             accountType: [],
@@ -860,7 +803,7 @@ export default function SalesAnalysis() {
             pureWeight: false,
             showMoved: false,
             showNetMovement: false,
-            showMetalValue: false,
+            showMetalValue: true,
             showPurchaseSales: false,
             showPicture: false,
             showVatReports: false,
@@ -916,15 +859,11 @@ export default function SalesAnalysis() {
             },
         });
 
-        // Empty the table right away
-        setOwnStockData([]);
+        setOwnStockData({ summary: {}, categories: [] });
         setFilteredLedgerData([]);
         setCurrentPage(1);
-
         showToast("Filters cleared, table emptied");
-    }, [showToast]);
-
-
+    }, [showToast, divisions, vouchers, currency]);
 
     const handleExport = useCallback(() => {
         showToast("Export functionality will be implemented soon");
@@ -1016,10 +955,10 @@ export default function SalesAnalysis() {
                                 </div>
                                 <div>
                                     <h1 className="text-4xl md:text-5xl font-black bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-                                        Own Stock
+                                        Own Stock Currency
                                     </h1>
                                     <p className="text-blue-200 text-lg font-medium mt-2">
-                                        Advanced Analytics & Stock Management
+                                        Advanced Currency Analytics & Management
                                     </p>
                                     <div className="flex items-center space-x-4 mt-3">
                                         <div className="flex items-center space-x-2">
@@ -1034,22 +973,21 @@ export default function SalesAnalysis() {
                                 </div>
                             </div>
                             <div className="flex items-center space-x-4">
-                                {/* <button
-                  onClick={() =>
-                    setViewMode(viewMode === "table" ? "grid" : "table")
-                  }
-                  className="group bg-white/10 hover:bg-white/20 p-3 rounded-xl transition-all duration-300 backdrop-blur-sm hover:scale-105"
-                >
-                  {viewMode === "table" ? (
-                    <Grid className="w-5 h-5 group-hover:rotate-12 transition-transform" />
-                  ) : (
-                    <List className="w-5 h-5 group-hover:rotate-12 transition-transform" />
-                  )}
-                </button>
-               
-                <button className="group bg-white/10 hover:bg-white/20 p-3 rounded-xl transition-all duration-300 backdrop-blur-sm hover:scale-105">
-                  <Settings className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
-                </button> */}
+                                <button
+                                    onClick={() =>
+                                        setViewMode(viewMode === "table" ? "grid" : "table")
+                                    }
+                                    className="group bg-white/10 hover:bg-white/20 p-3 rounded-xl transition-all duration-300 backdrop-blur-sm hover:scale-105"
+                                >
+                                    {viewMode === "table" ? (
+                                        <Grid className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+                                    ) : (
+                                        <List className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+                                    )}
+                                </button>
+                                <button className="group bg-white/10 hover:bg-white/20 p-3 rounded-xl transition-all duration-300 backdrop-blur-sm hover:scale-105">
+                                    <Settings className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
+                                </button>
                             </div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-8">
@@ -1060,9 +998,9 @@ export default function SalesAnalysis() {
                                             Total Profit
                                         </p>
                                         <p className="text-3xl font-bold text-white mt-1">
-                                            {calculatedValues.profit}
+                                            {calculatedValues.profit.toFixed(2)}
                                         </p>
-                                        <p className="text-xs text-gray-300">Grams</p>
+                                        <p className="text-xs text-gray-300">Amount</p>
                                     </div>
                                     <div className="p-3 bg-gradient-to-br from-green-400 to-emerald-500 rounded-xl group-hover:scale-110 transition-transform">
                                         <ArrowUpRight className="w-6 h-6 text-white" />
@@ -1085,9 +1023,9 @@ export default function SalesAnalysis() {
                                             Total Net Sales Value
                                         </p>
                                         <p className="text-3xl font-bold text-white mt-1">
-                                            {calculatedValues.netSalesValue}
+                                            {calculatedValues.netSalesValue.toFixed(2)}
                                         </p>
-                                        <p className="text-xs text-gray-300">Grams</p>
+                                        <p className="text-xs text-gray-300">Amount</p>
                                     </div>
                                     <div className="p-3 bg-gradient-to-br from-red-400 to-rose-500 rounded-xl group-hover:scale-110 transition-transform">
                                         <ArrowDownRight className="w-6 h-6 text-white" />
@@ -1107,12 +1045,12 @@ export default function SalesAnalysis() {
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-blue-200 text-sm font-medium">
-                                            Total net Purchase Value
+                                            Total Net Purchase Value
                                         </p>
                                         <p className="text-3xl font-bold text-white mt-1">
-                                            {calculatedValues.netPurchaseValue}
+                                            {calculatedValues.netPurchaseValue.toFixed(2)}
                                         </p>
-                                        <p className="text-xs text-gray-300">Grams</p>
+                                        <p className="text-xs text-gray-300">Amount</p>
                                     </div>
                                     <div className="p-3 bg-gradient-to-br from-blue-400 to-cyan-500 rounded-xl group-hover:scale-110 transition-transform">
                                         <Database className="w-6 h-6 text-white" />
@@ -1135,7 +1073,7 @@ export default function SalesAnalysis() {
                                             Active Transactions
                                         </p>
                                         <p className="text-3xl font-bold text-white mt-1">
-                                            {filteredLedgerData.length}
+                                            {ownStockData.categories?.length || 0}
                                         </p>
                                         <p className="text-xs text-gray-300">Records</p>
                                     </div>
@@ -1165,7 +1103,7 @@ export default function SalesAnalysis() {
                             <div>
                                 <h2 className="text-xl font-bold text-gray-800">Smart Filters</h2>
                                 <p className="text-sm text-gray-600">
-                                    Refine your search with precision
+                                    Refine your currency search with precision
                                 </p>
                             </div>
                             <button
@@ -1173,8 +1111,7 @@ export default function SalesAnalysis() {
                                 className="p-2 hover:bg-gray-100 rounded-xl transition-all duration-200 group"
                             >
                                 <ChevronDown
-                                    className={`w-5 h-5 text-gray-600 transform transition-transform duration-300 group-hover:text-blue-600 ${showFilters ? "rotate-180" : ""
-                                        }`}
+                                    className={`w-5 h-5 text-gray-600 transform transition-transform duration-300 group-hover:text-blue-600 ${showFilters ? "rotate-180" : ""}`}
                                 />
                             </button>
                         </div>
@@ -1198,7 +1135,10 @@ export default function SalesAnalysis() {
                                 )}
                                 <span className="font-semibold">Apply Filters</span>
                             </button>
-                            <OwnStockPDF stockData={ownStockData} excludeOpening={filters.pureWeight} bidPrice={marketData?.bid}
+                            <OwnStockPDF
+                                stockData={ownStockData}
+                                excludeOpening={filters.pureWeight}
+                                bidPrice={marketData?.bid}
                                 metalValueAmount={filters.metalValueAmount}
                                 convFactGms={convFactGms}
                                 metalValueCurrency={filters.metalValueCurrency}
@@ -1227,42 +1167,37 @@ export default function SalesAnalysis() {
                                             <input
                                                 type="date"
                                                 value={filters.fromDate}
-                                                max={new Date().toISOString().split('T')[0]} // Prevent future dates
+                                                max={new Date().toISOString().split('T')[0]}
                                                 onClick={(e) => e.target.showPicker?.()}
                                                 onChange={(e) => handleFilterChange("fromDate", e.target.value)}
                                                 className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 backdrop-blur-sm transition-all duration-200 hover:bg-white"
                                             />
                                         </div>
                                         <div className="space-y-2">
-                                            <div className="grid grid-rows-2 gap-4">
-
-                                                <div className="space-y-2">
-                                                    <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700">
-                                                        <span>Rate Type</span>
-                                                    </label>
-                                                    <div className="flex space-x-2">
-                                                        <select
-                                                            value={filters.metalValueCurrency}
-                                                            onChange={(e) => handleFilterChange("metalValueCurrency", e.target.value)}
-                                                            className="w-1/6.6 px-4 py-2 border esfera border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 backdrop-blur-sm transition-all duration-200 hover:bg-white text-sm"
-                                                        >
-                                                            {currencies.map((currency) => (
-                                                                <option key={currency} value={currency}>
-                                                                    {currency}
-                                                                </option>
-                                                            ))}
-                                                        </select>
-                                                        <input
-                                                            type="number"
-                                                            value={filters.metalValueAmount}
-                                                            onChange={handleInputChange}
-                                                            onFocus={handleInputFocus}
-                                                            onBlur={handleInputBlur}
-                                                            placeholder="Amount"
-                                                            className="w-1/2 px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 backdrop-blur-sm transition-all duration-200 hover:bg-white text-sm"
-                                                        />
-                                                    </div>
-                                                </div>
+                                            <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700">
+                                                <span>Rate Type</span>
+                                            </label>
+                                            <div className="flex space-x-2">
+                                                <select
+                                                    value={filters.metalValueCurrency}
+                                                    onChange={(e) => handleCurrencyChange(e.target.value)}
+                                                    className="w-1/2 px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 backdrop-blur-sm transition-all duration-200 hover:bg-white text-sm"
+                                                >
+                                                    {currencies.map((currency) => (
+                                                        <option key={currency} value={currency}>
+                                                            {currency}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                <input
+                                                    type="number"
+                                                    value={filters.metalValueAmount}
+                                                    onChange={handleInputChange}
+                                                    onFocus={handleInputFocus}
+                                                    onBlur={handleInputBlur}
+                                                    placeholder="Amount"
+                                                    className="w-1/2 px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 backdrop-blur-sm transition-all duration-200 hover:bg-white text-sm"
+                                                />
                                             </div>
                                         </div>
                                     </div>
@@ -1277,7 +1212,7 @@ export default function SalesAnalysis() {
                                             <input
                                                 type="date"
                                                 value={filters.toDate}
-                                                max={new Date().toISOString().split('T')[0]} // Prevent future dates
+                                                max={new Date().toISOString().split('T')[0]}
                                                 onClick={(e) => e.target.showPicker?.()}
                                                 onChange={(e) => handleFilterChange("toDate", e.target.value)}
                                                 className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 backdrop-blur-sm transition-all duration-200 hover:bg-white"
@@ -1296,26 +1231,20 @@ export default function SalesAnalysis() {
                                                 checked={filters.pureWeight}
                                                 onChange={handleBooleanFilterChange}
                                             />
-
-
                                         </div>
                                     </div>
                                     <div className="space-y-4">
                                         <div className="space-y-2">
-
-                                        </div>
-                                        <div className="space-y-2 my-24">
                                             <BooleanFilter
                                                 title="Position By Weighted Average Rate"
                                                 field="showWastage"
                                                 checked={filters.showWastage}
                                                 onChange={handleBooleanFilterChange}
                                             />
-
                                         </div>
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 -mt-11">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                     <CheckboxFilter
                                         title="Division"
                                         options={divisions.map((d) => ({
@@ -1334,15 +1263,15 @@ export default function SalesAnalysis() {
                                         title="Currencies"
                                         options={currency.map((c) => ({
                                             ...c,
-                                            name: c.currencyCode,  // Display currencyCode (e.g., AED, INR)
-                                            checked: (filters.currency || []).includes(c.id || c._id),
+                                            name: c.currencyCode,
+                                            checked: filters.currency.includes(c.id || c._id),
                                         }))}
                                         field="currency"
                                         icon={DollarSign}
                                         searchTerm={searchTerms.currency}
                                         onCheckboxChange={handleCheckboxChange}
                                         onSearchChange={handleSearchChange}
-                                        allSelected={(filters.currency || []).length === currency.length}
+                                        allSelected={filters.currency.length === currency.length}
                                         onToggleAll={handleToggleAll}
                                     />
                                     <CheckboxFilter
@@ -1357,64 +1286,8 @@ export default function SalesAnalysis() {
                                         onCheckboxChange={handleCheckboxChange}
                                         onSearchChange={handleSearchChange}
                                         allSelected={filters.voucher.length === vouchers.length}
-                                        onToggleAll={handleToggleAll} />
-
-                                    <div className="p-4 rounded-xl bg-white shadow space-y-4 h-[180px]">
-                                        <h2 className="text-lg font-semibold text-gray-800">Opening Rate</h2>
-                                        <div className="flex items-center space-x-6 text-sm font-medium text-gray-700">
-                                            <label className="flex items-center space-x-2">
-                                                <input
-                                                    type="radio"
-                                                    name="rateOption"
-                                                    value="avg"
-                                                    checked={filters.rateType === "avg"}
-                                                    onChange={() => handleFilterChange("rateType", "avg")}
-                                                    className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                                                />
-                                                <span>Avg Rate</span>
-                                            </label>
-                                            <label className="flex items-center space-x-2">
-                                                <input
-                                                    type="radio"
-                                                    name="rateOption"
-                                                    value="custom"
-                                                    checked={filters.rateType === "custom"}
-                                                    onChange={() => handleFilterChange("rateType", "custom")}
-                                                    className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                                                />
-                                                <span>Rate</span>
-                                            </label>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700">
-                                                <span>Rate Type</span>
-                                            </label>
-                                            <div className="flex space-x-2">
-                                                <select
-                                                    value={filters.metalValueCurrency}
-                                                    onChange={(e) => handleCurrencyChange(e.target.value)}
-                                                    className="w-1/6.6 px-4 py-2 border esfera border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 backdrop-blur-sm transition-all duration-200 hover:bg-white text-sm"
-                                                >
-                                                    {currencies.map((currency) => (
-                                                        <option key={currency} value={currency}>
-                                                            {currency}
-                                                        </option>
-                                                    ))}
-                                                </select>
-
-                                                <input
-                                                    type="number"
-                                                    value={filters.metalValueAmount}
-                                                    onChange={handleInputChange}
-                                                    onFocus={handleInputFocus}
-                                                    onBlur={handleInputBlur}
-                                                    placeholder="Amount"
-                                                    className="w-1/2 px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 backdrop-blur-sm transition-all duration-200 hover:bg-white text-sm"
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-
+                                        onToggleAll={handleToggleAll}
+                                    />
                                 </div>
                             </motion.div>
                         ) : showFilters && loading ? (
@@ -1432,22 +1305,21 @@ export default function SalesAnalysis() {
                 />
             </div>
             <div className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl border border-white/30 p-6 max-w-[150vh] mx-auto scrollbar-hide">
-                <OwnStockStatement
+                <OwnStockStatementCurrency
                     stockData={ownStockData}
                     excludeOpening={filters.pureWeight}
                     bidPrice={marketData?.bid}
                     metalValueAmount={filters.metalValueAmount}
-                    convFactGms={getConvFactGms(filters.metalValueCurrency)}
+                    convFactGms={convFactGms}
                     fromDate={filters.fromDate}
                     toDate={filters.toDate}
                     metalValueCurrency={filters.metalValueCurrency}
                     rateType={filters.rateType}
-                    onCalculatedValues={setCalculatedValues}
+                    onCalculatedValues={handleCalculatedValues}
                     selectedCurrencies={filters.currency.map(currencyId => {
                         const currencyObj = currency.find(c => (c.id || c._id) === currencyId);
                         return currencyObj ? currencyObj.currencyCode : currencyId;
                     })}
-
                 />
             </div>
         </>
