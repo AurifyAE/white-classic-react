@@ -35,45 +35,57 @@ function OwnStockStatement({
   };
 
   // Process data for each currency
+// Process data for each currency
   const processedData = useMemo(() => {
     const result = {};
     selectedCurrencies.forEach((currency) => {
-      // Get category data for the currency
-      const purchaseData = stockData.data?.[currency]?.["METAL-PURCHASE"] || {};
-      const salesData = stockData.data?.[currency]?.["METAL-SALE"] || {};
+      // Get all category data for the currency
+      const categoryData = stockData?.data?.[currency] || {};
 
-      // Get summary values from payablesAndReceivables
-      const receivableGrams = Number(stockData.payablesAndReceivables?.totalReceivableGrams || 0);
-      const payableGrams = Number(stockData.payablesAndReceivables?.totalPayableGrams || 0);
-      const receivableAverage = Number(stockData.payablesAndReceivables?.avgReceivableGrams || 0);
-      const payableAverage = Number(stockData.payablesAndReceivables?.avgPayableGrams || 0);
-      const totalReceivableAmount = Number(stockData.payablesAndReceivables?.totalReceivableAmount?.[currency] || 0);
-      const totalPayableAmount = Number(stockData.payablesAndReceivables?.totalPayableAmount?.[currency] || 0);
+      // Get summary values from payablesAndReceivables (with fallback)
+      const payablesAndReceivables = stockData.payablesAndReceivables || {};
+      const receivableGrams = Number(payablesAndReceivables?.totalReceivableGrams || 0);
+      const payableGrams = Number(payablesAndReceivables?.totalPayableGrams || 0);
+      const receivableAverage = Number(payablesAndReceivables?.avgReceivableGrams || 0);
+      const payableAverage = Number(payablesAndReceivables?.avgPayableGrams || 0);
+      const totalReceivableAmount = Number(payablesAndReceivables?.totalReceivableAmount?.[currency] || 0);
+      const totalPayableAmount = Number(payablesAndReceivables?.totalPayableAmount?.[currency] || 0);
 
       // Format receivable and payable values
       const receivableValue = totalReceivableAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       const payableValue = totalPayableAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-      // Format stock data
+      // Format stock data for all categories
       const formattedStockData = [];
-      if (purchaseData.totalAmount || purchaseData.averageRate) {
-        formattedStockData.push({
-          id: `purchase_${currency}`,
-          category: "Purchase",
-          valueAcd: Number(purchaseData.totalAmount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-          average: Number(purchaseData.averageRate || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-          section: "Purchase"
-        });
-      }
-      if (salesData.totalAmount || salesData.averageRate) {
-        formattedStockData.push({
-          id: `sales_${currency}`,
-          category: "Sales",
-          valueAcd: Number(salesData.totalAmount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-          average: Number(salesData.averageRate || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-          section: "Sales"
-        });
-      }
+      let netPurchase = { valueAcd: 0, average: 0 };
+      let netSales = { valueAcd: 0, average: 0 };
+
+      Object.keys(categoryData).forEach((category) => {
+        const data = categoryData[category] || {};
+        if (data.totalAmount || data.averageRate) {
+          const isPurchase = category.toUpperCase().includes("PURCHASE");
+          const isSales = category.toUpperCase().includes("SALE") || category.toUpperCase().includes("SALES");
+
+          const formattedEntry = {
+            id: `${category.toLowerCase()}_${currency}`,
+            category: category, // Display raw category name
+            valueAcd: Number(data.totalAmount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+            average: Number(data.averageRate || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+            section: isPurchase ? "Purchase" : isSales ? "Sales" : "Other"
+          };
+
+          formattedStockData.push(formattedEntry);
+
+          // Aggregate for net calculations
+          if (isPurchase) {
+            netPurchase.valueAcd += Number(data.totalAmount || 0);
+            netPurchase.average = data.averageRate ? Number(data.averageRate) : netPurchase.average;
+          } else if (isSales) {
+            netSales.valueAcd += Number(data.totalAmount || 0);
+            netSales.average = data.averageRate ? Number(data.averageRate) : netSales.average;
+          }
+        }
+      });
 
       // Combine with receivable and payable
       const fullStockData = [...formattedStockData];
@@ -96,15 +108,7 @@ function OwnStockStatement({
         });
       }
 
-      // Calculate net values
-      const netPurchase = {
-        valueAcd: Number(purchaseData.totalAmount || 0),
-        average: Number(purchaseData.averageRate || 0)
-      };
-      const netSales = {
-        valueAcd: Number(salesData.totalAmount || 0),
-        average: Number(salesData.averageRate || 0)
-      };
+      // Calculate net receivable and payable
       const netReceivable = {
         valueAcd: totalReceivableAmount,
         average: receivableAverage
