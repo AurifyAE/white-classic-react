@@ -52,149 +52,160 @@ const OrderStatementsTab = ({
     return `${day}/${month}/${year}`;
   };
 
-useEffect(() => {
-  const fetchRegistry = async () => {
-    try {
-      setLoading(true);
+  useEffect(() => {
+    const fetchRegistry = async () => {
+      try {
+        setLoading(true);
 
-      const res = await axiosInstance.get(`/registry/get-by-party/${debtorId}`);
-      const { data } = res.data;
+        const res = await axiosInstance.get(
+          `/registry/get-by-party/${debtorId}`
+        );
+        const { data } = res.data;
 
-      console.log("Raw data:", data);
+        console.log("Raw data:", data);
 
-      // Filter out CURRENCY_EXCHANGE transactions
-   const filteredData = data.filter(
-  (txn) =>
-    txn.type !== "CURRENCY_EXCHANGE" &&
-    txn.type !== "VAT_AMOUNT" &&
-    txn.type !== "GOLD" &&
-    txn.type != "purchase-fixing"
-    
-);
+        // Filter out CURRENCY_EXCHANGE transactions
+        const filteredData = data.filter(
+          (txn) =>
+            txn.type !== "CURRENCY_EXCHANGE" &&
+            txn.type !== "VAT_AMOUNT" &&
+            txn.type !== "GOLD" &&
+            txn.type != "purchase-fixing"
+        );
 
-console.log("Filtered data (excluding CURRENCY_EXCHANGE, VAT_AMOUNT, GOLD):", filteredData);
+        console.log(
+          "Filtered data (excluding CURRENCY_EXCHANGE, VAT_AMOUNT, GOLD):",
+          filteredData
+        );
 
-      // Sort data in chronological order for balance calculation (oldest to newest)
-      const chronologicalData = [...filteredData].sort(
-        (a, b) => new Date(a.transactionDate) - new Date(b.transactionDate)
-      );
+        // Sort data in chronological order for balance calculation (oldest to newest)
+        const chronologicalData = [...filteredData].sort(
+          (a, b) => new Date(a.transactionDate) - new Date(b.transactionDate)
+        );
 
-      // Initialize running balances for each asset type
-      let aedRunningBalance = 0;
-      let inrRunningBalance = 0;
-      let goldRunningBalance = 0;
+        // Initialize running balances for each asset type
+        let aedRunningBalance = 0;
+        let inrRunningBalance = 0;
+        let goldRunningBalance = 0;
 
-      const mappedRegistry = chronologicalData.map((txn) => {
-        const debit = txn.debit || 0;
-        const credit = txn.credit || 0;
-        const assetType = txn.assetType || "AED"; // Default to AED if not specified
+        const mappedRegistry = chronologicalData.map((txn) => {
+          const debit = txn.debit || 0;
+          const credit = txn.credit || 0;
+          const assetType = txn.assetType || 0; // Default to AED if not specified
 
-        // Update running balances based on assetType
-       if (assetType === "XAU") {
-  goldRunningBalance += credit - debit;
-} else if (assetType === "AED") {
-  aedRunningBalance += credit - debit;
-} else if (assetType === "INR") {
-  inrRunningBalance += credit - debit;
-}
-        return {
-          docDate: formatDate(txn.transactionDate),
-          docRef: txn.reference || "",
-          branch: txn.branch || "HO",
-          particulars: txn.description || "",
-          type: txn.type,
-          debit,
-          credit,
-          currency: assetType,
-          balance: assetType === "AED" ? aedRunningBalance : inrRunningBalance, // For backward compatibility
-          goldInGMS:
-            assetType === "XAU"
-              ? { debit, credit, balance: goldRunningBalance }
-              : { debit: 0, credit: 0, balance: 0 },
-          aed:
-            assetType === "AED"
-              ? { debit, credit, balance: aedRunningBalance }
-              : { debit: 0, credit: 0, balance: 0 },
-          inr:
-            assetType === "INR"
-              ? { debit, credit, balance: inrRunningBalance }
-              : { debit: 0, credit: 0, balance: 0 },
-        };
-      });
+          // Update running balances based on assetType
+          if (assetType === "XAU" || txn.type === "PARTY_GOLD_BALANCE") {
+            console.log("=====================")
+            goldRunningBalance += credit - debit;
+          } else if (assetType === "AED") {
+            aedRunningBalance += credit - debit;
+          } else if (assetType === "INR") {
+            inrRunningBalance += credit - debit;
+          }
+          return {
+            docDate: formatDate(txn.transactionDate),
+            docRef: txn.reference || "",
+            branch: txn.branch || "HO",
+            particulars: txn.description || "",
+            type: txn.type,
+            debit,
+            credit,
+            currency: assetType,
+            balance:
+              assetType === "AED" ? aedRunningBalance : inrRunningBalance, // For backward compatibility
+            goldInGMS:
+              assetType === "XAU" || txn.type === "PARTY_GOLD_BALANCE"
+                ? { debit, credit, balance: goldRunningBalance }
+                : { debit: 0, credit: 0, balance: 0 },
+            aed:
+              assetType === "AED"
+                ? { debit, credit, balance: aedRunningBalance }
+                : { debit: 0, credit: 0, balance: 0 },
+            inr:
+              assetType === "INR"
+                ? { debit, credit, balance: inrRunningBalance }
+                : { debit: 0, credit: 0, balance: 0 },
+          };
+        });
 
-      console.log("Mapped registry:", mappedRegistry);
+        console.log("Mapped registry:", mappedRegistry);
 
-      // Reverse for display (newest first, LIFO)
-      const displayRegistry = [...mappedRegistry].reverse();
+        // Reverse for display (newest first, LIFO)
+        const displayRegistry = [...mappedRegistry].reverse();
 
-      setRegistries(displayRegistry);
-      setFilteredRegistries(displayRegistry);
-      setTotalItems(displayRegistry.length);
+        setRegistries(displayRegistry);
+        setFilteredRegistries(displayRegistry);
+        setTotalItems(displayRegistry.length);
 
-      // Calculate summary: total debit, total credit, and net balance
-      const goldTxns = mappedRegistry.filter((txn) => txn.currency === "XAU");
-      const goldCredit = goldTxns.reduce(
-        (sum, txn) => sum + (txn.goldInGMS.credit || 0),
-        0
-      );
-      const goldDebit = goldTxns.reduce(
-        (sum, txn) => sum + (txn.goldInGMS.debit || 0),
-        0
-      );
-      const goldBalance = goldTxns.length > 0 ? goldTxns[goldTxns.length - 1].goldInGMS.balance : 0;
+        // Calculate summary: total debit, total credit, and net balance
+        const goldTxns = mappedRegistry.filter((txn) => txn.currency === "XAU" || txn.type === "PARTY_GOLD_BALANCE");
+        const goldCredit = goldTxns.reduce(
+          (sum, txn) => sum + (txn.goldInGMS.credit || 0),
+          0
+        );
+        const goldDebit = goldTxns.reduce(
+          (sum, txn) => sum + (txn.goldInGMS.debit || 0),
+          0
+        );
+        const goldBalance =
+          goldTxns.length > 0
+            ? goldTxns[goldTxns.length - 1].goldInGMS.balance
+            : 0;
 
-      const aedTxns = mappedRegistry.filter((txn) => txn.currency === "AED");
-      const aedCredit = aedTxns.reduce(
-        (sum, txn) => sum + (txn.aed.credit || 0),
-        0
-      );
-      const aedDebit = aedTxns.reduce(
-        (sum, txn) => sum + (txn.aed.debit || 0),
-        0
-      );
-      const aedBalance = aedTxns.length > 0 ? aedTxns[aedTxns.length - 1].aed.balance : 0;
+        const aedTxns = mappedRegistry.filter((txn) => txn.currency === "AED");
+        const aedCredit = aedTxns.reduce(
+          (sum, txn) => sum + (txn.aed.credit || 0),
+          0
+        );
+        const aedDebit = aedTxns.reduce(
+          (sum, txn) => sum + (txn.aed.debit || 0),
+          0
+        );
+        const aedBalance =
+          aedTxns.length > 0 ? aedTxns[aedTxns.length - 1].aed.balance : 0;
 
-      const inrTxns = mappedRegistry.filter((txn) => txn.currency === "INR");
-      const inrCredit = inrTxns.reduce(
-        (sum, txn) => sum + (txn.inr.credit || 0),
-        0
-      );
-      const inrDebit = inrTxns.reduce(
-        (sum, txn) => sum + (txn.inr.debit || 0),
-        0
-      );
-      const inrBalance = inrTxns.length > 0 ? inrTxns[inrTxns.length - 1].inr.balance : 0;
+        const inrTxns = mappedRegistry.filter((txn) => txn.currency === "INR");
+        const inrCredit = inrTxns.reduce(
+          (sum, txn) => sum + (txn.inr.credit || 0),
+          0
+        );
+        const inrDebit = inrTxns.reduce(
+          (sum, txn) => sum + (txn.inr.debit || 0),
+          0
+        );
+        const inrBalance =
+          inrTxns.length > 0 ? inrTxns[inrTxns.length - 1].inr.balance : 0;
 
-      console.log("Summary gold:", {
-        debit: goldDebit,
-        credit: goldCredit,
-        balance: goldBalance,
-      });
-      console.log("Summary AED:", {
-        debit: aedDebit,
-        credit: aedCredit,
-        balance: aedBalance,
-      });
-      console.log("Summary INR:", {
-        debit: inrDebit,
-        credit: inrCredit,
-        balance: inrBalance,
-      });
+        console.log("Summary gold:", {
+          debit: goldDebit,
+          credit: goldCredit,
+          balance: goldBalance,
+        });
+        console.log("Summary AED:", {
+          debit: aedDebit,
+          credit: aedCredit,
+          balance: aedBalance,
+        });
+        console.log("Summary INR:", {
+          debit: inrDebit,
+          credit: inrCredit,
+          balance: inrBalance,
+        });
 
-      setSummary({
-        gold: { debit: goldDebit, credit: goldCredit, balance: goldBalance },
-        AED: { debit: aedDebit, credit: aedCredit, balance: aedBalance },
-        INR: { debit: inrDebit, credit: inrCredit, balance: inrBalance },
-      });
-    } catch (error) {
-      console.error("Error fetching registry:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+        setSummary({
+          gold: { debit: goldDebit, credit: goldCredit, balance: goldBalance },
+          AED: { debit: aedDebit, credit: aedCredit, balance: aedBalance },
+          INR: { debit: inrDebit, credit: inrCredit, balance: inrBalance },
+        });
+      } catch (error) {
+        console.error("Error fetching registry:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  fetchRegistry();
-}, [debtorId]);
+    fetchRegistry();
+  }, [debtorId]);
 
   useEffect(() => {
     let filtered = registries.filter(
@@ -276,39 +287,39 @@ console.log("Filtered data (excluding CURRENCY_EXCHANGE, VAT_AMOUNT, GOLD):", fi
     setCurrentPage(1); // Reset to first page on sort
   };
 
-const formatWithCRDR = (amount, currency) => {
-  const isCredit = amount >= 0;
-  const absAmount = Math.abs(amount);
-  const formatted = formatIndianAmount(absAmount);
-  
-  if (currency === "INR") {
-    return (
-      <span>
-        {formatted} ₹ {isCredit ? "CR" : "DR"}
-      </span>
-    );
-  } else if (currency === "AED") {
-    return (
-      <span className="flex items-center gap-1">
-        {formatted}{" "}
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 1500 1500"
-          className="w-4 h-4 fill-current"
-        >
-          <path d="M474.94,1272.7H263.1a39.35,39.35,0,0,1-5-.1c-2.06-.28-3.18-1.34-1.43-3.29,30.93-34.3,40.49-76.77,46.14-120.72a396.09,396.09,0,0,0,2.84-49.77c.1-61.34,0-122.67.21-184,0-6.25-1.5-8.13-7.89-8-17.58.45-35.19.13-52.78.13-40.31,0-67-21-84.8-55.34-12-23.24-12-48.5-11.7-73.76,0-1.12-.22-2.59,1.23-3,1.65-.48,2.5,1,3.48,2,9,8.43,18.42,16.22,30.17,20.64a70.72,70.72,0,0,0,25,4.81c30,0,59.92-.12,89.87.13,5.54.05,7.4-1.3,7.34-7.13q-.42-44.92,0-89.86c.05-5.83-1.42-7.8-7.51-7.67-18.29.38-36.61.14-54.91.13-32.64,0-57-15.23-75-41.5-13.39-19.53-19.37-41.47-19.5-65.07,0-6.42-.17-12.84,0-19.25,0-2.16-1.54-5.44,1.28-6.25,2.06-.59,3.81,2.23,5.45,3.85,15.48,15.3,33.68,23.77,55.86,23.51,29.24-.34,58.49-.18,87.73,0,4.83,0,6.59-1.14,6.57-6.33-.31-65.37.28-130.75-.76-196.11-.71-44.65-8.34-88.23-28-129C271.89,251,265.14,241.34,257.92,232c-.82-1.07-2.76-1.71-2.19-3.26.71-1.91,2.76-1.4,4.39-1.4h8.56c127.91,0,255.82-.3,383.72.28,68.37.31,135.65,9.48,201.41,28.89,68,20.08,130,51.63,183.75,98.14,40.35,34.89,72.29,76.62,97,123.88a480.21,480.21,0,0,1,40.62,108.14c1.17,4.76,3.1,6.55,8.17,6.49,24-.24,48-.09,72,0,40.69.09,67.08,21.68,84.58,56.46,11.39,22.63,11.7,47.07,11.47,71.58,0,1.38.23,3.14-1.37,3.73-1.83.67-3-.82-4.16-2-8.21-8.33-17.39-15.22-28.3-19.73a67.66,67.66,0,0,0-25.65-5.26c-30.67-.12-61.34.08-92-.15-5.55,0-7.34,1.23-7,7.14a652.48,652.48,0,0,1,.07,89.75c-.48,6.85,1.8,7.87,7.79,7.75,17.11-.35,34.27.58,51.34-.24,46.19-2.24,80.8,30.71,93.43,70.73,6,19.15,5.81,38.77,5.64,58.45,0,1.13.51,2.59-1,3-1.92.54-3-1.18-4.15-2.25-8.74-8.43-18-16-29.58-20.36a66.74,66.74,0,0,0-23.55-4.75c-35.9-.07-71.8.06-107.7-.16-5.61,0-8,1.26-9.52,7.3-15.24,62.19-40.35,119.89-79.14,171.26s-87.42,91.1-144.44,120.61c-69.73,36.08-144.55,54.11-222.2,62.14-35,3.62-70.11,4.73-105.28,4.68q-74.9-.09-149.78,0ZM730.42,593.1V593q130.47,0,260.94.14c6.18,0,7.71-1.5,6.56-7.56-10.22-53.87-25.85-105.75-54.15-153.27-29.61-49.73-70.07-87.68-122-113.16C768.42,293,711.22,282.73,652.46,280.59c-60.56-2.22-121.18-.39-181.78-1-6.71-.07-8.21,1.89-8.19,8.33q.3,148.64,0,297.28c0,7,2.24,8.05,8.43,8Q600.66,592.95,730.42,593.1Zm.2,313.92V907q-130.15,0-260.3-.16c-6.38,0-7.83,1.7-7.82,7.93.21,95.32.12,190.63.22,286,0,6.31-2.84,14.49,1.35,18.46s12.26,1.26,18.6,1.17c60.34-.9,120.73,2.48,181-2.27,52-4.1,102.31-14.82,149.78-37,50.4-23.59,91.3-58.27,122.21-104.71,33-49.6,50.79-104.94,62.06-162.82,1.1-5.67-.69-6.6-6.1-6.59Q861.13,907.16,730.62,907Zm5.48-104.68v-.21c88.65,0,177.3-.09,265.95.19,6.38,0,8.23-1.78,8.36-7.71q1-44.91,0-89.8c-.13-5.47-1.76-7.17-7.47-7.16q-265.95.27-531.9,0c-7.12,0-8.6,2.25-8.52,8.88.34,28.75.17,57.51.16,86.26,0,9.54-.05,9.53,9.66,9.53Z" />
-        </svg>{" "}
-        {isCredit ? "CR" : "DR"}
-      </span>
-    );
-  } else {
-    return (
-      <span>
-        {formatted} {currency} {isCredit ? "CR" : "DR"}
-      </span>
-    );
-  }
-};
+  const formatWithCRDR = (amount, currency) => {
+    const isCredit = amount >= 0;
+    const absAmount = Math.abs(amount);
+    const formatted = formatIndianAmount(absAmount);
+
+    if (currency === "INR") {
+      return (
+        <span>
+          {formatted} ₹ {isCredit ? "CR" : "DR"}
+        </span>
+      );
+    } else if (currency === "AED") {
+      return (
+        <span className="flex items-center gap-1">
+          {formatted}{" "}
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 1500 1500"
+            className="w-4 h-4 fill-current"
+          >
+            <path d="M474.94,1272.7H263.1a39.35,39.35,0,0,1-5-.1c-2.06-.28-3.18-1.34-1.43-3.29,30.93-34.3,40.49-76.77,46.14-120.72a396.09,396.09,0,0,0,2.84-49.77c.1-61.34,0-122.67.21-184,0-6.25-1.5-8.13-7.89-8-17.58.45-35.19.13-52.78.13-40.31,0-67-21-84.8-55.34-12-23.24-12-48.5-11.7-73.76,0-1.12-.22-2.59,1.23-3,1.65-.48,2.5,1,3.48,2,9,8.43,18.42,16.22,30.17,20.64a70.72,70.72,0,0,0,25,4.81c30,0,59.92-.12,89.87.13,5.54.05,7.4-1.3,7.34-7.13q-.42-44.92,0-89.86c.05-5.83-1.42-7.8-7.51-7.67-18.29.38-36.61.14-54.91.13-32.64,0-57-15.23-75-41.5-13.39-19.53-19.37-41.47-19.5-65.07,0-6.42-.17-12.84,0-19.25,0-2.16-1.54-5.44,1.28-6.25,2.06-.59,3.81,2.23,5.45,3.85,15.48,15.3,33.68,23.77,55.86,23.51,29.24-.34,58.49-.18,87.73,0,4.83,0,6.59-1.14,6.57-6.33-.31-65.37.28-130.75-.76-196.11-.71-44.65-8.34-88.23-28-129C271.89,251,265.14,241.34,257.92,232c-.82-1.07-2.76-1.71-2.19-3.26.71-1.91,2.76-1.4,4.39-1.4h8.56c127.91,0,255.82-.3,383.72.28,68.37.31,135.65,9.48,201.41,28.89,68,20.08,130,51.63,183.75,98.14,40.35,34.89,72.29,76.62,97,123.88a480.21,480.21,0,0,1,40.62,108.14c1.17,4.76,3.1,6.55,8.17,6.49,24-.24,48-.09,72,0,40.69.09,67.08,21.68,84.58,56.46,11.39,22.63,11.7,47.07,11.47,71.58,0,1.38.23,3.14-1.37,3.73-1.83.67-3-.82-4.16-2-8.21-8.33-17.39-15.22-28.3-19.73a67.66,67.66,0,0,0-25.65-5.26c-30.67-.12-61.34.08-92-.15-5.55,0-7.34,1.23-7,7.14a652.48,652.48,0,0,1,.07,89.75c-.48,6.85,1.8,7.87,7.79,7.75,17.11-.35,34.27.58,51.34-.24,46.19-2.24,80.8,30.71,93.43,70.73,6,19.15,5.81,38.77,5.64,58.45,0,1.13.51,2.59-1,3-1.92.54-3-1.18-4.15-2.25-8.74-8.43-18-16-29.58-20.36a66.74,66.74,0,0,0-23.55-4.75c-35.9-.07-71.8.06-107.7-.16-5.61,0-8,1.26-9.52,7.3-15.24,62.19-40.35,119.89-79.14,171.26s-87.42,91.1-144.44,120.61c-69.73,36.08-144.55,54.11-222.2,62.14-35,3.62-70.11,4.73-105.28,4.68q-74.9-.09-149.78,0ZM730.42,593.1V593q130.47,0,260.94.14c6.18,0,7.71-1.5,6.56-7.56-10.22-53.87-25.85-105.75-54.15-153.27-29.61-49.73-70.07-87.68-122-113.16C768.42,293,711.22,282.73,652.46,280.59c-60.56-2.22-121.18-.39-181.78-1-6.71-.07-8.21,1.89-8.19,8.33q.3,148.64,0,297.28c0,7,2.24,8.05,8.43,8Q600.66,592.95,730.42,593.1Zm.2,313.92V907q-130.15,0-260.3-.16c-6.38,0-7.83,1.7-7.82,7.93.21,95.32.12,190.63.22,286,0,6.31-2.84,14.49,1.35,18.46s12.26,1.26,18.6,1.17c60.34-.9,120.73,2.48,181-2.27,52-4.1,102.31-14.82,149.78-37,50.4-23.59,91.3-58.27,122.21-104.71,33-49.6,50.79-104.94,62.06-162.82,1.1-5.67-.69-6.6-6.1-6.59Q861.13,907.16,730.62,907Zm5.48-104.68v-.21c88.65,0,177.3-.09,265.95.19,6.38,0,8.23-1.78,8.36-7.71q1-44.91,0-89.8c-.13-5.47-1.76-7.17-7.47-7.16q-265.95.27-531.9,0c-7.12,0-8.6,2.25-8.52,8.88.34,28.75.17,57.51.16,86.26,0,9.54-.05,9.53,9.66,9.53Z" />
+          </svg>{" "}
+          {isCredit ? "CR" : "DR"}
+        </span>
+      );
+    } else {
+      return (
+        <span>
+          {formatted} {currency} {isCredit ? "CR" : "DR"}
+        </span>
+      );
+    }
+  };
 
   const formatIndianAmount = (value) => {
     const number = Number(value || 0).toFixed(2);
@@ -488,129 +499,141 @@ const formatWithCRDR = (amount, currency) => {
 
   return (
     <div className="p-6">
-    <div className="flex flex-wrap gap-4 mb-6">
-  {/* AED Credit Card */}
-  <div className="flex flex-col justify-between p-5 bg-gradient-to-br from-green-50 to-green-100 border border-green-300 rounded-2xl w-full sm:w-[calc(25%-1rem)] shadow hover:shadow-md transition-shadow duration-200">
-    <div className="flex items-center justify-between">
-      <div>
-        <h2 className="text-green-800 font-semibold text-lg">Credit (AED)</h2>
-        <p className="text-3xl font-bold text-green-800 flex items-center gap-1">
-          {/* AED SVG Icon */}
-          {summary.AED.credit.toLocaleString("en-US", {
-            minimumFractionDigits: 3,
-            maximumFractionDigits: 3,
-          })}
-        </p>
-      </div>
-      <ArrowDownCircle className="w-8 h-8 text-green-600" />
-    </div>
-    <p className="mt-3 text-sm text-green-700 bg-green-200/40 px-3 py-1 rounded-md w-fit">
-      Total received
-    </p>
-  </div>
+      <div className="flex flex-wrap gap-4 mb-6">
+        {/* AED Credit Card */}
+        <div className="flex flex-col justify-between p-5 bg-gradient-to-br from-green-50 to-green-100 border border-green-300 rounded-2xl w-full sm:w-[calc(25%-1rem)] shadow hover:shadow-md transition-shadow duration-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-green-800 font-semibold text-lg">
+                Credit (AED)
+              </h2>
+              <p className="text-3xl font-bold text-green-800 flex items-center gap-1">
+                {/* AED SVG Icon */}
+                {summary.AED.credit.toLocaleString("en-US", {
+                  minimumFractionDigits: 3,
+                  maximumFractionDigits: 3,
+                })}
+              </p>
+            </div>
+            <ArrowDownCircle className="w-8 h-8 text-green-600" />
+          </div>
+          <p className="mt-3 text-sm text-green-700 bg-green-200/40 px-3 py-1 rounded-md w-fit">
+            Total received
+          </p>
+        </div>
 
-  {/* AED Debit Card */}
-  <div className="flex flex-col justify-between p-5 bg-gradient-to-br from-red-50 to-red-100 border border-red-300 rounded-2xl w-full sm:w-[calc(25%-1rem)] shadow hover:shadow-md transition-shadow duration-200">
-    <div className="flex items-center justify-between">
-      <div>
-        <h2 className="text-red-800 font-semibold text-lg">Debit (AED)</h2>
-        <p className="text-3xl font-bold text-red-800 flex items-center gap-1">
-          {/* AED SVG Icon */}
-          {summary.AED.debit.toLocaleString("en-US", {
-            minimumFractionDigits: 3,
-            maximumFractionDigits: 3,
-          })}
-        </p>
-      </div>
-      <ArrowUpCircle className="w-8 h-8 text-red-600" />
-    </div>
-    <p className="mt-3 text-sm text-red-700 bg-red-200/40 px-3 py-1 rounded-md w-fit">
-      Total spent
-    </p>
-  </div>
+        {/* AED Debit Card */}
+        <div className="flex flex-col justify-between p-5 bg-gradient-to-br from-red-50 to-red-100 border border-red-300 rounded-2xl w-full sm:w-[calc(25%-1rem)] shadow hover:shadow-md transition-shadow duration-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-red-800 font-semibold text-lg">
+                Debit (AED)
+              </h2>
+              <p className="text-3xl font-bold text-red-800 flex items-center gap-1">
+                {/* AED SVG Icon */}
+                {summary.AED.debit.toLocaleString("en-US", {
+                  minimumFractionDigits: 3,
+                  maximumFractionDigits: 3,
+                })}
+              </p>
+            </div>
+            <ArrowUpCircle className="w-8 h-8 text-red-600" />
+          </div>
+          <p className="mt-3 text-sm text-red-700 bg-red-200/40 px-3 py-1 rounded-md w-fit">
+            Total spent
+          </p>
+        </div>
 
-  {/* INR Credit Card */}
-  <div className="flex flex-col justify-between p-5 bg-gradient-to-br from-green-50 to-green-100 border border-green-300 rounded-2xl w-full sm:w-[calc(25%-1rem)] shadow hover:shadow-md transition-shadow duration-200">
-    <div className="flex items-center justify-between">
-      <div>
-        <h2 className="text-green-800 font-semibold text-lg">Credit (INR)</h2>
-        <p className="text-3xl font-bold text-green-800 flex items-center gap-1">
-          <span>₹</span>
-          {summary.INR.credit.toLocaleString("en-US", {
-            minimumFractionDigits: 3,
-            maximumFractionDigits: 3,
-          })}
-        </p>
-      </div>
-      <ArrowDownCircle className="w-8 h-8 text-green-600" />
-    </div>
-    <p className="mt-3 text-sm text-green-700 bg-green-200/40 px-3 py-1 rounded-md w-fit">
-      Total received
-    </p>
-  </div>
+        {/* INR Credit Card */}
+        <div className="flex flex-col justify-between p-5 bg-gradient-to-br from-green-50 to-green-100 border border-green-300 rounded-2xl w-full sm:w-[calc(25%-1rem)] shadow hover:shadow-md transition-shadow duration-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-green-800 font-semibold text-lg">
+                Credit (INR)
+              </h2>
+              <p className="text-3xl font-bold text-green-800 flex items-center gap-1">
+                <span>₹</span>
+                {summary.INR.credit.toLocaleString("en-US", {
+                  minimumFractionDigits: 3,
+                  maximumFractionDigits: 3,
+                })}
+              </p>
+            </div>
+            <ArrowDownCircle className="w-8 h-8 text-green-600" />
+          </div>
+          <p className="mt-3 text-sm text-green-700 bg-green-200/40 px-3 py-1 rounded-md w-fit">
+            Total received
+          </p>
+        </div>
 
-  {/* INR Debit Card */}
-  <div className="flex flex-col justify-between p-5 bg-gradient-to-br from-red-50 to-red-100 border border-red-300 rounded-2xl w-full sm:w-[calc(25%-1rem)] shadow hover:shadow-md transition-shadow duration-200">
-    <div className="flex items-center justify-between">
-      <div>
-        <h2 className="text-red-800 font-semibold text-lg">Debit (INR)</h2>
-        <p className="text-3xl font-bold text-red-800 flex items-center gap-1">
-          <span>₹</span>
-          {summary.INR.debit.toLocaleString("en-US", {
-            minimumFractionDigits: 3,
-            maximumFractionDigits: 3,
-          })}
-        </p>
-      </div>
-      <ArrowUpCircle className="w-8 h-8 text-red-600" />
-    </div>
-    <p className="mt-3 text-sm text-red-700 bg-red-200/40 px-3 py-1 rounded-md w-fit">
-      Total spent
-    </p>
-  </div>
+        {/* INR Debit Card */}
+        <div className="flex flex-col justify-between p-5 bg-gradient-to-br from-red-50 to-red-100 border border-red-300 rounded-2xl w-full sm:w-[calc(25%-1rem)] shadow hover:shadow-md transition-shadow duration-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-red-800 font-semibold text-lg">
+                Debit (INR)
+              </h2>
+              <p className="text-3xl font-bold text-red-800 flex items-center gap-1">
+                <span>₹</span>
+                {summary.INR.debit.toLocaleString("en-US", {
+                  minimumFractionDigits: 3,
+                  maximumFractionDigits: 3,
+                })}
+              </p>
+            </div>
+            <ArrowUpCircle className="w-8 h-8 text-red-600" />
+          </div>
+          <p className="mt-3 text-sm text-red-700 bg-red-200/40 px-3 py-1 rounded-md w-fit">
+            Total spent
+          </p>
+        </div>
 
-  {/* NEW: Gold Credit Card */}
-  <div className="flex flex-col justify-between p-5 bg-gradient-to-br from-amber-50 to-amber-100 border border-amber-300 rounded-2xl w-full sm:w-[calc(25%-1rem)] shadow hover:shadow-md transition-shadow duration-200">
-    <div className="flex items-center justify-between">
-      <div>
-        <h2 className="text-amber-800 font-semibold text-lg">Credit (Gold)</h2>
-        <p className="text-3xl font-bold text-amber-800 flex items-center gap-1">
-          {/* <span>🥇</span> */}
-          {summary.gold.credit.toLocaleString("en-US", {
-            minimumFractionDigits: 3,
-            maximumFractionDigits: 3,
-          })}
-          <span className="text-lg">g</span>
-        </p>
-      </div>
-      <ArrowDownCircle className="w-8 h-8 text-amber-600" />
-    </div>
-    <p className="mt-3 text-sm text-amber-700 bg-amber-200/40 px-3 py-1 rounded-md w-fit">
-      Total received
-    </p>
-  </div>
+        {/* NEW: Gold Credit Card */}
+        <div className="flex flex-col justify-between p-5 bg-gradient-to-br from-amber-50 to-amber-100 border border-amber-300 rounded-2xl w-full sm:w-[calc(25%-1rem)] shadow hover:shadow-md transition-shadow duration-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-amber-800 font-semibold text-lg">
+                Credit (Gold)
+              </h2>
+              <p className="text-3xl font-bold text-amber-800 flex items-center gap-1">
+                {/* <span>🥇</span> */}
+                {summary.gold.credit.toLocaleString("en-US", {
+                  minimumFractionDigits: 3,
+                  maximumFractionDigits: 3,
+                })}
+                <span className="text-lg">g</span>
+              </p>
+            </div>
+            <ArrowDownCircle className="w-8 h-8 text-amber-600" />
+          </div>
+          <p className="mt-3 text-sm text-amber-700 bg-amber-200/40 px-3 py-1 rounded-md w-fit">
+            Total received
+          </p>
+        </div>
 
-  {/* NEW: Gold Debit Card */}
-  <div className="flex flex-col justify-between p-5 bg-gradient-to-br from-orange-50 to-orange-100 border border-orange-300 rounded-2xl w-full sm:w-[calc(25%-1rem)] shadow hover:shadow-md transition-shadow duration-200">
-    <div className="flex items-center justify-between">
-      <div>
-        <h2 className="text-orange-800 font-semibold text-lg">Debit (Gold)</h2>
-        <p className="text-3xl font-bold text-orange-800 flex items-center gap-1">
-          {/* <span>🥇</span> */}
-          {summary.gold.debit.toLocaleString("en-US", {
-            minimumFractionDigits: 3,
-            maximumFractionDigits: 3,
-          })}
-          <span className="text-lg">g</span>
-        </p>
+        {/* NEW: Gold Debit Card */}
+        <div className="flex flex-col justify-between p-5 bg-gradient-to-br from-orange-50 to-orange-100 border border-orange-300 rounded-2xl w-full sm:w-[calc(25%-1rem)] shadow hover:shadow-md transition-shadow duration-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-orange-800 font-semibold text-lg">
+                Debit (Gold)
+              </h2>
+              <p className="text-3xl font-bold text-orange-800 flex items-center gap-1">
+                {/* <span>🥇</span> */}
+                {summary.gold.debit.toLocaleString("en-US", {
+                  minimumFractionDigits: 3,
+                  maximumFractionDigits: 3,
+                })}
+                <span className="text-lg">g</span>
+              </p>
+            </div>
+            <ArrowUpCircle className="w-8 h-8 text-orange-600" />
+          </div>
+          <p className="mt-3 text-sm text-orange-700 bg-orange-200/40 px-3 py-1 rounded-md w-fit">
+            Total spent
+          </p>
+        </div>
       </div>
-      <ArrowUpCircle className="w-8 h-8 text-orange-600" />
-    </div>
-    <p className="mt-3 text-sm text-orange-700 bg-orange-200/40 px-3 py-1 rounded-md w-fit">
-      Total spent
-    </p>
-  </div>
-</div>
 
       <div className="flex flex-col sm:flex-row justify-between gap-4 mb-6">
         <div className="flex-1 flex items-center gap-2">
