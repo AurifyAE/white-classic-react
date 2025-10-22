@@ -35,7 +35,6 @@ function OwnStockStatement({
   };
 
   // Process data for each currency
-// Process data for each currency
   const processedData = useMemo(() => {
     const result = {};
     selectedCurrencies.forEach((currency) => {
@@ -46,10 +45,12 @@ function OwnStockStatement({
       const payablesAndReceivables = stockData.payablesAndReceivables || {};
       const receivableGrams = Number(payablesAndReceivables?.totalReceivableGrams || 0);
       const payableGrams = Number(payablesAndReceivables?.totalPayableGrams || 0);
-      const receivableAverage = Number(payablesAndReceivables?.avgReceivableGrams || 0);
-      const payableAverage = Number(payablesAndReceivables?.avgPayableGrams || 0);
-      const totalReceivableAmount = Number(payablesAndReceivables?.totalReceivableAmount?.[currency] || 0);
-      const totalPayableAmount = Number(payablesAndReceivables?.totalPayableAmount?.[currency] || 0);
+      
+      // ✅ FIXED: Safely access nested objects
+      const totalReceivableAmountObj = payablesAndReceivables?.totalReceivableAmount || {};
+      const totalPayableAmountObj = payablesAndReceivables?.totalPayableAmount || {};
+      const totalReceivableAmount = Number(totalReceivableAmountObj[currency] || 0);
+      const totalPayableAmount = Number(totalPayableAmountObj[currency] || 0);
 
       // Format receivable and payable values
       const receivableValue = totalReceivableAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -68,7 +69,7 @@ function OwnStockStatement({
 
           const formattedEntry = {
             id: `${category.toLowerCase()}_${currency}`,
-            category: category, // Display raw category name
+            category: category,
             valueAcd: Number(data.totalAmount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
             average: Number(data.averageRate || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
             section: isPurchase ? "Purchase" : isSales ? "Sales" : "Other"
@@ -87,14 +88,14 @@ function OwnStockStatement({
         }
       });
 
-      // Combine with receivable and payable
+      // Combine with receivable and payable (NO AVERAGE for these)
       const fullStockData = [...formattedStockData];
       if (receivableGrams || totalReceivableAmount) {
         fullStockData.push({
           id: `receivable_${currency}`,
           category: "Receivable",
           valueAcd: receivableValue,
-          average: receivableAverage.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+          average: "-", // ✅ No average for receivable
           section: "Receivable"
         });
       }
@@ -103,7 +104,7 @@ function OwnStockStatement({
           id: `payable_${currency}`,
           category: "Payable",
           valueAcd: payableValue,
-          average: payableAverage.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+          average: "-", // ✅ No average for payable
           section: "Payable"
         });
       }
@@ -111,11 +112,11 @@ function OwnStockStatement({
       // Calculate net receivable and payable
       const netReceivable = {
         valueAcd: totalReceivableAmount,
-        average: receivableAverage
+        average: 0
       };
       const netPayable = {
         valueAcd: totalPayableAmount,
-        average: payableAverage
+        average: 0
       };
 
       // Calculate position
@@ -189,122 +190,136 @@ function OwnStockStatement({
     }
   }, [processedData, onCalculatedValues, selectedCurrencies]);
 
-  // Stock table component
-  const StockTable = ({ section, title, currency, currentRateValue }) => (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4">
-      <div className="px-4 py-3 bg-gray-50 rounded-t-lg">
-        <h4 className="text-base font-semibold text-gray-800">{title}</h4>
-      </div>
-      <table className="w-full h-auto text-sm">
-        <thead className="bg-gray-100 text-xs text-gray-600 uppercase font-medium">
-          <tr>
-            <th
-              className="px-4 py-2 text-left w-1/3 cursor-pointer"
-              onClick={() => handleSort("category", currency)}
-            >
-              Category
-              {sortConfig.key === "category" && (
-                <span className="ml-1">{sortConfig.direction === "asc" ? "↑" : "↓"}</span>
-              )}
-            </th>
-            <th
-              className="px-4 py-2 text-right w-1/3 cursor-pointer"
-              onClick={() => handleSort("valueAcd", currency)}
-            >
-              <div className="flex items-center justify-end">
-                Value {currency}
-                {currency === "AED" && <img src={Dirham} alt="AED" className="w-4 h-4 ml-1" />}
-                {currency === "INR" && <span className="ml-1">₹</span>}
-              </div>
-              {sortConfig.key === "valueAcd" && (
-                <span className="ml-1">{sortConfig.direction === "asc" ? "↑" : "↓"}</span>
-              )}
-            </th>
-            <th
-              className="px-4 py-2 text-right w-1/3 cursor-pointer"
-              onClick={() => handleSort("average", currency)}
-            >
-              Average
-              {sortConfig.key === "average" && (
-                <span className="ml-1">{sortConfig.direction === "asc" ? "↑" : "↓"}</span>
-              )}
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100">
-          {section !== "SubTotal" && stockDataState[currency]?.filter((item) =>
-            item &&
-            (item.section === section ||
-              (section === "ReceivablePayable" &&
-                (item.section === "Receivable" || item.section === "Payable")))
-          ).map((item) => (
-            <tr key={item.id} className="hover:bg-gray-50 transition-colors">
-              <td className="px-4 py-2">{item.category}</td>
-              <td className="px-4 py-2 text-right">
+  // ✅ UPDATED StockTable component - Different table for Receivable/Payable
+  const StockTable = ({ section, title, currency, currentRateValue }) => {
+    const isReceivablePayable = section === "ReceivablePayable";
+    
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4">
+        <div className="px-4 py-3 bg-gray-50 rounded-t-lg">
+          <h4 className="text-base font-semibold text-gray-800">{title}</h4>
+        </div>
+        <table className="w-full h-auto text-sm">
+          <thead className="bg-gray-100 text-xs text-gray-600 uppercase font-medium">
+            <tr>
+              <th
+                className="px-4 py-2 text-left w-2/3 cursor-pointer"
+                onClick={() => handleSort("category", currency)}
+              >
+                Category
+                {sortConfig.key === "category" && (
+                  <span className="ml-1">{sortConfig.direction === "asc" ? "↑" : "↓"}</span>
+                )}
+              </th>
+              <th
+                className="px-4 py-2 text-right w-1/3 cursor-pointer"
+                onClick={() => handleSort("valueAcd", currency)}
+              >
                 <div className="flex items-center justify-end">
-                  {item.valueAcd}
+                  Value {currency}
                   {currency === "AED" && <img src={Dirham} alt="AED" className="w-4 h-4 ml-1" />}
                   {currency === "INR" && <span className="ml-1">₹</span>}
                 </div>
-              </td>
-              <td className="px-4 py-2 text-right">{item.average}</td>
+                {sortConfig.key === "valueAcd" && (
+                  <span className="ml-1">{sortConfig.direction === "asc" ? "↑" : "↓"}</span>
+                )}
+              </th>
+              {/* ✅ Hide Average column for Receivable/Payable */}
+              {!isReceivablePayable && (
+                <th
+                  className="px-4 py-2 text-right w-1/3 cursor-pointer"
+                  onClick={() => handleSort("average", currency)}
+                >
+                  Average
+                  {sortConfig.key === "average" && (
+                    <span className="ml-1">{sortConfig.direction === "asc" ? "↑" : "↓"}</span>
+                  )}
+                </th>
+              )}
             </tr>
-          ))}
-          {section === "Purchase" && processedData[currency]?.netCalculations && (
-            <tr className="bg-gray-100 font-medium border-t-2 border-gray-200">
-              <td className="px-4 py-2 text-teal-600">Net Purchase</td>
-              <td className="px-4 py-2 text-right text-teal-600">
-                <div className="flex items-center justify-end">
-                  {processedData[currency].netCalculations.netPurchase.valueAcd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </div>
-              </td>
-              <td className="px-4 py-2 text-right text-teal-600">
-                {processedData[currency].netCalculations.netPurchase.average.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </td>
-            </tr>
-          )}
-          {section === "Sales" && processedData[currency]?.netCalculations && (
-            <tr className="bg-gray-100 font-medium border-t-2 border-gray-200">
-              <td className="px-4 py-2 text-teal-600">Net Sales</td>
-              <td className="px-4 py-2 text-right text-teal-600">
-                <div className="flex items-center justify-end">
-                  {processedData[currency].netCalculations.netSales.valueAcd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </div>
-              </td>
-              <td className="px-4 py-2 text-right text-teal-600">
-                {processedData[currency].netCalculations.netSales.average.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </td>
-            </tr>
-          )}
-          {section === "SubTotal" && processedData[currency]?.position && (
-            <>
-              <tr className="bg-gray-100 font-medium border-t-2 border-gray-200">
-                <td className="px-4 py-2 text-teal-600">{processedData[currency].position.status}</td>
-                <td className="px-4 py-2 text-right text-teal-600">
-                  <div className="flex items-center justify-end">{processedData[currency].position.valueAcd}</div>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {section !== "SubTotal" && stockDataState[currency]?.filter((item) =>
+              item &&
+              (item.section === section ||
+                (section === "ReceivablePayable" &&
+                  (item.section === "Receivable" || item.section === "Payable")))
+            ).map((item) => (
+              <tr key={item.id} className="hover:bg-gray-50 transition-colors">
+                <td className="px-4 py-2">{item.category}</td>
+                <td className="px-4 py-2 text-right">
+                  <div className="flex items-center justify-end">
+                    {item.valueAcd}
+                    {currency === "AED" && <img src={Dirham} alt="AED" className="w-4 h-4 ml-1" />}
+                    {currency === "INR" && <span className="ml-1">₹</span>}
+                  </div>
                 </td>
-                <td className="px-4 py-2 text-right text-teal-600">{processedData[currency].position.average}</td>
+                {/* ✅ Hide Average column for Receivable/Payable */}
+                {!isReceivablePayable && (
+                  <td className="px-4 py-2 text-right">{item.average}</td>
+                )}
               </tr>
+            ))}
+            
+            {/* Net Purchase/Sales rows */}
+            {section === "Purchase" && processedData[currency]?.netCalculations && (
               <tr className="bg-gray-100 font-medium border-t-2 border-gray-200">
-                <td className="px-4 py-2 text-teal-600">Current Rate</td>
+                <td className="px-4 py-2 text-teal-600">Net Purchase</td>
                 <td className="px-4 py-2 text-right text-teal-600">
-                  <div className="flex items-center justify-end">{currentRateValue}</div>
+                  <div className="flex items-center justify-end">
+                    {processedData[currency].netCalculations.netPurchase.valueAcd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
                 </td>
-                <td className="px-4 py-2 text-right text-teal-600">{processedData[currency].position.average}</td>
+                <td className="px-4 py-2 text-right text-teal-600">
+                  {processedData[currency].netCalculations.netPurchase.average.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </td>
               </tr>
+            )}
+            {section === "Sales" && processedData[currency]?.netCalculations && (
               <tr className="bg-gray-100 font-medium border-t-2 border-gray-200">
-                <td className="px-4 py-2 text-teal-600">Profit</td>
+                <td className="px-4 py-2 text-teal-600">Net Sales</td>
                 <td className="px-4 py-2 text-right text-teal-600">
-                  <div className="flex items-center justify-end">{processedData[currency].profit}</div>
+                  <div className="flex items-center justify-end">
+                    {processedData[currency].netCalculations.netSales.valueAcd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
                 </td>
-                <td className="px-4 py-2 text-right text-teal-600"></td>
+                <td className="px-4 py-2 text-right text-teal-600">
+                  {processedData[currency].netCalculations.netSales.average.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </td>
               </tr>
-            </>
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
+            )}
+            
+            {/* SubTotal rows */}
+            {section === "SubTotal" && processedData[currency]?.position && (
+              <>
+                <tr className="bg-gray-100 font-medium border-t-2 border-gray-200">
+                  <td className="px-4 py-2 text-teal-600">{processedData[currency].position.status}</td>
+                  <td className="px-4 py-2 text-right text-teal-600">
+                    <div className="flex items-center justify-end">{processedData[currency].position.valueAcd}</div>
+                  </td>
+                  <td className="px-4 py-2 text-right text-teal-600">{processedData[currency].position.average}</td>
+                </tr>
+                <tr className="bg-gray-100 font-medium border-t-2 border-gray-200">
+                  <td className="px-4 py-2 text-teal-600">Current Rate</td>
+                  <td className="px-4 py-2 text-right text-teal-600">
+                    <div className="flex items-center justify-end">{currentRateValue}</div>
+                  </td>
+                  <td className="px-4 py-2 text-right text-teal-600">{processedData[currency].position.average}</td>
+                </tr>
+                <tr className="bg-gray-100 font-medium border-t-2 border-gray-200">
+                  <td className="px-4 py-2 text-teal-600">Profit</td>
+                  <td className="px-4 py-2 text-right text-teal-600">
+                    <div className="flex items-center justify-end">{processedData[currency].profit}</div>
+                  </td>
+                  <td className="px-4 py-2 text-right text-teal-600"></td>
+                </tr>
+              </>
+            )}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
 
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6">
