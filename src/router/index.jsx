@@ -63,7 +63,7 @@ import StockAnalysis from "../pages/StockAnalysis";
 import TransactionSummaryPage from "../pages/TransactionSummary";
 import StockAnalysisPage from "../pages/StockAnalysis";
 import OwnStockPage from "../pages/OwnStockPage.jsx";
-import OwnStockCurrencyPage from "../pages/OwnStockCurrencyPage.jsx";
+import OwnStockCurrencyPage from "../pages/OwnStockCurrency.jsx";
 import StockMovementPCS from "../pages/StockMovementPCS.jsx";
 import StockBalance from "../pages/StockBalance.jsx";
 import SalesAnalysis from "../pages/SalesAnalysis.jsx";
@@ -74,11 +74,12 @@ import StatementofAccountsPage from "../pages/statementofaccount.jsx";
 import CurrencyFixing from "../components/CurrencyFix/CurrencyFix.jsx";
 import CurrencyFix from "../pages/currencyfixing.jsx";
 import Footer from '../components/footer.jsx'
+import AdminProtect from "../protectorRouter/adminProtect.jsx";
 export default function UserRouter() {
   return (
     <Routes>
       <Route path="/" element={<Login />} />
-
+<Route path="/login" element={<AdminProtect />} />
       <Route element={<Layout />}>
         {/* Dashboard */}
         <Route path="/dashboard" element={<MetalStock />} />
@@ -206,7 +207,7 @@ export default function UserRouter() {
           element={<TransactionSummaryPage />}
         />
         <Route path="/reports/own-stock" element={<OwnStockPage />} />
-        <Route path="/reports/own-stock/currency" element={<OwnStockCurrencyPage />} />
+        <Route path ="/reports/own-stock/currency" element={<OwnStockCurrencyPage />} />
         <Route
           path="/reports/stock-movement-pcs"
           element={<StockMovementPCS />}

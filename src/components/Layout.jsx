@@ -12,7 +12,7 @@ const Layout = () => {
         <Sidebar />
 
         {/* Main content with Outlet and Footer */}
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col bg-gray-50">
           <ScrollToTop />
 
           {/* Page content (scrolls if needed) */}

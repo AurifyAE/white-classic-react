@@ -1330,7 +1330,7 @@ export default function OwnStock() {
                     allSelected={filters.division.length === divisions.length}
                     onToggleAll={handleToggleAll}
                   />
-                  <CheckboxFilter
+                  {/* <CheckboxFilter
                     title="Currencies"
                     options={currency.map((c) => ({
                       ...c,
@@ -1344,7 +1344,7 @@ export default function OwnStock() {
                     onSearchChange={handleSearchChange}
                     allSelected={(filters.currency || []).length === currency.length}
                     onToggleAll={handleToggleAll}
-                  />
+                  /> */}
                   <CheckboxFilter
                     title="Transaction Type"
                     options={vouchers.map((v) => ({

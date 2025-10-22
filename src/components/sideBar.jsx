@@ -69,7 +69,11 @@ import {
   LucidePenTool,
   Percent,
   Wrench,
-  CircleFadingPlusIcon
+  CircleFadingPlusIcon,
+  FolderCheck,
+  FolderDot,
+  FolderCode,
+  FolderOutputIcon
 } from "lucide-react";
 
 import logo from "../assets/logo.jpg";
@@ -193,7 +197,6 @@ const Sidebar = () => {
       text: 'Accounts',
       children: [
         { icon: <User strokeWidth={1.5} size={20} />, text: 'Parties', to: '/parties' },
-        // { icon: <SquareUser strokeWidth={1.5} size={20} />, text: 'Trade Creditor', to: '/trade-creditors' },
         { icon: <Vault strokeWidth={1.5} size={20} />, text: 'Account Type', to: '/account-type' },
       ]
     },
@@ -228,10 +231,6 @@ const Sidebar = () => {
       text: 'Inventory Management',
       children: [
         { icon: <Package strokeWidth={1.5} size={20} />, text: 'Metals', to: '/inventory/metals', },
-        // { icon: <DatabaseBackup strokeWidth={1.5} size={20} />, text: 'Metal Stock Ledger ', to: '/inventory/metal-stock-ledger', },
-
-        // { icon: <Activity strokeWidth={1.5} size={20} />, text: 'Stock Report', to: '/inventory/stock-report', },
-        // { icon: <ClipboardList strokeWidth={1.5} size={20} />, text: 'Stock Activity Log', to: '/inventory/activity-log', },
       ]
     },
 
@@ -263,13 +262,14 @@ const Sidebar = () => {
         { icon: <DollarSign strokeWidth={1.5} size={20} />, text: 'Fixing Registry', to: '/reports/fixing-registry' },
         { icon: <ListOrdered strokeWidth={1.5} size={20} />, text: 'Transaction Summary', to: '/reports/transaction-summary' },
         { icon: <Folder strokeWidth={1.5} size={20} />, text: 'Statement of Account', to: '/reports/statements' },
-        { icon: <Folder strokeWidth={1.5} size={20} />, text: 'Own Stock currency', to: '/reports/own-stock/currency' },
         { icon: <Folder strokeWidth={1.5} size={20} />, text: 'Own Stock', to: '/reports/own-stock' },
+        { icon: <FolderOutputIcon strokeWidth={1.5} size={20} />, text: 'Own Stock Currency', to: '/reports/own-stock/currency' },
       ]
     }
   ], []);
 
   // Function to find which section contains the current route
+
   const findActiveSection = (currentPath) => {
     for (const section of navigationSections) {
       const hasActiveChild = section.children.some(child =>

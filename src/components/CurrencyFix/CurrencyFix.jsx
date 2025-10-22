@@ -27,7 +27,8 @@ const CurrencyTradingUI = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 const [tradeToDelete, setTradeToDelete] = useState(null);
-  const [goldData, setGoldData] = useState({
+const [conversionRate, setConversionRate] = useState('');
+const [goldData, setGoldData] = useState({
     symbol: "GOLD",
     bid: null,
     ask: null,
@@ -290,6 +291,7 @@ const partyOptions = tradingParties.map((party) => ({
     setPayAmount('');
     setReceiveAmount('');
     setGrossWeight('1000');
+    setConversionRate('');
  let initialRate = 0;
   if (pair.isCommodity) {
     initialRate = '10000000'; // Rate for 1kg gold bar
@@ -339,6 +341,7 @@ const partyOptions = tradingParties.map((party) => ({
   setTradeType(trade.type.toLowerCase());
   setSelectedTradeParty(trade.partyId?._id || ''); 
   setInputCurrency(trade.baseCurrencyCode);
+  setConversionRate(selectedTrade.conversionRate || '');
 };
 
   const closeModal = () => {
@@ -351,6 +354,7 @@ const partyOptions = tradingParties.map((party) => ({
     setReceiveAmount('');
     setGrossWeight('1000');
     setInputCurrency('');
+    setConversionRate('');
   };
 
   const getRatesForParty = (partyName, pair) => {
@@ -1006,6 +1010,7 @@ const partyOptions = tradingParties.map((party) => ({
       sellRate: sellRate,
       baseCurrencyId: baseCurrency?._id,
       targetCurrencyId: targetCurrency?._id,
+      conversionRate: parseFloat(conversionRate) || null,
       baseCurrencyCode: base,
       targetCurrencyCode: quote,
       reference: voucherCode,
@@ -1375,6 +1380,18 @@ const renderModal = () => {
               onChange={(e) => handleRateChange(e.target.value)}
             />
           </div>
+          {isCommodity && (
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-2"> Rate of {payCurrency}</label>
+    <input
+      type="number"
+      step="0.0001"
+      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+      value={conversionRate}
+      onChange={(e) => setConversionRate(e.target.value)}
+    />
+  </div>
+)}
           <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
             <div className="text-sm font-semibold text-gray-700 mb-2">Trade Summary</div>
             <div className="grid grid-cols-2 gap-4">

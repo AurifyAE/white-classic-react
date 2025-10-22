@@ -33,9 +33,9 @@ import {
 } from "lucide-react";
 import axios from "../../../api/axios";
 import { motion, AnimatePresence } from "framer-motion";
-import OwnStockStatementCurrency from "./OwnStockStatement";
+import OwnStockStatementCurrency from "./OwnStockCurrencyStatement";
 import useMarketData from '../../marketData';
-import OwnStockPDF from './OwnStockPDF'
+import OwnStockPDF from './OwnStockCurrencypdf'
 
 const debounce = (func, wait) => {
     let timeout;
@@ -702,7 +702,7 @@ export default function OwnStockCurrency() {
         });
     }, []);
 
-  const handleApplyFilters = useCallback(async () => {
+const handleApplyFilters = useCallback(async () => {
   setSearchLoading(true);
   try {
     const body = {};
@@ -752,18 +752,18 @@ export default function OwnStockCurrency() {
     body.rateType = filters.rateType;
 
     const response = await axios.post("/reports/own-stock/currency", body);
-    const data = response.data?.data || {};
-
-    // Transform API response to match expected structure
+    
+    // ✅ FIXED: Correctly structure the response to match component expectations
     const transformedData = {
-      data: data, // Directly use the API response as the data object
-      payablesAndReceivables: data.payablesAndReceivables || {}, // Fallback for payablesAndReceivables
-      totalRecords: data.totalRecords || 0
+      data: response.data?.data || {}, // Currency stock data (AED, INR objects)
+      payablesAndReceivables: response.data?.payablesAndReceivables || {}, // ✅ Payables/Receivables object
+      totalRecords: response.data?.totalRecords || 0
     };
 
-    setOwnStockData(transformedData);
+    console.log("API Response:", response.data);
     console.log("Transformed Data:", transformedData);
 
+    setOwnStockData(transformedData);
     setFilteredLedgerData([]); // Clear categories as the API doesn't return it
     setCurrentPage(1);
     setShowDivisionModal(false);
@@ -787,6 +787,15 @@ export default function OwnStockCurrency() {
         netSalesGrams: Number(values?.netSalesGrams) || 0
     });
 }, []);
+
+const selectedCurrencies = useMemo(() => {
+    return filters.currency.map(currencyId => {
+        const currencyObj = currency.find(c => (c.id || c._id) === currencyId);
+        return currencyObj ? currencyObj.currencyCode : currencyId;
+    }).filter(Boolean);
+}, [filters.currency, currency]);
+
+const memoizedOwnStockData = useMemo(() => ownStockData, [ownStockData]);
 
     const handleClearFilters = useCallback(() => {
         setFilters({
@@ -1155,7 +1164,7 @@ export default function OwnStockCurrency() {
                                 transition={{ duration: 0.3 }}
                                 className="space-y-6"
                             >
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="space-y-4">
                                         <div className="space-y-2">
                                             <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700">
@@ -1173,7 +1182,7 @@ export default function OwnStockCurrency() {
                                                 className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 backdrop-blur-sm transition-all duration-200 hover:bg-white"
                                             />
                                         </div>
-                                        <div className="space-y-2">
+                                        {/* <div className="space-y-2">
                                             <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700">
                                                 <span>Rate Type</span>
                                             </label>
@@ -1199,7 +1208,7 @@ export default function OwnStockCurrency() {
                                                     className="w-1/2 px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 backdrop-blur-sm transition-all duration-200 hover:bg-white text-sm"
                                                 />
                                             </div>
-                                        </div>
+                                        </div> */}
                                     </div>
                                     <div className="space-y-4">
                                         <div className="space-y-2">
@@ -1218,7 +1227,7 @@ export default function OwnStockCurrency() {
                                                 className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 backdrop-blur-sm transition-all duration-200 hover:bg-white"
                                             />
                                         </div>
-                                        <div className="space-y-2">
+                                        {/* <div className="space-y-2">
                                             <BooleanFilter
                                                 title="Position By Average Rate"
                                                 field="grossWeight"
@@ -1231,9 +1240,9 @@ export default function OwnStockCurrency() {
                                                 checked={filters.pureWeight}
                                                 onChange={handleBooleanFilterChange}
                                             />
-                                        </div>
+                                        </div> */}
                                     </div>
-                                    <div className="space-y-4">
+                                    {/* <div className="space-y-4">
                                         <div className="space-y-2">
                                             <BooleanFilter
                                                 title="Position By Weighted Average Rate"
@@ -1242,7 +1251,7 @@ export default function OwnStockCurrency() {
                                                 onChange={handleBooleanFilterChange}
                                             />
                                         </div>
-                                    </div>
+                                    </div> */}
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                     <CheckboxFilter
@@ -1304,24 +1313,21 @@ export default function OwnStockCurrency() {
                     handleToggleAll={handleToggleAll}
                 />
             </div>
-            <div className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl border border-white/30 p-6 max-w-[150vh] mx-auto scrollbar-hide">
-                <OwnStockStatementCurrency
-                    stockData={ownStockData}
-                    excludeOpening={filters.pureWeight}
-                    bidPrice={marketData?.bid}
-                    metalValueAmount={filters.metalValueAmount}
-                    convFactGms={convFactGms}
-                    fromDate={filters.fromDate}
-                    toDate={filters.toDate}
-                    metalValueCurrency={filters.metalValueCurrency}
-                    rateType={filters.rateType}
-                    onCalculatedValues={handleCalculatedValues}
-                    selectedCurrencies={filters.currency.map(currencyId => {
-                        const currencyObj = currency.find(c => (c.id || c._id) === currencyId);
-                        return currencyObj ? currencyObj.currencyCode : currencyId;
-                    })}
-                />
-            </div>
+          <div className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl border border-white/30 p-6 max-w-[150vh] mx-auto scrollbar-hide">
+    <OwnStockStatementCurrency
+        stockData={memoizedOwnStockData}
+        excludeOpening={filters.pureWeight}
+        bidPrice={marketData?.bid}
+        metalValueAmount={filters.metalValueAmount}
+        convFactGms={convFactGms}
+        fromDate={filters.fromDate}
+        toDate={filters.toDate}
+        metalValueCurrency={filters.metalValueCurrency}
+        rateType={filters.rateType}
+        onCalculatedValues={handleCalculatedValues}
+        selectedCurrencies={selectedCurrencies}
+    />
+</div>
         </>
     );
 }
