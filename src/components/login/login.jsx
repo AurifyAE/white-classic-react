@@ -22,7 +22,7 @@ const LoginPage = () => {
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (token) {
-      navigate("/dashboard");
+      navigate("/metal-purchase");
     }
   }, [navigate]);
 
@@ -42,7 +42,7 @@ const LoginPage = () => {
         // Check if valid admin in response
         if (response.data.admin) {
           // Token is valid, navigate to dashboard
-          navigate("/dashboard");
+          navigate("/metal-purchase");
         } else {
           // Response doesn't contain admin data despite success
           handleLogout();
@@ -126,7 +126,7 @@ const LoginPage = () => {
 
         // Navigate to dashboard after toast
         setTimeout(() => {
-          navigate("/dashboard");
+          navigate("/metal-purchase");
         }, 2000);
       } else {
         // Handle API success: false response

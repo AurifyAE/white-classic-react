@@ -78,7 +78,6 @@ export default function UserRouter() {
   return (
     <Routes>
       <Route path="/" element={<Login />} />
-
       <Route element={<Layout />}>
         {/* Dashboard */}
         <Route path="/dashboard" element={<MetalStock />} />

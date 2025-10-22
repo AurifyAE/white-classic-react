@@ -193,7 +193,6 @@ const Sidebar = () => {
       text: 'Accounts',
       children: [
         { icon: <User strokeWidth={1.5} size={20} />, text: 'Parties', to: '/parties' },
-        // { icon: <SquareUser strokeWidth={1.5} size={20} />, text: 'Trade Creditor', to: '/trade-creditors' },
         { icon: <Vault strokeWidth={1.5} size={20} />, text: 'Account Type', to: '/account-type' },
       ]
     },
@@ -228,10 +227,6 @@ const Sidebar = () => {
       text: 'Inventory Management',
       children: [
         { icon: <Package strokeWidth={1.5} size={20} />, text: 'Metals', to: '/inventory/metals', },
-        // { icon: <DatabaseBackup strokeWidth={1.5} size={20} />, text: 'Metal Stock Ledger ', to: '/inventory/metal-stock-ledger', },
-
-        // { icon: <Activity strokeWidth={1.5} size={20} />, text: 'Stock Report', to: '/inventory/stock-report', },
-        // { icon: <ClipboardList strokeWidth={1.5} size={20} />, text: 'Stock Activity Log', to: '/inventory/activity-log', },
       ]
     },
 
