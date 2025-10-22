@@ -33,9 +33,9 @@ import {
 } from "lucide-react";
 import axios from "../../../api/axios";
 import { motion, AnimatePresence } from "framer-motion";
-import OwnStockStatementCurrency from "./OwnStockStatement";
+import OwnStockStatementCurrency from "./OwnStockCurrencyStatement";
 import useMarketData from '../../marketData';
-import OwnStockPDF from './OwnStockPDF'
+import OwnStockPDF from './OwnStockCurrencypdf'
 
 const debounce = (func, wait) => {
     let timeout;
@@ -788,6 +788,15 @@ export default function OwnStockCurrency() {
     });
 }, []);
 
+const selectedCurrencies = useMemo(() => {
+    return filters.currency.map(currencyId => {
+        const currencyObj = currency.find(c => (c.id || c._id) === currencyId);
+        return currencyObj ? currencyObj.currencyCode : currencyId;
+    }).filter(Boolean);
+}, [filters.currency, currency]);
+
+const memoizedOwnStockData = useMemo(() => ownStockData, [ownStockData]);
+
     const handleClearFilters = useCallback(() => {
         setFilters({
             fromDate: "",
@@ -1304,24 +1313,21 @@ export default function OwnStockCurrency() {
                     handleToggleAll={handleToggleAll}
                 />
             </div>
-            <div className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl border border-white/30 p-6 max-w-[150vh] mx-auto scrollbar-hide">
-                <OwnStockStatementCurrency
-                    stockData={ownStockData}
-                    excludeOpening={filters.pureWeight}
-                    bidPrice={marketData?.bid}
-                    metalValueAmount={filters.metalValueAmount}
-                    convFactGms={convFactGms}
-                    fromDate={filters.fromDate}
-                    toDate={filters.toDate}
-                    metalValueCurrency={filters.metalValueCurrency}
-                    rateType={filters.rateType}
-                    onCalculatedValues={handleCalculatedValues}
-                    selectedCurrencies={filters.currency.map(currencyId => {
-                        const currencyObj = currency.find(c => (c.id || c._id) === currencyId);
-                        return currencyObj ? currencyObj.currencyCode : currencyId;
-                    })}
-                />
-            </div>
+          <div className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl border border-white/30 p-6 max-w-[150vh] mx-auto scrollbar-hide">
+    <OwnStockStatementCurrency
+        stockData={memoizedOwnStockData}
+        excludeOpening={filters.pureWeight}
+        bidPrice={marketData?.bid}
+        metalValueAmount={filters.metalValueAmount}
+        convFactGms={convFactGms}
+        fromDate={filters.fromDate}
+        toDate={filters.toDate}
+        metalValueCurrency={filters.metalValueCurrency}
+        rateType={filters.rateType}
+        onCalculatedValues={handleCalculatedValues}
+        selectedCurrencies={selectedCurrencies}
+    />
+</div>
         </>
     );
 }

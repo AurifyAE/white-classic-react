@@ -311,7 +311,7 @@ function OwnStockStatement({
       {selectedCurrencies.map((currency) => (
         <div key={currency} className="mb-8">
           <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 mb-6">
-            <h3 className="text-xl font-bold text-gray-800 mb-2">Metal OwnStock Detail {currency}</h3>
+            <h3 className="text-xl font-bold text-gray-800 mb-2">OwnStock Detail {currency}</h3>
             <p className="text-sm text-gray-500">
               Generated: {new Date().toLocaleString("en-US", {
                 hour: "2-digit",
