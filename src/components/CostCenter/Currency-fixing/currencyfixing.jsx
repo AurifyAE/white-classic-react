@@ -153,34 +153,34 @@ const CurrencyTradingRegistry = () => {
       timeZone: "Asia/Dubai",
     });
 
-  const formatCurrency = (
-    amount,
-    currencyCode,
-    colorClass = "text-gray-900"
-  ) => {
-    const numAmount = Number(amount) || 0;
-    const absAmount = Math.abs(numAmount).toFixed(2);
-    const isNegative = numAmount < 0;
+const formatCurrency = (
+  amount,
+  currencyCode,
+  colorClass = "text-gray-900"
+) => {
+  const numAmount = Number(amount) || 0;
+  const absAmount = Math.abs(numAmount).toFixed(2);
+  const isNegative = numAmount < 0;
 
-    return (
-      <span className={`inline-flex items-center ${colorClass}`}>
-        {isNegative && "-"}
-        {currencyCode === "AED" ? (
-          <img
-            src={DirhamIcon}
-            alt="AED"
-            className="w-3.5 h-3.5 mr-1"
-            style={{ filter: getColorFilter(colorClass) }}
-          />
-        ) : currencyCode === "INR" ? (
-          <span className="mr-1">₹</span>
-        ) : (
-          <span className="mr-1">{currencyCode}</span>
-        )}
-        {formatCommodityNumber(absAmount, null)}
-      </span>
-    );
-  };
+  return (
+    <span className={`inline-flex items-center ${colorClass}`}>
+      {isNegative && "-"}
+      {currencyCode === "AED" ? (
+        <img
+          src={DirhamIcon}
+          alt="AED"
+          className="w-3.5 h-3.5 mr-1"
+          style={{ filter: getColorFilter(colorClass) }}
+        />
+      ) : currencyCode === "INR" ? (
+        <span className="mr-1">₹</span>
+      ) : (
+        <span className="mr-1">{currencyCode}</span>
+      )}
+      {formatCommodityNumber(absAmount, null)}
+    </span>
+  );
+};
 
   const getColorFilter = (colorClass) => {
     switch (colorClass) {
@@ -511,46 +511,42 @@ const CurrencyTradingRegistry = () => {
                             {`${transaction?.baseCurrencyCode} / ${transaction?.targetCurrencyCode}`}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {formatCurrency(
-                              transaction.amount,
-                              transaction.baseCurrencyCode === "XAU"
-                                ? "XAU"
-                                : transaction.baseCurrency?.currencyCode || "N/A",
-                              transaction.type === "BUY"
-                                ? "text-green-700"
-                                : "text-red-700"
-                            )}
-                          </div>
-                        </td>
+                       <td className="px-6 py-4 whitespace-nowrap">
+  <div className="text-sm text-gray-900">
+    {formatCurrency(
+      transaction.amount,
+      transaction.baseCurrencyCode, // Use baseCurrencyCode directly
+      transaction.type === "BUY" 
+        ? "text-green-700" 
+        : "text-red-700"
+    )}
+  </div>
+</td>
 
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {formatCurrency(
-                              transaction.converted,
-                              transaction.targetCurrencyCode === "XAU" ? "XAU" : transaction.toCurrency?.currencyCode || "N/A",
-                              transaction.type === "BUY"
-                                ? "text-green-700"
-                                : "text-red-700"
-                            )}
-                          </div>
-                        </td>
+                       <td className="px-6 py-4 whitespace-nowrap">
+  <div className="text-sm text-gray-900">
+    {formatCurrency(
+      transaction.converted,
+      transaction.targetCurrencyCode, // Use targetCurrencyCode directly
+      transaction.type === "BUY" 
+        ? "text-green-700" 
+        : "text-red-700"
+    )}
+  </div>
+</td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
                             {transaction.rate.toFixed(6)}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-semibold text-gray-900">
-                            {formatCurrency(
-                              transaction.converted,
-                              transaction.targetCurrencyCode === "XAU"
-                                ? "XAU"
-                                : transaction.toCurrency?.currencyCode || "N/A"
-                            )}
-                          </div>
-                        </td>
+                       <td className="px-6 py-4 whitespace-nowrap">
+  <div className="text-sm font-semibold text-gray-900">
+    {formatCurrency(
+      transaction.converted,
+      transaction.targetCurrencyCode // Use targetCurrencyCode directly
+    )}
+  </div>
+</td>
 
                         {/* <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-semibold text-gray-900">

@@ -97,15 +97,15 @@ function OwnStockStatement({
   const totalPayableAmount = stockData.summary?.totalPayableAmount || { INR: 0, AED: 0 };
 
   // Use API-provided receivable/payable amounts
-  const receivableValue = {
-    INR: Number(totalReceivableAmount.INR || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-    AED: Number(totalReceivableAmount.AED || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  };
-  const payableValue = {
-    INR: Number(totalPayableAmount.INR || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-    AED: Number(totalPayableAmount.AED || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  };
+ const receivableValue = React.useMemo(() => ({
+  INR: Number(totalReceivableAmount.INR || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+  AED: Number(totalReceivableAmount.AED || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}), [totalReceivableAmount.INR, totalReceivableAmount.AED]);
 
+const payableValue = React.useMemo(() => ({
+  INR: Number(totalPayableAmount.INR || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+  AED: Number(totalPayableAmount.AED || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}), [totalPayableAmount.INR, totalPayableAmount.AED]);
   // Combine all data
   const fullStockData = React.useMemo(() => {
     const data = [...formattedStockData];
@@ -298,13 +298,32 @@ function OwnStockStatement({
     netCalculations.netSales.valueAcd,
     netCalculations.netPurchase.goldGms,
     netCalculations.netSales.goldGms,
-    onCalculatedValues
+    
   ]);
 
+  const sortedStockData = React.useMemo(() => {
+  const data = [...fullStockData];
+  if (sortConfig.key) {
+    data.sort((a, b) => {
+      const aValue = sortConfig.key === "category" ? a[sortConfig.key] : Number(a[sortConfig.key].replace(/,/g, ''));
+      const bValue = sortConfig.key === "category" ? b[sortConfig.key] : Number(b[sortConfig.key].replace(/,/g, ''));
+      if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
+      return 0;
+    });
+  }
+  return data;
+}, [fullStockData, sortConfig]);
+
+// Remove the useEffect and stockDataState
+// const [stockDataState, setStockData] = useState([]);
+// useEffect(() => {
+//   setStockData(fullStockData);
+// }, [fullStockData]);
   // Update stock data
-  useEffect(() => {
-    setStockData(fullStockData);
-  }, [fullStockData]);
+  // useEffect(() => {
+  //   setStockData(fullStockData);
+  // }, [fullStockData]);
 
   // Check if currency should be shown
   const shouldShowCurrency = (currency) => {
@@ -382,7 +401,7 @@ function OwnStockStatement({
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
-          {section !== "SubTotal" && stockDataState
+          {section !== "SubTotal" && sortedStockData
             .filter((item) =>
               item &&
               (item.section === section ||
