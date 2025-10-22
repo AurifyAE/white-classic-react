@@ -74,11 +74,12 @@ import StatementofAccountsPage from "../pages/statementofaccount.jsx";
 import CurrencyFixing from "../components/CurrencyFix/CurrencyFix.jsx";
 import CurrencyFix from "../pages/currencyfixing.jsx";
 import Footer from '../components/footer.jsx'
+import AdminProtect from "../protectorRouter/adminProtect.jsx";
 export default function UserRouter() {
   return (
     <Routes>
       <Route path="/" element={<Login />} />
-
+<Route path="/login" element={<AdminProtect />} />
       <Route element={<Layout />}>
         {/* Dashboard */}
         <Route path="/dashboard" element={<MetalStock />} />
