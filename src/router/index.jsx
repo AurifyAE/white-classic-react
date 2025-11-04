@@ -73,13 +73,13 @@ import FixingRegistryPage from "../pages/FixingResgitry.jsx";
 import StatementofAccountsPage from "../pages/statementofaccount.jsx";
 import CurrencyFixing from "../components/CurrencyFix/CurrencyFix.jsx";
 import CurrencyFix from "../pages/currencyfixing.jsx";
-import Footer from '../components/footer.jsx'
+import Footer from "../components/footer.jsx";
 import AdminProtect from "../protectorRouter/adminProtect.jsx";
 export default function UserRouter() {
   return (
     <Routes>
       <Route path="/" element={<Login />} />
-<Route path="/login" element={<AdminProtect />} />
+      <Route path="/login" element={<AdminProtect />} />
       <Route element={<Layout />}>
         {/* Dashboard */}
         <Route path="/dashboard" element={<MetalStock />} />
@@ -118,7 +118,6 @@ export default function UserRouter() {
         />
         <Route path="currencyfix-management" element={<CurrencyFix />} />
 
-
         {/* <Route path="/metal-stock-ledger" element={<MetalStockLedgerPage />} />
         <Route path="/stock-movement" element={<StockMovement />} />
         <Route path="/stock-analysis" element={<StockAnalysis />} />
@@ -151,10 +150,7 @@ export default function UserRouter() {
         <Route path="/metal-payment" element={<MetalPayment />} />
         <Route path="/metal-payment/:module" element={<MetalPayment />} />
 
-        <Route
-          path="/currency-payment"
-          element={<CurrencyPayment />}
-        />
+        <Route path="/currency-payment" element={<CurrencyPayment />} />
         <Route path="/currency-payment/:module" element={<CurrencyPayment />} />
 
         <Route path="/metal-receipt" element={<MetalReceipt />} />
@@ -207,7 +203,10 @@ export default function UserRouter() {
           element={<TransactionSummaryPage />}
         />
         <Route path="/reports/own-stock" element={<OwnStockPage />} />
-        <Route path ="/reports/own-stock/currency" element={<OwnStockCurrencyPage />} />
+        <Route
+          path="/reports/own-stock/currency"
+          element={<OwnStockCurrencyPage />}
+        />
         <Route
           path="/reports/stock-movement-pcs"
           element={<StockMovementPCS />}
@@ -223,10 +222,7 @@ export default function UserRouter() {
           element={<StatementofAccountsPage />}
         />
 
-        <Route
-          path="/currency-fix"
-          element={<CurrencyFixing />}
-        />
+        <Route path="/currency-fix" element={<CurrencyFixing />} />
       </Route>
 
       {/* Fallback */}
