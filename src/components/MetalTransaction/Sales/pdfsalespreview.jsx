@@ -1,11 +1,11 @@
 import React from 'react';
 import { X, DownloadIcon } from 'lucide-react';
 
-const formatNumber = (num) => {
+const formatNumber = (num, decimals = 2) => {
   if (num === null || num === undefined || isNaN(num)) return '0.00';
   return Number(num).toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
   });
 };
 
@@ -36,32 +36,41 @@ const numberToDirhamWords = (amount) => {
   return words + ' ONLY';
 };
 
-const PDFPreviewModal = ({ isOpen, onClose, purchase, onDownload }) => {
-  console.log("PDFPreviewModal purchase", purchase, isOpen, onClose, onDownload);
+const SalesPDFPreviewModal = ({ isOpen, onClose, sale, onDownload }) => {
+  if (!isOpen || !sale) return null;
 
-  if (!isOpen || !purchase) return null;
+  // Use correct fields from sale object
+  const partyName = sale.partyName || 'N/A';
+  const partyPhone = sale.partyPhone || 'N/A';
+  const partyEmail = sale.partyEmail || 'N/A';
+  const voucherNumber = sale.vocNo || sale.voucherNumber || 'N/A';
+  const voucherDate = sale.vocDate ? new Date(sale.vocDate).toISOString().split('T')[0] : 'N/A';
+  const paymentTerms = sale.paymentTerms || 'Cash';
+  const salesman = sale.salesman || sale.createdBy?.name || 'N/A';
 
-  const stockItems = (purchase.stockItems || []).filter(item => !!item.description);
-  const itemCount = stockItems.length;
-  console.log("stockItems", stockItems);
+  // Process stock items
+  const stockItems = sale.stockItems || [];
+  const tableData = stockItems.map((item) => {
+    const grossWeight = parseFloat(item.grossWeight) || 0;
+    const makingChargesTotal = parseFloat(item.itemTotal?.makingChargesTotal) || 0;
+    const calculatedRate = grossWeight > 0 ? (makingChargesTotal / grossWeight) : 0;
+    return {
+      description: item.description || 'N/A',
+      grossWt: formatNumber(item.grossWeight || 0, 3),
+      purity: formatNumber(item.purity || 0, 6),
+      pureWt: formatNumber(item.pureWeight || 0, 3),
+      makingRate: formatNumber(item.makingRate || 0, 2),
+      makingAmount: formatNumber(item.makingAmount || 0, 2),
+      taxableAmt: formatNumber(item.taxableAmt || 0, 2),
+      vatPercent: formatNumber(item.vatPercent || item.itemTotal?.vatPercentage || 0, 2),
+      vatAmt: formatNumber(item.itemTotal?.vatAmount || 0, 2),
+      totalAmt: formatNumber(item.itemTotal?.itemTotalAmount || 0, 2),
+      rate: formatNumber(calculatedRate, 2),
+      amount: formatNumber(item.itemTotal?.makingChargesTotal || 0, 2),
+    };
+  });
 
-  const tableData = stockItems.map((item, index) => ({
-    description: item.description || '',
-    grossWt: formatNumber(item.grossWeight || 0),
-    purity: (item.purity || 0),
-    pureWt: formatNumber(item.pureWeight || 0),
-    makingRate: formatNumber(item.makingRate || 0),
-    makingAmount: formatNumber(item.makingAmount || 0),
-    taxableAmt: formatNumber(item.taxableAmt || 0),
-    vatPercent: formatNumber(item.vatPercent || 0),
-    vatAmt: formatNumber(item.itemTotal?.vatAmount || 0),
-    totalAmt: formatNumber(item.itemTotal?.itemTotalAmount || 0),
-    rate: formatNumber(item.metalRateRequirements?.rate || 0),
-      amount: formatNumber(item.itemTotal?.makingChargesTotal || 0),
-  }));
-
-  const sum = (key) =>
-    tableData.reduce((acc, curr) => acc + parseFloat(curr[key]?.replace(/,/g, '') || 0), 0);
+  const sum = (key) => tableData.reduce((acc, curr) => acc + parseFloat(curr[key]?.replace(/,/g, '') || 0), 0);
 
   const totals = {
     totalGrossWt: sum('grossWt'),
@@ -74,32 +83,20 @@ const PDFPreviewModal = ({ isOpen, onClose, purchase, onDownload }) => {
   };
 
   const avgVATPercent = tableData.length > 0 ? sum('vatPercent') / tableData.length : 0;
-  const headingTitle = 'METAL SALES';
-  console.log("purchase.fixed:", purchase.fixed, "→ heading:", headingTitle);
-
-  const goldRate = formatNumber(purchase.stockItems?.[0]?.metalRateRequirements?.rate || 0);
-  const signedBy = purchase.salesman || 'AUTHORIZED SIGNATORY';
-  const creditAmount = purchase.fixed ? formatNumber(totals.totalAmt) : formatNumber(0);
-  const creditWords = purchase.fixed ? numberToDirhamWords(totals.totalAmt) : 'ZERO UAE DIRHAMS ONLY';
-  const pureWeightGrams = formatNumber(totals.totalPureWt * 1000);
+  const headingTitle = sale.fixed ? 'METAL SALE FIXING' : 'METAL SALE UNFIXING';
+  const goldRate = formatNumber(sale.stockItems?.[0]?.metalRateRequirements?.rate || 0, 2);
+  const signedBy = salesman || 'AUTHORIZED SIGNATORY';
+  const pureWeightGrams = formatNumber(totals.totalPureWt, 3);
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex justify-center items-center px-4 py-6 overflow-hidden">
-      <div className="bg-white w-full max-w-[794px] max-h-[90vh] rounded-lg shadow-lg text-black font-helvetica flex flex-col overflow-y-auto">
+    <div className="fixed inset-0 z-40 bg-white/40 flex justify-center items-center px-4 py-6 overflow-hidden">
+      <div className="bg-white w-full max-w-3xl max-h-[90vh] rounded-lg shadow-lg text-black font-helvetica flex flex-col overflow-y-auto">
         {/* Header */}
-        <div className="relative text-center pt-1.25">
-          {/* Logo */}
-          <img
-            src="/assets/logo.png"
-            alt="Logo"
-            className="mx-auto w-[80px] h-[80px]"
-          />
-          {/* Heading */}
+        <div className="relative text-center pt-2">
+          <img src="/assets/logo.png" alt="Logo" className="mx-auto w-[80px] h-[80px]" />
           <h2 className="text-[12px] font-bold text-right pr-3.5 mt-1">{headingTitle}</h2>
-          {/* Separator Line */}
           <div className="border-t border-[#DFDFDF] mx-3.5 mt-2"></div>
-          {/* Close Button */}
-          <button onClick={onClose} className="absolute top-1 right-1.5 text-gray-500 hover:text-black">
+          <button onClick={onClose} className="absolute top-4 right-6 text-gray-500 hover:text-black">
             <X className="w-6 h-6" />
           </button>
         </div>
@@ -107,117 +104,129 @@ const PDFPreviewModal = ({ isOpen, onClose, purchase, onDownload }) => {
         {/* Info Boxes */}
         <div className="flex mx-3.5 mt-1.5 text-[9px] border border-[#CDCDCD]">
           <div className="flex-1 p-2 border-r border-[#CDCDCD]">
-            <p>Party Name: {purchase.partyName || 'N/A'}</p>
-            <p className="mt-1.25">Phone: {purchase.partyPhone || 'N/A'}</p>
-            <p className="mt-1.25">Email: {purchase.partyEmail || 'N/A'}</p>
+            <p>Party Name: {partyName}</p>
+            <p className="mt-1.25">Phone: {partyPhone}</p>
+            <p className="mt-1.25">Email: {partyEmail}</p>
           </div>
           <div className="flex-1 p-2">
-            <p>PUR NO: {purchase.vocNo || 'N/A'}</p>
-            <p className="mt-1.25">Date: {purchase.vocDate || 'N/A'}</p>
-            <p className="mt-1.25">Terms: {purchase.paymentTerms || 'Cash'}</p>
-            <p className="mt-1.25">Salesman: {purchase.salesman || 'N/A'}</p>
+            <p>SALE NO: {voucherNumber}</p>
+            <p className="mt-1.25">Date: {voucherDate}</p>
+            <p className="mt-1.25">Terms: {paymentTerms}</p>
+            <p className="mt-1.25">Salesman: {salesman}</p>
             <p className="mt-1.25">Gold Rate: {goldRate} /GOZ</p>
           </div>
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto px-3.5 mt-[50px]">
+        <div className="overflow-x-auto px-3.5 mt-12">
           <table className="min-w-full border text-[8px] border-[#CDCDCD]">
             <thead className="bg-[#E6E6E6]">
               <tr>
-                <th rowSpan="2" className="border border-[#CDCDCD] p-1 text-center align-middle w-[30px]">#</th>
+                <th rowSpan="2" className="border border-[#CDCDCD] p-1 text-center align-middle">#</th>
                 <th rowSpan="2" className="border border-[#CDCDCD] p-1 text-left align-middle">Stock Description</th>
-                <th rowSpan="2" className="border border-[#CDCDCD] p-1 text-right align-middle w-[60px]">Gross Wt.</th>
-                <th rowSpan="2" className="border border-[#CDCDCD] p-1 text-right align-middle w-[50px]">Purity</th>
-                <th rowSpan="2" className="border border-[#CDCDCD] p-1 text-right align-middle w-[60px]">Pure Wt.</th>
+                <th rowSpan="2" className="border border-[#CDCDCD] p-1 text-right align-middle">Gross Wt.</th>
+                <th rowSpan="2" className="border border-[#CDCDCD] p-1 text-right align-middle">Purity</th>
+                <th rowSpan="2" className="border border-[#CDCDCD] p-1 text-right align-middle">Pure Wt.</th>
                 <th colSpan="2" className="border border-[#CDCDCD] p-1 text-center align-middle">Making (AED)</th>
-                <th rowSpan="2" className="border border-[#CDCDCD] p-1 text-right align-middle w-[70px]">Taxable Amt (AED)</th>
-                <th rowSpan="2" className="border border-[#CDCDCD] p-1 text-right align-middle w-[40px]">VAT%</th>
-                <th rowSpan="2 " className="border border-[#CDCDCD] p-1 text-right align-middle w-[60px]">VAT Amt (AED)</th>
-                <th rowSpan="2" className="border border-[#CDCDCD] p-1 text-right align-middle w-[70px]">Total Amt (AED)</th>
+                <th rowSpan="2" className="border border-[#CDCDCD] p-1 text-right align-middle">Taxable Amt (AED)</th>
+                <th rowSpan="2" className="border border-[#CDCDCD] p-1 text-right align-middle">VAT%</th>
+                <th rowSpan="2" className="border border-[#CDCDCD] p-1 text-right align-middle">VAT Amt (AED)</th>
+                <th rowSpan="2" className="border border-[#CDCDCD] p-1 text-right align-middle">Total Amt (AED)</th>
               </tr>
               <tr>
-                <th className="border border-[#CDCDCD] p-1 text-right align-middle w-[50px]">Rate</th>
-                <th className="border border-[#CDCDCD] p-1 text-right align-middle w-[60px]">Amount</th>
+                <th className="border border-[#CDCDCD] p-1 text-right align-middle">Rate</th>
+                <th className="border border-[#CDCDCD] p-1 text-right align-middle">Amount</th>
               </tr>
             </thead>
             <tbody>
-              {tableData.map((row, idx) => (
-                <tr key={idx} className="border-t border-[#CDCDCD]">
-                  <td className="border border-l-0 border-[#CDCDCD] p-1 text-center">{idx + 1}</td>
-                  <td className="border border-[#CDCDCD] p-1 text-left">{row.description}</td>
-                  <td className="border border-[#CDCDCD] p-1 text-right">{row.grossWt}</td>
-                  <td className="border border-[#CDCDCD] p-1 text-right">{row.purity}</td>
-                  <td className="border border-[#CDCDCD] p-1 text-right">{row.pureWt}</td>
-                  <td className="border border-[#CDCDCD] p-1 text-right">{row.makingRate}</td>
-                  <td className="border border-[#CDCDCD] p-1 text-right">{row.makingAmount}</td>
-                  <td className="border border-[#CDCDCD] p-1 text-right">{row.taxableAmt}</td>
-                  <td className="border border-[#CDCDCD] p-1 text-right">{row.vatPercent}</td>
-                  <td className="border border-[#CDCDCD] p-1 text-right">{row.vatAmt}</td>
-                  <td className="border border-r-0 border-[#CDCDCD] p-1 text-right">{row.totalAmt}</td>
+              {tableData.length > 0 ? (
+                tableData.map((row, idx) => (
+                  <tr key={idx} className="border-t border-[#CDCDCD]">
+                    <td className="border border-l-0 border-[#CDCDCD] p-1 text-center">{idx + 1}</td>
+                    <td className="border border-[#CDCDCD] p-1 text-left">{row.description}</td>
+                    <td className="border border-[#CDCDCD] p-1 text-right">{row.grossWt}</td>
+                    <td className="border border-[#CDCDCD] p-1 text-right">{row.purity}</td>
+                    <td className="border border-[#CDCDCD] p-1 text-right">{row.pureWt}</td>
+                    <td className="border border-[#CDCDCD] p-1 text-right">{row.rate}</td>
+                    <td className="border border-[#CDCDCD] p-1 text-right">{row.amount}</td>
+                    <td className="border border-[#CDCDCD] p-1 text-right">{row.taxableAmt}</td>
+                    <td className="border border-[#CDCDCD] p-1 text-right">{row.vatPercent}</td>
+                    <td className="border border-[#CDCDCD] p-1 text-right">{row.vatAmt}</td>
+                    <td className="border border-r-0 border-[#CDCDCD] p-1 text-right">{row.totalAmt}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="11" className="border border-[#CDCDCD] p-1 text-center">No stock items available</td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
 
         {/* Totals Box */}
         <div className="px-3.5 py-2 text-[8px]">
-          <div className="ml-auto border-t border-l border-b border-[#CDCDCD]" style={{ width: '33.33%' }}>
+          <div className="ml-auto border border-[#CDCDCD]" style={{ width: '33.33%' }}>
             <div className="flex border-b border-[#CDCDCD]">
               <div className="flex-1 border-r border-[#CDCDCD] p-1 font-bold text-center">VAT %</div>
-              <div className="flex-1 p-1 text-center">{formatNumber(avgVATPercent)}</div>
+              <div className="flex-1 p-1 text-center">{formatNumber(avgVATPercent, 2)}</div>
             </div>
             <div className="flex border-b border-[#CDCDCD]">
               <div className="flex-1 border-r border-[#CDCDCD] p-1 font-bold text-center">VAT Amount (AED)</div>
-              <div className="flex-1 p-1 text-center">{formatNumber(totals.totalVAT)}</div>
+              <div className="flex-1 p-1 text-center">{formatNumber(totals.totalVAT, 2)}</div>
             </div>
             <div className="flex border-b border-[#CDCDCD]">
               <div className="flex-1 border-r border-[#CDCDCD] p-1 font-bold text-center">Taxable Amount (AED)</div>
-              <div className="flex-1 p-1 text-center">{formatNumber(totals.totalTaxableAmt)}</div>
+              <div className="flex-1 p-1 text-center">{formatNumber(totals.totalTaxableAmt, 2)}</div>
             </div>
             <div className="flex">
               <div className="flex-1 border-r border-[#CDCDCD] p-1 font-bold text-center">Total Amount (AED)</div>
-              <div className="flex-1 p-1 text-center">{formatNumber(totals.totalAmt)}</div>
+              <div className="flex-1 p-1 text-center">{formatNumber(totals.totalAmt, 2)}</div>
             </div>
           </div>
         </div>
 
         {/* Account Update Section */}
         <div className="px-3.5 py-2 text-[8px]">
-          <p className="mt-3">Your account has been updated with:</p>
+          <p>Your account has been updated with:</p>
           <div className="border border-[#CDCDCD] mt-1">
             <div className="flex border-b border-[#CDCDCD]">
-              <div className="w-[80px] border-r border-[#CDCDCD] p-1.5 font-bold">{creditAmount} CREDITED</div>
-              <div className="flex-1 p-1.5 italic">{creditWords}</div>
+              <div className="w-[80px] border-r border-[#CDCDCD] p-1 font-bold">
+                {formatNumber(totals.totalAmt, 2)} DEBITED
+              </div>
+              <div className="flex-1 p-1 italic">{numberToDirhamWords(totals.totalAmt)}</div>
             </div>
             <div className="flex border-b border-[#CDCDCD]">
-              <div className="w-[80px] border-r border-[#CDCDCD] p-1.5 font-bold">{pureWeightGrams} GMS CREDITED</div>
-              <div className="flex-1 p-1.5 italic">GOLD {pureWeightGrams} Point Gms</div>
+              <div className="w-[80px] border-r border-[#CDCDCD] p-1 font-bold">
+                {pureWeightGrams} GMS DEBITED
+              </div>
+              <div className="flex-1 p-1 italic">GOLD {pureWeightGrams} Point Gms</div>
             </div>
-            <div className="p-1.5">{purchase.fixed ? 'fix' : 'unfix'} buy pure gold {pureWeightGrams} gm @</div>
+            <div className="p-1">
+              {sale.fixed ? 'fix' : 'unfix'} sell pure gold {pureWeightGrams} gm @
+            </div>
           </div>
-          <p className="italic mt-3">Confirmed on behalf of</p>
-          <p className="font-bold text-[10px] mt-1.25">{signedBy}</p>
+          <p className="italic mt-2">Confirmed on behalf of</p>
+          <p className="font-bold text-[10px]">{signedBy}</p>
         </div>
 
         {/* Signature Section */}
-        <div className="flex justify-between px-5 py-6 text-[9px] font-medium">
-          <span className="w-[50px] text-center border-t border-[#969696] pt-1">PARTY'S SIGNATURE</span>
-          <span className="w-[50px] text-center border-t border-[#969696] pt-1">CHECKED BY</span>
-          <span className="w-[50px] text-center border-t border-[#969696] pt-1">AUTHORIZED SIGNATORY</span>
+        <div className="flex justify-between px-3.5 py-6 text-[9px] font-medium">
+          <span className="w-[50px] text-center border-t border-[#969696]">PARTY'S SIGNATURE</span>
+          <span className="w-[50px] text-center border-t border-[#969696]">CHECKED BY</span>
+          <span className="w-[50px] text-center border-t border-[#969696]">AUTHORIZED SIGNATORY</span>
         </div>
 
         {/* Buttons */}
         <div className="bg-gray-100 px-3.5 py-3 flex justify-end gap-4 border-t border-[#CDCDCD]">
           <button
             onClick={onClose}
-            className="px-4 py-1.5 rounded-md border border-gray-300 text-gray-700 text-[10px] hover:bg-gray-200"
+            className="px-4 py-1.5 rounded-md border text-gray-700 text-[10px] hover:bg-gray-200"
           >
             Cancel
           </button>
           <button
-            onClick={() => { onDownload(purchase.id); onClose(); }}
+            onClick={() => { onDownload(sale.id); onClose(); }}
             className="px-4 py-1.5 rounded-md bg-gradient-to-r from-green-600 to-green-500 text-white hover:from-green-700 text-[10px] flex items-center gap-1"
           >
             <DownloadIcon className="w-4 h-4" /> Download
@@ -228,4 +237,4 @@ const PDFPreviewModal = ({ isOpen, onClose, purchase, onDownload }) => {
   );
 };
 
-export default PDFPreviewModal;
+export default SalesPDFPreviewModal;

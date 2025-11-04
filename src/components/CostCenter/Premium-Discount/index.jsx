@@ -155,34 +155,19 @@ const PremiumDiscountCenter = () => {
     });
   }, [transactionLogs, filterNature]);
 
-  const transactionsWithBalance = useMemo(() => {
-    // Sort in chronological order (oldest to newest) for balance calculation
-    const chronologicalTransactions = [...filteredTransactions].sort(
-      (a, b) => new Date(a.transactionDate) - new Date(b.transactionDate)
-    );
+  const aedTransactions = useMemo(() => 
+    filteredTransactions.filter(t => t.assetType === "AED" || t.currencyCode === "AED"), 
+    [filteredTransactions]
+  );
 
-    let runningBalance = 0;
+  const inrTransactions = useMemo(() => 
+    filteredTransactions.filter(t => t.assetType === "INR" || t.currencyCode === "INR"), 
+    [filteredTransactions]
+  );
 
-    const calculated = chronologicalTransactions.map((transaction) => {
-      const debit = Number(transaction.debit) || 0;
-      const credit = Number(transaction.credit) || 0;
-
-      // Financial logic: debit increases, credit decreases balance
-      runningBalance += debit - credit;
-
-      return {
-        ...transaction,
-        runningBalance,
-      };
-    });
-
-    // Reverse to display newest first (LIFO)
-    return calculated.reverse();
-  }, [filteredTransactions]);
-
-  const summaryTotals = useMemo(() => {
+  const computeSummary = useCallback((transactions) => {
     const { totalCredits, totalDebits, totalTransactions, avgValue } =
-      filteredTransactions.reduce(
+      transactions.reduce(
         (acc, t) => {
           acc.totalCredits += Number(t.credit) || 0;
           acc.totalDebits += Number(t.debit) || 0;
@@ -209,6 +194,39 @@ const PremiumDiscountCenter = () => {
       totalTransactions,
       avgValue: finalAvgValue,
     };
+  }, []);
+
+  const summaryAED = useMemo(() => computeSummary(aedTransactions), [aedTransactions, computeSummary]);
+  const summaryINR = useMemo(() => computeSummary(inrTransactions), [inrTransactions, computeSummary]);
+
+  const transactionsWithBalance = useMemo(() => {
+    // Sort in chronological order (oldest to newest) for balance calculation
+    const chronologicalTransactions = [...filteredTransactions].sort(
+      (a, b) => new Date(a.transactionDate) - new Date(b.transactionDate)
+    );
+
+    const balances = new Map();
+    balances.set("AED", 0);
+    balances.set("INR", 0);
+
+    const calculated = chronologicalTransactions.map((transaction) => {
+      const assetType = transaction.assetType || "AED";
+      let runningBalance = balances.get(assetType) || 0;
+      const debit = Number(transaction.debit) || 0;
+      const credit = Number(transaction.credit) || 0;
+
+      // Financial logic: debit increases, credit decreases balance
+      runningBalance += debit - credit;
+      balances.set(assetType, runningBalance);
+
+      return {
+        ...transaction,
+        runningBalance,
+      };
+    });
+
+    // Reverse to display newest first (LIFO)
+    return calculated.reverse();
   }, [filteredTransactions]);
 
   const formatDate = (dateString) =>
@@ -222,21 +240,33 @@ const PremiumDiscountCenter = () => {
       timeZone: "Asia/Dubai",
     });
 
-  const formatCurrency = (amount, colorClass = "text-gray-900") => {
+  const formatCurrency = (amount, colorClass = "text-gray-900", assetType = "AED", size = "small") => {
     const numAmount = Number(amount) || 0;
     const absAmount = Math.abs(numAmount).toFixed(2);
     const isNegative = numAmount < 0;
 
-    return (
-      <span className={`inline-flex items-center ${colorClass}`}>
-        {isNegative && "-"}
+    const imgClass = size === "large" ? "w-8 h-8 mr-2" : "w-3.5 h-3.5 mr-1";
+    const symbolSize = size === "large" ? "text-2xl" : "text-sm";
+
+    let currencySymbol;
+    if (assetType === "INR") {
+      currencySymbol = <span className={`${symbolSize} mr-1 ${colorClass}`}>₹</span>;
+    } else {
+      currencySymbol = (
         <img
           src={DirhamIcon}
           alt="AED"
-          className={`w-3.5 h-3.5 mr-1`}
+          className={`${imgClass} inline-block`}
           style={{ filter: getColorFilter(colorClass) }}
         />
-        {formatCommodityNumber(absAmount,null)}
+      );
+    }
+
+    return (
+      <span className={`inline-flex items-center ${colorClass}`}>
+        {isNegative && "-"}
+        {currencySymbol}
+        {formatCommodityNumber(absAmount, null)}
       </span>
     );
   };
@@ -331,7 +361,7 @@ const PremiumDiscountCenter = () => {
 
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 px-6">
-            {/* Credit */}
+            {/* AED Credit */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
               <div className="p-6">
                 <div className="flex items-center justify-between">
@@ -339,27 +369,12 @@ const PremiumDiscountCenter = () => {
                     <div className="flex items-center mb-2">
                       <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
                       <p className="text-sm font-medium text-gray-600 uppercase tracking-wide">
-                        Credit
+                        AED Credit
                       </p>
                     </div>
                     <p className="text-3xl font-bold text-gray-900 mb-1 flex items-center">
-                      <img
-                        src={DirhamIcon}
-                        alt="AED"
-                        className="w-8 h-8 mr-1"
-                      />
-                      {parseFloat(summaryTotals.totalCredits || 0) < 0
-                        ? "-"
-                        : ""}
-                      {Math.abs(
-                        parseFloat(summaryTotals.totalCredits || 0)
-                      ).toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}{" "}
-                      {parseFloat(summaryTotals.totalCredits || 0) >= 0
-                        ? "CR"
-                        : "DR"}
+                      {formatCurrency(summaryAED.totalCredits || 0, "text-gray-900", "AED", "large")}
+                      CR
                     </p>
                     <p className="text-sm text-gray-500">Total Credits</p>
                   </div>
@@ -370,7 +385,7 @@ const PremiumDiscountCenter = () => {
               </div>
             </div>
 
-            {/* Debit */}
+            {/* AED Debit */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
               <div className="p-6">
                 <div className="flex items-center justify-between">
@@ -378,27 +393,12 @@ const PremiumDiscountCenter = () => {
                     <div className="flex items-center mb-2">
                       <div className="w-2 h-2 bg-red-500 rounded-full mr-2"></div>
                       <p className="text-sm font-medium text-gray-600 uppercase tracking-wide">
-                        Debit
+                        AED Debit
                       </p>
                     </div>
                     <p className="text-3xl font-bold text-gray-900 mb-1 flex items-center">
-                      <img
-                        src={DirhamIcon}
-                        alt="AED"
-                        className="w-8 h-8 mr-1"
-                      />
-                      {parseFloat(summaryTotals.totalDebits || 0) < 0
-                        ? "-"
-                        : ""}
-                      {Math.abs(
-                        parseFloat(summaryTotals.totalDebits || 0)
-                      ).toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}{" "}
-                      {parseFloat(summaryTotals.totalDebits || 0) >= 0
-                        ? "DR"
-                        : "CR"}
+                      {formatCurrency(summaryAED.totalDebits || 0, "text-gray-900", "AED", "large")}
+                      DR
                     </p>
                     <p className="text-sm text-gray-500">Total Debits</p>
                   </div>
@@ -409,7 +409,7 @@ const PremiumDiscountCenter = () => {
               </div>
             </div>
 
-            {/* Current Balance */}
+            {/* AED Balance */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
               <div className="p-6">
                 <div className="flex items-center justify-between">
@@ -417,25 +417,90 @@ const PremiumDiscountCenter = () => {
                     <div className="flex items-center mb-2">
                       <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
                       <p className="text-sm font-medium text-gray-600 uppercase tracking-wide">
-                        Current Balance
+                        AED Premium Discount Balance
+                      </p>
+                    </div>
+                    <p className="text-3xl font-bold mb-1 flex items-center">
+                      {(() => {
+                        const balanceColor = summaryAED.netBalance >= 0 ? "text-green-700" : "text-red-700";
+                        return formatCurrency(summaryAED.netBalance || 0, balanceColor, "AED", "large");
+                      })()}
+                      {summaryAED.netBalance >= 0 ? "CR" : "DR"}
+                    </p>
+                    <p className="text-sm text-gray-500">Available Balance</p>
+                  </div>
+                  <div className="bg-blue-50 p-3 rounded-lg">
+                    <DollarSign className="w-6 h-6 text-blue-600" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* INR Credit */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+              <div className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center mb-2">
+                      <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                      <p className="text-sm font-medium text-gray-600 uppercase tracking-wide">
+                        INR Credit
                       </p>
                     </div>
                     <p className="text-3xl font-bold text-gray-900 mb-1 flex items-center">
-                      <img
-                        src={DirhamIcon}
-                        alt="AED"
-                        className="w-8 h-8 mr-1"
-                      />
-                      {parseFloat(summaryTotals.netBalance || 0) < 0 ? "-" : ""}
-                      {Math.abs(
-                        parseFloat(summaryTotals.netBalance || 0)
-                      ).toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}{" "}
-                      {parseFloat(summaryTotals.netBalance || 0) >= 0
-                        ? "CR"
-                        : "DR"}
+                      {formatCurrency(summaryINR.totalCredits || 0, "text-gray-900", "INR", "large")}
+                      CR
+                    </p>
+                    <p className="text-sm text-gray-500">Total Credits</p>
+                  </div>
+                  <div className="bg-green-50 p-3 rounded-lg">
+                    <TrendingUp className="w-6 h-6 text-green-600" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* INR Debit */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+              <div className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center mb-2">
+                      <div className="w-2 h-2 bg-red-500 rounded-full mr-2"></div>
+                      <p className="text-sm font-medium text-gray-600 uppercase tracking-wide">
+                        INR Debit
+                      </p>
+                    </div>
+                    <p className="text-3xl font-bold text-gray-900 mb-1 flex items-center">
+                      {formatCurrency(summaryINR.totalDebits || 0, "text-gray-900", "INR", "large")}
+                      DR
+                    </p>
+                    <p className="text-sm text-gray-500">Total Debits</p>
+                  </div>
+                  <div className="bg-red-50 p-3 rounded-lg">
+                    <TrendingDown className="w-6 h-6 text-red-600" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* INR Balance */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+              <div className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center mb-2">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+                      <p className="text-sm font-medium text-gray-600 uppercase tracking-wide">
+                        INR Premium Discount Balance
+                      </p>
+                    </div>
+                    <p className="text-3xl font-bold mb-1 flex items-center">
+                      {(() => {
+                        const balanceColor = summaryINR.netBalance >= 0 ? "text-green-700" : "text-red-700";
+                        return formatCurrency(summaryINR.netBalance || 0, balanceColor, "INR", "large");
+                      })()}
+                      {summaryINR.netBalance >= 0 ? "CR" : "DR"}
                     </p>
                     <p className="text-sm text-gray-500">Available Balance</p>
                   </div>
@@ -487,7 +552,7 @@ const PremiumDiscountCenter = () => {
                     <X className="w-4 h-4 mr-2" />
                     Clear Filters
                   </button>
-                  <button className="flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-lg hover:from-purple-700 hover:to-pink-600 transition-all">
+                  <button className="flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-lg hover:from-blue-700 hover:to-cyan-600 transition-all">
                     <Download className="w-4 h-4 mr-2" />
                     Export
                   </button>
@@ -525,7 +590,7 @@ const PremiumDiscountCenter = () => {
                   </select>
                 </div>
 
-                {/* <div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Items Per Page
                   </label>
@@ -541,7 +606,7 @@ const PremiumDiscountCenter = () => {
                     <option value={20}>20 per page</option>
                     <option value={50}>50 per page</option>
                   </select>
-                </div> */}
+                </div>
 
                 <div className="relative">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -643,98 +708,92 @@ const PremiumDiscountCenter = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-100">
-                    {transactionsWithBalance.map((transaction) => (
-                      <tr
-                        key={transaction.id}
-                        className="hover:bg-gray-50 transition-colors"
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {transaction.transactionId}
+                    {transactionsWithBalance.map((transaction) => {
+                      const assetType = transaction.assetType || "AED";
+                      return (
+                        <tr
+                          key={transaction.id}
+                          className="hover:bg-gray-50 transition-colors"
+                        >
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">
+                                {transaction.transactionId}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                Status: {transaction.status}
+                              </div>
                             </div>
-                            <div className="text-xs text-gray-500">
-                              Status: {transaction.status}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              {getTypeIcon(transaction.type)}
+                              <span className="ml-2 text-sm font-medium text-gray-900 capitalize">
+                                {transaction.type.replace("_", " ")}
+                              </span>
                             </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            {getTypeIcon(transaction.type)}
-                            <span className="ml-2 text-sm font-medium text-gray-900 capitalize">
-                              {transaction.type.replace("_", " ")}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap overflow-hidden text-ellipsis font-semibold ">
-                          <div
-                            className="flex items-center text-blue-600 cursor-pointer hover:underline"
-                            onClick={() => navigateToVoucher(transaction.reference)}
-                          >
-                            {transaction.reference}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="text-sm text-gray-900 whitespace-pre-wrap">
-                            {transaction.description}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-semibold text-gray-900">
-                            {formatCurrency(transaction.value, "text-gray-900")}
-                          </div>
-                        </td>
-
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {transaction.debit > 0 ? (
-                            <div className="text-sm font-bold text-red-700">
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap overflow-hidden text-ellipsis font-semibold">
+                            <div
+                              className="flex items-center text-blue-600 cursor-pointer hover:underline"
+                              onClick={() => navigateToVoucher(transaction.reference)}
+                            >
+                              {transaction.reference}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="text-sm text-gray-900 whitespace-pre-wrap">
+                              {transaction.description}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-semibold">
                               {formatCurrency(
-                                transaction.debit,
-                                "text-red-700"
+                                transaction.value,
+                                transaction.value < 0 ? "text-red-700" : "text-gray-900",
+                                assetType
                               )}
                             </div>
-                          ) : (
-                            <div className="text-sm text-gray-300">_____</div>
-                          )}
-                        </td>
-
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {transaction.credit > 0 ? (
-                            <div className="text-sm font-bold text-green-700">
-                              {formatCurrency(
-                                transaction.credit,
-                                "text-green-700"
-                              )}
-                            </div>
-                          ) : (
-                            <div className="text-sm text-gray-300">_____</div>
-                          )}
-                        </td>
-
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-semibold text-blue-900 px-2 py-1 rounded">
-                            {formatCurrency(
-                              transaction.runningBalance,
-                              "text-blue-900"
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {transaction.debit > 0 ? (
+                              <div className="text-sm font-bold">
+                                {formatCurrency(transaction.debit, "text-red-700", assetType)}
+                              </div>
+                            ) : (
+                              <div className="text-sm text-gray-300">_____</div>
                             )}
-                          </div>
-                        </td>
-
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                          {transaction.formattedDate ||
-                            formatDate(transaction.transactionDate)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          {/* <button
-                            onClick={() => handleSoftDelete(transaction._id)}
-                            className="text-red-600 hover:text-red-900 cursor-pointer p-1 rounded transition-colors"
-                            title="Delete Premium Discount Transaction"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button> */}
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {transaction.credit > 0 ? (
+                              <div className="text-sm font-bold">
+                                {formatCurrency(transaction.credit, "text-green-700", assetType)}
+                              </div>
+                            ) : (
+                              <div className="text-sm text-gray-300">_____</div>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-semibold">
+                              {formatCurrency(transaction.runningBalance, "text-blue-900", assetType)}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                            {transaction.formattedDate ||
+                              formatDate(transaction.transactionDate)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            {/* <button
+                              onClick={() => handleSoftDelete(transaction._id)}
+                              className="text-red-600 hover:text-red-900 cursor-pointer p-1 rounded transition-colors"
+                              title="Delete Premium Discount Transaction"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button> */}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
 

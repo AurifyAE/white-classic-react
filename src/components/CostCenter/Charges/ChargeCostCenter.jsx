@@ -156,34 +156,19 @@ const MakingChargeCenter = () => {
     });
   }, [transactionLogs, filterNature]);
 
-  const transactionsWithBalance = useMemo(() => {
-    // Sort in chronological order (oldest to newest) for balance calculation
-    const chronologicalTransactions = [...filteredTransactions].sort(
-      (a, b) => new Date(a.transactionDate) - new Date(b.transactionDate)
-    );
+  const aedTransactions = useMemo(() => 
+    filteredTransactions.filter(t => t.assetType === "AED" || t.currencyCode === "AED"), 
+    [filteredTransactions]
+  );
 
-    let runningBalance = 0;
+  const inrTransactions = useMemo(() => 
+    filteredTransactions.filter(t => t.assetType === "INR" || t.currencyCode === "INR"), 
+    [filteredTransactions]
+  );
 
-    const calculated = chronologicalTransactions.map((transaction) => {
-      const debit = Number(transaction.debit) || 0;
-      const credit = Number(transaction.credit) || 0;
-
-      // Financial logic: debit increases, credit decreases balance
-      runningBalance += debit - credit;
-
-      return {
-        ...transaction,
-        runningBalance,
-      };
-    });
-
-    // Reverse to display newest first (LIFO)
-    return calculated.reverse();
-  }, [filteredTransactions]);
-
-  const summaryTotals = useMemo(() => {
+  const computeSummary = useCallback((transactions) => {
     const { totalCredits, totalDebits, totalTransactions, avgValue } =
-      filteredTransactions.reduce(
+      transactions.reduce(
         (acc, t) => {
           acc.totalCredits += Number(t.credit) || 0;
           acc.totalDebits += Number(t.debit) || 0;
@@ -210,6 +195,39 @@ const MakingChargeCenter = () => {
       totalTransactions,
       avgValue: finalAvgValue,
     };
+  }, []);
+
+  const summaryAED = useMemo(() => computeSummary(aedTransactions), [aedTransactions, computeSummary]);
+  const summaryINR = useMemo(() => computeSummary(inrTransactions), [inrTransactions, computeSummary]);
+
+  const transactionsWithBalance = useMemo(() => {
+    // Sort in chronological order (oldest to newest) for balance calculation
+    const chronologicalTransactions = [...filteredTransactions].sort(
+      (a, b) => new Date(a.transactionDate) - new Date(b.transactionDate)
+    );
+
+    const balances = new Map();
+    balances.set("AED", 0);
+    balances.set("INR", 0);
+
+    const calculated = chronologicalTransactions.map((transaction) => {
+      const assetType = transaction.assetType || "AED";
+      let runningBalance = balances.get(assetType) || 0;
+      const debit = Number(transaction.debit) || 0;
+      const credit = Number(transaction.credit) || 0;
+
+      // Financial logic: debit increases, credit decreases balance
+      runningBalance += debit - credit;
+      balances.set(assetType, runningBalance);
+
+      return {
+        ...transaction,
+        runningBalance,
+      };
+    });
+
+    // Reverse to display newest first (LIFO)
+    return calculated.reverse();
   }, [filteredTransactions]);
 
   const formatDate = (dateString) =>
@@ -223,25 +241,36 @@ const MakingChargeCenter = () => {
       timeZone: "Asia/Kolkata",
     });
 
-  const formatCurrency = (amount, colorClass = "text-gray-900") => {
+  const formatCurrency = (amount, colorClass = "text-gray-900", assetType = "AED", size = "small") => {
     const numAmount = Number(amount) || 0;
     const absAmount = Math.abs(numAmount).toFixed(2);
     const isNegative = numAmount < 0;
 
-    return (
-      <span className={`inline-flex items-center ${colorClass}`}>
-        {isNegative && "-"}
+    const imgClass = size === "large" ? "w-8 h-8 mr-2" : "w-3.5 h-3.5 mr-1";
+    const symbolSize = size === "large" ? "text-2xl" : "text-sm";
+
+    let currencySymbol;
+    if (assetType === "INR") {
+      currencySymbol = <span className={`${symbolSize} mr-1 ${colorClass}`}>₹</span>;
+    } else {
+      currencySymbol = (
         <img
           src={DirhamIcon}
           alt="AED"
-          className={`w-3.5 h-3.5 mr-1`}
+          className={`${imgClass} inline-block`}
           style={{ filter: getColorFilter(colorClass) }}
         />
+      );
+    }
+
+    return (
+      <span className={`inline-flex items-center ${colorClass}`}>
+        {isNegative && "-"}
+        {currencySymbol}
         {formatCommodityNumber(absAmount, null)}
       </span>
     );
   };
-
 
   const getColorFilter = (colorClass) => {
     switch (colorClass) {
@@ -329,131 +358,96 @@ const MakingChargeCenter = () => {
           )}
 
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 px-6">
-            {/* Credit */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              <div className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center mb-2">
-                      <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                      <p className="text-sm font-medium text-gray-600 uppercase tracking-wide">
-                        Credit
-                      </p>
-                    </div>
-                    <p className="text-3xl font-bold text-gray-900 mb-1 flex items-center">
-                      <img
-                        src={DirhamIcon}
-                        alt="AED"
-                        className="w-8 h-8 mr-1"
-                      />
-                      {Math.abs(summaryTotals.totalCredits || 0).toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}{" "}
-                      CR
-                    </p>
-                    <p className="text-sm text-gray-500">Total Credits</p>
-                  </div>
-                  <div className="bg-green-50 p-3 rounded-lg">
-                    <TrendingUp className="w-6 h-6 text-green-600" />
-                  </div>
-                </div>
+          {/* Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {/* AED Credit */}
+            <div className="bg-white rounded-lg shadow border border-gray-200 p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-700 uppercase">AED Credit</h3>
+                <TrendingUp className="w-5 h-5 text-green-600" />
               </div>
+              <div className="text-2xl font-bold text-gray-900 mb-1">
+                {formatCurrency(summaryAED.totalCredits || 0, "text-gray-900", "AED", "large")}
+              </div>
+              <p className="text-xs text-gray-500">Total Credits</p>
             </div>
 
-            {/* Debit */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              <div className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center mb-2">
-                      <div className="w-2 h-2 bg-red-500 rounded-full mr-2"></div>
-                      <p className="text-sm font-medium text-gray-600 uppercase tracking-wide">
-                        Debit
-                      </p>
-                    </div>
-                    <p className="text-3xl font-bold text-gray-900 mb-1 flex items-center">
-                      <img
-                        src={DirhamIcon}
-                        alt="AED"
-                        className="w-8 h-8 mr-1"
-                      />
-                      {Math.abs(summaryTotals.totalDebits || 0).toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}{" "}
-                      DR
-                    </p>
-                    <p className="text-sm text-gray-500">Total Debits</p>
-                  </div>
-                  <div className="bg-red-50 p-3 rounded-lg">
-                    <TrendingDown className="w-6 h-6 text-red-600" />
-                  </div>
-                </div>
+            {/* AED Debit */}
+            <div className="bg-white rounded-lg shadow border border-gray-200 p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-700 uppercase">AED Debit</h3>
+                <TrendingDown className="w-5 h-5 text-red-600" />
               </div>
+              <div className="text-2xl font-bold text-gray-900 mb-1">
+                {formatCurrency(summaryAED.totalDebits || 0, "text-gray-900", "AED", "large")}
+              </div>
+              <p className="text-xs text-gray-500">Total Debits</p>
             </div>
 
-            {/* Net Balance */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              <div className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center mb-2">
-                      <div className="w-2 h-2 bg-orange-500 rounded-full mr-2"></div>
-                      <p className="text-sm font-medium text-gray-600 uppercase tracking-wide">
-                        Making Charge Balance
-                      </p>
-                    </div>
-                    <p className="text-3xl font-bold text-gray-900 mb-1 flex items-center">
-                      <img
-                        src={DirhamIcon}
-                        alt="AED"
-                        className="w-8 h-8 mr-1"
-                      />
-                      {parseFloat(summaryTotals.netBalance || 0) < 0 ? "-" : ""}
-                      {Math.abs(
-                        parseFloat(summaryTotals.netBalance || 0)
-                      ).toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}{" "}
-                      {parseFloat(summaryTotals.netBalance || 0) >= 0
-                        ? "CR"
-                        : "DR"}
-                    </p>
-                    <p className="text-sm text-gray-500">Available Balance</p>
-                  </div>
-                  <div className="bg-orange-50 p-3 rounded-lg">
-                    <Settings2 className="w-6 h-6 text-orange-600" />
-                  </div>
-                </div>
+            {/* AED Balance */}
+            <div className="bg-white rounded-lg shadow border border-gray-200 p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-700 uppercase">AED Balance</h3>
+                <Settings2 className="w-5 h-5 text-blue-600" />
               </div>
+              <div className="text-2xl font-bold mb-1">
+                {(() => {
+                  const balanceColor = summaryAED.netBalance >= 0 ? "text-green-700" : "text-red-700";
+                  return formatCurrency(summaryAED.netBalance || 0, balanceColor, "AED", "large");
+                })()}
+              </div>
+              <p className="text-xs text-gray-500">Net Balance</p>
+            </div>
+
+            {/* INR Credit */}
+            <div className="bg-white rounded-lg shadow border border-gray-200 p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-700 uppercase">INR Credit</h3>
+                <TrendingUp className="w-5 h-5 text-green-600" />
+              </div>
+              <div className="text-2xl font-bold text-gray-900 mb-1">
+                {formatCurrency(summaryINR.totalCredits || 0, "text-gray-900", "INR", "large")}
+              </div>
+              <p className="text-xs text-gray-500">Total Credits</p>
+            </div>
+
+            {/* INR Debit */}
+            <div className="bg-white rounded-lg shadow border border-gray-200 p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-700 uppercase">INR Debit</h3>
+                <TrendingDown className="w-5 h-5 text-red-600" />
+              </div>
+              <div className="text-2xl font-bold text-gray-900 mb-1">
+                {formatCurrency(summaryINR.totalDebits || 0, "text-gray-900", "INR", "large")}
+              </div>
+              <p className="text-xs text-gray-500">Total Debits</p>
+            </div>
+
+            {/* INR Balance */}
+            <div className="bg-white rounded-lg shadow border border-gray-200 p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-700 uppercase">INR Balance</h3>
+                <Settings2 className="w-5 h-5 text-blue-600" />
+              </div>
+              <div className="text-2xl font-bold mb-1">
+                {(() => {
+                  const balanceColor = summaryINR.netBalance >= 0 ? "text-green-700" : "text-red-700";
+                  return formatCurrency(summaryINR.netBalance || 0, balanceColor, "INR", "large");
+                })()}
+              </div>
+              <p className="text-xs text-gray-500">Net Balance</p>
             </div>
 
             {/* Total Records */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              <div className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center mb-2">
-                      <div className="w-2 h-2 bg-purple-500 rounded-full mr-2"></div>
-                      <p className="text-sm font-medium text-gray-600 uppercase tracking-wide">
-                        Total Records
-                      </p>
-                    </div>
-                    <p className="text-3xl font-bold text-gray-900 mb-1">
-                      {totalItems.toLocaleString()}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      Making Charge Transactions
-                    </p>
-                  </div>
-                  <div className="bg-purple-50 p-3 rounded-lg">
-                    <BarChart3 className="w-6 h-6 text-purple-600" />
-                  </div>
-                </div>
+            <div className="bg-white rounded-lg shadow border border-gray-200 p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-700 uppercase">Total Records</h3>
+                <BarChart3 className="w-5 h-5 text-gray-600" />
               </div>
+              <div className="text-2xl font-bold text-gray-900 mb-1">
+                {totalItems.toLocaleString()}
+              </div>
+              <p className="text-xs text-gray-500">Transactions</p>
             </div>
           </div>
 
@@ -510,7 +504,7 @@ const MakingChargeCenter = () => {
                   </select>
                 </div>
 
-                {/* <div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Items Per Page
                   </label>
@@ -526,7 +520,7 @@ const MakingChargeCenter = () => {
                     <option value={20}>20 per page</option>
                     <option value={50}>50 per page</option>
                   </select>
-                </div> */}
+                </div>
 
                 <div className="relative">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -626,89 +620,96 @@ const MakingChargeCenter = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-100">
-                    {transactionsWithBalance.map((transaction) => (
-                      <tr
-                        key={transaction.id}
-                        className="hover:bg-gray-50 transition-colors"
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {transaction.transactionId}
+                    {transactionsWithBalance.map((transaction) => {
+                      const assetType = transaction.assetType || "AED";
+                      return (
+                        <tr
+                          key={transaction.id}
+                          className="hover:bg-gray-50 transition-colors"
+                        >
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">
+                                {transaction.transactionId}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                Status: {transaction.status}
+                              </div>
                             </div>
-                            <div className="text-xs text-gray-500">
-                              Status: {transaction.status}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              {getTypeIcon(transaction.type)}
+                              <span className="ml-2 text-sm font-medium text-gray-900 capitalize">
+                                {transaction.type.replace("_", " ")}
+                              </span>
                             </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            {getTypeIcon(transaction.type)}
-                            <span className="ml-2 text-sm font-medium text-gray-900 capitalize">
-                              {transaction.type.replace("_", " ")}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap overflow-hidden text-ellipsis font-semibold ">
-                          <div
-                            className="flex items-center text-blue-600 cursor-pointer hover:underline"
-                            onClick={() => navigateToVoucher(transaction.reference)}
-                          >
-                            {transaction.reference}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="text-sm text-gray-900 whitespace-pre-wrap">
-                            {transaction.description}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-semibold">
-                            {formatCurrency(transaction.value, transaction.value < 0 ? "text-red-700" : "text-gray-900")}
-                          </div>
-                        </td>
-
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {transaction.debit > 0 ? (
-                            <div className="text-sm font-bold">
-                              {formatCurrency(transaction.debit, "text-red-700")}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap overflow-hidden text-ellipsis font-semibold ">
+                            <div
+                              className="flex items-center text-blue-600 cursor-pointer hover:underline"
+                              onClick={() => navigateToVoucher(transaction.reference)}
+                            >
+                              {transaction.reference}
                             </div>
-                          ) : (
-                            <div className="text-sm text-gray-300">_____</div>
-                          )}
-                        </td>
-
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {transaction.credit > 0 ? (
-                            <div className="text-sm font-bold">
-                              {formatCurrency(transaction.credit, "text-green-700")}
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="text-sm text-gray-900 whitespace-pre-wrap">
+                              {transaction.description}
                             </div>
-                          ) : (
-                            <div className="text-sm text-gray-300">_____</div>
-                          )}
-                        </td>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-semibold">
+                              {formatCurrency(
+                                transaction.value, 
+                                transaction.value < 0 ? "text-red-700" : "text-gray-900", 
+                                assetType
+                              )}
+                            </div>
+                          </td>
 
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-semibold">
-                            {formatCurrency(transaction.runningBalance, "text-orange-900")}
-                          </div>
-                        </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {transaction.debit > 0 ? (
+                              <div className="text-sm font-bold">
+                                {formatCurrency(transaction.debit, "text-red-700", assetType)}
+                              </div>
+                            ) : (
+                              <div className="text-sm text-gray-300">_____</div>
+                            )}
+                          </td>
 
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                          {transaction.formattedDate ||
-                            formatDate(transaction.transactionDate)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          {/* <button
-                            onClick={() => handleSoftDelete(transaction._id)}
-                            className="text-red-600 hover:text-red-900 cursor-pointer p-1 rounded transition-colors"
-                            title="Delete Making Charge Transaction"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button> */}
-                        </td>
-                      </tr>
-                    ))}
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {transaction.credit > 0 ? (
+                              <div className="text-sm font-bold">
+                                {formatCurrency(transaction.credit, "text-green-700", assetType)}
+                              </div>
+                            ) : (
+                              <div className="text-sm text-gray-300">_____</div>
+                            )}
+                          </td>
+
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-semibold">
+                              {formatCurrency(transaction.runningBalance, "text-orange-900", assetType)}
+                            </div>
+                          </td>
+
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                            {transaction.formattedDate ||
+                              formatDate(transaction.transactionDate)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            {/* <button
+                              onClick={() => handleSoftDelete(transaction._id)}
+                              className="text-red-600 hover:text-red-900 cursor-pointer p-1 rounded transition-colors"
+                              title="Delete Making Charge Transaction"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button> */}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
 

@@ -248,44 +248,115 @@ const [isDeleting, setIsDeleting] = useState(false);
   };
 
   // Function to convert number to Dirham words
-  const numberToDirhamWords = (amount) => {
-    if (amount === null || amount === undefined || isNaN(amount) || amount === "") {
-      return "INVALID AMOUNT";
-    }
+// Function to convert number to words based on currency
+const numberToWords = (amount, currencyCode) => {
+  if (
+    amount === null ||
+    amount === undefined ||
+    isNaN(amount) ||
+    amount === ""
+  ) {
+    return "INVALID AMOUNT";
+  }
 
-    const num = Number(amount);
-    const isNegative = num < 0;
-    const absoluteNum = Math.abs(num);
-    const [dirhamPart, filsPartRaw] = absoluteNum.toFixed(2).split(".");
-    const dirham = parseInt(dirhamPart, 10) || 0;
-    const fils = parseInt(filsPartRaw, 10) || 0;
+  const num = Number(amount);
+  const isNegative = num < 0;
+  const absoluteNum = Math.abs(num);
+  const [integerPart, decimalPartRaw] = absoluteNum.toFixed(2).split(".");
+  const integer = parseInt(integerPart, 10) || 0;
+  const decimal = parseInt(decimalPartRaw, 10) || 0;
 
-    const a = [
-      "", "ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE",
-      "TEN", "ELEVEN", "TWELVE", "THIRTEEN", "FOURTEEN", "FIFTEEN", "SIXTEEN",
-      "SEVENTEEN", "EIGHTEEN", "NINETEEN",
-    ];
-    const b = ["", "", "TWENTY", "THIRTY", "FORTY", "FIFTY", "SIXTY", "SEVENTY", "EIGHTY", "NINETY"];
+  const a = [
+    "",
+    "ONE",
+    "TWO",
+    "THREE",
+    "FOUR",
+    "FIVE",
+    "SIX",
+    "SEVEN",
+    "EIGHT",
+    "NINE",
+    "TEN",
+    "ELEVEN",
+    "TWELVE",
+    "THIRTEEN",
+    "FOURTEEN",
+    "FIFTEEN",
+    "SIXTEEN",
+    "SEVENTEEN",
+    "EIGHTEEN",
+    "NINETEEN",
+  ];
+  const b = [
+    "",
+    "",
+    "TWENTY",
+    "THIRTY",
+    "FORTY",
+    "FIFTY",
+    "SIXTY",
+    "SEVENTY",
+    "EIGHTY",
+    "NINETY",
+  ];
 
-    const convert = (num) => {
-      if (num === 0) return "";
-      if (num < 20) return a[num];
-      if (num < 100) return b[Math.floor(num / 10)] + (num % 10 ? " " + a[num % 10] : "");
-      if (num < 1000) return a[Math.floor(num / 100)] + " HUNDRED" + (num % 100 ? " " + convert(num % 100) : "");
-      if (num < 1000000) return convert(Math.floor(num / 1000)) + " THOUSAND" + (num % 1000 ? " " + convert(num % 1000) : "");
-      if (num < 1000000000) return convert(Math.floor(num / 1000000)) + " MILLION" + (num % 1000000 ? " " + convert(num % 1000000) : "");
-      if (num < 1000000000000) return convert(Math.floor(num / 1000000000)) + " BILLION" + (num % 1000000000 ? " " + convert(num % 1000000000) : "");
-      if (num < 1000000000000000) return convert(Math.floor(num / 1000000000000)) + " TRILLION" + (num % 1000000000000 ? " " + convert(num % 1000000000000) : "");
-      return "NUMBER TOO LARGE";
-    };
-
-    let words = "";
-    if (dirham > 0) words += convert(dirham) + " DIRHAM";
-    if (fils > 0) words += (dirham > 0 ? " AND " : "") + convert(fils) + " FILS";
-    if (words === "") words = "ZERO DIRHAM";
-
-    return (isNegative ? "MINUS " : "") + words + " ONLY";
+  const convert = (num) => {
+    if (num === 0) return "";
+    if (num < 20) return a[num];
+    if (num < 100)
+      return b[Math.floor(num / 10)] + (num % 10 ? " " + a[num % 10] : "");
+    if (num < 1000)
+      return (
+        a[Math.floor(num / 100)] +
+        " HUNDRED" +
+        (num % 100 ? " " + convert(num % 100) : "")
+      );
+    if (num < 1000000)
+      return (
+        convert(Math.floor(num / 1000)) +
+        " THOUSAND" +
+        (num % 1000 ? " " + convert(num % 1000) : "")
+      );
+    if (num < 1000000000)
+      return (
+        convert(Math.floor(num / 1000000)) +
+        " MILLION" +
+        (num % 1000000 ? " " + convert(num % 1000000) : "")
+      );
+    if (num < 1000000000000)
+      return (
+        convert(Math.floor(num / 1000000000)) +
+        " BILLION" +
+        (num % 1000000000 ? " " + convert(num % 1000000000) : "")
+      );
+    if (num < 1000000000000000)
+      return (
+        convert(Math.floor(num / 1000000000000)) +
+        " TRILLION" +
+        (num % 1000000000000 ? " " + convert(num % 1000000000000) : "")
+      );
+    return "NUMBER TOO LARGE";
   };
+
+  // Currency-specific formatting
+  const currencyFormats = {
+    AED: { integer: "DIRHAM", decimal: "FILS" },
+    INR: { integer: "RUPEES", decimal: "PAISE" },
+    // Add more currencies as needed
+    DEFAULT: { integer: "CURRENCY", decimal: "CENTS" },
+  };
+
+  const format = currencyFormats[currencyCode] || currencyFormats.DEFAULT;
+
+  let words = "";
+  if (integer > 0) words += convert(integer) + ` ${format.integer}`;
+  if (decimal > 0)
+    words += (integer > 0 ? " AND " : "") + convert(decimal) + ` ${format.decimal}`;
+  if (words === "") words = `ZERO ${format.integer}`;
+
+  return (isNegative ? "MINUS " : "") + words + " ONLY";
+};
 
   // Export single payment by ID to PDF
 const handleExportByIdToPDF = async (id) => {
@@ -823,10 +894,42 @@ const handleExportAllToPDF = async () => {
   }));
 
   // Cash type select options
-  const cashTypeOptions = cashTypes.map((cashType) => ({
-    value: cashType._id,
-    label: `${cashType.name} - ${cashType.uniqId}`,
-  }));
+const cashTypeOptions = useMemo(() => {
+  console.log("=== DEBUG: Computing cashTypeOptions ===");
+  console.log("Selected Currency:", selectedCurrency);
+  console.log("Cash Types:", cashTypes);
+
+  if (!selectedCurrency?.value) {
+    console.log("No currency selected, returning empty cashTypeOptions");
+    return [];
+  }
+
+  const filteredCashTypes = cashTypes
+    .filter((cashType) => {
+      // Handle both string and object currencyId
+      const cashTypeCurrencyId =
+        typeof cashType.currencyId === "object" && cashType.currencyId?._id
+          ? cashType.currencyId._id
+          : cashType.currencyId;
+      const matchesCurrency = cashTypeCurrencyId === selectedCurrency.value;
+      console.log(
+        `Checking cashType ${cashType.name}:`,
+        cashTypeCurrencyId,
+        "matches",
+        selectedCurrency.value,
+        "?",
+        matchesCurrency
+      );
+      return matchesCurrency;
+    })
+    .map((cashType) => ({
+      value: cashType._id,
+      label: `${cashType.name} - ${cashType.uniqId}`,
+    }));
+
+  console.log("Filtered Cash Types:", filteredCashTypes);
+  return filteredCashTypes;
+}, [cashTypes, selectedCurrency]);
 
 
 
@@ -1041,31 +1144,40 @@ const handleCloseProductModal = () => {
     clearError("voucher");
   };
 
-  const handlePartyChange = (option) => {
-    setMainRemarks(`Currency payment for ${option.label}`);
-    setSelectedParty(option);
-    clearError("party");
-    clearError("balance");
+const handlePartyChange = (option) => {
+  console.log("=== DEBUG: handlePartyChange ===");
+  console.log("Selected Party:", option);
 
-    const currencies = option?.party?.acDefinition?.currencies || [];
-    const mappedCurrencies = currencies
-      .filter((c) => c.isDefault)
-      .map((c) => ({
-        value: c.currency?._id,
-        label: `${c.currency?.currencyCode} - ${c.currency?.description}`,
-        currency: c.currency,
-        isDefault: c.isDefault,
-      }));
+  setMainRemarks(`Currency receipt for ${option.label}`);
+  setSelectedParty(option);
+  clearError("party");
+  clearError("balance");
 
-    setCurrencyOptions(mappedCurrencies);
-    const defaultCurrency = mappedCurrencies.find((c) => c.isDefault);
-    if (defaultCurrency) {
-      setSelectedCurrency(defaultCurrency);
-      clearError("currency");
-    } else {
-      setSelectedCurrency(null);
-    }
-  };
+  const currencies = option?.party?.acDefinition?.currencies || [];
+  const mappedCurrencies = currencies
+    .map((c) => ({
+      value: c.currency?._id,
+      label: `${c.currency?.currencyCode} - ${c.currency?.description}`,
+      currency: c.currency,
+      isDefault: c.isDefault,
+    }));
+
+  console.log("Mapped Currencies:", mappedCurrencies);
+  setCurrencyOptions(mappedCurrencies);
+  const defaultCurrency = mappedCurrencies.find((c) => c.isDefault);
+  if (defaultCurrency) {
+    console.log("Setting default currency:", defaultCurrency);
+    setSelectedCurrency(defaultCurrency);
+    clearError("currency");
+  } else {
+    console.log("No default currency found, clearing selectedCurrency");
+    setSelectedCurrency(null);
+  }
+
+  // Reset cashType and product modal state when currency changes
+  setCashType(null);
+  setArrayError((prev) => ({ ...prev, cashType: "" }));
+};
 
   // Product modal logic
   const handleProductModalOpen = () => {
@@ -1144,32 +1256,32 @@ const handleMainSave = async () => {
   console.group("=== Starting handleMainSave ===");
   console.log("1. Checking cash balance of selected party...");
 
-  const deFaultCurrnecy = selectedParty?.party?.balances?.cashBalance?.currency;
-  console.log("Default currency for party:", deFaultCurrnecy);
+  // const deFaultCurrnecy = selectedParty?.party?.balances?.cashBalance?.currency;
+  // console.log("Default currency for party:", deFaultCurrnecy);
 
-  const hasCurrencyMismatch = productList.some(
-    (item) => item.currency?.value !== deFaultCurrnecy
-  );
+  // const hasCurrencyMismatch = productList.some(
+  //   (item) => item.currency?.value !== deFaultCurrnecy
+  // );
 
-  if (!deFaultCurrnecy) {
-    setErrors((prev) => ({
-      ...prev,
-      balance: "The selected party does not have any payment currency set.",
-    }));
-    toast.error("The selected party does not have any payment currency set.");
-    console.groupEnd();
-    return;
-  }
+  // if (!deFaultCurrnecy) {
+  //   setErrors((prev) => ({
+  //     ...prev,
+  //     balance: "The selected party does not have any payment currency set.",
+  //   }));
+  //   toast.error("The selected party does not have any payment currency set.");
+  //   console.groupEnd();
+  //   return;
+  // }
 
-  if (hasCurrencyMismatch) {
-    setErrors((prev) => ({
-      ...prev,
-      balance: "All product currencies must match the party's default currency.",
-    }));
-    toast.error("All product currencies must match the party's default currency.");
-    console.groupEnd();
-    return;
-  }
+  // if (hasCurrencyMismatch) {
+  //   setErrors((prev) => ({
+  //     ...prev,
+  //     balance: "All product currencies must match the party's default currency.",
+  //   }));
+  //   toast.error("All product currencies must match the party's default currency.");
+  //   console.groupEnd();
+  //   return;
+  // }
 
   console.log("2. Preparing loading toast...");
   setIsSaving(true); // Set loading state
@@ -1499,7 +1611,7 @@ const handleMainSave = async () => {
                   className="px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-lg hover:from-blue-700 hover:to-cyan-600 flex items-center gap-2"
                 >
                   <Plus className="w-4 h-4" />
-                  Add Cash receipt
+                  Add Cash Payment
                 </button>
                 <button
                   onClick={handleExportAllToPDF}
@@ -1826,25 +1938,31 @@ const handleMainSave = async () => {
                               </p>
                             )}
                           </div>
-                          {selectedParty && (
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Party Currency <span className="text-red-500">*</span>
-                              </label>
-                              <Select
-                                options={currencyOptions}
-                                value={selectedCurrency}
-                                onChange={setSelectedCurrency}
-                                isSearchable
-                                placeholder="Select a currency..."
-                              />
-                              {errors.currency && (
-                                <p className="text-red-500 text-sm mt-1">
-                                  {errors.currency}
-                                </p>
-                              )}
-                            </div>
-                          )}
+{selectedCurrency && (
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-2">
+      Party Currency <span className="text-red-500">*</span>
+    </label>
+    <Select
+      options={currencyOptions}
+      value={selectedCurrency}
+      onChange={setSelectedCurrency}
+      isSearchable
+      placeholder="Select a currency..."
+      formatOptionLabel={(option) => (
+        <div>
+          {option.label.includes('undefined') 
+            ? option.label.split(' - ')[0] 
+            : option.label
+          }
+        </div>
+      )}
+    />
+    {errors.currency && (
+      <p className="text-red-500 text-sm mt-1">{errors.currency}</p>
+    )}
+  </div>
+)}
                           {selectedParty && (
                             <div className="mt-2 text-sm text-gray-600">
                               <div className="flex space-x-4">
@@ -2039,7 +2157,7 @@ const handleMainSave = async () => {
                             ?.openingBalance || 0,
                           2
                         )}{" "}
-                        {currency?.label || "AED"}
+                        {/* {currency?.label || "AED"} */}
                       </span>
                     </p>
                   )}
@@ -2266,24 +2384,25 @@ const handleMainSave = async () => {
 )}
 
 
-                <div className="col-span-1 md:col-span-2 mt-6">
-                  <label className="block text-sm font-semibold text-gray-800 mb-2 tracking-wide">
-                    Amount in Words
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full px-4 py-3 bg-gray-100/80 border-0 rounded-xl text-gray-500 font-medium shadow-inner transition-all duration-200 cursor-not-allowed"
-                    value={numberToDirhamWords(
-                      parseFloat(
-                        includeVat && totalWithVat
-                          ? totalWithVat.replace(/,/g, "")
-                          : amount.replace(/,/g, "") || "0"
-                      )
-                    )}
-                    readOnly
-                    placeholder="Amount in words"
-                  />
-                </div>
+               <div className="col-span-1 md:col-span-2 mt-6">
+  <label className="block text-sm font-semibold text-gray-800 mb-2 tracking-wide">
+    Amount in Words
+  </label>
+  <input
+    type="text"
+    className="w-full px-4 py-3 bg-gray-100/80 border-0 rounded-xl text-gray-500 font-medium shadow-inner transition-all duration-200 cursor-not-allowed"
+    value={numberToWords(
+      parseFloat(
+        includeVat && totalWithVat
+          ? totalWithVat.replace(/,/g, "")
+          : amount.replace(/,/g, "") || "0"
+      ),
+      currency?.label?.split(" - ")[0] || "AED" 
+    )}
+    readOnly
+    placeholder="Amount in words"
+  />
+</div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Currency

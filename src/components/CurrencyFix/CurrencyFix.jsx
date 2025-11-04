@@ -1,170 +1,35 @@
-import React, {
-  useState,
-  useEffect,
-  useCallback,
-  useMemo,
-  useRef,
-} from "react";
-import { toast } from "react-toastify";
-import {
-  TrendingUp,
-  TrendingDown,
-  RefreshCw,
-  Globe,
-  ArrowUpRight,
-  ArrowDownRight,
-  Activity,
-  Clock,
-  AlertCircle,
-  Star,
-  Plus,
-  Minus,
-  Search,
-  Users,
-  ShoppingCart,
-  Wallet,
-  Settings,
-  Menu,
-  X,
-  CheckCircle,
-  DollarSign,
-  Zap,
-  Target,
-  TrendingDownIcon,
-  TrendingUpIcon,
-} from "lucide-react";
-import axiosInstance from "../../api/axios";
-import useMarketData from "../../components/marketData";
-// Constants
-const API_CONFIG = {
-  KEY: "cur_live_PwrdXAAoMwGUG9i7z4DmtEhRcAhALikOUzO3BeTj",
-  BASE_URL: "https://api.currencyapi.com/v3/latest",
-  CACHE_DURATION: 5 * 60 * 1000, // 5 minutes
-  REFRESH_INTERVAL: 300000, // 5 minutes
-  RETRY_ATTEMPTS: 3,
-  RETRY_DELAY: 1000,
-};
-const STORAGE_KEYS = {
-  CACHE: "currency_data_cache",
-  BASE_CURRENCY: "base_currency",
-  WATCHLIST: "currency_watchlist",
-  SETTINGS: "trading_settings",
-};
-const DEFAULT_CONFIG = {
-  BASE_CURRENCY: "AED",
-  GOLD_SYMBOL: "XAU",
-  GOLD_CONV_FACTOR: 31.1035, // Troy ounce to grams
-};
-// Custom Hooks
-const useLocalStorage = (key, defaultValue) => {
-  const [value, setValue] = useState(() => {
-    try {
-      const item = localStorage.getItem(key);
-      return item ? JSON.parse(item) : defaultValue;
-    } catch {
-      return defaultValue;
-    }
-  });
-  const setStoredValue = useCallback(
-    (newValue) => {
-      try {
-        setValue(newValue);
-        localStorage.setItem(key, JSON.stringify(newValue));
-      } catch (error) {
-        console.error(`Error storing ${key}:`, error);
-      }
-    },
-    [key]
-  );
-  return [value, setStoredValue];
-};
-const useCurrencyCache = (baseCurrency) => {
-  const cacheKey = `${STORAGE_KEYS.CACHE}_${baseCurrency}`;
-  const getCachedData = useCallback(() => {
-    try {
-      const cached = localStorage.getItem(cacheKey);
-      if (cached) {
-        const { data, timestamp } = JSON.parse(cached);
-        if (Date.now() - timestamp < API_CONFIG.CACHE_DURATION) {
-          return data;
-        }
-      }
-    } catch (error) {
-      console.error("Cache read error:", error);
-    }
-    return null;
-  }, [cacheKey]);
-  const setCachedData = useCallback((data) => {
-    try {
-      localStorage.setItem(
-        cacheKey,
-        JSON.stringify({ data, timestamp: Date.now() })
-      );
-    } catch (error) {
-      console.error("Cache write error:", error);
-    }
-  }, [cacheKey]);
-  return { getCachedData, setCachedData };
-};
-// Utility Functions
-const formatters = {
-  currency: (value, decimals = 4) => {
-    if (typeof value !== "number" || isNaN(value)) return "0.0000";
-    return value.toLocaleString("en-US", {
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
-    });
-  },
-  percentage: (value) => {
-    if (typeof value !== "number" || isNaN(value)) return "0.00%";
-    return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
-  },
-  volume: (value) => {
-    if (typeof value !== "number" || isNaN(value)) return "0";
-    if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-    if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
-    return value.toLocaleString("en-US");
-  },
-  timestamp: (date) => {
-    try {
-      return new Date(date).toLocaleString("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: true,
-        timeZone: "Asia/Dubai",
-      });
-    } catch {
-      return "Invalid Date";
-    }
-  },
-};
-// Main Component
-const CurrencyFixing = () => {
-  // Refs
-  const abortControllerRef = useRef();
-  // Core state
-  const [currencies, setCurrencies] = useState({});
-  const [currencyMaster, setCurrencyMaster] = useState([]);
-  const [parties, setParties] = useState([]);
+import React, { useState, useEffect } from 'react';
+import { Search, Settings, RefreshCw, TrendingUp, DollarSign, Star, Users, Zap, ChevronRight, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import axiosInstance from '../../api/axios';
+import useMarketData from '../marketData';
+import { toast } from 'react-toastify';
+import Select from 'react-select';
+
+const CurrencyTradingUI = () => {
+  const [activeTab, setActiveTab] = useState('Overview');
   const [selectedParty, setSelectedParty] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [lastUpdate, setLastUpdate] = useState(null);
-  const [error, setError] = useState(null);
-  // Settings with localStorage
-  const [baseCurrency, setBaseCurrency] = useLocalStorage(
-    STORAGE_KEYS.BASE_CURRENCY,
-    DEFAULT_CONFIG.BASE_CURRENCY
-  );
-  const [watchlist, setWatchlist] = useLocalStorage(STORAGE_KEYS.WATCHLIST, []);
-  // Gold state
-  const { marketData, refreshData } = useMarketData(["GOLD"]);
-  console.log(marketData);
-  const [goldData, setGoldData] = useState({
-    symbol: DEFAULT_CONFIG.GOLD_SYMBOL,
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [tradingParties, setTradingParties] = useState([]);
+  const [currencies, setCurrencies] = useState([]);
+  const [liveRates, setLiveRates] = useState(null);
+  const [tradingPairs, setTradingPairs] = useState([]);
+  const [loadingParties, setLoadingParties] = useState(true);
+  const [voucherCode, setVoucherCode] = useState("");
+  const [voucherType, setVoucherType] = useState("");
+  const [prefix, setPrefix] = useState("");
+  const [trades, setTrades] = useState([]);
+  const [loadingTrades, setLoadingTrades] = useState(true);
+  const [currentTradesPage, setCurrentTradesPage] = useState(1);
+  const tradesPerPage = 10;
+  const { marketData } = useMarketData(["GOLD"]);
+  const itemsPerPage = 10;
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+const [tradeToDelete, setTradeToDelete] = useState(null);
+const [conversionRate, setConversionRate] = useState('');
+const [goldData, setGoldData] = useState({
+    symbol: "GOLD",
     bid: null,
     ask: null,
     direction: null,
@@ -176,1731 +41,1540 @@ const CurrencyFixing = () => {
     marketStatus: "LOADING",
     bidChanged: null,
     priceUpdateTimestamp: null,
-    convFactGms: DEFAULT_CONFIG.GOLD_CONV_FACTOR,
-    convertrate: 1,
   });
-  // UI state
+const getCurrencyCode = (currencyId) => {
+  const currency = currencies.find(c => c._id === currencyId);
+  return currency ? currency.currencyCode : 'AED';
+};
+
+// Update partyOptions to include full party object for balance access
+const partyOptions = tradingParties.map((party) => ({
+  value: party._id, // Use _id for unique value
+  label: `${party.customerName} - ${party.accountCode}`, // Display: Customer Name - Account Code
+  party, // Attach full party object for balance access
+}));
+
+  const customSelectStyles = {
+    control: (provided, state) => ({
+      ...provided,
+      borderRadius: '0.75rem',
+      border: '1px solid #e5e7eb',
+      backgroundColor: '#fff',
+      padding: '0.5rem',
+      boxShadow: state.isFocused ? '0 0 0 2px #3b82f6' : 'none',
+      '&:hover': { borderColor: '#e5e7eb' },
+    }),
+    menu: (provided) => ({
+      ...provided,
+      borderRadius: '0.75rem',
+      border: '1px solid #e5e7eb',
+      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+    }),
+    option: (provided, state) => ({
+      ...provided,
+      backgroundColor: state.isSelected ? '#3b82f6' : state.isFocused ? '#f3f4f6' : '#fff',
+      color: state.isSelected ? '#fff' : '#1f2937',
+      padding: '0.75rem 1rem',
+      cursor: 'pointer',
+    }),
+    singleValue: (provided) => ({
+      ...provided,
+      color: '#1f2937',
+      fontWeight: 500,
+    }),
+    input: (provided) => ({
+      ...provided,
+      color: '#1f2937',
+    }),
+    placeholder: (provided) => ({
+      ...provided,
+      color: '#9ca3af',
+    }),
+  };
+  const [goldRate, setGoldRate] = useState(null);
+  useEffect(() => {
+    if (marketData) {
+      setGoldData(marketData);
+      setGoldRate(marketData.bid);
+    }
+  }, [marketData]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
   const [selectedPair, setSelectedPair] = useState(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [partySearchTerm, setPartySearchTerm] = useState("");
-  const [showSettings, setShowSettings] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [view, setView] = useState("overview");
-  const [buyAmount, setBuyAmount] = useState("");
-  const [sellAmount, setSellAmount] = useState("");
-  const [showModal, setShowModal] = useState(false);
-  const [modalContent, setModalContent] = useState({});
-  // Cache management
-  const { getCachedData, setCachedData } = useCurrencyCache(baseCurrency);
-  // Dynamic currency pairs generation
-  const currencyPairs = useMemo(() => {
-    const pairs = new Map();
-    // Generate all possible pairs from currency master
-    currencyMaster.forEach((baseCurr) => {
-      currencyMaster.forEach((quoteCurr) => {
-        if (baseCurr.code !== quoteCurr.code) {
-          const pairKey = `${baseCurr.code}/${quoteCurr.code}`;
-          const reversePairKey = `${quoteCurr.code}/${baseCurr.code}`;
-          pairs.set(pairKey, {
-            base: baseCurr.code,
-            quote: quoteCurr.code,
-            symbol: pairKey,
-            baseDescription: baseCurr.description,
-            quoteDescription: quoteCurr.description,
-            reverse: reversePairKey,
-          });
-        }
-      });
+  const [selectedTrade, setSelectedTrade] = useState(null);
+  const [tradeType, setTradeType] = useState('buy');
+  const [payAmount, setPayAmount] = useState('');
+  const [receiveAmount, setReceiveAmount] = useState('');
+  const [manualRate, setManualRate] = useState(23);
+  const [selectedTradeParty, setSelectedTradeParty] = useState('');
+  const [inputCurrency, setInputCurrency] = useState('');
+  const [grossWeight, setGrossWeight] = useState('1000'); // New state for gross weight
+  const [metalType] = useState('Kilo'); // Constant metal type
+
+  const formatNumber = (num, decimals = 2) => {
+    if (num === null || num === undefined || isNaN(num)) {
+      console.warn(`formatNumber received invalid input: ${num}`);
+      return '0.0000';
+    }
+    return Number(num).toLocaleString('en-US', {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
     });
-    return Array.from(pairs.values());
-  }, [currencyMaster]);
-  // Major pairs (most traded)
-  const majorPairs = useMemo(() => {
-    const majorCurrencies = [
-      "USD",
-      "EUR",
-      "GBP",
-      "JPY",
-      "AUD",
-      "CAD",
-      "CHF",
-      "NZD",
-    ];
-    return currencyPairs.filter(
-      (pair) =>
-        majorCurrencies.includes(pair.base) &&
-        majorCurrencies.includes(pair.quote)
-    );
-  }, [currencyPairs]);
-  // Party-specific currency pairs
-  const partyCurrencyPairs = useMemo(() => {
-    if (!selectedParty?.currencies) return [];
-    return selectedParty.currencies
-      .filter(
-        (curr) => currencies[curr.currency] && curr.currency !== baseCurrency
-      )
-      .map((partyCurr) => {
-        const currencyData = currencies[partyCurr.currency];
-        return {
-          ...currencyData,
-          ...partyCurr,
-          pairName: `${partyCurr.currency}/${baseCurrency}`,
-          buyRate: currencyData.value + (partyCurr.bid || 0),
-          sellRate: currencyData.value - (partyCurr.ask || 0),
-          spread: (partyCurr.bid || 0) + (partyCurr.ask || 0),
-          spreadPercent:
-            currencyData.value > 0
-              ? (((partyCurr.bid || 0) + (partyCurr.ask || 0)) /
-                  currencyData.value) *
-                100
-              : 0,
-        };
-      });
-  }, [selectedParty, currencies, baseCurrency]);
-  // Retry mechanism with exponential backoff
-  const retryWithBackoff = useCallback(
-    async (fn, retries = API_CONFIG.RETRY_ATTEMPTS) => {
-      for (let i = 0; i < retries; i++) {
-        try {
-          return await fn();
-        } catch (err) {
-          if (err.name === "AbortError") throw err;
-          if (err.message.includes("429") && i < retries - 1) {
-            const backoffDelay = API_CONFIG.RETRY_DELAY * Math.pow(2, i);
-            toast.warn(
-              `Rate limit hit. Retrying in ${backoffDelay / 1000}s...`
-            );
-            await new Promise((resolve) => setTimeout(resolve, backoffDelay));
-            continue;
-          }
-          if (i === retries - 1) throw err;
-        }
-      }
-    },
-    []
-  );
-  // Gold data update handler
-  const updateGoldData = useCallback((newMarketData) => {
-    if (!newMarketData) {
-      setGoldData((prev) => ({ ...prev, marketStatus: "ERROR" }));
-      return;
-    }
-    setGoldData((prevData) => {
-      const bid = parseFloat(newMarketData.bid) || null;
-      const ask = parseFloat(newMarketData.offer) || null;
-      const high = parseFloat(newMarketData.high) || prevData.high;
-      const low = parseFloat(newMarketData.low) || prevData.low;
-      const marketStatus = newMarketData.marketStatus || "TRADEABLE";
-      const bidChanged =
-        prevData.bid !== null && bid !== null && bid !== prevData.bid
-          ? bid > prevData.bid
-            ? "up"
-            : "down"
-          : null;
-      const direction = bidChanged || prevData.direction;
-      const openPrice =
-        parseFloat(newMarketData.openPrice) ||
-        prevData.openPrice ||
-        (prevData.bid === null && bid !== null ? bid : prevData.bid);
-      const dailyChange =
-        bid !== null && openPrice !== null
-          ? (bid - openPrice).toFixed(2)
-          : "0.00";
-      const dailyChangePercent =
-        bid !== null && openPrice !== null && openPrice !== 0
-          ? (((bid - openPrice) / openPrice) * 100).toFixed(2) + "%"
-          : "0.00%";
-      return {
-        ...prevData,
-        bid,
-        ask,
-        high,
-        low,
-        marketStatus,
-        marketOpenTimestamp:
-          newMarketData.marketOpenTimestamp || prevData.marketOpenTimestamp,
-        previousBid: prevData.bid !== null ? prevData.bid : bid,
-        direction,
-        openPrice: prevData.openPrice || openPrice,
-        dailyChange,
-        dailyChangePercent,
-        bidChanged,
-        priceUpdateTimestamp: new Date().toISOString(),
-      };
-    });
-  }, []);
-  // Enhanced currency data fetching
-  const fetchCurrencyData = useCallback(async () => {
-    if (!baseCurrency || currencyMaster.length === 0) return;
-    // Check cache first
-    const cachedData = getCachedData();
-    if (cachedData) {
-      setCurrencies(cachedData.data);
-      setLastUpdate(cachedData.meta?.last_updated_at);
-      setLoading(false);
-      return;
-    }
-    // Cancel previous request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    abortControllerRef.current = new AbortController();
-    try {
-      setLoading(true);
-      setError(null);
-      // Collect all currencies to fetch
-      const currenciesToFetch = new Set([
-        ...watchlist,
-        ...(selectedParty?.currencies?.map((curr) => curr.currency) || []),
-        ...currencyMaster.map((curr) => curr.code),
-      ]);
-      // Always include USD for gold conversion if base is not USD
-      if (baseCurrency !== "USD") {
-        currenciesToFetch.add("USD");
-      }
-      // Remove base currency and XAU from API call (XAU handled separately)
-      currenciesToFetch.delete(baseCurrency);
-      currenciesToFetch.delete(DEFAULT_CONFIG.GOLD_SYMBOL);
-      if (currenciesToFetch.size === 0) {
-        setLoading(false);
-        return;
-      }
-      const currencyList = Array.from(currenciesToFetch).join(",");
-      const url = `${API_CONFIG.BASE_URL}?apikey=${API_CONFIG.KEY}&currencies=${currencyList}&base_currency=${baseCurrency}`;
-      const response = await retryWithBackoff(() =>
-        fetch(url, { signal: abortControllerRef.current.signal })
-      );
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data = await response.json();
-      if (data?.data) {
-        const enhancedData = {};
-        // Process regular currencies
-        Object.entries(data.data).forEach(([code, currencyData]) => {
-          const apiValue = currencyData.value;
-          const currentValue = 1 / apiValue; // Convert to base currency rate
-          const prevCurrency = currencies[code] || {};
-          const prevValue = prevCurrency.value || currentValue;
-          const change = currentValue - prevValue;
-          const changePercent = prevValue ? (change / prevValue) * 100 : 0;
-          // Get party-specific spreads
-          const partyCurrency = selectedParty?.currencies?.find(
-            (curr) => curr.currency === code
-          );
-          const bidSpread = partyCurrency?.bid || 0;
-          const askSpread = partyCurrency?.ask || 0;
-          enhancedData[code] = {
-            ...currencyData,
-            code,
-            value: currentValue,
-            change,
-            changePercent,
-            trend: change > 0 ? "up" : change < 0 ? "down" : "neutral",
-            // Generate realistic market data
-            high24h: currentValue * (1 + Math.random() * 0.02),
-            low24h: currentValue * (1 - Math.random() * 0.02),
-            volume: Math.floor(Math.random() * 10000000) + 1000000,
-            bidSpread,
-            askSpread,
-            buyRate: currentValue + bidSpread,
-            sellRate: currentValue - askSpread,
-            lastUpdated: new Date().toISOString(),
-          };
-        });
-        // Add gold data (convert from USD to base currency)
-        if (goldData.bid && goldData.bid > 0) {
-          const conv = baseCurrency === "USD" ? 1 : (enhancedData["USD"]?.value || 1);
-          const goldPartyCurrency = selectedParty?.currencies?.find(
-            (curr) => curr.currency === DEFAULT_CONFIG.GOLD_SYMBOL
-          );
-          enhancedData[DEFAULT_CONFIG.GOLD_SYMBOL] = {
-            code: DEFAULT_CONFIG.GOLD_SYMBOL,
-            value: (goldData.bid || 0) * conv,
-            change: (parseFloat(goldData.dailyChange) || 0) * conv,
-            changePercent: parseFloat(goldData.dailyChangePercent) || 0,
-            trend: goldData.direction || "neutral",
-            high24h: (goldData.high || goldData.bid || 0) * conv,
-            low24h: (goldData.low || goldData.bid || 0) * conv,
-            volume: Math.floor(Math.random() * 1000000) + 100000,
-            bidSpread: goldPartyCurrency?.bid || 0,
-            askSpread: goldPartyCurrency?.ask || 0,
-            buyRate: ((goldData.bid || 0) * conv) + (goldPartyCurrency?.bid || 0),
-            sellRate: ((goldData.bid || 0) * conv) - (goldPartyCurrency?.ask || 0),
-            convFactGms: goldData.convFactGms,
-            convertrate: goldData.convertrate,
-            marketStatus: goldData.marketStatus,
-            lastUpdated: new Date().toISOString(),
-          };
-        }
-        setCurrencies(enhancedData);
-        setLastUpdate(data.meta?.last_updated_at || new Date().toISOString());
-        setCachedData({ data: enhancedData, meta: data.meta });
-      }
-    } catch (err) {
-      if (err.name !== "AbortError") {
-        setError(err.message || "Failed to fetch currency data.");
-        toast.error(err.message || "Failed to fetch live currency data");
-        console.error("Currency fetch error:", err);
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [
-    baseCurrency,
-    currencyMaster,
-    watchlist,
-    selectedParty,
-    getCachedData,
-    setCachedData,
-    retryWithBackoff,
-    goldData,
-  ]);
-  // Fetch currency master
-  const fetchCurrencyMaster = useCallback(async () => {
-    try {
-      const response = await axiosInstance.get("/currency-master");
-      const { data } = response.data;
-      const mappedCurrencies = data
-        .filter(
-          (currency) =>
-            currency._id && currency.currencyCode && currency.description
-        )
-        .map((currency) => ({
-          id: currency._id,
-          code: currency.currencyCode.toUpperCase(),
-          description: currency.description,
-          isActive: currency.isActive !== false,
-        }));
-      // Add gold
-      mappedCurrencies.push({
-        id: "gold-xau",
-        code: DEFAULT_CONFIG.GOLD_SYMBOL,
-        description: "Gold (Troy Ounce)",
-        isActive: true,
-      });
-      setCurrencyMaster(mappedCurrencies);
-      // Set default base currency if not set
-      if (mappedCurrencies.length > 0) {
-        const defaultCurrency =
-          mappedCurrencies.find(
-            (curr) => curr.code === DEFAULT_CONFIG.BASE_CURRENCY
-          )?.code || mappedCurrencies[0].code;
-        if (!mappedCurrencies.some((curr) => curr.code === baseCurrency)) {
-          setBaseCurrency(defaultCurrency);
-        }
-        // Set default watchlist if empty
-        if (watchlist.length === 0) {
-          const initialWatchlist = mappedCurrencies
-            .slice(0, 6)
-            .map((curr) => curr.code)
-            .filter((code) => code !== baseCurrency);
-          setWatchlist(initialWatchlist);
-        }
-      }
-    } catch (err) {
-      setError("Failed to fetch currency master data");
-      toast.error("Failed to load currency data");
-      console.error("Error fetching currency master:", err);
-    }
-  }, [baseCurrency, setBaseCurrency, watchlist, setWatchlist]);
-  // Fetch parties
-  const fetchParties = useCallback(async () => {
-    try {
-      const response = await axiosInstance.get("/account-type/");
-      let { data } = response.data;
-      if (!Array.isArray(data) || data.length === 0) {
-        setError("No active parties found");
-        toast.warn("No active trading parties available");
-        return false;
-      }
-      const mappedParties = data
-        .filter((debtor) => debtor.status === "active")
-        .map((debtor) => ({
-          id: debtor.id,
-          division: debtor.division,
-          itemCode: debtor.accountCode,
-          type: debtor.accountType || "DEBTOR",
-          customerName: debtor.customerName,
-          isSupplier: debtor.isSupplier || false,
-          mode: debtor.mode,
-          acCode: debtor.accountCode,
-          classification: debtor.classification,
-          shortName: debtor.shortName,
-          parentGroup: debtor.parentGroup,
-          remarks: debtor.remarks,
-          documentType: debtor.kycDetails?.[0]?.documentType,
-          expiryDate: debtor.kycDetails?.[0]?.expiryDate,
-          attachments: debtor.kycDetails?.[0]?.documents || [],
-          title: debtor.title,
-          currencies: [
-            ...(debtor.acDefinition?.currencies?.map((curr) => ({
-              no: curr.currency?._id,
-              currency: curr.currency?.currencyCode?.toUpperCase(),
-              minRate: curr.minRate || 1.0,
-              maxRate: curr.maxRate || 1.0,
-              isDefault: curr.isDefault || false,
-              ask: parseFloat(curr.ask) || 0,
-              bid: parseFloat(curr.bid) || 0,
-            })) || []),
-            // Always add gold
-            {
-              no: "gold-xau",
-              currency: DEFAULT_CONFIG.GOLD_SYMBOL,
-              minRate: 1.0,
-              maxRate: 1.0,
-              isDefault: false,
-              ask: 0.01,
-              bid: 0.01,
-            },
-          ],
-        }));
-      setParties(mappedParties);
-      if (mappedParties.length > 0 && !selectedParty) {
-        const defaultParty = mappedParties[0];
-        setSelectedParty(defaultParty);
-        const defaultCurrency = defaultParty.currencies.find(
-          (curr) => curr.isDefault
-        )?.currency;
-        if (defaultCurrency && defaultCurrency !== baseCurrency) {
-          setSelectedPair(defaultCurrency);
-        }
-      }
-      return true;
-    } catch (err) {
-      setError("Failed to fetch parties data");
-      toast.error("Failed to load parties data");
-      console.error("Error fetching parties:", err);
-      return false;
-    }
-  }, [selectedParty, baseCurrency]);
-  // Effects
+  };
+
+  const formatCurrencyWithCode = (value, currencyCode, decimals = 2) => {
+    const formattedValue = formatNumber(value, decimals);
+    const code = currencyCode || 'AED';
+    console.log(`Formatting value: ${value}, currencyCode: ${code}, result: ${code} ${formattedValue}`);
+    return `${code} ${formattedValue}`;
+  };
+
   useEffect(() => {
-    updateGoldData(marketData);
-  }, [marketData, updateGoldData]);
-  useEffect(() => {
-    const initializeData = async () => {
-      setLoading(true);
-      await fetchCurrencyMaster();
-      await fetchParties();
-      setLoading(false);
-    };
-    initializeData();
-  }, [fetchCurrencyMaster, fetchParties]);
-  useEffect(() => {
-    if (currencyMaster.length > 0 && baseCurrency) {
-      fetchCurrencyData();
-    }
-  }, [fetchCurrencyData, currencyMaster.length, baseCurrency]);
-  // Auto-refresh
-  useEffect(() => {
-    const interval = setInterval(() => {
-      fetchCurrencyData();
-      refreshData();
-    }, API_CONFIG.REFRESH_INTERVAL);
-    return () => clearInterval(interval);
-  }, [fetchCurrencyData, refreshData]);
-  // Cleanup
-  useEffect(() => {
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-    };
-  }, []);
-  // Filtered data
-  const filteredParties = useMemo(() => {
-    return parties.filter(
-      (party) =>
-        party.customerName
-          .toLowerCase()
-          .includes(partySearchTerm.toLowerCase()) ||
-        party.shortName.toLowerCase().includes(partySearchTerm.toLowerCase())
-    );
-  }, [parties, partySearchTerm]);
-  const availableCurrencies = useMemo(() => {
-    return currencyMaster.filter(
-      (curr) =>
-        curr.code.toLowerCase().includes(searchTerm.toLowerCase()) &&
-        !watchlist.includes(curr.code) &&
-        curr.code !== baseCurrency &&
-        curr.isActive
-    );
-  }, [currencyMaster, searchTerm, watchlist, baseCurrency]);
-  const watchlistData = useMemo(() => {
-    return watchlist
-      .map((code) => currencies[code])
-      .filter(Boolean)
-      .sort((a, b) => Math.abs(b.changePercent) - Math.abs(a.changePercent));
-  }, [watchlist, currencies]);
-  // Gold calculations
-  const calculateGoldValue = useCallback(
-    (volume, isVolToValue = true) => {
-      if (!goldData.bid || goldData.bid <= 0) return 0;
-      const volumeValue = parseFloat(volume) || 0;
-      const convFactGms = goldData.convFactGms || 1;
-      const convertrate = goldData.convertrate || 1;
-      const price = goldData.bid;
-      if (isVolToValue) {
-        return ((price / convFactGms) * convertrate * volumeValue).toFixed(2);
-      } else {
-        if (price > 0 && convertrate > 0 && convFactGms > 0) {
-          return (volumeValue / ((price / convFactGms) * convertrate)).toFixed(
-            3
-          );
-        }
-        return "0.000";
-      }
-    },
-    [goldData]
-  );
-  // Watchlist management
-  const toggleWatchlist = useCallback(
-    (currencyCode) => {
-      if (watchlist.includes(currencyCode)) {
-        setWatchlist(watchlist.filter((code) => code !== currencyCode));
-        toast.info(`${currencyCode} removed from watchlist`);
-      } else {
-        if (currencyCode !== baseCurrency) {
-          setWatchlist([...watchlist, currencyCode]);
-          toast.success(`${currencyCode} added to watchlist`);
-        }
-      }
-    },
-    [watchlist, setWatchlist, baseCurrency]
-  );
-  // Trading functions
-  const executeTrade = useCallback(
-    (type, currencyCode, rate, amount) => {
-      if (!amount || !selectedParty) {
-        toast.error("Please enter an amount and select a party");
-        return;
-      }
+    const fetchTradingParties = async () => {
       try {
-        const amountValue = parseFloat(amount);
-        const converted =
-          currencyCode === DEFAULT_CONFIG.GOLD_SYMBOL
-            ? parseFloat(calculateGoldValue(amount, true))
-            : amountValue * rate;
-        const orderId = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-        setModalContent({
-          type,
-          amount: amountValue,
-          converted,
-          currency: currencyCode,
-          rate,
-          party: selectedParty.customerName,
-          orderId,
-          timestamp: formatters.timestamp(new Date()),
-        });
-        setShowModal(true);
-        // Clear input
-        if (type === "buy") setBuyAmount("");
-        else setSellAmount("");
-        toast.success(
-          `${
-            type.charAt(0).toUpperCase() + type.slice(1)
-          } order executed successfully`
-        );
+        setLoadingParties(true);
+        const res = await axiosInstance.get(`/account-type`);
+        if (res.data.success && res.data.data) {
+          setSelectedParty(res.data.data[0].customerName);
+          setTradingParties(res.data.data);
+        }
       } catch (err) {
-        console.error(`${type} error:`, err);
-        toast.error(`Failed to execute ${type} order`);
+        console.error("Error fetching parties:", err);
+      } finally {
+        setLoadingParties(false);
       }
-    },
-    [selectedParty, calculateGoldValue]
-  );
-  // Handle base currency change
-  const handleBaseCurrencyChange = useCallback(
-    (newBaseCurrency) => {
-      if (currencyMaster.some((curr) => curr.code === newBaseCurrency)) {
-        setBaseCurrency(newBaseCurrency);
-        setWatchlist(watchlist.filter((code) => code !== newBaseCurrency));
-        if (selectedPair === newBaseCurrency) setSelectedPair(null);
-        toast.success(`Base currency changed to ${newBaseCurrency}`);
+    };
+    fetchTradingParties();
+  }, []);
+
+  useEffect(() => {
+    const fetchCurrencies = async () => {
+      try {
+        const res = await axiosInstance.get('/currency-master');
+        if (res.data.success && res.data.data) {
+          setCurrencies(res.data.data);
+        }
+      } catch (err) {
+        console.error("Error fetching currencies:", err);
       }
-    },
-    [currencyMaster, setBaseCurrency, watchlist, setWatchlist, selectedPair]
-  );
-  // Loading state
-  if (loading && currencyMaster.length === 0) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
-          <h2 className="text-2xl font-semibold text-gray-700 mt-4">
-            Loading Trading Platform...
-          </h2>
-          <p className="text-gray-500 mt-2">
-            Initializing currency data and market feeds
-          </p>
-        </div>
-      </div>
-    );
+    };
+    fetchCurrencies();
+  }, []);
+
+  useEffect(() => {
+    const fetchLiveRates = async () => {
+      try {
+        const res = await axiosInstance.get('/currency-trading/live-rate');
+        if (res.data && res.data.rates) {
+          setLiveRates(res.data.rates);
+        }
+      } catch (err) {
+        console.error("Error fetching live rates:", err);
+      }
+    };
+    fetchLiveRates();
+  }, []);
+
+  const fetchTrades = async () => {
+    try {
+      setLoadingTrades(true);
+      const res = await axiosInstance.get('/currency-trading/trades');
+      setTrades(res.data || []);
+    } catch (err) {
+      console.error("Error fetching trades:", err);
+    } finally {
+      setLoadingTrades(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTrades();
+  }, []);
+
+  useEffect(() => {
+    if (currencies.length > 0) {
+      const inrCurrency = currencies.find(c => c.currencyCode === 'INR');
+      const inrRate = inrCurrency ? inrCurrency.conversionRate : 23.9;
+      const goldUSD = marketData?.bid || 3754;
+      const ounceToGram = 31.105;
+      const usdToAed = 3.674;
+      const aedPerGram = (goldUSD / ounceToGram) * usdToAed;
+      const inrPerGram = aedPerGram * inrRate;
+      setTradingPairs([
+        {
+          pair: 'AED/INR',
+          flag: '🇮🇳',
+          code: 'INR',
+          rate: inrRate,
+          change: 0.12,
+          changePercent: 0.5,
+          volume: '10.6M',
+          lastUpdated: '14:21:41',
+          isUp: true,
+          isCommodity: false
+        },
+        {
+          pair: 'AED/XAU',
+          flag: '💰',
+          code: 'XAU',
+          rate: aedPerGram,
+          change: -0.05,
+          changePercent: -0.01,
+          volume: '756.1K',
+          lastUpdated: '14:21:41',
+          isUp: false,
+          isCommodity: true
+        },
+        {
+          pair: 'INR/XAU',
+          flag: '💰',
+          code: 'XAU',
+          rate: inrPerGram,
+          change: 2.34,
+          changePercent: 0.023,
+          volume: '234.5K',
+          lastUpdated: '14:21:41',
+          isUp: true,
+          isCommodity: true
+        },
+      ]);
+    }
+  }, [currencies, marketData]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const module = window.location.pathname.split("/")[1] || "currency-fix";
+  const generateVoucherNumber = async () => {
+    try {
+      const response = await axiosInstance.post(`/voucher/generate/${module}`, {
+        transactionType: "purchase",
+      });
+      const { data } = response.data;
+      localStorage.setItem(data.prefix, window.location.pathname);
+      return {
+        voucherCode: data.voucherNumber,
+        voucherType: data.voucherType,
+        prefix: data.prefix,
+      };
+    } catch (error) {
+      console.error("Error generating voucher number:", error);
+      return { voucherCode: "", voucherType: "PUR", prefix: "" };
+    }
+  };
+
+  const formatTime = (date) => {
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    });
+  };
+
+  const openCreateModal = async (pair) => {
+    setSelectedPair(pair);
+    setSelectedTrade(null);
+    setIsEditMode(false);
+    const { voucherCode, voucherType, prefix } = await generateVoucherNumber();
+    setVoucherCode(voucherCode);
+    setVoucherType(voucherType);
+    setPrefix(prefix);
+    setIsModalOpen(true);
+    setPayAmount('');
+    setReceiveAmount('');
+    setGrossWeight('1000');
+    setConversionRate('');
+ let initialRate = 0;
+  if (pair.isCommodity) {
+    initialRate = '10000000'; // Rate for 1kg gold bar
+  } else {
+    // For currency pairs, get rate from currency master
+    const baseCurrency = pair.pair.split('/')[0];
+    const targetCurrency = pair.pair.split('/')[1];
+    
+    if (baseCurrency === 'AED') {
+      // If base is AED, rate is the conversion rate for target currency
+      const targetCurrencyData = currencies.find(c => c.currencyCode === targetCurrency);
+      initialRate = targetCurrencyData?.conversionRate || pair.rate;
+    } else if (targetCurrency === 'AED') {
+      // If target is AED, rate should be 1 (since AED is base)
+      initialRate = 1;
+    } else {
+      // For other pairs, use the pair rate
+      initialRate = pair.rate;
+    }
   }
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-      {/* Trade Success Modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl p-8 w-full max-w-md shadow-2xl transform transition-all duration-300 animate-in zoom-in-95">
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-emerald-100 rounded-full">
-                  <CheckCircle className="w-6 h-6 text-emerald-600" />
-                </div>
-                <h3 className="text-2xl font-bold text-gray-900">
-                  Trade Executed
-                </h3>
-              </div>
-              <button
-                onClick={() => setShowModal(false)}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-              >
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
-            <div className="space-y-4 bg-gradient-to-r from-gray-50 to-blue-50 p-6 rounded-xl border border-gray-200">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-gray-600 font-medium">Order ID</span>
-                  <p className="font-mono text-xs text-gray-800">
-                    {modalContent.orderId}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-gray-600 font-medium">Type</span>
-                  <p
-                    className={`font-bold capitalize ${
-                      modalContent.type === "buy"
-                        ? "text-emerald-600"
-                        : "text-red-600"
-                    }`}
-                  >
-                    {modalContent.type}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-gray-600 font-medium">Amount</span>
-                  <p className="font-semibold text-gray-800">
-                    {formatters.currency(modalContent.amount, 2)}{" "}
-                    {modalContent.currency}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-gray-600 font-medium">Rate</span>
-                  <p className="font-semibold text-gray-800">
-                    {formatters.currency(modalContent.rate, 4)}
-                  </p>
-                </div>
-                <div className="col-span-2">
-                  <span className="text-gray-600 font-medium">Total Value</span>
-                  <p className="font-bold text-lg text-gray-900">
-                    {formatters.currency(modalContent.converted, 2)}{" "}
-                    {baseCurrency}
-                  </p>
-                </div>
-                <div className="col-span-2">
-                  <span className="text-gray-600 font-medium">Party</span>
-                  <p className="font-semibold text-gray-800">
-                    {modalContent.party}
-                  </p>
-                </div>
-                <div className="col-span-2">
-                  <span className="text-gray-600 font-medium">Executed At</span>
-                  <p className="text-xs text-gray-600">
-                    {modalContent.timestamp}
-                  </p>
-                </div>
-              </div>
-            </div>
-            <button
-              onClick={() => setShowModal(false)}
-              className="w-full mt-6 px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 font-medium"
-            >
-              Close
-            </button>
+  
+  setManualRate(initialRate);
+    setTradeType('buy');
+    setSelectedTradeParty(selectedParty || '');
+    setInputCurrency(pair.pair.split('/')[0]);
+  };
+
+ const openEditModal = (trade) => {
+  const pair = {
+    pair: `${trade.baseCurrencyCode}/${trade.targetCurrencyCode}`,
+    flag: trade.targetCurrencyCode === 'INR' ? '🇮🇳' : (trade.targetCurrencyCode === 'AED' ? '🇦🇪' : '💰'),
+    code: trade.targetCurrencyCode,
+    rate: trade.currentRate || 0,
+    isCommodity: trade.isGoldTrade || trade.targetCurrencyCode === 'XAU',
+  };
+  setSelectedPair(pair);
+  setSelectedTrade(trade);
+  setIsEditMode(true);
+  setVoucherCode(trade.reference);
+  setVoucherType("");
+  setPrefix("");
+  setIsModalOpen(true);
+  setPayAmount(trade.amount.toString());
+  setReceiveAmount(trade.converted.toString());
+  setGrossWeight(trade.grossWeight ? trade.grossWeight.toString() : '1000');
+  setManualRate(trade.rate || 23);
+  setTradeType(trade.type.toLowerCase());
+  setSelectedTradeParty(trade.partyId?._id || ''); 
+  setInputCurrency(trade.baseCurrencyCode);
+  setConversionRate(selectedTrade.conversionRate || '');
+};
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setSelectedPair(null);
+    setSelectedTrade(null);
+    setSelectedTradeParty('');
+    setManualRate(23);
+    setPayAmount('');
+    setReceiveAmount('');
+    setGrossWeight('1000');
+    setInputCurrency('');
+    setConversionRate('');
+  };
+
+  const getRatesForParty = (partyName, pair) => {
+    const partyObj = tradingParties.find((party) => party.customerName === partyName);
+    if (!partyObj) return { buyRate: pair.rate, sellRate: pair.rate, bid: 0, ask: 0 };
+    let bid = 0;
+    let ask = 0;
+    if (pair.code === 'INR') {
+      const curr = partyObj.acDefinition.currencies.find(
+        (c) => c.currency.currencyCode === 'INR'
+      );
+      if (curr) {
+        bid = curr.bid;
+        ask = curr.ask;
+      }
+    } else if (pair.code === 'XAU') {
+      const margins = partyObj.limitsMargins[0];
+      if (margins) {
+        bid = margins.shortMargin;
+        ask = margins.longMargin;
+      }
+    }
+    const buyRate = pair.rate - bid;
+    const sellRate = pair.rate + ask;
+    return { buyRate, sellRate, bid, ask };
+  };
+
+  const StatCard = ({ title, value, subtitle, icon: Icon, trend, color = 'blue' }) => {
+    const colorClasses = {
+      blue: 'text-blue-600 bg-blue-50 border-blue-200',
+      green: 'text-green-600 bg-green-50 border-green-200',
+      purple: 'text-purple-600 bg-purple-50 border-purple-200',
+      orange: 'text-orange-600 bg-orange-50 border-orange-200'
+    };
+    return (
+      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-lg transition-all duration-300 hover:border-gray-200">
+        <div className="flex items-center justify-between mb-4">
+          <div className={`p-3 rounded-xl ${colorClasses[color]}`}>
+            <Icon className="w-6 h-6" />
           </div>
-        </div>
-      )}
-      {/* Mobile Sidebar */}
-      {sidebarOpen && (
-        <div className="fixed inset-0 z-40 lg:hidden">
-          <div
-            className="absolute inset-0 bg-black/50"
-            onClick={() => setSidebarOpen(false)}
-          ></div>
-          <div className="relative bg-white w-80 h-full shadow-xl">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-gray-900">Navigation</h2>
-                <button
-                  onClick={() => setSidebarOpen(false)}
-                  className="p-2 text-gray-500"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-              <nav className="space-y-2">
-                {[
-                  { key: "overview", label: "Market Overview", icon: Activity },
-                  { key: "trading", label: "Live Trading", icon: TrendingUp },
-                  { key: "parties", label: "Trading Parties", icon: Users },
-                ].map(({ key, label, icon: Icon }) => (
-                  <button
-                    key={key}
-                    onClick={() => {
-                      setView(key);
-                      setSidebarOpen(false);
-                    }}
-                    className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${
-                      view === key
-                        ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md"
-                        : "text-gray-700 hover:bg-gray-100"
-                    }`}
-                  >
-                    <Icon className="w-5 h-5" />
-                    <span className="font-medium">{label}</span>
-                  </button>
-                ))}
-              </nav>
-            </div>
-          </div>
-        </div>
-      )}
-      {/* Header */}
-      <header className="bg-white/80 backdrop-blur-md shadow-lg border-b border-gray-200 sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className="lg:hidden p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
-              >
-                <Menu className="w-6 h-6" />
-              </button>
-              <div className="flex items-center space-x-4">
-                <div className="p-3 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl shadow-lg">
-                  <Globe className="w-8 h-8 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                    ForexPro Trading
-                  </h1>
-                  <div className="flex items-center space-x-4">
-                    <p className="text-gray-500 text-sm">
-                      Real-time Exchange Platform
-                    </p>
-                    {selectedParty && (
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                        <Target className="w-3 h-3 mr-1" />
-                        {selectedParty.shortName}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              {/* Base Currency Selector */}
-              <div className="relative">
-                <div className="flex items-center">
-                  <DollarSign className="w-4 h-4 text-blue-600 absolute left-3 z-10" />
-                  <select
-                    value={baseCurrency}
-                    onChange={(e) => handleBaseCurrencyChange(e.target.value)}
-                    className="pl-10 pr-8 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 hover:bg-blue-100 transition-all duration-200 appearance-none cursor-pointer"
-                  >
-                    {currencyMaster.map((curr) => (
-                      <option key={curr.code} value={curr.code}>
-                        {curr.code} - {curr.description}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              {/* View Selector */}
-              <div className="hidden sm:flex bg-gray-100 rounded-lg p-1">
-                {[
-                  { key: "overview", label: "Overview", icon: Activity },
-                  { key: "trading", label: "Trading", icon: TrendingUp },
-                  { key: "parties", label: "Parties", icon: Users },
-                ].map(({ key, label, icon: Icon }) => (
-                  <button
-                    key={key}
-                    onClick={() => setView(key)}
-                    className={`flex items-center space-x-1 px-3 py-2 text-xs font-medium rounded-md transition-all ${
-                      view === key
-                        ? "bg-white text-blue-600 shadow-sm"
-                        : "text-gray-600 hover:text-gray-900"
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    <span>{label}</span>
-                  </button>
-                ))}
-              </div>
-              {/* Last Update */}
-              {lastUpdate && (
-                <div className="hidden md:flex items-center text-xs text-gray-500 bg-gray-100 px-3 py-2 rounded-lg">
-                  <Clock className="w-4 h-4 mr-1" />
-                  {formatters.timestamp(lastUpdate)}
-                </div>
-              )}
-              {/* Settings */}
-              <button
-                onClick={() => setShowSettings(!showSettings)}
-                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <Settings className="w-5 h-5" />
-              </button>
-              {/* Refresh */}
-              <button
-                onClick={() => {
-                  fetchCurrencyData();
-                  refreshData();
-                }}
-                disabled={loading}
-                className="p-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 shadow-md transition-all duration-200"
-              >
-                <RefreshCw
-                  className={`w-5 h-5 ${loading ? "animate-spin" : ""}`}
-                />
-              </button>
-            </div>
-          </div>
-          {/* Settings Dropdown */}
-          {showSettings && (
-            <div className="absolute right-4 top-full mt-2 bg-white rounded-2xl shadow-2xl border border-gray-200 p-6 w-96 z-50 animate-in slide-in-from-top-2 duration-300">
-              <h3 className="font-bold text-xl text-gray-900 mb-4 flex items-center">
-                <Settings className="w-6 h-6 mr-2 text-blue-600" />
-                Trading Settings
-              </h3>
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-3">
-                    Refresh Interval
-                  </label>
-                  <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
-                    Auto-refresh every {API_CONFIG.REFRESH_INTERVAL / 1000 / 60}{" "}
-                    minutes
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-3">
-                    Market Status
-                  </label>
-                  <div className="flex items-center space-x-2">
-                    <div
-                      className={`w-3 h-3 rounded-full ${
-                        goldData.marketStatus === "TRADEABLE"
-                          ? "bg-green-500"
-                          : goldData.marketStatus === "LOADING"
-                          ? "bg-yellow-500"
-                          : "bg-red-500"
-                      }`}
-                    ></div>
-                    <span className="text-sm font-medium text-gray-700">
-                      {goldData.marketStatus || "UNKNOWN"}
-                    </span>
-                  </div>
-                </div>
-                <div className="pt-4 border-t border-gray-200">
-                  <div className="text-xs text-gray-500 space-y-1">
-                    <p>
-                      • Data cached for {API_CONFIG.CACHE_DURATION / 1000 / 60}{" "}
-                      minutes
-                    </p>
-                    <p>• {currencyPairs.length} currency pairs available</p>
-                    <p>• {parties.length} trading parties loaded</p>
-                  </div>
-                </div>
-              </div>
+          {trend && (
+            <div className={`flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium ${trend > 0 ? 'text-green-700 bg-green-100' : 'text-red-700 bg-red-100'}`}>
+              {trend > 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+              <span>{formatNumber(Math.abs(trend), 2)}%</span>
             </div>
           )}
         </div>
-      </header>
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center space-x-3">
-            <AlertCircle className="w-5 h-5 text-red-600" />
-            <div>
-              <p className="text-red-800 font-medium">Error Loading Data</p>
-              <p className="text-red-600 text-sm">{error}</p>
-            </div>
+        <div className="text-3xl font-bold text-gray-900 mb-2">{title === 'Gold Price' ? formatCurrencyWithCode(value, 'AED', 2) : value}</div>
+        <div className="text-sm font-medium text-gray-600">{title}</div>
+        {subtitle && <div className="text-xs text-gray-500 mt-1">{subtitle}</div>}
+      </div>
+    );
+  };
+
+  const WatchlistCard = ({ pair }) => (
+    <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-lg transition-all duration-300 hover:border-gray-200 min-w-[200px]">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center space-x-2">
+          <div className="text-2xl">{pair.flag}</div>
+          <div>
+            <div className="text-base font-bold text-gray-900">{pair.code}</div>
+            <div className="text-xs text-gray-500 font-medium">{pair.pair}</div>
           </div>
-        )}
-        {/* Overview */}
-        {view === "overview" && (
-          <div className="space-y-6">
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="bg-white/80 backdrop-blur rounded-2xl p-6 shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-semibold text-gray-600">
-                    Base Currency
-                  </h3>
-                  <DollarSign className="w-5 h-5 text-blue-600" />
+        </div>
+        <button className="text-yellow-500 hover:text-yellow-600 transition-colors">
+          <Star className="w-4 h-4 fill-current" />
+        </button>
+      </div>
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-lg font-bold text-gray-900">{formatNumber(pair.rate, 2)}</span>
+          <div className={`flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-semibold ${pair.isUp ? 'text-green-700 bg-green-100' : 'text-red-700 bg-red-100'}`}>
+            {pair.isUp ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+            <span>{formatNumber(pair.changePercent, 2)}%</span>
+          </div>
+        </div>
+        <div className="flex justify-between text-xs text-gray-500">
+          <span>Vol: {pair.volume}</span>
+          <span>{pair.lastUpdated}</span>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderOverview = () => {
+    const computedPairs = tradingPairs.map(pair => ({
+      ...pair,
+      ...getRatesForParty(selectedParty, pair)
+    }));
+    const goldUSD = goldRate || 3754;
+    const ounceToGram = 31.105;
+    const usdToAed = 3.674;
+    const aedPerGram = (goldUSD / ounceToGram) * usdToAed;
+    const watchlistPairs = liveRates ? [
+      {
+        pair: 'AED/INR',
+        flag: '🇮🇳',
+        code: 'INR',
+        rate: liveRates.AED_TO_INR,
+        change: 0.12,
+        changePercent: 0.5,
+        volume: '10.6M',
+        lastUpdated: '14:21:41',
+        isUp: true,
+        isCommodity: false
+      },
+      {
+        pair: 'INR/AED',
+        flag: '🇦🇪',
+        code: 'AED',
+        rate: liveRates.INR_TO_AED,
+        change: -0.05,
+        changePercent: -0.01,
+        volume: '756.1K',
+        lastUpdated: '14:21:41',
+        isUp: false,
+        isCommodity: false
+      },
+      {
+        pair: 'AED/XAU',
+        flag: '💰',
+        code: 'XAU',
+        rate: aedPerGram,
+        change: -0.05,
+        changePercent: -0.01,
+        volume: '756.1K',
+        lastUpdated: '14:21:41',
+        isUp: false,
+        isCommodity: true
+      },
+      {
+        pair: 'INR/XAU',
+        flag: '💰',
+        code: 'XAU',
+        rate: aedPerGram * liveRates.AED_TO_INR,
+        change: 2.34,
+        changePercent: 0.023,
+        volume: '234.5K',
+        lastUpdated: '14:21:41',
+        isUp: true,
+        isCommodity: true
+      },
+    ] : [];
+    const totalTradesPages = Math.ceil(trades.length / tradesPerPage);
+    const indexOfLastTrade = currentTradesPage * tradesPerPage;
+    const indexOfFirstTrade = indexOfLastTrade - tradesPerPage;
+    const currentTrades = trades.slice(indexOfFirstTrade, indexOfLastTrade);
+    const pageNumbers = [];
+    for (let i = 1; i <= totalTradesPages; i++) {
+      pageNumbers.push(i);
+    }
+    return (
+      <div className="space-y-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <StatCard title="Base Currency" value="AED" icon={DollarSign} color="blue" />
+          <StatCard title="Active Pairs" value={tradingPairs.length} icon={TrendingUp} trend={2.3} color="green" />
+          <StatCard
+            title="Gold Price"
+            value={tradingPairs.find(p => p.pair === 'AED/XAU')?.rate || 0}
+            subtitle="per gram"
+            icon={Zap}
+            trend={-0.1}
+            color="orange"
+          />
+          <StatCard title="Watchlist" value={watchlistPairs.length} icon={Star} color="purple" />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="px-8 py-6 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-blue-50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-purple-100 rounded-xl">
+                    <Star className="w-6 h-6 text-purple-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900">Watchlist</h3>
+                    <p className="text-sm text-gray-600">Your favorite currency pairs</p>
+                  </div>
                 </div>
-                <p className="text-2xl font-bold text-gray-900">
-                  {baseCurrency}
-                </p>
-                <p className="text-sm text-gray-500 mt-1">
-                  {
-                    currencyMaster.find((c) => c.code === baseCurrency)
-                      ?.description
-                  }
-                </p>
-              </div>
-              <div className="bg-white/80 backdrop-blur rounded-2xl p-6 shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-semibold text-gray-600">
-                    Active Pairs
-                  </h3>
-                  <Activity className="w-5 h-5 text-green-600" />
+                <div className="relative">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search currencies..."
+                    className="w-64 pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white shadow-sm"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
                 </div>
-                <p className="text-2xl font-bold text-gray-900">
-                  {partyCurrencyPairs.length}
-                </p>
-                <p className="text-sm text-gray-500 mt-1">
-                  Tradeable currency pairs
-                </p>
-              </div>
-              <div className="bg-white/80 backdrop-blur rounded-2xl p-6 shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-semibold text-gray-600">
-                    Gold Price
-                  </h3>
-                  <Zap className="w-5 h-5 text-yellow-600" />
-                </div>
-                <p className="text-2xl font-bold text-gray-900">
-                  {goldData.bid
-                    ? formatters.currency(goldData.bid, 2)
-                    : "Loading..."}
-                </p>
-                <div className="flex items-center mt-1">
-                  {goldData.direction === "up" ? (
-                    <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
-                  ) : goldData.direction === "down" ? (
-                    <TrendingDown className="w-4 h-4 text-red-500 mr-1" />
-                  ) : null}
-                  <span
-                    className={`text-sm font-medium ${
-                      goldData.direction === "up"
-                        ? "text-green-600"
-                        : goldData.direction === "down"
-                        ? "text-red-600"
-                        : "text-gray-500"
-                    }`}
-                  >
-                    {goldData.dailyChangePercent}
-                  </span>
-                </div>
-              </div>
-              <div className="bg-white/80 backdrop-blur rounded-2xl p-6 shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-semibold text-gray-600">
-                    Watchlist
-                  </h3>
-                  <Star className="w-5 h-5 text-purple-600" />
-                </div>
-                <p className="text-2xl font-bold text-gray-900">
-                  {watchlist.length}
-                </p>
-                <p className="text-sm text-gray-500 mt-1">Currencies tracked</p>
               </div>
             </div>
-            {/* Watchlist */}
-            <div className="bg-white/80 backdrop-blur rounded-2xl shadow-lg border border-gray-200">
-              <div className="p-6 border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-bold text-gray-900 flex items-center">
-                    <Star className="w-6 h-6 mr-2 text-purple-600" />
-                    Watchlist
-                  </h2>
-                  <div className="flex items-center space-x-3">
-                    <div className="relative">
-                      <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-                      <input
-                        type="text"
-                        placeholder="Search currencies..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="p-6">
-                {watchlistData.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Star className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500 font-medium">
-                      No currencies in watchlist
-                    </p>
-                    <p className="text-gray-400 text-sm">
-                      Add currencies to track their performance
-                    </p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                    {watchlistData.map((currency) => (
-                      <div
-                        key={currency.code}
-                        className="p-4 bg-gradient-to-br from-gray-50 to-white rounded-xl border border-gray-200 hover:shadow-md transition-all duration-200"
-                      >
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-10 h-10 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center">
-                              <span className="text-sm font-bold text-blue-700">
-                                {currency.code}
-                              </span>
-                            </div>
-                            <div>
-                              <h3 className="font-semibold text-gray-900">
-                                {currency.code}
-                              </h3>
-                              <p className="text-xs text-gray-500">
-                                vs {baseCurrency}
-                              </p>
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => toggleWatchlist(currency.code)}
-                            className="text-purple-600 hover:text-purple-800 transition-colors"
-                          >
-                            <Minus className="w-4 h-4" />
-                          </button>
-                        </div>
-                        <div className="space-y-2">
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-gray-600">Rate</span>
-                            <span className="font-semibold text-gray-900">
-                              {formatters.currency(currency.value)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-gray-600">
-                              Change
-                            </span>
-                            <div className="flex items-center">
-                              {currency.trend === "up" ? (
-                                <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
-                              ) : currency.trend === "down" ? (
-                                <TrendingDown className="w-4 h-4 text-red-500 mr-1" />
-                              ) : null}
-                              <span
-                                className={`text-sm font-medium ${
-                                  currency.trend === "up"
-                                    ? "text-green-600"
-                                    : currency.trend === "down"
-                                    ? "text-red-600"
-                                    : "text-gray-600"
-                                }`}
-                              >
-                                {formatters.percentage(currency.changePercent)}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-gray-600">
-                              Volume
-                            </span>
-                            <span className="text-sm text-gray-900">
-                              {formatters.volume(currency.volume)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              {/* Add to Watchlist */}
-              {availableCurrencies.length > 0 && (
-                <div className="p-6 border-t border-gray-200 bg-gray-50">
-                  <h3 className="font-semibold text-gray-900 mb-3">
-                    Add to Watchlist
-                  </h3>
-                  <div className="flex flex-wrap gap-2">
-                    {availableCurrencies.slice(0, 8).map((currency) => (
-                      <button
-                        key={currency.code}
-                        onClick={() => toggleWatchlist(currency.code)}
-                        className="flex items-center space-x-2 px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-all duration-200 text-sm"
-                      >
-                        <Plus className="w-4 h-4 text-blue-600" />
-                        <span className="font-medium text-gray-700">
-                          {currency.code}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
+            <div className="p-10">
+              {watchlistPairs.length === 0 ? (
+                <div className="text-gray-500">Loading live rates...</div>
+              ) : (
+                <div className="grid grid-cols-2 gap-8">
+                  {watchlistPairs.map((pair, index) => (
+                    <WatchlistCard key={index} pair={pair} />
+                  ))}
                 </div>
               )}
             </div>
           </div>
-        )}
-        {/* Trading View */}
-        {view === "trading" && (
-          <div className="space-y-6">
-            {/* Trading Pairs */}
-            <div className="bg-white/80 backdrop-blur rounded-2xl shadow-lg border border-gray-200">
-              <div className="p-6 border-b border-gray-200">
-                <h2 className="text-xl font-bold text-gray-900 flex items-center">
-                  <TrendingUp className="w-6 h-6 mr-2 text-green-600" />
-                  Live Trading Pairs
-                </h2>
-                <p className="text-gray-600 mt-1">
-                  Real-time rates with party-specific spreads
-                </p>
-              </div>
-              <div className="p-6">
-                {partyCurrencyPairs.length === 0 ? (
-                  <div className="text-center py-8">
-                    <TrendingUp className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500 font-medium">
-                      No trading pairs available
-                    </p>
-                    <p className="text-gray-400 text-sm">
-                      {!selectedParty
-                        ? "Select a trading party"
-                        : "Party has no configured currencies"}
-                    </p>
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="px-8 py-6 border-b border-gray-100 bg-gradient-to-r from-green-50 to-blue-50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-green-100 rounded-xl">
+                    <TrendingUp className="w-6 h-6 text-green-600" />
                   </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full">
-                      <thead>
-                        <tr className="border-b border-gray-200">
-                          <th className="text-left py-3 px-4 font-semibold text-gray-700">
-                            Pair
-                          </th>
-                          <th className="text-right py-3 px-4 font-semibold text-gray-700">
-                            Rate
-                          </th>
-                          <th className="text-right py-3 px-4 font-semibold text-gray-700">
-                            Change
-                          </th>
-                          <th className="text-right py-3 px-4 font-semibold text-gray-700">
-                            Buy Rate
-                          </th>
-                          <th className="text-right py-3 px-4 font-semibold text-gray-700">
-                            Sell Rate
-                          </th>
-                          <th className="text-right py-3 px-4 font-semibold text-gray-700">
-                            Spread
-                          </th>
-                          <th className="text-center py-3 px-4 font-semibold text-gray-700">
-                            Action
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {partyCurrencyPairs.map((pair) => (
-                          <tr
-                            key={pair.currency}
-                            className="border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
-                            onClick={() => setSelectedPair(pair.currency)}
-                          >
-                            <td className="py-4 px-4">
-                              <div className="flex items-center space-x-3">
-                                <div className="w-8 h-8 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center">
-                                  <span className="text-xs font-bold text-blue-700">
-                                    {pair.currency}
-                                  </span>
-                                </div>
-                                <div>
-                                  <p className="font-semibold text-gray-900">
-                                    {pair.pairName}
-                                  </p>
-                                  <p className="text-xs text-gray-500">
-                                    {
-                                      currencyMaster.find(
-                                        (c) => c.code === pair.currency
-                                      )?.description
-                                    }
-                                  </p>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="py-4 px-4 text-right">
-                              <span className="font-mono font-semibold text-gray-900">
-                                {formatters.currency(pair.value)}
-                              </span>
-                            </td>
-                            <td className="py-4 px-4 text-right">
-                              <div className="flex items-center justify-end">
-                                {pair.trend === "up" ? (
-                                  <ArrowUpRight className="w-4 h-4 text-green-500 mr-1" />
-                                ) : pair.trend === "down" ? (
-                                  <ArrowDownRight className="w-4 h-4 text-red-500 mr-1" />
-                                ) : null}
-                                <span
-                                  className={`font-medium ${
-                                    pair.trend === "up"
-                                      ? "text-green-600"
-                                      : pair.trend === "down"
-                                      ? "text-red-600"
-                                      : "text-gray-600"
-                                  }`}
-                                >
-                                  {formatters.percentage(pair.changePercent)}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="py-4 px-4 text-right">
-                              <span className="font-mono text-green-600 font-semibold">
-                                {formatters.currency(pair.buyRate)}
-                              </span>
-                            </td>
-                            <td className="py-4 px-4 text-right">
-                              <span className="font-mono text-red-600 font-semibold">
-                                {formatters.currency(pair.sellRate)}
-                              </span>
-                            </td>
-                            <td className="py-4 px-4 text-right">
-                              <span className="text-sm text-gray-600">
-                                {formatters.percentage(pair.spreadPercent)}
-                              </span>
-                            </td>
-                            <td className="py-4 px-4 text-center">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedPair(pair.currency);
-                                }}
-                                className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
-                                  selectedPair === pair.currency
-                                    ? "bg-blue-600 text-white"
-                                    : "bg-blue-100 text-blue-700 hover:bg-blue-200"
-                                }`}
-                              >
-                                {selectedPair === pair.currency
-                                  ? "Selected"
-                                  : "Select"}
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900">Live Trading Pairs</h3>
+                    <p className="text-sm text-gray-600">Real-time rates with party-specific spreads</p>
                   </div>
-                )}
+                </div>
+                <div className="flex items-center space-x-2 text-sm font-medium text-green-700">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span>Live Updates</span>
+                </div>
               </div>
             </div>
-            {/* Trading Panel */}
-            {selectedPair && currencies[selectedPair] && (
-              <div className="bg-white/80 backdrop-blur rounded-2xl shadow-lg border border-gray-200">
-                <div className="p-6 border-b border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-bold text-gray-900">
-                      Trade {selectedPair}/{baseCurrency}
-                    </h2>
-                    <div className="flex items-center space-x-4">
-                      <div className="text-right">
-                        <p className="text-sm text-gray-600">Current Rate</p>
-                        <p className="text-lg font-bold text-gray-900">
-                          {formatters.currency(currencies[selectedPair].value)}
-                        </p>
-                      </div>
-                      <div
-                        className={`flex items-center px-3 py-1 rounded-full ${
-                          currencies[selectedPair].trend === "up"
-                            ? "bg-green-100 text-green-700"
-                            : currencies[selectedPair].trend === "down"
-                            ? "bg-red-100 text-red-700"
-                            : "bg-gray-100 text-gray-700"
-                        }`}
-                      >
-                        {currencies[selectedPair].trend === "up" ? (
-                          <TrendingUp className="w-4 h-4 mr-1" />
-                        ) : currencies[selectedPair].trend === "down" ? (
-                          <TrendingDown className="w-4 h-4 mr-1" />
-                        ) : (
-                          <Activity className="w-4 h-4 mr-1" />
-                        )}
-                        <span className="text-sm font-medium">
-                          {formatters.percentage(
-                            currencies[selectedPair].changePercent
-                          )}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="p-6">
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* Buy Section */}
-                    <div className="space-y-4">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                        <h3 className="text-lg font-semibold text-green-700">
-                          Buy {selectedPair}
-                        </h3>
-                      </div>
-                      <div className="bg-green-50 p-4 rounded-xl border border-green-200">
-                        <div className="space-y-3">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Amount to Buy{" "}
-                              {selectedPair === DEFAULT_CONFIG.GOLD_SYMBOL
-                                ? "(grams)"
-                                : ""}
-                            </label>
-                            <input
-                              type="number"
-                              value={buyAmount}
-                              onChange={(e) => setBuyAmount(e.target.value)}
-                              placeholder={`Enter ${selectedPair} amount`}
-                              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                              step={
-                                selectedPair === DEFAULT_CONFIG.GOLD_SYMBOL
-                                  ? "0.001"
-                                  : "0.01"
-                              }
-                              min="0"
-                            />
-                          </div>
-                          <div className="flex justify-between items-center py-2 px-3 bg-white rounded-lg border">
-                            <span className="text-sm text-gray-600">
-                              Buy Rate:
-                            </span>
-                            <span className="font-mono font-semibold text-green-600">
-                              {formatters.currency(
-                                currencies[selectedPair].buyRate
-                              )}
-                            </span>
-                          </div>
-                          {buyAmount && (
-                            <div className="flex justify-between items-center py-2 px-3 bg-white rounded-lg border">
-                              <span className="text-sm text-gray-600">
-                                Total Cost:
-                              </span>
-                              <span className="font-mono font-semibold text-gray-900">
-                                {selectedPair === DEFAULT_CONFIG.GOLD_SYMBOL
-                                  ? formatters.currency(
-                                      parseFloat(
-                                        calculateGoldValue(buyAmount, true)
-                                      ),
-                                      2
-                                    )
-                                  : formatters.currency(
-                                      parseFloat(buyAmount) *
-                                        currencies[selectedPair].buyRate,
-                                      2
-                                    )}{" "}
-                                {baseCurrency}
-                              </span>
-                            </div>
-                          )}
-                          <button
-                            onClick={() =>
-                              executeTrade(
-                                "buy",
-                                selectedPair,
-                                currencies[selectedPair].buyRate,
-                                buyAmount
-                              )
-                            }
-                            disabled={!buyAmount || parseFloat(buyAmount) <= 0}
-                            className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all duration-200 shadow-md"
-                          >
-                            <div className="flex items-center justify-center space-x-2">
-                              <ShoppingCart className="w-5 h-5" />
-                              <span>Buy {selectedPair}</span>
-                            </div>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                    {/* Sell Section */}
-                    <div className="space-y-4">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                        <h3 className="text-lg font-semibold text-red-700">
-                          Sell {selectedPair}
-                        </h3>
-                      </div>
-                      <div className="bg-red-50 p-4 rounded-xl border border-red-200">
-                        <div className="space-y-3">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Amount to Sell{" "}
-                              {selectedPair === DEFAULT_CONFIG.GOLD_SYMBOL
-                                ? "(grams)"
-                                : ""}
-                            </label>
-                            <input
-                              type="number"
-                              value={sellAmount}
-                              onChange={(e) => setSellAmount(e.target.value)}
-                              placeholder={`Enter ${selectedPair} amount`}
-                              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                              step={
-                                selectedPair === DEFAULT_CONFIG.GOLD_SYMBOL
-                                  ? "0.001"
-                                  : "0.01"
-                              }
-                              min="0"
-                            />
-                          </div>
-                          <div className="flex justify-between items-center py-2 px-3 bg-white rounded-lg border">
-                            <span className="text-sm text-gray-600">
-                              Sell Rate:
-                            </span>
-                            <span className="font-mono font-semibold text-red-600">
-                              {formatters.currency(
-                                currencies[selectedPair].sellRate
-                              )}
-                            </span>
-                          </div>
-                          {sellAmount && (
-                            <div className="flex justify-between items-center py-2 px-3 bg-white rounded-lg border">
-                              <span className="text-sm text-gray-600">
-                                Total Receive:
-                              </span>
-                              <span className="font-mono font-semibold text-gray-900">
-                                {selectedPair === DEFAULT_CONFIG.GOLD_SYMBOL
-                                  ? formatters.currency(
-                                      parseFloat(
-                                        calculateGoldValue(sellAmount, true)
-                                      ),
-                                      2
-                                    )
-                                  : formatters.currency(
-                                      parseFloat(sellAmount) *
-                                        currencies[selectedPair].sellRate,
-                                      2
-                                    )}{" "}
-                                {baseCurrency}
-                              </span>
-                            </div>
-                          )}
-                          <button
-                            onClick={() =>
-                              executeTrade(
-                                "sell",
-                                selectedPair,
-                                currencies[selectedPair].sellRate,
-                                sellAmount
-                              )
-                            }
-                            disabled={
-                              !sellAmount || parseFloat(sellAmount) <= 0
-                            }
-                            className="w-full px-4 py-3 bg-gradient-to-r from-red-600 to-rose-600 text-white rounded-lg hover:from-red-700 hover:to-rose-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all duration-200 shadow-md"
-                          >
-                            <div className="flex items-center justify-center space-x-2">
-                              <Wallet className="w-5 h-5" />
-                              <span>Sell {selectedPair}</span>
-                            </div>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  {/* Market Details */}
-                  <div className="mt-8 p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl border border-gray-200">
-                    <h4 className="font-semibold text-gray-900 mb-4">
-                      Market Details
-                    </h4>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div>
-                        <p className="text-xs text-gray-600">24h High</p>
-                        <p className="font-mono font-semibold text-gray-900">
-                          {formatters.currency(
-                            currencies[selectedPair].high24h
-                          )}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-600">24h Low</p>
-                        <p className="font-mono font-semibold text-gray-900">
-                          {formatters.currency(currencies[selectedPair].low24h)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-600">Volume</p>
-                        <p className="font-semibold text-gray-900">
-                          {formatters.volume(currencies[selectedPair].volume)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-600">Spread</p>
-                        <p className="font-semibold text-gray-900">
-                          {formatters.percentage(
-                            ((currencies[selectedPair].bidSpread +
-                              currencies[selectedPair].askSpread) /
-                              currencies[selectedPair].value) *
-                              100
-                          )}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-        {/* Parties View */}
-        {view === "parties" && (
-          <div className="space-y-6">
-            <div className="bg-white/80 backdrop-blur rounded-2xl shadow-lg border border-gray-200">
-              <div className="p-6 border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-bold text-gray-900 flex items-center">
-                    <Users className="w-6 h-6 mr-2 text-blue-600" />
-                    Trading Parties
-                  </h2>
-                  <div className="flex items-center space-x-3">
-                    <div className="relative">
-                      <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-                      <input
-                        type="text"
-                        placeholder="Search parties..."
-                        value={partySearchTerm}
-                        onChange={(e) => setPartySearchTerm(e.target.value)}
-                        className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="p-6">
-                {filteredParties.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500 font-medium">
-                      No trading parties found
-                    </p>
-                    <p className="text-gray-400 text-sm">
-                      Try adjusting your search criteria
-                    </p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {filteredParties.map((party) => (
-                      <div
-                        key={party.id}
-                        className={`p-6 rounded-xl border-2 transition-all duration-200 cursor-pointer ${
-                          selectedParty?.id === party.id
-                            ? "border-blue-500 bg-blue-50 shadow-md"
-                            : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm"
-                        }`}
-                        onClick={() => setSelectedParty(party)}
-                      >
-                        <div className="flex items-start justify-between mb-4">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center">
-                              <span className="text-lg font-bold text-blue-700">
-                                {party.shortName?.charAt(0) ||
-                                  party.customerName?.charAt(0) ||
-                                  "?"}
-                              </span>
-                            </div>
-                            <div>
-                              <h3 className="font-bold text-gray-900">
-                                {party.customerName}
-                              </h3>
-                              <p className="text-sm text-gray-600">
-                                {party.shortName}
-                              </p>
-                            </div>
-                          </div>
-                          {selectedParty?.id === party.id && (
-                            <div className="px-3 py-1 bg-blue-600 text-white rounded-full text-xs font-medium">
-                              Selected
-                            </div>
-                          )}
-                        </div>
-                        <div className="space-y-3">
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-gray-600">
-                              Account Code:
-                            </span>
-                            <span className="font-mono text-sm font-medium text-gray-900">
-                              {party.acCode}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-gray-600">Type:</span>
-                            <span className="text-sm font-medium text-gray-900">
-                              {party.type}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-gray-600">
-                              Division:
-                            </span>
-                            <span className="text-sm font-medium text-gray-900">
-                              {party.division}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-gray-600">
-                              Currencies:
-                            </span>
-                            <span className="text-sm font-bold text-blue-600">
-                              {party.currencies?.length || 0}
-                            </span>
-                          </div>
-                          {party.currencies && party.currencies.length > 0 && (
-                            <div className="mt-4">
-                              <p className="text-xs text-gray-600 mb-2">
-                                Supported Currencies:
-                              </p>
-                              <div className="flex flex-wrap gap-1">
-                                {party.currencies.slice(0, 6).map((curr) => (
-                                  <span
-                                    key={curr.currency}
-                                    className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-medium"
-                                  >
-                                    {curr.currency}
-                                  </span>
-                                ))}
-                                {party.currencies.length > 6 && (
-                                  <span className="px-2 py-1 bg-gray-200 text-gray-600 rounded text-xs">
-                                    +{party.currencies.length - 6} more
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-            {/* Selected Party Details */}
-            {selectedParty && (
-              <div className="bg-white/80 backdrop-blur rounded-2xl shadow-lg border border-gray-200">
-                <div className="p-6 border-b border-gray-200">
-                  <h2 className="text-xl font-bold text-gray-900">
-                    {selectedParty.customerName} - Currency Configuration
-                  </h2>
-                  <p className="text-gray-600 mt-1">
-                    Spreads and rates for available currency pairs
-                  </p>
-                </div>
-                <div className="p-6">
-                  {selectedParty.currencies?.length === 0 ? (
-                    <div className="text-center py-8">
-                      <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                      <p className="text-gray-500 font-medium">
-                        No currencies configured
-                      </p>
-                      <p className="text-gray-400 text-sm">
-                        This party has no currency configuration
-                      </p>
-                    </div>
+            <div className="overflow-x-hidden">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-100">
+                  <tr>
+                    <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Currency Pair</th>
+                    <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Current Rate</th>
+                    <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Buy Rate</th>
+                    <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Sell Rate</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {computedPairs.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="text-center py-6 text-gray-500">
+                        No trading pairs found
+                      </td>
+                    </tr>
                   ) : (
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full">
-                        <thead>
-                          <tr className="border-b border-gray-200">
-                            <th className="text-left py-3 px-4 font-semibold text-gray-700">
-                              Currency
-                            </th>
-                            <th className="text-right py-3 px-4 font-semibold text-gray-700">
-                              Current Rate
-                            </th>
-                            <th className="text-right py-3 px-4 font-semibold text-gray-700">
-                              Bid Spread
-                            </th>
-                            <th className="text-right py-3 px-4 font-semibold text-gray-700">
-                              Ask Spread
-                            </th>
-                            <th className="text-right py-3 px-4 font-semibold text-gray-700">
-                              Min Rate
-                            </th>
-                            <th className="text-right py-3 px-4 font-semibold text-gray-700">
-                              Max Rate
-                            </th>
-                            <th className="text-center py-3 px-4 font-semibold text-gray-700">
-                              Default
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {selectedParty.currencies.map((currency) => (
-                            <tr
-                              key={currency.currency}
-                              className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
-                            >
-                              <td className="py-4 px-4">
-                                <div className="flex items-center space-x-3">
-                                  <div className="w-8 h-8 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center">
-                                    <span className="text-xs font-bold text-blue-700">
-                                      {currency.currency}
-                                    </span>
-                                  </div>
-                                  <div>
-                                    <p className="font-semibold text-gray-900">
-                                      {currency.currency}/{baseCurrency}
-                                    </p>
-                                    <p className="text-xs text-gray-500">
-                                      {currencyMaster.find(
-                                        (c) => c.code === currency.currency
-                                      )?.description || "Unknown"}
-                                    </p>
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="py-4 px-4 text-right">
-                                <span className="font-mono font-semibold text-gray-900">
-                                  {currencies[currency.currency]
-                                    ? formatters.currency(
-                                        currencies[currency.currency].value
-                                      )
-                                    : "N/A"}
-                                </span>
-                              </td>
-                              <td className="py-4 px-4 text-right">
-                                <span className="font-mono text-green-600 font-medium">
-                                  {formatters.currency(currency.bid, 6)}
-                                </span>
-                              </td>
-                              <td className="py-4 px-4 text-right">
-                                <span className="font-mono text-red-600 font-medium">
-                                  {formatters.currency(currency.ask, 6)}
-                                </span>
-                              </td>
-                              <td className="py-4 px-4 text-right">
-                                <span className="font-mono text-gray-600">
-                                  {formatters.currency(currency.minRate)}
-                                </span>
-                              </td>
-                              <td className="py-4 px-4 text-right">
-                                <span className="font-mono text-gray-600">
-                                  {formatters.currency(currency.maxRate)}
-                                </span>
-                              </td>
-                              <td className="py-4 px-4 text-center">
-                                {currency.isDefault && (
-                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                    <CheckCircle className="w-3 h-3 mr-1" />
-                                    Default
-                                  </span>
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                    computedPairs.map((pair, index) => (
+                      <tr
+                        key={index}
+                        className="hover:bg-gray-50 transition-colors cursor-pointer"
+                        onClick={() => openCreateModal(pair)}
+                      >
+                        <td className="px-8 py-5 whitespace-nowrap">
+                          <div className="flex items-center space-x-4">
+                            <div className="text-2xl">{pair.flag}</div>
+                            <div>
+                              <div className="text-sm font-bold text-gray-900">{pair.pair}</div>
+                              <div className="text-xs text-gray-500 font-medium">{pair.code}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-8 py-5 whitespace-nowrap text-sm font-bold text-gray-900">
+                          {formatNumber(pair.rate, 2)}
+                        </td>
+                        <td className="px-8 py-5 whitespace-nowrap">
+                          <div className="text-sm font-bold text-green-700 bg-green-50 px-3 py-1 rounded-lg inline-block">
+                            {formatNumber(pair.buyRate, 2)}
+                          </div>
+                        </td>
+                        <td className="px-8 py-5 whitespace-nowrap">
+                          <div className="text-sm font-bold text-red-700 bg-red-50 px-3 py-1 rounded-lg inline-block">
+                            {formatNumber(pair.sellRate, 2)}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
                   )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="px-8 py-6 border-b border-gray-100 bg-gradient-to-r from-orange-50 to-red-50">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-orange-100 rounded-xl">
+                  <DollarSign className="w-6 h-6 text-orange-600" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">Recent Trades</h3>
+                  <p className="text-sm text-gray-600">Your latest trading activities</p>
+                </div>
+              </div>
+              <button
+                onClick={fetchTrades}
+                className="p-3 text-blue-600 hover:bg-blue-50 rounded-xl transition-colors"
+              >
+                <RefreshCw className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-100">
+                <tr>
+                  <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Reference</th>
+                  <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Type</th>
+                  <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Party</th>
+                  <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Pair</th>
+                  <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Amount</th>
+                  <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Rate</th>
+                  <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Converted</th>
+                  <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Date</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-100">
+                {loadingTrades ? (
+                  <tr>
+                    <td colSpan={9} className="text-center py-6 text-gray-500">
+                      Loading trades...
+                    </td>
+                  </tr>
+                ) : currentTrades.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="text-center py-6 text-gray-500">
+                      No trades found
+                    </td>
+                  </tr>
+                ) : (
+                  currentTrades.map((trade) => (
+                    <tr
+                      key={trade._id}
+                      className="hover:bg-gray-50 transition-colors cursor-pointer"
+                      onClick={() => openEditModal(trade)}
+                    >
+                      <td className="px-8 py-5 whitespace-nowrap text-sm font-medium text-gray-900">{trade.reference}</td>
+                      <td className="px-8 py-5 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${trade.type === 'BUY' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                          {trade.type}
+                        </span>
+                      </td>
+                      <td className="px-8 py-5 whitespace-nowrap text-sm text-gray-600">{trade.partyId?.customerName || "NULLLLL"}</td>
+                      <td className="px-8 py-5 whitespace-nowrap text-sm text-gray-600">{trade.baseCurrencyCode}/{trade.targetCurrencyCode}</td>
+                      <td className="px-8 py-5 whitespace-nowrap text-sm font-bold text-gray-900">{formatNumber(trade.amount, 2)}</td>
+                      <td className="px-8 py-5 whitespace-nowrap text-sm font-bold text-gray-900">{formatNumber(trade.rate, 2)}</td>
+                      <td className="px-8 py-5 whitespace-nowrap text-sm font-bold text-gray-900">{formatNumber(trade.converted, 2)}</td>
+                      <td className="px-8 py-5 whitespace-nowrap text-sm text-gray-500">{new Date(trade.createdAt).toLocaleString()}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+          {totalTradesPages > 1 && (
+            <div className="flex items-center justify-between px-8 py-4 border-t border-gray-100 bg-gray-50">
+              <button
+                onClick={() => setCurrentTradesPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentTradesPage === 1}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Previous
+              </button>
+              <div className="flex items-center space-x-2">
+                {pageNumbers.map((number) => (
+                  <button
+                    key={number}
+                    onClick={() => setCurrentTradesPage(number)}
+                    className={`px-3 py-1 text-sm font-medium rounded-lg transition-colors ${currentTradesPage === number
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                      }`}
+                  >
+                    {number}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setCurrentTradesPage(prev => Math.min(prev + 1, totalTradesPages))}
+                disabled={currentTradesPage === totalTradesPages}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderTrading = () => {
+    const filteredParties = tradingParties.filter((party) =>
+      party.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      party.accountCode.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    const totalPages = Math.ceil(filteredParties.length / itemsPerPage);
+    const indexOfLast = currentPage * itemsPerPage;
+    const indexOfFirst = indexOfLast - itemsPerPage;
+    const currentParties = filteredParties.slice(indexOfFirst, indexOfLast);
+    const pageNumbers = [];
+    for (let i = 1; i <= totalPages; i++) {
+      pageNumbers.push(i);
+    }
+    const selectedPartyObj = tradingParties.find((party) => party.customerName === selectedParty);
+    let dynamicPairs = [];
+    if (selectedPartyObj) {
+      dynamicPairs = tradingPairs.map((pair) => {
+        const { bid, ask, buyRate, sellRate } = getRatesForParty(selectedParty, pair);
+        return { ...pair, buyRate, sellRate };
+      });
+    }
+    return (
+      <div className="space-y-8">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="px-8 py-6 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-purple-50">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-blue-100 rounded-xl">
+                  <Users className="w-6 h-6 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">Trading Parties</h3>
+                  <p className="text-sm text-gray-600">Manage your trading relationships</p>
+                </div>
+              </div>
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search parties..."
+                  className="w-64 pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white shadow-sm"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-100">
+                <tr>
+                  <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Name</th>
+                  <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Account Code</th>
+                  <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Type</th>
+                  <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Currencies</th>
+                  <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Status</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-100">
+                {loadingParties ? (
+                  <tr>
+                    <td colSpan={5} className="text-center py-6 text-gray-500">
+                      Loading trading parties...
+                    </td>
+                  </tr>
+                ) : currentParties.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="text-center py-6 text-gray-500">
+                      No trading parties found
+                    </td>
+                  </tr>
+                ) : (
+                  currentParties.map((party, index) => (
+                    <tr key={index} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-8 py-5 whitespace-nowrap text-sm font-bold text-gray-900">
+                        {party.customerName}
+                      </td>
+                      <td className="px-8 py-5 whitespace-nowrap text-sm font-medium text-gray-600">
+                        {party.accountCode}
+                      </td>
+                      <td className="px-8 py-5 whitespace-nowrap">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700">
+                          {party.accountType}
+                        </span>
+                      </td>
+                      <td className="px-8 py-5 whitespace-nowrap">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+                          {party.balances.cashBalance.length} pairs
+                        </span>
+                      </td>
+                      <td className="px-8 py-5 whitespace-nowrap text-sm">
+                        {selectedParty === party.customerName ? (
+                          <span className="inline-flex items-center px-4 py-2 rounded-lg text-xs font-semibold bg-green-100 text-green-800">
+                            ✓ Selected
+                          </span>
+                        ) : (
+                          <button
+                            className="inline-flex items-center px-4 py-2 rounded-lg text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                            onClick={() => setSelectedParty(party.customerName)}
+                          >
+                            Select Party
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-8 py-4 border-t border-gray-100 bg-gray-50">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Previous
+              </button>
+              <div className="flex items-center space-x-2">
+                {pageNumbers.map((number) => (
+                  <button
+                    key={number}
+                    onClick={() => setCurrentPage(number)}
+                    className={`px-3 py-1 text-sm font-medium rounded-lg transition-colors ${currentPage === number
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                      }`}
+                  >
+                    {number}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+              </button>
+            </div>
+          )}
+        </div>
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="px-8 py-6 border-b border-gray-100 bg-gradient-to-r from-green-50 to-blue-50">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">{selectedParty} - Currency Configuration</h3>
+                <p className="text-sm text-gray-600">Spreads and rates for available currency pairs</p>
+              </div>
+              <button className="bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition-colors text-sm font-semibold">
+                Save Changes
+              </button>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-100">
+                <tr>
+                  <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Currency</th>
+                  <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Current Rate</th>
+                  <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Buy Rate</th>
+                  <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Sell Rate</th>
+                  <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-100">
+                {dynamicPairs.map((pair, index) => (
+                  <tr
+                    key={index}
+                    className="hover:bg-gray-50 transition-colors cursor-pointer"
+                    onClick={() => openCreateModal(pair)}
+                  >
+                    <td className="px-8 py-5 whitespace-nowrap">
+                      <div className="flex items-center space-x-4">
+                        <div className="text-2xl">{pair.flag}</div>
+                        <div>
+                          <div className="text-sm font-bold text-gray-900">{pair.pair}</div>
+                          <div className="text-xs text-gray-500 font-medium">{pair.code}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-8 py-5 whitespace-nowrap text-sm font-bold text-gray-900">
+                      {formatNumber(pair.rate, 2)}
+                    </td>
+                    <td className="px-8 py-5 whitespace-nowrap">
+                      <div className="text-sm font-bold text-green-700 bg-green-50 px-3 py-1 rounded-lg inline-block">
+                        {formatNumber(pair.buyRate, 2)}
+                      </div>
+                    </td>
+                    <td className="px-8 py-5 whitespace-nowrap">
+                      <div className="text-sm font-bold text-red-700 bg-red-50 px-3 py-1 rounded-lg inline-block">
+                        {formatNumber(pair.sellRate, 2)}
+                      </div>
+                    </td>
+                    <td className="px-8 py-5 whitespace-nowrap">
+                      <button className="text-blue-600 hover:text-blue-800 text-sm font-semibold bg-blue-50 px-3 py-1 rounded-lg hover:bg-blue-100 transition-colors">
+                        Set Default
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const handleSubmit = async () => {
+  
+    const party = tradingParties.find(p => p._id === selectedTradeParty);
+    if (!party || (!payAmount && !receiveAmount) || !selectedPair) {
+      console.log(party ,payAmount , receiveAmount , selectedPair)
+      console.error('Missing required trade details');
+      toast.error('Please enter a non-zero amount');
+      return;
+    }
+    const base = selectedPair.pair.split('/')[0];
+    const quote = selectedPair.pair.split('/')[1];
+    const { buyRate, sellRate, bid, ask } = getRatesForParty(selectedTradeParty, selectedPair);
+    const isCommodity = selectedPair.isCommodity || false;
+    let finalPayAmount, finalReceiveAmount, valuePerGram;
+    if (isCommodity) {
+      finalPayAmount = parseFloat(payAmount) || 0;
+      finalReceiveAmount = parseFloat(receiveAmount) || 0;
+      const grossWeightValue = parseFloat(grossWeight) || 0;
+      if (finalPayAmount <= 0 || grossWeightValue <= 0) {
+        toast.error('Pay amount, receive amount, and gross weight must be greater than zero');
+        return;
+      }
+      valuePerGram = grossWeightValue > 0 ? (finalPayAmount / grossWeightValue).toFixed(2) : '0.00';
+    } else {
+      const calculatedRate = tradeType === 'buy' ? buyRate : sellRate;
+      const effectiveRate = manualRate || calculatedRate;
+      if (inputCurrency === (tradeType === 'buy' ? base : quote)) {
+        finalPayAmount = parseFloat(payAmount) || 0;
+        if (finalPayAmount <= 0) {''
+          toast.error('Amount must be greater than zero');
+          return;
+        }
+        finalReceiveAmount = (finalPayAmount * effectiveRate).toFixed(2);
+      } else {
+        finalReceiveAmount = parseFloat(receiveAmount) || 0;
+        if (finalReceiveAmount <= 0) {
+          toast.error('Amount must be greater than zero');
+          return;
+        }
+        finalPayAmount = (finalReceiveAmount / effectiveRate).toFixed(2);
+      }
+      valuePerGram = null;
+    }
+    const baseCurrency = currencies.find(c => c.currencyCode === base);
+    const targetCurrency = currencies.find(c => c.currencyCode === quote);
+    const payload = {
+      partyId: party._id,
+      type: tradeType.toUpperCase(),
+      amount: parseFloat(finalPayAmount),
+      currency: base,
+      rate: parseFloat(manualRate),
+      converted: parseFloat(finalReceiveAmount),
+      orderId: `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      timestamp: new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }),
+      currentRate: selectedPair.rate,
+      bidSpread: bid,
+      askSpread: ask,
+      buyRate: buyRate,
+      sellRate: sellRate,
+      baseCurrencyId: baseCurrency?._id,
+      targetCurrencyId: targetCurrency?._id,
+      conversionRate: parseFloat(conversionRate) || null,
+      baseCurrencyCode: base,
+      targetCurrencyCode: quote,
+      reference: voucherCode,
+      isGoldTrade: isCommodity,
+      ...(isCommodity && {
+        metalType,
+        grossWeight: parseFloat(grossWeight),
+        valuePerGram: parseFloat(valuePerGram)
+      })
+    };
+    try {
+      let res;
+      if (isEditMode) {
+        res = await axiosInstance.put(`/currency-trading/trades/${selectedTrade._id}`, payload);
+      } else {
+        res = await axiosInstance.post('/currency-trading/trades', payload);
+      }
+      if (res.data.success) {
+        toast.success(isEditMode ? 'Trade updated successfully' : 'Trade created successfully');
+        closeModal();
+        fetchTrades();
+      } else {
+        toast.error('Operation failed');
+        console.error('Operation failed:', res.data);
+      }
+    } catch (err) {
+      console.error('Error:', err);
+      toast.error('Error processing trade');
+    }
+  };
+
+const handleDelete = async () => {
+  if (!tradeToDelete) return;
+  
+  try {
+    await axiosInstance.delete(`/currency-trading/trades/${tradeToDelete._id}`);
+    toast.success('Trade deleted successfully');
+    closeDeleteModal();
+     closeModal();
+    fetchTrades();
+  } catch (err) {
+    console.error('Error deleting trade:', err);
+    toast.error('Failed to delete trade');
+  }
+};
+
+const openDeleteModal = (trade) => {
+  setTradeToDelete(trade);
+  setIsDeleteModalOpen(true);
+};
+
+const closeDeleteModal = () => {
+  setIsDeleteModalOpen(false);
+  setTradeToDelete(null);
+};
+
+const renderModal = () => {
+  if (!isModalOpen || !selectedPair) return null;
+  const base = selectedPair.pair.split('/')[0];
+  const quote = selectedPair.pair.split('/')[1];
+  const { buyRate, sellRate, bid, ask } = getRatesForParty(selectedTradeParty, selectedPair);
+  const calculatedRate = tradeType === 'buy' ? buyRate : sellRate;
+  const effectiveRate = manualRate || calculatedRate;
+  const isCommodity = selectedPair.isCommodity || false;
+  const payCurrency = tradeType === 'buy' ? base : quote;
+  const receiveCurrency = tradeType === 'buy' ? quote : base;
+
+  const calculateConvertedAmount = () => {
+    if (isCommodity) {
+      const pay = parseFloat(payAmount) || 0;
+      const receive = parseFloat(receiveAmount) || 0;
+      const gw = parseFloat(grossWeight) || 0;
+      const ratePerGram = manualRate / 1000; // Convert kg rate to per gram
+      const vpg = gw > 0 ? ratePerGram.toFixed(2) : '0.00';
+      if (tradeType === 'buy' && gw > 0) {
+        const expectedPay = (ratePerGram * gw).toFixed(2);
+        if (Math.abs(pay - parseFloat(expectedPay)) > 0.01) {
+          setPayAmount(expectedPay);
+        }
+      }
+      return { converted: receive.toFixed(2), valuePerGram: vpg };
+    } else {
+      if (!effectiveRate) return { converted: '0.00', valuePerGram: null };
+      if (inputCurrency === payCurrency) {
+        const amount = parseFloat(payAmount) || 0;
+        const converted = (amount * effectiveRate).toFixed(2);
+        return { converted, valuePerGram: null };
+      } else {
+        const amount = parseFloat(receiveAmount) || 0;
+        const converted = (amount / effectiveRate).toFixed(2);
+        return { converted: amount.toFixed(2), valuePerGram: null };
+      }
+    }
+  };
+
+  const handlePayAmountChange = (value) => {
+    setPayAmount(value);
+    setInputCurrency(payCurrency);
+    if (!isCommodity) {
+      if (value) {
+        const amount = parseFloat(value);
+        if (!isNaN(amount) && effectiveRate) {
+          const converted = (amount * effectiveRate).toFixed(2);
+          setReceiveAmount(converted);
+        } else {
+          setReceiveAmount('');
+        }
+      } else {
+        setReceiveAmount('');
+      }
+    } else {
+      const gw = parseFloat(grossWeight) || 0;
+      if (gw > 0 && value) {
+        // Optional: Add reverse calc if needed
+      }
+    }
+  };
+
+  const handleGrossWeightChange = (value) => {
+    setGrossWeight(value);
+    if (isCommodity && manualRate && value) {
+      const gw = parseFloat(value);
+      const ratePerGram = manualRate / 1000;
+      if (tradeType === 'buy') {
+        const calculatedPay = (ratePerGram * gw).toFixed(2);
+        setPayAmount(calculatedPay);
+      } else if (tradeType === 'sell') {
+        const calculatedReceive = (ratePerGram * gw).toFixed(2);
+        setReceiveAmount(calculatedReceive);
+      }
+    }
+  };
+
+  const handleReceiveAmountChange = (value) => {
+    setReceiveAmount(value);
+    setInputCurrency(receiveCurrency);
+    if (!isCommodity) {
+      if (value) {
+        const amount = parseFloat(value);
+        if (!isNaN(amount) && effectiveRate) {
+          const converted = (amount / effectiveRate).toFixed(2);
+          setPayAmount(converted);
+        } else {
+          setPayAmount('');
+        }
+      } else {
+        setPayAmount('');
+      }
+    }
+  };
+
+  const handleRateChange = (value) => {
+    setManualRate(parseFloat(value) || 0);
+    if (!isCommodity) {
+      if (payAmount && inputCurrency === payCurrency) {
+        const amount = parseFloat(payAmount);
+        if (!isNaN(amount) && value) {
+          const converted = (amount * parseFloat(value)).toFixed(2);
+          setReceiveAmount(converted);
+        } else {
+          setReceiveAmount('');
+        }
+      } else if (receiveAmount && inputCurrency === receiveCurrency) {
+        const amount = parseFloat(receiveAmount);
+        if (!isNaN(amount) && value) {
+          const converted = (amount / parseFloat(value)).toFixed(2);
+          setPayAmount(converted);
+        } else {
+          setPayAmount('');
+        }
+      }
+    } else {
+      const gw = parseFloat(grossWeight) || 0;
+      if (gw > 0 && value) {
+        const ratePerGram = parseFloat(value) / 1000;
+        if (tradeType === 'buy') {
+          const calculatedPay = (ratePerGram * gw).toFixed(2);
+          setPayAmount(calculatedPay);
+        } else if (tradeType === 'sell') {
+          const calculatedReceive = (ratePerGram * gw).toFixed(2);
+          setReceiveAmount(calculatedReceive);
+        }
+      }
+    }
+  };
+
+  const { converted, valuePerGram } = calculateConvertedAmount();
+  const selectedPartyObj = tradingParties.find((party) => party._id === selectedTradeParty);
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl p-8 w-full max-w-4xl shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold text-gray-900">{isEditMode ? 'Edit Trade' : 'Create Trade'}</h2>
+          <div className="flex items-center space-x-4">
+            {isEditMode && (
+              <button
+                className="text-red-600 hover:text-red-800 text-sm font-semibold bg-red-50 px-3 py-1 rounded-lg hover:bg-red-100 transition-colors"
+    onClick={() => openDeleteModal(selectedTrade)}
+              >
+                Delete
+              </button>
+            )}
+            <button
+              onClick={closeModal}
+              className="text-gray-500 hover:text-gray-700 p-2 rounded-full hover:bg-gray-100 transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div className="space-y-6">
+          <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+            <div className="text-sm font-semibold text-gray-700 mb-3">Voucher Details</div>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <span className="text-xs text-gray-500 block">Voucher Code</span>
+                <div className="text-sm font-medium text-gray-900">{voucherCode || 'N/A'}</div>
+              </div>
+              <div>
+                <span className="text-xs text-gray-500 block">Prefix</span>
+                <div className="text-sm font-medium text-gray-900">{prefix || 'N/A'}</div>
+              </div>
+              <div>
+                <span className="text-xs text-gray-500 block">Voucher Type</span>
+                <div className="text-sm font-medium text-gray-900">{voucherType || 'N/A'}</div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Select Party</label>
+            <Select
+              options={partyOptions}
+              value={partyOptions.find((option) => option.value === selectedTradeParty) || null}
+              onChange={(selectedOption) => setSelectedTradeParty(selectedOption ? selectedOption.value : '')}
+              placeholder="Choose a party..."
+              isClearable
+              isSearchable
+              styles={customSelectStyles}
+              className="w-full"
+              classNamePrefix="select"
+            />
+            {selectedTradeParty && selectedPartyObj && (
+              <div className="mt-2 text-sm text-gray-600">
+                <div className="flex space-x-4">
+                  <div>
+                    <span className="font-medium">Cash Balance:</span>{" "}
+                    <div className="space-x-2">
+                      {selectedPartyObj.balances?.cashBalance?.map((balance, index) => (
+                        <span
+                          key={index}
+                          className={balance.amount < 0 ? "text-red-600" : "text-green-600"}
+                        >
+                          {formatNumber(balance.amount ?? 0)} {getCurrencyCode(balance.currency)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="font-medium">Gold Balance:</span>{" "}
+                    <span
+                      className={
+                        selectedPartyObj.balances?.goldBalance?.totalGrams < 0
+                          ? "text-red-600"
+                          : "text-green-600"
+                      }
+                    >
+                      {formatNumber(selectedPartyObj.balances?.goldBalance?.totalGrams || 0)}g
+                    </span>
+                  </div>
                 </div>
               </div>
             )}
           </div>
-        )}
-      </main>
+          <div className="flex items-center space-x-4 bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-xl">
+            <div className="text-3xl">{selectedPair.flag}</div>
+            <div>
+              <div className="text-lg font-bold text-gray-900">{selectedPair.pair}</div>
+              <div className="text-sm text-gray-600">Mid Rate: {formatNumber(selectedPair.rate, 2)}</div>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <button
+              onClick={() => setTradeType('buy')}
+              className={`py-3 rounded-xl font-semibold transition-colors ${tradeType === 'buy' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+            >
+              Buy {quote}
+            </button>
+            <button
+              onClick={() => setTradeType('sell')}
+              className={`py-3 rounded-xl font-semibold transition-colors ${tradeType === 'sell' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+            >
+              Sell {quote}
+            </button>
+          </div>
+          {isCommodity && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Metal Type</label>
+              <input
+                type="text"
+                value={metalType}
+                readOnly
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-100 text-gray-700"
+              />
+            </div>
+          )}
+          {isCommodity && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Gross Weight (grams)</label>
+              <input
+                type="number"
+                placeholder="Enter gross weight in grams"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                value={grossWeight}
+                onChange={(e) => handleGrossWeightChange(e.target.value)}
+              />
+            </div>
+          )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Pay Amount ({payCurrency}{isCommodity && payCurrency === 'XAU' ? ' grams' : ''})
+            </label>
+            <input
+              type="number"
+              placeholder={`Enter amount in ${payCurrency}${isCommodity && payCurrency === 'XAU' ? ' grams' : ''}`}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+              value={payAmount}
+              onChange={(e) => handlePayAmountChange(e.target.value)}
+            />
+          </div>
+          {isCommodity && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Value Per Gram ({payCurrency}/gram)</label>
+              <input
+                type="text"
+                value={formatNumber(manualRate / 1000, 2)}
+                readOnly
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-100 text-gray-700"
+              />
+            </div>
+          )}
+          {isCommodity ? null : (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Receive Amount ({receiveCurrency}{isCommodity && receiveCurrency === 'XAU' ? ' grams' : ''})
+              </label>
+              <input
+                type="number"
+                placeholder={`Enter amount in ${receiveCurrency}${isCommodity && receiveCurrency === 'XAU' ? ' grams' : ''}`}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                value={receiveAmount || converted}
+                onChange={(e) => handleReceiveAmountChange(e.target.value)}
+              />
+            </div>
+          )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              {selectedPair.isCommodity ? 'Rate of one KGBAR' : 'Rate'}
+            </label>
+            <input
+              type="number"
+              step="0.0001"
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+              value={manualRate}
+              onChange={(e) => handleRateChange(e.target.value)}
+            />
+          </div>
+          {isCommodity && (
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-2"> Rate of {payCurrency}</label>
+    <input
+      type="number"
+      step="0.0001"
+      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+      value={conversionRate}
+      onChange={(e) => setConversionRate(e.target.value)}
+    />
+  </div>
+)}
+          <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+            <div className="text-sm font-semibold text-gray-700 mb-2">Trade Summary</div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <span className="text-xs text-gray-500 block">You Pay</span>
+                <div className="text-lg font-bold text-gray-900">
+                  {formatNumber(payAmount || '0.00', 2)} {payCurrency}{isCommodity && payCurrency === 'XAU' ? ' grams' : ''}
+                  {isCommodity && tradeType === 'buy' && <span className="text-xs text-gray-500 block">(Calculated: {formatNumber(manualRate / 1000, 2)} AED/gram × {grossWeight}g)</span>}
+                </div>
+              </div>
+              {!isCommodity && (
+                <div>
+                  <span className="text-xs text-gray-500 block">You Receive</span>
+                  <div className="text-lg font-bold text-gray-900">
+                    {formatNumber(receiveAmount || converted, 2)} {receiveCurrency}
+                  </div>
+                </div>
+              )}
+              {isCommodity && (
+                <>
+                  <div>
+                    <span className="text-xs text-gray-500 block">Gross Weight</span>
+                    <div className="text-lg font-bold text-gray-900">{formatNumber(grossWeight, 2)} grams</div>
+                  </div>
+                  <div>
+                    <span className="text-xs text-gray-500 block">Metal Type</span>
+                    <div className="text-lg font-bold text-gray-900">{metalType}</div>
+                  </div>
+                  <div>
+                    <span className="text-xs text-gray-500 block">Value Per Gram</span>
+                    <div className="text-lg font-bold text-gray-900">{formatNumber(valuePerGram, 2)} {payCurrency}/gram</div>
+                  </div>
+                </>
+              )}
+              <div>
+                <span className="text-xs text-gray-500 block">Rate</span>
+                <div className="text-lg font-bold text-gray-900">
+                  {formatNumber(manualRate, 2)} ({tradeType === 'buy' ? 'Buy' : 'Sell'})
+                </div>
+              </div>
+            </div>
+          </div>
+          <button
+            className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+            onClick={handleSubmit}
+            disabled={!selectedTradeParty || (!payAmount && !receiveAmount)}
+          >
+            {isEditMode ? 'Update Trade' : 'Create Trade'}
+          </button>
+          <button
+            className="w-full bg-gray-100 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-200 transition-colors"
+            onClick={closeModal}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
-export default CurrencyFixing;
+
+const renderDeleteModal = () => {
+  if (!isDeleteModalOpen || !tradeToDelete) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+        {/* Header */}
+        <div className="mb-5 flex items-center space-x-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
+            <svg
+              className="h-6 w-6 text-red-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 
+                1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 
+                0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+              />
+            </svg>
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900">
+            Confirm Deletion
+          </h3>
+        </div>
+
+        {/* Body */}
+        <p className="mb-6 text-sm text-gray-600">
+          Are you sure you want to delete trade{' '}
+          <strong className="text-gray-800">
+            {tradeToDelete.reference}
+          </strong>
+          ? This action cannot be undone.
+        </p>
+
+        {/* Actions */}
+        <div className="flex gap-3">
+         
+          <button
+            onClick={closeDeleteModal}
+            className="flex-1 rounded-xl bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-300"
+          >
+            Cancel
+          </button>
+           <button
+            onClick={handleDelete}
+            className="flex-1 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400"
+          >
+            Delete Trade
+          </button>
+
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
+      <div className=" shadow-sm border-b border-gray-200 backdrop-blur-sm bg-white/90 sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-20">
+            <div className="flex items-center space-x-4">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Fixing Dashboard</h1>
+                <p className="text-sm text-gray-600 font-medium">Real-time Exchange Platform</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-8">
+              <div className="flex items-center space-x-1 bg-blue-50 rounded-xl p-1 border border-blue-200">
+                <button className="px-4 py-2 text-sm font-bold bg-blue-600 text-white rounded-lg shadow-sm">
+                  💰 AED
+                </button>
+              </div>
+              <div className="flex items-center space-x-2 bg-gray-100 rounded-xl p-1">
+                {['Overview', 'Trading'].map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`flex items-center space-x-2 px-6 py-3 rounded-lg text-sm font-semibold transition-all ${activeTab === tab
+                      ? 'text-blue-600 bg-white shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                  >
+                    {tab === 'Trading' && <TrendingUp className="w-4 h-4" />}
+                    {tab === 'Overview' && <div className="w-4 h-4 border-2 border-current rounded"></div>}
+                    <span>{tab}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2 text-sm font-medium text-gray-600 bg-green-50 px-3 py-2 rounded-xl border border-green-200">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span>{formatTime(currentTime)}</span>
+                </div>
+                <button className="p-3 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">
+                  <Settings className="w-5 h-5" />
+                </button>
+                <button className="p-3 text-blue-600 hover:bg-blue-50 rounded-xl transition-colors">
+                  <RefreshCw className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {activeTab === 'Overview' ? renderOverview() : renderTrading()}
+      </div>
+      {renderModal()}
+       {renderDeleteModal()}
+    </div>
+  );
+};
+
+export default CurrencyTradingUI;

@@ -85,7 +85,7 @@ export default function LiquidityProviderManagement() {
       const calculatedGoldRate =
         metalWeight !== 0
           ? parseFloat(
-              ((valueInAED / metalWeight / 3.674) * 31.1035).toFixed(2)
+              ((accBalance / metalWeight / 3.674) * 31.1035).toFixed(2)
             )
           : 0;
 
@@ -196,7 +196,7 @@ export default function LiquidityProviderManagement() {
               user.metalWeight !== 0
                 ? parseFloat(
                     (
-                      (valueInAED  / user.metalWeight / 3.674) *
+                      (user.accBalance  / user.metalWeight / 3.674) *
                       31.1035
                     ).toFixed(2)
                   )
@@ -680,7 +680,7 @@ export default function LiquidityProviderManagement() {
                           Risk Status
                         </th>
                         <TableHeader
-                          label="Gold Rate As Per Margin"
+                          label="Break-even Gold Rate"
                           sortKey="calculatedGoldRate"
                         />
                         <th

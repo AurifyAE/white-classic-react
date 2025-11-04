@@ -69,7 +69,11 @@ import {
   LucidePenTool,
   Percent,
   Wrench,
-  CircleFadingPlusIcon
+  CircleFadingPlusIcon,
+  FolderCheck,
+  FolderDot,
+  FolderCode,
+  FolderOutputIcon
 } from "lucide-react";
 
 import logo from "../assets/logo.jpg";
@@ -149,6 +153,8 @@ const Sidebar = () => {
         { icon: <CircleFadingPlusIcon strokeWidth={1.5} size={20} />, text: 'Others', to: '/others' },
         { icon: <Send strokeWidth={1.5} size={20} />, text: 'Sales Fix', to: '/sales-fix-management' },
         { icon: <ShoppingCart strokeWidth={1.5} size={20} />, text: 'Purchase Fix', to: '/purchase-fix-management' },
+        { icon: <BanknoteIcon strokeWidth={1.5} size={20} />, text: 'currency Fix', to: '/currencyfix-management' },
+
         // { icon: <FileText strokeWidth={1.5} size={20} />, text: 'Expense', to: '/expense' },
 
       ]
@@ -191,7 +197,6 @@ const Sidebar = () => {
       text: 'Accounts',
       children: [
         { icon: <User strokeWidth={1.5} size={20} />, text: 'Parties', to: '/parties' },
-        // { icon: <SquareUser strokeWidth={1.5} size={20} />, text: 'Trade Creditor', to: '/trade-creditors' },
         { icon: <Vault strokeWidth={1.5} size={20} />, text: 'Account Type', to: '/account-type' },
       ]
     },
@@ -226,13 +231,9 @@ const Sidebar = () => {
       text: 'Inventory Management',
       children: [
         { icon: <Package strokeWidth={1.5} size={20} />, text: 'Metals', to: '/inventory/metals', },
-        // { icon: <DatabaseBackup strokeWidth={1.5} size={20} />, text: 'Metal Stock Ledger ', to: '/inventory/metal-stock-ledger', },
-
-        // { icon: <Activity strokeWidth={1.5} size={20} />, text: 'Stock Report', to: '/inventory/stock-report', },
-        // { icon: <ClipboardList strokeWidth={1.5} size={20} />, text: 'Stock Activity Log', to: '/inventory/activity-log', },
       ]
     },
- 
+
     {
       key: 'financialTransaction',
       icon: <Wallet2 strokeWidth={1.5} size={22} />,
@@ -260,13 +261,15 @@ const Sidebar = () => {
         { icon: <ChartPie strokeWidth={1.5} size={20} />, text: 'Sales Analysis', to: '/reports/sales-analysis' },
         { icon: <DollarSign strokeWidth={1.5} size={20} />, text: 'Fixing Registry', to: '/reports/fixing-registry' },
         { icon: <ListOrdered strokeWidth={1.5} size={20} />, text: 'Transaction Summary', to: '/reports/transaction-summary' },
-                { icon: <Folder strokeWidth={1.5} size={20} />, text: 'Statement of Account', to: '/reports/statements' },
-        { icon: <Folder strokeWidth={1.5} size={20} />, text: 'Own Stock', to: '/reports/own-stock' }
+        { icon: <Folder strokeWidth={1.5} size={20} />, text: 'Statement of Account', to: '/reports/statements' },
+        { icon: <Folder strokeWidth={1.5} size={20} />, text: 'Own Stock', to: '/reports/own-stock' },
+        { icon: <FolderOutputIcon strokeWidth={1.5} size={20} />, text: 'Own Stock Currency', to: '/reports/own-stock/currency' },
       ]
     }
   ], []);
 
   // Function to find which section contains the current route
+
   const findActiveSection = (currentPath) => {
     for (const section of navigationSections) {
       const hasActiveChild = section.children.some(child =>
@@ -361,7 +364,7 @@ const Sidebar = () => {
 
   return (
     <div className="w-auto bg-white shadow-lg flex flex-col">
-        <div className="">
+      <div className="">
         <img src={logo} alt="Bullion System Logo" className="w-56 -mt-14 ml-7" />
       </div>
       <div className="flex-1 overflow-y-auto px-4 -mt-16 py-4 scrollbar-hide">
@@ -394,24 +397,30 @@ const Sidebar = () => {
               </SidebarSection>
               {section.key === 'generalMaster' && (
                 <>
-                  <SidebarItem
-                    icon={<HandCoins strokeWidth={1.5} size={22} />}
-                    text="Ceditors Management"
-                    to="/ceditors"
-                    active={location.pathname === "/ceditors"}
-                  />
-                  <SidebarItem
-                    icon={<Wallet2 strokeWidth={1.5} size={22} />}
-                    text="Debtor Management"
-                    to="/debtor"
-                    active={location.pathname === "/debtor"}
-                  />
-                  {/* <SidebarItem
-                    icon={<Building2 strokeWidth={1.5} size={22} />}
-                    text="Bank Management"
-                    to="/bank"
-                    active={location.pathname === "/bank"}
-                  /> */}
+                  <Link to="/ceditors" className="block">
+                    <div
+                      className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200 ${location.pathname === "/ceditors"
+                        ? "bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-medium shadow-md"
+                        : "text-slate-700 hover:bg-slate-100"
+                        }`}
+                    >
+                      <HandCoins strokeWidth={1.5} size={22} />
+                      <span className="font-medium flex-1 truncate">Ceditors Management</span>
+                      <ChevronRight strokeWidth={1.5} size={18} />
+                    </div>
+                  </Link>
+                  <Link to="/debtor" className="block">
+                    <div
+                      className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200 ${location.pathname === "/debtor"
+                        ? "bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-medium shadow-md"
+                        : "text-slate-700 hover:bg-slate-100"
+                        }`}
+                    >
+                      <Wallet2 strokeWidth={1.5} size={22} />
+                      <span className="font-medium flex-1 truncate">Debtor Management</span>
+                      <ChevronRight strokeWidth={1.5} size={18} />
+                    </div>
+                  </Link>
                 </>
               )}
             </div>
@@ -509,7 +518,7 @@ const SidebarSection = React.memo(({ icon, text, children, expanded, onToggle, h
       </div>
     </div>
     <div
-      className={`overflow-hidden transition-all duration-300 ease-in-out ${expanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+      className={`overflow-hidden transition-all duration-300 ease-in-out ${expanded ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'
         }`}
     >
       <div className="ml-4 mt-1 space-y-1">

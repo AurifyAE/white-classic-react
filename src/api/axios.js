@@ -1,23 +1,28 @@
 import axios from "axios";
 import { toast } from "react-toastify";
 
+const API_BASE_URL = "http://localhost:8080/api/v1";
+
+// ✅ Create axios instance
 const axiosInstance = axios.create({
-  baseURL: "http://localhost:8080/api/v1",
+  baseURL: API_BASE_URL,
   headers: {
     "Content-Type": "application/json",
   },
-  withCredentials: true, // if your backend uses cookies
+  withCredentials: true, // allow cookies if backend sets refresh token
 });
 
-// 🔹 Add token to requests (except public ones like /login)
+// ✅ List of endpoints that don’t need auth
+const PUBLIC_ENDPOINTS = ["/login", "/register"];
+
+// 🔹 Attach access token to requests
 axiosInstance.interceptors.request.use(
   (config) => {
-    const publicEndpoints = ["/login", "/register"];
-    const isPublicEndpoint = publicEndpoints.some((endpoint) =>
+    const isPublic = PUBLIC_ENDPOINTS.some((endpoint) =>
       config.url?.includes(endpoint)
     );
 
-    if (!isPublicEndpoint) {
+    if (!isPublic) {
       const token = localStorage.getItem("token");
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
@@ -29,68 +34,49 @@ axiosInstance.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// 🔹 Handle responses & refresh token logic
+// 🔹 Response handler with token refresh logic
 axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
-    // If refresh token expired → force logout
+    // If refresh token expired → logout immediately
     if (
       error.response?.data?.message ===
       "Refresh token has expired. Please log in again."
     ) {
-      toast.warning("Session expired. Please log in again.", {
-        position: "top-right",
-        autoClose: 2000,
-      });
-
-      localStorage.removeItem("token");
-      setTimeout(() => {
-        window.location.href = "/";
-      }, 2000);
-
+      handleSessionExpired();
       return Promise.reject(error);
     }
 
-    // 🔄 Auto-refresh access token if 401
+    // 🔄 If unauthorized (401), try refresh token
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
       try {
-        const res = await axiosInstance.post("/refresh");
+        // Use a plain axios call to avoid recursive interceptors
+        const res = await axios.post(`${API_BASE_URL}/refresh`, {}, { withCredentials: true });
 
-        const newAccessToken = res.data.data.accessToken;
+        const newAccessToken = res.data?.data?.accessToken;
+        if (!newAccessToken) {
+          handleSessionExpired();
+          return Promise.reject(error);
+        }
 
-        // ✅ Save new token
+        // ✅ Save and retry
         localStorage.setItem("token", newAccessToken);
-
-        // ✅ Update header for this retry
         originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
 
-        // Retry the failed request
         return axiosInstance(originalRequest);
       } catch (refreshErr) {
         const code = refreshErr?.response?.data?.code;
         const msg = refreshErr?.response?.data?.message;
 
         if (
-          code === "REFRESH_TOKEN_EXPIRED" ||
-          code === "INVALID_REFRESH_TOKEN" ||
-          code === "MISSING_REFRESH_TOKEN" ||
+          ["REFRESH_TOKEN_EXPIRED", "INVALID_REFRESH_TOKEN", "MISSING_REFRESH_TOKEN"].includes(code) ||
           msg === "Refresh token has expired. Please log in again."
         ) {
-          toast.warning("Session expired. Please log in again.", {
-            position: "top-right",
-            autoClose: 2000,
-          });
-
-          localStorage.removeItem("token");
-          setTimeout(() => {
-            window.location.href = "/";
-          }, 2000);
-
-          return Promise.reject(refreshErr);
+          handleSessionExpired();
         }
 
         return Promise.reject(refreshErr);
@@ -100,5 +86,18 @@ axiosInstance.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// 🔹 Helper for expired session
+function handleSessionExpired() {
+  toast.warning("Session expired. Please log in again.", {
+    position: "top-right",
+    autoClose: 2000,
+  });
+
+  localStorage.removeItem("token");
+  setTimeout(() => {
+    window.location.href = "/";
+  }, 2000);
+}
 
 export default axiosInstance;
