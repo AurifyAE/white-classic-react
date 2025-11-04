@@ -74,6 +74,7 @@ import {
   FolderDot,
   FolderCode,
   FolderOutputIcon,
+  CalendarDays,
 } from "lucide-react";
 
 import logo from "../assets/logo.jpg";
@@ -154,6 +155,11 @@ const Sidebar = () => {
             to: "/karat-master",
           },
           {
+            icon: <Package strokeWidth={1.5} size={20} />,
+            text: "Commodity Master",
+            to: "/commodity-master",
+          },
+          {
             icon: <Building strokeWidth={1.5} size={20} />,
             text: "Division Master",
             to: "/division-master",
@@ -218,6 +224,11 @@ const Sidebar = () => {
             icon: <DollarSign strokeWidth={1.5} size={20} />,
             text: "Currency Master",
             to: "/currency-master",
+          },
+          {
+            icon: <CalendarDays strokeWidth={1.5} size={20} />,
+            text: "Financial Year Master",
+            to: "/financial-year-master",
           },
           {
             icon: <CircleDollarSign strokeWidth={1.5} size={20} />,

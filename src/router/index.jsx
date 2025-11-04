@@ -75,6 +75,10 @@ import CurrencyFixing from "../components/CurrencyFix/CurrencyFix.jsx";
 import CurrencyFix from "../pages/currencyfixing.jsx";
 import Footer from "../components/footer.jsx";
 import AdminProtect from "../protectorRouter/adminProtect.jsx";
+import BranchMasterDetail from "../components/Masters/BranchMaster/BranchMasterDetail.jsx";
+import CommodityPage from "../pages/commodityPage.jsx";
+import FinancialYearsMaster from "../pages/FinancialMaster.jsx";
+
 export default function UserRouter() {
   return (
     <Routes>
@@ -108,6 +112,9 @@ export default function UserRouter() {
         <Route path="/others" element={<OthersPage />} />
         <Route path="/expense" element={<ExpenseCostPage />} />
         <Route path="/parties" element={<TradeDebtor />} />
+        <Route path="/settings" element={<BranchMasterDetail />} />
+        <Route path="/commodity-master" element={<CommodityPage />} />
+
         <Route
           path="/sales-fix-management"
           element={<SalesFixManagementPage />}
@@ -117,7 +124,10 @@ export default function UserRouter() {
           element={<PurchaseFixManagementPage />}
         />
         <Route path="currencyfix-management" element={<CurrencyFix />} />
-
+        <Route
+          path="/financial-year-master"
+          element={<FinancialYearsMaster />}
+        />
         {/* <Route path="/metal-stock-ledger" element={<MetalStockLedgerPage />} />
         <Route path="/stock-movement" element={<StockMovement />} />
         <Route path="/stock-analysis" element={<StockAnalysis />} />

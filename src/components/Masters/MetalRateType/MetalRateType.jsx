@@ -39,7 +39,7 @@ const debounce = (func, wait) => {
 const handleError = debounce((error, message) => {
   console.error(message, error.response?.data || error);
   toast.error(error.response?.data?.message || message, {
-    toastId: 'error-toast', // Use a unique toastId to prevent duplicates
+    toastId: "error-toast", // Use a unique toastId to prevent duplicates
   });
 }, 500);
 
@@ -64,7 +64,7 @@ export default function MetalRateType() {
     currencyId: "",
     state: "",
     status: "MULTIPLY",
-    currRate: "3.674",
+    currRate: "1",
     posMarginMin: "0",
     posMarginMax: "0",
     addOnRate: "0",
@@ -72,7 +72,13 @@ export default function MetalRateType() {
   });
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [rateTypeToDelete, setRateTypeToDelete] = useState(null);
-  const rateTypeOptions = ["Spot Rate", "Market Rate", "Premium Rate", "Local Rate", "Wholesale Rate"];
+  const rateTypeOptions = [
+    "Spot Rate",
+    "Market Rate",
+    "Premium Rate",
+    "Local Rate",
+    "Wholesale Rate",
+  ];
   const currencyOptions = ["USD", "EUR", "GBP", "INR"];
   const stateOptions = ["Active", "Inactive"];
   const statusOptions = ["MULTIPLY"];
@@ -81,13 +87,12 @@ export default function MetalRateType() {
     const fetchAll = async () => {
       setLoading(true);
       try {
-        await Promise.all([
-          fetchCurrencies(),
-          fetchdata(),
-          fetchMetalRates(),
-        ]);
+        await Promise.all([fetchCurrencies(), fetchdata(), fetchMetalRates()]);
       } catch (error) {
-        handleError(error, "Failed to fetch data from server. Please try again later.");
+        handleError(
+          error,
+          "Failed to fetch data from server. Please try again later."
+        );
       } finally {
         setTimeout(() => {
           setLoading(false);
@@ -108,7 +113,7 @@ export default function MetalRateType() {
 
   const fetchdata = async () => {
     try {
-      const response = await axiosInstance.get('/divisions/divisions');
+      const response = await axiosInstance.get("/divisions/divisions");
       const { data } = response.data;
       const mappedDivisions = data.map((division) => ({
         value: division._id,
@@ -131,16 +136,21 @@ export default function MetalRateType() {
 
   const fetchMetalRates = async () => {
     try {
-      const response = await axiosInstance.get('/metal-rates');
-      const metalData = Array.isArray(response.data.data) ? response.data.data : [];
+      const response = await axiosInstance.get("/metal-rates");
+      const metalData = Array.isArray(response.data.data)
+        ? response.data.data
+        : [];
       const mappedData = metalData.map((item) => {
-        const rate = item.rate || (parseFloat(item.convertrate || 0) + parseFloat(item.addOnRate || 0));
-        const posRateTo = item.posRateTo || (rate + parseFloat(item.posMarginMax || 0));
+        const rate =
+          item.rate ||
+          parseFloat(item.convertrate || 0) + parseFloat(item.addOnRate || 0);
+        const posRateTo =
+          item.posRateTo || rate + parseFloat(item.posMarginMax || 0);
         return {
           id: item._id || Math.random().toString(36),
           division: item.division?._id || item.division || "",
           code: item.code || "",
-          metal: item.metal  || "",
+          metal: item.metal || "",
           rateType: item.rateType || "",
           convFactGms: item.convFactGms || 31.1035,
           currencyId: item.currencyId?._id || item.currencyId || "",
@@ -148,7 +158,7 @@ export default function MetalRateType() {
             const currency = currencyOption.find(
               (c) => c.value === (item.currencyId?._id || item.currencyId)
             );
-            return currency?.label || 'N/A';
+            return currency?.label || "N/A";
           })(),
           state: item.isActive ? "Active" : "Inactive", // Map isActive to state
           isActive: item.isActive || false, // Include isActive
@@ -162,10 +172,10 @@ export default function MetalRateType() {
           posRateTo,
         };
       });
-      console.log('Fetched metal rates:', mappedData);
+      console.log("Fetched metal rates:", mappedData);
       setMetalRateTypes(mappedData);
       console.log("Filtered Rate Types:", mappedData);
-      
+
       setFilteredRateTypes(mappedData);
     } catch (error) {
       throw error;
@@ -192,10 +202,18 @@ export default function MetalRateType() {
   useEffect(() => {
     let filtered = metalRateTypes.filter(
       (rateType) =>
-        ((rateType.code || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (rateType.metal.code || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (rateType.division || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (rateType.rateType || '').toLowerCase().includes(searchTerm.toLowerCase())) &&
+        ((rateType.code || "")
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase()) ||
+          (rateType.metal.code || "")
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase()) ||
+          (rateType.division || "")
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase()) ||
+          (rateType.rateType || "")
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase())) &&
         (stateFilter === "All" || rateType.state === stateFilter)
     );
     setFilteredRateTypes(filtered);
@@ -203,7 +221,8 @@ export default function MetalRateType() {
   }, [searchTerm, stateFilter, metalRateTypes]);
 
   const calculateDerivedValues = (data) => {
-    const rate = parseFloat(data.currRate || 0) + parseFloat(data.addOnRate || 0);
+    const rate =
+      parseFloat(data.currRate || 0) + parseFloat(data.addOnRate || 0);
     const posRateTo = rate + parseFloat(data.posMarginMax || 0);
     return { rate, posRateTo };
   };
@@ -215,7 +234,8 @@ export default function MetalRateType() {
 
   const goToPage = (page) => setCurrentPage(page);
   const goToPrevious = () => currentPage > 1 && setCurrentPage(currentPage - 1);
-  const goToNext = () => currentPage < totalPages && setCurrentPage(currentPage + 1);
+  const goToNext = () =>
+    currentPage < totalPages && setCurrentPage(currentPage + 1);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -231,14 +251,16 @@ export default function MetalRateType() {
   };
 
   const handleAdd = () => {
-    const defaultDivision = divisionOptions.find((option) => option.label === "G");
+    const defaultDivision = divisionOptions.find(
+      (option) => option.label === "G"
+    );
     const defaultMetal = defaultDivision ? defaultDivision.value : "";
     setEditingRateType(null);
     const aedCurrency = currencyOption.find((c) => c.label.trim() === "USD");
-     setFormData({
-    division: defaultMetal,
+    setFormData({
+      division: defaultMetal,
       code: "",
-    metal: defaultMetal,
+      metal: defaultMetal,
       rateType: "",
       convFactGms: "31.1035",
       currencyId: aedCurrency ? aedCurrency.value : "",
@@ -299,14 +321,19 @@ export default function MetalRateType() {
     try {
       let newRateType;
       // Find the full metal object from metalOptions
-      const selectedMetal = divisionOptions.find((m) => m.value === formData.metal) || {
+      const selectedMetal = divisionOptions.find(
+        (m) => m.value === formData.metal
+      ) || {
         _id: formData.metal,
         code: "Unknown",
         description: "Unknown",
       };
 
       if (editingRateType) {
-        const response = await axiosInstance.put(`/metal-rates/${editingRateType.id}`, finalData);
+        const response = await axiosInstance.put(
+          `/metal-rates/${editingRateType.id}`,
+          finalData
+        );
         newRateType = {
           id: response.data.data._id,
           ...response.data.data,
@@ -328,7 +355,7 @@ export default function MetalRateType() {
         );
         toast.success("Metal rate updated successfully!");
       } else {
-        const response = await axiosInstance.post('/metal-rates', finalData);
+        const response = await axiosInstance.post("/metal-rates", finalData);
         newRateType = {
           id: response.data.data._id,
           ...response.data.data,
@@ -363,23 +390,34 @@ export default function MetalRateType() {
 
   const confirmDelete = async () => {
     if (!rateTypeToDelete?.id || !/^[a-f\d]{24}$/i.test(rateTypeToDelete.id)) {
-      handleError(new Error("Invalid ID"), "An error occurred. Please try again.");
+      handleError(
+        new Error("Invalid ID"),
+        "An error occurred. Please try again."
+      );
       return;
     }
     setLoading(true);
     try {
-      await axiosInstance.put(`/metal-rates/${rateTypeToDelete.id}`, { isActive: false });
+      await axiosInstance.put(`/metal-rates/${rateTypeToDelete.id}`, {
+        isActive: false,
+      });
       setMetalRateTypes((prev) =>
         prev.map((rt) =>
-          rt.id === rateTypeToDelete.id ? { ...rt, state: "Inactive", isActive: false } : rt
+          rt.id === rateTypeToDelete.id
+            ? { ...rt, state: "Inactive", isActive: false }
+            : rt
         )
       );
       setFilteredRateTypes((prev) =>
         prev.map((rt) =>
-          rt.id === rateTypeToDelete.id ? { ...rt, state: "Inactive", isActive: false } : rt
+          rt.id === rateTypeToDelete.id
+            ? { ...rt, state: "Inactive", isActive: false }
+            : rt
         )
       );
-      toast.success("Metal rate type deactivated successfully!", { toastId: 'delete-success' });
+      toast.success("Metal rate type deactivated successfully!", {
+        toastId: "delete-success",
+      });
     } catch (error) {
       handleError(error, "Failed to deactivate metal rate type.");
     } finally {
@@ -392,16 +430,14 @@ export default function MetalRateType() {
   const toggleDefaultRate = async (id) => {
     setLoading(true);
     try {
-      const selectedRate = metalRateTypes.find(rt => rt.id === id);
+      const selectedRate = metalRateTypes.find((rt) => rt.id === id);
       const newDefaultStatus = !selectedRate.isDefault;
       const response = await axiosInstance.put(`/metal-rates/${id}`, {
         isDefault: newDefaultStatus,
       });
       setMetalRateTypes((prev) =>
         prev.map((rt) =>
-          rt.id === id
-            ? { ...rt, isDefault: newDefaultStatus }
-            : rt
+          rt.id === id ? { ...rt, isDefault: newDefaultStatus } : rt
         )
       );
       toast.success(
@@ -516,33 +552,44 @@ export default function MetalRateType() {
                         <span>Metal</span>
                       </div>
                     </th>
-                    <th className="px-4 py-4 text-left text-sm font-semibold">Rate Type</th>
-                    <th className="px-4 py-4 text-left text-sm font-semibold">Status</th>
-                    <th className="px-4 py-4 text-left text-sm font-semibold">POS Rate To</th>
                     <th className="px-4 py-4 text-left text-sm font-semibold">
-                      <div className="flex items-center space-x-2">
-                        <Activity className="w-4 h-4" />
-                        <span>State</span>
-                      </div>
+                      Rate Type
                     </th>
-                    <th className="px-4 py-4 text-center text-sm font-semibold">Actions</th>
+
+                    <th className="px-4 py-4 text-left text-sm font-semibold">
+                      Conv Fact (GMS)
+                    </th>
+
+                    <th className="px-4 py-4 text-center text-sm font-semibold">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {loading ? (
                     <tr>
-                      <td colSpan="8" className="px-6 py-8 text-center text-gray-500">
+                      <td
+                        colSpan="8"
+                        className="px-6 py-8 text-center text-gray-500"
+                      >
                         Loading...
                       </td>
                     </tr>
                   ) : currentRateTypes.length > 0 ? (
                     currentRateTypes.map((rateType) => (
-                      <tr key={rateType.id} className="hover:bg-gray-50 transition-colors">
+                      <tr
+                        key={rateType.id}
+                        className="hover:bg-gray-50 transition-colors"
+                      >
                         <td className="px-4 py-4 text-left">
                           <button
                             onClick={() => toggleDefaultRate(rateType.id)}
                             className="p-1 rounded transition-colors hover:bg-gray-200"
-                            title={rateType.isDefault ? "Unset as Default" : "Set as Default"}
+                            title={
+                              rateType.isDefault
+                                ? "Unset as Default"
+                                : "Set as Default"
+                            }
                           >
                             {rateType.isDefault ? (
                               <CheckCircle className="w-5 h-5 text-yellow-500" />
@@ -559,25 +606,11 @@ export default function MetalRateType() {
                             {rateType.rateType}
                           </span>
                         </td>
-                        <td className="px-4 py-4 text-sm text-gray-700">
-                          <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-xs font-medium">
-                            {rateType.status}
-                          </span>
-                        </td>
+
                         <td className="px-4 py-4 text-sm font-medium text-purple-600">
-                          ${parseFloat(rateType.posRateTo ?? 0)}
+                          {parseFloat(rateType.convFactGms ?? 0)}
                         </td>
-                        <td className="px-4 py-4">
-                          <span
-                            className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              rateType.state === "Active"
-                                ? "bg-green-100 text-green-800"
-                                : "bg-red-100 text-red-800"
-                            }`}
-                          >
-                            {rateType.state}
-                          </span>
-                        </td>
+
                         <td className="px-4 py-4 text-center">
                           <div className="flex items-center justify-center space-x-2">
                             <button
@@ -653,7 +686,10 @@ export default function MetalRateType() {
                           page === currentPage + 2
                         ) {
                           return (
-                            <span key={page} className="px-2 py-2 text-gray-400">
+                            <span
+                              key={page}
+                              className="px-2 py-2 text-gray-400"
+                            >
                               ...
                             </span>
                           );
@@ -681,7 +717,9 @@ export default function MetalRateType() {
                     <h2 className="text-lg font-semibold flex items-center space-x-2">
                       <Coins className="w-5 h-5" />
                       <span>
-                        {editingRateType ? "Edit Metal Rate Type" : "Add New Metal Rate Type"}
+                        {editingRateType
+                          ? "Edit Metal Rate Type"
+                          : "Add New Metal Rate Type"}
                       </span>
                     </h2>
                     <button
@@ -693,7 +731,7 @@ export default function MetalRateType() {
                   </div>
                 </div>
                 <div className="p-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-1">
                     <div className="space-y-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -701,7 +739,7 @@ export default function MetalRateType() {
                         </label>
                         <select
                           name="metal"
-                          value={formData.metal || ''}
+                          value={formData.metal || ""}
                           onChange={handleInputChange}
                           className="w-full px-4 py-3 border-none outline-none rounded-xl focus:ring-4 focus:ring-blue-100 transition-all duration-300 bg-gray-50 hover:bg-white focus:bg-white shadow-sm hover:shadow-md focus:shadow-lg"
                         >
@@ -758,22 +796,20 @@ export default function MetalRateType() {
                           ))}
                         </select>
                       </div>
+
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Status
+                          Convert Rate
                         </label>
-                        <select
-                          name="status"
-                          value={formData.status}
+                        <input
+                          type="number"
+                          name="currRate"
+                          value={formData.currRate}
                           onChange={handleInputChange}
-                          className="w-full px-4 py-3 border-none outline-none rounded-xl focus:ring-4 focus:ring-blue-100 transition-all duration-300 bg-gray-50 hover:bg-white focus:bg-white shadow-sm hover:shadow-md focus:shadow-lg"
-                        >
-                          {statusOptions.map((option) => (
-                            <option key={option} value={option}>
-                              {option}
-                            </option>
-                          ))}
-                        </select>
+                          step="0.01"
+                          className="w-full px-4 py-3 border-none outline-none rounded-xl focus:ring-4 focus:ring-blue-100 transition-all duration-300 bg-gray-50 hover:bg-white focus:bg-white shadow-sm hover:shadow-md focus:shadow-lg placeholder-gray-400"
+                          placeholder="1"
+                        />
                       </div>
                       <div>
                         <label className="flex items-center space-x-2">
@@ -788,81 +824,6 @@ export default function MetalRateType() {
                             Set as Default Rate
                           </span>
                         </label>
-                      </div>
-                    </div>
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Convert Rate
-                        </label>
-                        <input
-                          type="number"
-                          name="currRate"
-                          value={formData.currRate}
-                          onChange={handleInputChange}
-                          step="0.01"
-                          className="w-full px-4 py-3 border-none outline-none rounded-xl focus:ring-4 focus:ring-blue-100 transition-all duration-300 bg-gray-50 hover:bg-white focus:bg-white shadow-sm hover:shadow-md focus:shadow-lg placeholder-gray-400"
-                          placeholder="3.674"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          POS Margin Min (%)
-                        </label>
-                        <input
-                          type="number"
-                          name="posMarginMin"
-                          value={formData.posMarginMin}
-                          onChange={handleInputChange}
-                          step="0.1"
-                          className="w-full px-4 py-3 border-none outline-none rounded-xl focus:ring-4 focus:ring-blue-100 transition-all duration-300 bg-gray-50 hover:bg-white focus:bg-white shadow-sm hover:shadow-md focus:shadow-lg placeholder-gray-400"
-                          placeholder="0.0"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          POS Margin Max (%)
-                        </label>
-                        <input
-                          type="number"
-                          name="posMarginMax"
-                          value={formData.posMarginMax}
-                          onChange={handleInputChange}
-                          step="0.1"
-                          className="w-full px-4 py-3 border-none outline-none rounded-xl focus:ring-4 focus:ring-blue-100 transition-all duration-300 bg-gray-50 hover:bg-white focus:bg-white shadow-sm hover:shadow-md focus:shadow-lg placeholder-gray-400"
-                          placeholder="0.0"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Add On Rate
-                        </label>
-                        <input
-                          type="number"
-                          name="addOnRate"
-                          value={formData.addOnRate}
-                          onChange={handleInputChange}
-                          step="0.01"
-                          className="w-full px-4 py-3 border-none outline-none rounded-xl focus:ring-4 focus:ring-blue-100 transition-all duration-300 bg-gray-50 hover:bg-white focus:bg-white shadow-sm hover:shadow-md focus:shadow-lg placeholder-gray-400"
-                          placeholder="0.00"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          State
-                        </label>
-                        <select
-                          name="state"
-                          value={formData.state}
-                          onChange={handleInputChange}
-                          className="w-full px-4 py-3 border-none outline-none rounded-xl focus:ring-4 focus:ring-blue-100 transition-all duration-300 bg-gray-50 hover:bg-white focus:bg-white shadow-sm hover:shadow-md focus:shadow-lg"
-                        >
-                          {stateOptions.map((option) => (
-                            <option key={option} value={option}>
-                              {option}
-                            </option>
-                          ))}
-                        </select>
                       </div>
                     </div>
                   </div>
@@ -903,7 +864,10 @@ export default function MetalRateType() {
                 <div className="p-6">
                   <p className="text-gray-700">
                     Are you sure you want to deactivate the metal rate type "
-                    <span className="font-semibold">{rateTypeToDelete?.rateType}</span>"?
+                    <span className="font-semibold">
+                      {rateTypeToDelete?.rateType}
+                    </span>
+                    "?
                   </p>
                   <p className="text-sm text-gray-500 mt-2">
                     This action cannot be undone.
@@ -930,31 +894,31 @@ export default function MetalRateType() {
         </>
       )}
       <Toaster
-  position="top-right"
-  toastOptions={{
-    duration: 4000,
-    style: {
-      background: "#22c55e", // Green background (Tailwind's green-500)
-      color: "#ffffff", // White text for contrast
-      border: "1px solid #16a34a", // Darker green border (Tailwind's green-600)
-      boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)", // Subtle shadow for depth
-    },
-    success: {
-      style: {
-        background: "#22c55e", // Green for success toasts
-        color: "#ffffff",
-        border: "1px solid #16a34a",
-      },
-    },
-    error: {
-      style: {
-        background: "#ef4444", // Red for error toasts (Tailwind's red-500)
-        color: "#ffffff",
-        border: "1px solid #dc2626", // Darker red border (Tailwind's red-600)
-      },
-    },
-  }}
-/>
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: "#22c55e", // Green background (Tailwind's green-500)
+            color: "#ffffff", // White text for contrast
+            border: "1px solid #16a34a", // Darker green border (Tailwind's green-600)
+            boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)", // Subtle shadow for depth
+          },
+          success: {
+            style: {
+              background: "#22c55e", // Green for success toasts
+              color: "#ffffff",
+              border: "1px solid #16a34a",
+            },
+          },
+          error: {
+            style: {
+              background: "#ef4444", // Red for error toasts (Tailwind's red-500)
+              color: "#ffffff",
+              border: "1px solid #dc2626", // Darker red border (Tailwind's red-600)
+            },
+          },
+        }}
+      />
     </div>
   );
-};
+}
