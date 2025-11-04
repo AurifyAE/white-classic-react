@@ -7,7 +7,6 @@ import { useEffect } from "react";
 import { useParams } from "react-router-dom";
 import axiosInstance from "../../../../api/axios";
 
-
 const ProfileManagement = () => {
   const [activeTab, setActiveTab] = useState("profile");
   const { debtorId } = useParams();
@@ -16,93 +15,6 @@ const ProfileManagement = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const orders = [
-    {
-      transactionId: "TXN-2024-006",
-      referenceId: "ADJ-2024-0023",
-      costCenter: "Dubai Gold Vault",
-      person: "Ahmed Al-Rashid",
-      type: "DISCOUNT",
-      direction: "CREDIT",
-      assetType: "GOLD",
-      value: "2.125 oz",
-      debit: null,
-      credit: "2.125 oz",
-      runningBalance: "2.125 oz",
-      datetime: "2024-05-28T15:45:00Z",
-    },
-    {
-      transactionId: "CASH-TXN-2024-004",
-      referenceId: "PAY-2024-0123",
-      costCenter: "Dubai Finance Dept.",
-      person: "Noura Al-Mansoori",
-      type: "SELL",
-      direction: "CREDIT",
-      assetType: "CASH",
-      value: "25,000.00 AED",
-      debit: null,
-      credit: "25,000.00 AED",
-      runningBalance: "25,000.00 AED",
-      datetime: "2024-05-28T10:30:00Z",
-    },
-
-    {
-      transactionId: "CASH-TXN-2024-003",
-      referenceId: "EXP-2024-0089",
-      costCenter: "Sharjah Office",
-      person: "Ali Bin Saleh",
-      type: "MAKINGCHARGES",
-      direction: "DEBIT",
-      assetType: "CASH",
-      value: "7,500.00 AED",
-      debit: "7,500.00 AED",
-      credit: null,
-      runningBalance: "17,500.00 AED",
-      datetime: "2024-05-27T16:00:00Z",
-    },
-    {
-      transactionId: "TXN-2024-004",
-      referenceId: "PUR-2024-0456",
-      costCenter: "Abu Dhabi Central",
-      person: "Fatima Noor",
-      type: "DISCOUNT",
-      direction: "CREDIT",
-      assetType: "GOLD",
-      value: "10.000 oz",
-      debit: null,
-      credit: "10.000 oz",
-      runningBalance: "-3.625 oz",
-      datetime: "2024-05-27T11:15:00Z",
-    },
-    {
-      transactionId: "CASH-TXN-2024-002",
-      referenceId: "SAL-2024-0055",
-      costCenter: "Abu Dhabi HQ",
-      person: "Sara Al Mazrouei",
-      type: "MAKINGCHARGES",
-      direction: "DEBIT",
-      assetType: "CASH",
-      value: "10,000.00 AED",
-      debit: "10,000.00 AED",
-      credit: null,
-      runningBalance: "7,500.00 AED",
-      datetime: "2024-05-26T14:00:00Z",
-    },
-    {
-      transactionId: "TXN-2024-003",
-      referenceId: "SALE-2024-0721",
-      costCenter: "Ras Al Khaimah Storage",
-      person: "Omar Al-Kuwaiti",
-      type: "SELL",
-      direction: "DEBIT",
-      assetType: "GOLD",
-      value: "5.000 oz",
-      debit: "5.000 oz",
-      credit: null,
-      runningBalance: "-8.625 oz",
-      datetime: "2024-05-26T09:30:00Z",
-    },
-  ];
   // Fetch debtor data by ID
   useEffect(() => {
     const fetchDebtor = async () => {
@@ -254,7 +166,6 @@ const ProfileManagement = () => {
         <div className="mb-6">
           <Tabs activeTab={activeTab} onChange={setActiveTab}>
             <Tab id="profile" label="Profile" />
-            <Tab id="orders" label="Order Statements" />
           </Tabs>
         </div>
         <div className="mt-4">
@@ -264,16 +175,6 @@ const ProfileManagement = () => {
               setUserData={setUserData} // for updating user data
               getStatusBadgeColor={getStatusBadgeColor}
               mapAccountStatusToDisplay={mapAccountStatusToDisplay}
-              formatDate={formatDate}
-            />
-          )}
-          {activeTab === "orders" && (
-            <OrderStatementsTab
-              transactions={orders}
-              userData={userData}
-              currentPageOrders={currentPageOrders}
-              itemsPerPage={itemsPerPage}
-              getStatusBadgeColor={getStatusBadgeColor}
               formatDate={formatDate}
             />
           )}

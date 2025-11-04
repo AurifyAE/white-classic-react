@@ -16,9 +16,7 @@ const UserAvatar = ({ name }) => {
     : "?";
 
   const colors = [
-    "bg-blue-500", "bg-green-500", "bg-yellow-500", "bg-purple-500",
-    "bg-pink-500", "bg-indigo-500", "bg-teal-500", "bg-red-500",
-    "bg-orange-500", "bg-lime-500", "bg-amber-500", "bg-rose-500",
+   "bg-gradient-to-r from-blue-600 to-cyan-500"
   ];
 
   const colorIndex = name
@@ -158,31 +156,7 @@ export default function DebtorsTable({
     });
   }, [totalPages, currentPage, goToPage]);
 
-  const confirmMakeSupplier = async () => {
-    try {
-      console.log(selectedDebtor);
-      const response = await axiosInstance.put(`/account-type/${selectedDebtor.id}?updatetype=true`, {
-        isSupplier: checked,
-      });
-      toast.success(`Updated to ${checked ? "SUPPLIER" : "DEBTOR"}`, {
-        style: { background: "#22c55e", color: "#ffffff", border: "1px solid #16a34a" },
-      });
-      setFilteredDebtors((prev) =>
-        prev.map((d) =>
-          d.id === selectedDebtor.id ? { ...d, isSupplier: checked } : d
-        )
-      );
-      if (response.status === 200) {
-        setIsModalOpen(false);
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error("Update failed", {
-        style: { background: "#ef4444", color: "#ffffff", border: "1px solid #dc2626" },
-      });
-      setIsModalOpen(false);
-    }
-  };
+
 
   const handleToggleAccountType = async (debtor, isChecked) => {
     const newType = isChecked ? true : false;
@@ -200,17 +174,16 @@ export default function DebtorsTable({
               <th className="px-6 py-4 text-left text-sm font-semibold">
                 <div className="flex items-center gap-2">
                   <User className="w-4 h-4" />
-                  <span>Party Name</span>
+                  <span>Account Name</span>
                 </div>
               </th>
               <th className="px-6 py-4 text-left text-sm font-semibold">
                 <div className="flex items-center gap-2">
                   <User className="w-4 h-4" />
-                  <span>Account Type</span>
+                  <span>Account Mode</span>
                 </div>
               </th>
               <th className="px-6 py-4 text-left text-sm font-semibold">Account Code</th>
-              <th className="px-6 py-4 text-left text-sm font-semibold">Make Supplier</th>
               <th className="px-6 py-4 text-center text-sm font-semibold">Actions</th>
             </tr>
           </thead>
@@ -239,19 +212,12 @@ export default function DebtorsTable({
                     </Link>
                   </td>
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                    DEBTOR
+                  {debtor.type || "-"}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-700">
                     {debtor.acCode || "-"}
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-700">
-                    <input
-                      type="checkbox"
-                      checked={debtor.isSupplier === true}
-                      onChange={(e) => handleToggleAccountType(debtor, e.target.checked)}
-                      className="w-6 h-6 cursor-pointer accent-blue-600"
-                    />
-                  </td>
+                  
                   <td className="px-6 py-4 text-center">
                     <div className="flex justify-center gap-2">
                       <button

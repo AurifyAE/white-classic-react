@@ -21,7 +21,7 @@ const Layout = () => {
           </main>
 
           {/* Footer appears at bottom after content */}
-          <Footer />
+         
         </div>
       </div>
     </div>
