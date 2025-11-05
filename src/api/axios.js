@@ -1,7 +1,8 @@
 import axios from "axios";
 import { toast } from "react-toastify";
 
-const API_BASE_URL = "http://localhost:8080/api/v1";
+// import api base url from the .env file
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 // ✅ Create axios instance
 const axiosInstance = axios.create({
