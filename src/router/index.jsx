@@ -145,7 +145,7 @@ export default function UserRouter() {
         {/* <Route path="/sales-return" element={<SalesReturn />} /> */}
         <Route path="/sales-return" element={<SalesReturn />} />
         <Route path="/sales-return/:module" element={<SalesReturn />} />
-<Route path="/transaction" element={<Transaction />} />
+        <Route path="/transaction" element={<Transaction />} />
         {/* Accounts */}
         <Route path="/accounts/:debtorId" element={<ProfileManagement />} />
         <Route path="/accounts/:creditorId" element={<AccountCreditors />} />
