@@ -483,7 +483,7 @@ const Sidebar = () => {
               </SidebarSection>
               {section.key === "generalMaster" && (
                 <>
-                  <Link to="/ransaction" className="block">
+                  <Link to="/transaction" className="block">
                     <div
                       className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200 ${
                         location.pathname === "/ceditors"

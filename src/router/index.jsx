@@ -78,7 +78,7 @@ import AdminProtect from "../protectorRouter/adminProtect.jsx";
 import BranchMasterDetail from "../components/Masters/BranchMaster/BranchMasterDetail.jsx";
 import CommodityPage from "../pages/commodityPage.jsx";
 import FinancialYearsMaster from "../pages/FinancialMaster.jsx";
-
+import Transaction from "../pages/Transaction.jsx";
 export default function UserRouter() {
   return (
     <Routes>
@@ -145,7 +145,7 @@ export default function UserRouter() {
         {/* <Route path="/sales-return" element={<SalesReturn />} /> */}
         <Route path="/sales-return" element={<SalesReturn />} />
         <Route path="/sales-return/:module" element={<SalesReturn />} />
-
+<Route path="/transaction" element={<Transaction />} />
         {/* Accounts */}
         <Route path="/accounts/:debtorId" element={<ProfileManagement />} />
         <Route path="/accounts/:creditorId" element={<AccountCreditors />} />
