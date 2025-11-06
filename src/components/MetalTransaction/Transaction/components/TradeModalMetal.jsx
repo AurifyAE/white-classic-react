@@ -13,7 +13,7 @@ export default function TradeModalMetal({ type }) {
   const opposite = type === 'purchase' ? 'Sell' : 'Buy';
 
   return (
-    <div className="bg-white rounded-lg shadow-lg border border-gray-200 w-full max-w-md mx-auto">
+    <div className="bg-white rounded-lg shadow-lg border border-gray-200 ">
       {/* Header */}
       <div className="flex items-center justify-between px-5 pt-5 pb-3">
         <h2 className="text-xl font-semibold">Create Trade</h2>
