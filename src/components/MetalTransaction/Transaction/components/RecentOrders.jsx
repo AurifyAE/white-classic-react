@@ -1,20 +1,20 @@
 // Transaction/components/RecentOrders.jsx
-import { Edit2, Trash2 } from 'lucide-react';
+import { Edit, Edit2, Trash2 } from 'lucide-react';
 import React from 'react';
 
 const mockData = {
   currency: [
-    { id: 1, voucher: 'CUR-001', qty: 100, total: 397630, party: 'Bank A', time: '10:30 AM', type: 'currency' },
-    { id: 2, voucher: 'CUR-002', qty: 50, total: 198815, party: 'Trader X', time: '11:15 AM', type: 'currency' },
+    { orderNo: 'CUR-001', type: 'BUY', symbol: 'USD/AED', quantity: '100,000', price: 'AED 3,976.30', time: '10:30 AM' },
+    { orderNo: 'CUR-002', type: 'SELL', symbol: 'EUR/AED', quantity: '50,000', price: 'AED 1,988.15', time: '11:15 AM' },
   ],
   gold: [
-    { id: 3, voucher: 'GLD-101', qty: 10, total: 39763, party: 'Mint Corp', time: '09:45 AM', type: 'gold' },
+    { orderNo: 'OR-3219810-INTAP', type: 'PURCHASE', symbol: 'KGBAR', quantity: '3,079.246 g', price: 'AED 1,453,834.41', time: '09:45 AM' },
   ],
   purchase: [
-    { id: 4, voucher: 'PM-201', qty: 5, total: 19881.5, party: 'Jeweler Y', time: '02:20 PM', type: 'purchase' },
+    { orderNo: 'PM-201', type: 'PURCHASE', symbol: 'GOLD', quantity: '5 kg', price: 'AED 19,881.50', time: '02:20 PM' },
   ],
   sales: [
-    { id: 5, voucher: 'SM-301', qty: 8, total: 31810.4, party: 'Refinery Z', time: '03:10 PM', type: 'sales' },
+    { orderNo: 'SM-301', type: 'SALES', symbol: 'SILVER', quantity: '8 kg', price: 'AED 31,810.40', time: '03:10 PM' },
   ],
 };
 
@@ -22,56 +22,56 @@ export default function RecentOrders({ type }) {
   const orders = mockData[type] || [];
 
   return (
-   <div className="bg-white rounded-lg shadow p-6 w-full max-h-fit -mt-30 ">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-gray-800">Recent Orders</h2>
-        <span className="flex items-center gap-2">
-          <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-          <span className="text-sm text-gray-600">Live Updates</span>
-        </span>
+     <div className="h-full flex flex-col bg-white">
+      <div className="flex items-center justify-between mb-4 px-6 pt-6">
+        <h2 className="text-xl font-semibold text-gray-700">Recent Transactions</h2>
+        <span className="text-sm text-gray-400">{orders.length} order{orders.length !== 1 ? 's' : ''}</span>
       </div>
       
       {orders.length === 0 ? (
-        <div className="text-center py-12 text-gray-400">
-          No recent orders for this section.
+        <div className="flex-1 flex items-center justify-center text-gray-400 py-20">
+          <div className="text-center">
+            <p className="text-lg">No Transactions</p>
+          </div>
         </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b">
-                <th className="text-left py-3 px-2 text-sm font-medium text-gray-600">Voucher</th>
-                {type === 'metal' ? (
-                  <>
-                    <th className="text-right py-3 px-2 text-sm font-medium text-gray-600">Quantity</th>
-                    <th className="text-right py-3 px-2 text-sm font-medium text-gray-600">Total Amount</th>
-                  </>
-                ) : (
-                  <>
-                    <th className="text-right py-3 px-2 text-sm font-medium text-gray-600">Quantity</th>
-                    <th className="text-right py-3 px-2 text-sm font-medium text-gray-600">Total Amount</th>
-                  </>
-                )}
-                <th className="text-left py-3 px-2 text-sm font-medium text-gray-600">Party</th>
-                <th className="text-left py-3 px-2 text-sm font-medium text-gray-600">Fixing Time</th>
-                <th className="text-center py-3 px-2 text-sm font-medium text-gray-600">Action</th>
+              <tr className="bg-gray-50">
+                <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">ORDER NO</th>
+                <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">TYPE</th>
+                <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">SYMBOL</th>
+                <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">QUANTITY</th>
+                <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">PRICE</th>
+                <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">ACTIONS</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="bg-white">
               {orders.map((order, idx) => (
-                <tr key={idx} className="border-b hover:bg-gray-50">
-                  <td className="py-3 px-2 text-sm text-gray-800">{order.voucher}</td>
-                  <td className="py-3 px-2 text-sm text-right text-gray-800">{order.quantity}</td>
-                  <td className="py-3 px-2 text-sm text-right text-gray-800">{order.totalAmount}</td>
-                  <td className="py-3 px-2 text-sm text-gray-800">{order.party}</td>
-                  <td className="py-3 px-2 text-sm text-gray-800">{order.fixingTime}</td>
-                  <td className="py-3 px-2">
-                    <div className="flex items-center justify-center gap-2">
-                      <button className="p-1 hover:bg-blue-50 rounded text-blue-600">
-                        <Edit2 size={16} />
+                <tr key={idx} className="border-t border-gray-100">
+                  <td className="py-5 px-6 text-sm text-gray-700">{order.orderNo}</td>
+                  <td className="py-5 px-6 text-sm">
+                    <span className="text-blue-600 font-medium">
+                      {order.type}
+                    </span>
+                  </td>
+                  <td className="py-5 px-6 text-sm text-gray-700 font-medium">{order.symbol}</td>
+                  <td className="py-5 px-6 text-sm text-red-500 font-medium">{order.quantity}</td>
+                  <td className="py-5 px-6 text-sm text-gray-900 font-semibold">{order.price}</td>
+                  <td className="py-5 px-6">
+                    <div className="flex items-center gap-2">
+                      <button 
+                        className="p-1.5 hover:bg-gray-100 rounded transition-colors text-blue-500"
+                        title="Edit"
+                      >
+                        <Edit color='black' size={18} />
                       </button>
-                      <button className="p-1 hover:bg-red-50 rounded text-red-600">
-                        <Trash2 size={16} />
+                      <button 
+                        className="p-1.5 hover:bg-gray-100 rounded transition-colors text-red-500"
+                        title="Delete"
+                      >
+                        <Trash2 size={18} />
                       </button>
                     </div>
                   </td>
@@ -82,5 +82,5 @@ export default function RecentOrders({ type }) {
         </div>
       )}
     </div>
-        );
+  );
 }

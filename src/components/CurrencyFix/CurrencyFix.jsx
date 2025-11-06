@@ -364,7 +364,7 @@ const partyOptions = tradingParties.map((party) => ({
     let ask = 0;
     if (pair.code === 'INR') {
       const curr = partyObj.acDefinition.currencies.find(
-        (c) => c.currency.currencyCode === 'INR'
+        (c) => c.currency === 'INR'
       );
       if (curr) {
         bid = curr.bid;
