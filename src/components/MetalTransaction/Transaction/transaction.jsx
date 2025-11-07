@@ -4,12 +4,6 @@ import RecentOrders from './components/RecentOrders';
 import TradeModalFX from './components/TradeModalFX';
 import TradeModalMetal from './components/TradeModalMetal';
 import GoldFixPage from './components/GoldFixPage';
-// Transaction/Transaction.jsx
-import React, { useState } from "react";
-import SelectTrader from "./components/SelectTrader";
-import RecentOrders from "./components/RecentOrders";
-import TradeModalFX from "./components/TradeModalFX";
-import TradeModalMetal from "./components/TradeModalMetal";
 
 const tabs = [
   { id: "currency", label: "Currency Fix" },
