@@ -16,7 +16,7 @@ export default function SelectTrader({ onTraderChange, value }) {
   const [traders, setTraders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currencies, setCurrencies] = useState([]);
-
+  
   // Fetch traders + currencies
   useEffect(() => {
     const fetchData = async () => {
@@ -133,14 +133,37 @@ export default function SelectTrader({ onTraderChange, value }) {
           {/* Additional Balances */}
           <div className="mt-4 pt-3 border-t border-gray-200">
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <span className="text-xs font-medium text-gray-500 block">CASH BALANCE</span>
-                <span className={`text-sm font-bold ${
-                  value.trader.balances?.cashBalance?.amount < 0 ? "text-red-600" : "text-green-600"
-                }`}>
-                  {formatNumber(value.trader.balances?.cashBalance?.amount || 0)} {getCurrencyCode(value.trader.balances?.cashBalance?.currency)}
-                </span>
-              </div>
+            <div className="space-y-1">
+  <span className="text-xs font-medium text-gray-500 block">
+    CASH BALANCE
+  </span>
+
+  {Array.isArray(value.trader.balances?.cashBalance) &&
+  value.trader.balances.cashBalance.length > 0 ? (
+    <div className="flex flex-wrap items-center gap-x-3 text-sm font-bold">
+      {value.trader.balances.cashBalance.map((cb, idx) => (
+        <React.Fragment key={idx}>
+          <span
+            className={`${
+              cb.amount < 0 ? "text-red-600" : "text-green-600"
+            }`}
+          >
+            {formatNumber(cb.amount || 0)}{" "}
+            {cb.currency?.currencyCode || ""}
+          </span>
+
+          {/* Divider (except after last item) */}
+          {idx < value.trader.balances.cashBalance.length - 1 && (
+            <span className="text-gray-300 select-none">|</span>
+          )}
+        </React.Fragment>
+      ))}
+    </div>
+  ) : (
+    <span className="text-sm text-gray-400">No cash balances</span>
+  )}
+</div>
+
 
               <div className="space-y-1">
                 <span className="text-xs font-medium text-gray-500 block">GOLD BALANCE</span>
