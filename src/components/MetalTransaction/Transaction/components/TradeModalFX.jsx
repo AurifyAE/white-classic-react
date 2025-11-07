@@ -35,48 +35,71 @@ export default function TradeModalFX({ selectedTrader }) {
     return r > 0 ? LAKH / r : 0; 
   }, [rateLakh]);
 
-  useEffect(() => {
-    if (!rateLakh) {
-      setPayAmount('');
-      setReceiveAmount('');
-      return;
-    }
+ useEffect(() => {
+  if (!rateLakh) {
+    setPayAmount('');
+    setReceiveAmount('');
+    return;
+  }
 
-    const pay = parseFloat(parseNumber(payAmount)) || 0;
-    const recv  = parseFloat(parseNumber(receiveAmount)) || 0;
+  const pay = parseFloat(parseNumber(payAmount)) || 0;
+  const recv = parseFloat(parseNumber(receiveAmount)) || 0;
 
-    if (lastEdited === 'pay' && payAmount) {
-      const calculated = isBuy
-        ? (pay * ratePerINR).toFixed(2)
-        : (pay * ratePerAED).toFixed(2);
-      setReceiveAmount(formatNumber(calculated));
-    } else if (lastEdited === 'receive' && receiveAmount) {
-      const calculated = isBuy
-        ? (recv * ratePerAED).toFixed(2)
-        : (recv * ratePerINR).toFixed(2);
-      setPayAmount(formatNumber(calculated));
-    } 
-    else if (!payAmount && !receiveAmount) {
-      setPayAmount('');
-      setReceiveAmount('');
-    }
-  }, [payAmount, receiveAmount, rateLakh, lastEdited, ratePerINR, ratePerAED, isBuy]);
+  // unit scaling requested: treat user input units as "1 = 1000"
+  const UNIT = 1000;
 
-  // Recalculate when rate changes
-  useEffect(() => {
-    if (!rateLakh || !lastEdited) return;
+  if (lastEdited === 'pay' && payAmount) {
+    // pay (user unit) -> actual amount = pay * UNIT
+    const actualPay = pay * UNIT;
 
-    const pay = parseFloat(parseNumber(payAmount)) || 0;
-    const recv = parseFloat(parseNumber(receiveAmount)) || 0;
+    // convert depending on direction
+    const actualRecv = isBuy
+      ? actualPay * ratePerINR // INR -> AED
+      : actualPay * ratePerAED; // AED -> INR (if reverse logic)
 
-    if (lastEdited === 'pay' && pay > 0) {
-      const calculated = isBuy ? (pay * ratePerINR).toFixed(2) : (pay * ratePerAED).toFixed(2);
-      setReceiveAmount(formatNumber(calculated));
-    } else if (lastEdited === 'receive' && recv > 0) {
-      const calculated = isBuy ? (recv * ratePerAED).toFixed(2) : (recv * ratePerINR).toFixed(2);
-      setPayAmount(formatNumber(calculated));
-    }
-  }, [rateLakh, ratePerINR, ratePerAED, lastEdited, isBuy]);
+    // **Show receive in user units** (divide by 1000 to display 'per 1' where 1==1000)
+    const displayRecvUnits = actualRecv / UNIT;
+
+    setReceiveAmount(formatNumber(displayRecvUnits));
+  } else if (lastEdited === 'receive' && receiveAmount) {
+    // user typed receive units -> actual receive = recv * UNIT
+    const actualRecv = recv * UNIT;
+
+    const actualPay = isBuy
+      ? actualRecv * ratePerAED // AED -> INR
+      : actualRecv * ratePerINR; // INR -> AED
+
+    // Show pay in user units (divide by 1000)
+    const displayPayUnits = actualPay / UNIT;
+
+    setPayAmount(formatNumber(displayPayUnits));
+  } else if (!payAmount && !receiveAmount) {
+    setPayAmount('');
+    setReceiveAmount('');
+  }
+}, [payAmount, receiveAmount, rateLakh, lastEdited, ratePerINR, ratePerAED, isBuy]);
+
+
+useEffect(() => {
+  if (!rateLakh || !lastEdited) return;
+
+  const pay = parseFloat(parseNumber(payAmount)) || 0;
+  const recv = parseFloat(parseNumber(receiveAmount)) || 0;
+  const UNIT = 1000;
+
+  if (lastEdited === 'pay' && pay > 0) {
+    const actualPay = pay * UNIT;
+    const actualRecv = isBuy ? actualPay * ratePerINR : actualPay * ratePerAED;
+    const displayRecvUnits = actualRecv / UNIT;
+    setReceiveAmount(formatNumber(displayRecvUnits));
+  } else if (lastEdited === 'receive' && recv > 0) {
+    const actualRecv = recv * UNIT;
+    const actualPay = isBuy ? actualRecv * ratePerAED : actualRecv * ratePerINR;
+    const displayPayUnits = actualPay / UNIT;
+    setPayAmount(formatNumber(displayPayUnits));
+  }
+}, [rateLakh, ratePerINR, ratePerAED, lastEdited, isBuy]);
+
 
   // ---------- Create Trade (Real API) ----------
   const handleCreateTrade = useCallback(async () => {
