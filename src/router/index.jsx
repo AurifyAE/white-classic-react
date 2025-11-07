@@ -82,12 +82,13 @@ import Transaction from "../pages/Transaction.jsx";
 export default function UserRouter() {
   return (
     <Routes>
+
       <Route path="/" element={<Login />} />
-      <Route path="/login" element={<AdminProtect />} />
+      <Route element={<AdminProtect />}>
       <Route element={<Layout />}>
         {/* Dashboard */}
         <Route path="/dashboard" element={<MetalStock />} />
-        <Route path="/" element={<Footer />} />
+        {/* <Route path="/" element={<Footer />} /> */}
         {/* Masters */}
         <Route path="/division-master" element={<DivisionPage />} />
         <Route path="/karat-master" element={<KaratPage />} />
@@ -233,6 +234,7 @@ export default function UserRouter() {
         />
 
         <Route path="/currency-fix" element={<CurrencyFixing />} />
+      </Route>
       </Route>
 
       {/* Fallback */}

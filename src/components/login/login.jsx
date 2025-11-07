@@ -16,23 +16,16 @@ const LoginPage = () => {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      navigate("/metal-stock");
-    }
-  }, [navigate]);
-
   // Check for existing token when component mounts
   useEffect(() => {
     const checkExistingToken = async () => {
       const token = localStorage.getItem("token");
 
-      // if (!token || token.trim() === "") {
-      //   localStorage.removeItem("token");
-      //   setIsCheckingAuth(false);
-      //   return;
-      // }
+      if (!token || token.trim() === "") {
+        localStorage.removeItem("token");
+        setIsCheckingAuth(false);
+        return;
+      }
 
       try {
         // Verify the token with the backend
@@ -40,7 +33,7 @@ const LoginPage = () => {
         // Check if valid admin in response
         if (response.data?.success) {
           // Token is valid, navigate to dashboard
-          navigate("/metal-stock");
+          navigate("/dashboard");
         } else {
           // Response doesn't contain admin data or user is not admin
           handleLogout();
@@ -118,7 +111,11 @@ const LoginPage = () => {
           localStorage.setItem("email", email);
           localStorage.setItem("rememberMe", "true");
         }
-    
+        //  else {
+        //   localStorage.removeItem("email");
+        //   localStorage.removeItem("rememberMe");
+        // }
+
         // Show success toast and navigate after delay
         toast.success(responseData.message || "Login Successful", {
           position: "top-right",
@@ -127,8 +124,8 @@ const LoginPage = () => {
 
         // Delay navigation to ensure token is set
         setTimeout(() => {
-          navigate("/metal-stock");
-        }, 2000);
+          navigate("/dashboard");
+        }, 2500);
       } else {
         // Handle API success: false response
         setPasswordError(responseData.message || "Login failed");
