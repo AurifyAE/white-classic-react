@@ -1,9 +1,9 @@
-// Transaction/Transaction.jsx
 import React, { useState } from 'react';
 import SelectTrader from './components/SelectTrader';
 import RecentOrders from './components/RecentOrders';
 import TradeModalFX from './components/TradeModalFX';
 import TradeModalMetal from './components/TradeModalMetal';
+import GoldFixPage from './components/GoldFixPage';
 
 const tabs = [
   { id: 'currency', label: 'Currency Fix' },
@@ -12,7 +12,8 @@ const tabs = [
   { id: 'sales', label: 'Sales Metal' },
 ];
 
-const isFixTab = (id) => ['currency', 'gold'].includes(id);
+const isFixTab = (id) => ['currency'].includes(id);
+const isGoldFixTab = (id) => ['gold'].includes(id);
 const isMetalTab = (id) => ['purchase', 'sales'].includes(id);
 
 export default function Transaction() {
@@ -54,6 +55,7 @@ export default function Transaction() {
           
           {/* Smart Modal Rendering */}
           {isFixTab(activeTab) && <TradeModalFX selectedTrader={selectedTrader} />}
+         {isGoldFixTab(activeTab) && <GoldFixPage selectedTrader={selectedTrader} />}
           {isMetalTab(activeTab) && <TradeModalMetal type={activeTab} selectedTrader={selectedTrader} />}
         </div>
         
