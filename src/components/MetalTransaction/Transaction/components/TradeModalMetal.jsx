@@ -80,10 +80,36 @@ export default function TradeModalMetal({ type, selectedTrader }) {
         </div>
 
         {/* TRADER INFO – SAFE STRING ONLY */}
-        <div className="px-5 pb-4">
-          <div className="bg-indigo-50 rounded-lg p-3 border border-indigo-200">
-            <p className="text-xs text-blue-500 font-medium">Selected Trader</p>
-            <p className="font-semibold text-blue-500">{traderLabel}</p>
+      <div className="px-5 pb-6">
+  <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-200 rounded-xl shadow-sm p-4 flex items-center justify-between">
+    <div>
+      <p className="text-sm text-indigo-600 font-medium tracking-wide uppercase">Selected Trader</p>
+      <h3 className="text-lg font-semibold text-gray-900 mt-1">{traderLabel}</h3>
+    </div>
+    <div className="text-right">
+      <span className="inline-block bg-indigo-100 text-indigo-700 text-xs font-medium px-3 py-1 rounded-full border border-indigo-200">
+        {type === 'purchase' ? 'Purchase Mode' : 'Sell Mode'}
+      </span>
+    </div>
+  </div>
+</div>
+
+
+        {/* VOUCHER INFO – RESTORED */}
+        <div className="px-5 pb-5">
+          <div className="bg-gray-50 rounded-lg p-3 grid grid-cols-3 gap-2 text-sm">
+            <div>
+              <span className="text-gray-500">Voucher Code</span>
+              <div className="font-medium text-gray-800">N/A</div>
+            </div>
+            <div>
+              <span className="text-gray-500">Prefix</span>
+              <div className="font-medium text-gray-800">N/A</div>
+            </div>
+            <div>
+              <span className="text-gray-500">Voucher Date</span>
+              <div className="font-medium text-gray-800">07 Nov 2025</div>
+            </div>
           </div>
         </div>
 
@@ -183,7 +209,7 @@ export default function TradeModalMetal({ type, selectedTrader }) {
         {trades.length > 0 && (
           <div className="px-5 pb-5">
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-5 border border-blue-200">
-              <h3 className="text-lg font-semibold text-blue-500 mb-4">Trade Summary</h3>
+              <h3 className="text-lg font-semibold text-indigo-800 mb-4">Trade Summary</h3>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left">
@@ -193,7 +219,7 @@ export default function TradeModalMetal({ type, selectedTrader }) {
                       <th className="px-3 py-2">Stock</th>
                       <th className="px-3 py-2">Gross Wt</th>
                       <th className="px-3 py-2">Pure Wt</th>
-                      <th className="px-3 py-2">Weight Oz</th>
+                      <th className="px-3 py-2">Oz</th>
                       <th className="px-3 py-2">Purity</th>
                       <th className="px-3 py-2">Amount</th>
                       <th className="px-3 py-2 text-center">Actions</th>
@@ -237,8 +263,9 @@ export default function TradeModalMetal({ type, selectedTrader }) {
               <div className="mt-5 flex justify-end">
                 <button
                   onClick={handleSaveAll}
-                  className="flex items-center-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors "
+                  className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                 >
+                  <Save className="w-4 h-4" />
                   Save All Trades
                 </button>
               </div>
