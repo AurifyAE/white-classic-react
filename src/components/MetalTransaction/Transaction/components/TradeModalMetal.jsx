@@ -1,89 +1,267 @@
 // Transaction/components/TradeModalMetal.jsx
+import { Plus, Edit2, Trash2, Save } from 'lucide-react';
 import React, { useState } from 'react';
+import TradeDetailsModal from './TradeDetailsModal';
 
-export default function TradeModalMetal({ type }) {
-  const [volume, setVolume] = useState(1);
-  const [stopLoss, setStopLoss] = useState('');
-  const [takeProfit, setTakeProfit] = useState('');
-  const [freeze, setFreeze] = useState(false);
-  const [selectedParty, setSelectedParty] = useState('');
+export default function TradeModalMetal({ type, selectedTrader }) {
+  const [selectedRatio, setSelectedRatio] = useState('');
+  const [selectedMetalUnit, setSelectedMetalUnit] = useState('');
+  const [showErrors, setShowErrors] = useState(false);
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
+  const [trades, setTrades] = useState([]);
+  const [editingIndex, setEditingIndex] = useState(null);
 
-  const price = 3976.30; // Mock – replace with real price later
   const action = type === 'purchase' ? 'Buy' : 'Sell';
-  const opposite = type === 'purchase' ? 'Sell' : 'Buy';
+  const isTraderSelected = !!selectedTrader;
+
+  const metalRates = {
+    'TT Bar': 3976.3,
+    'KG Bar': 127900.0,
+    'G Oz': 123.45,
+  };
+
+  const selectedRate = selectedMetalUnit ? metalRates[selectedMetalUnit] : '';
+
+  const canOpenModal = isTraderSelected && selectedRatio && selectedMetalUnit;
+
+  const handleAdd = () => {
+    setShowErrors(true);
+    if (!canOpenModal) return;
+    setDetailsModalOpen(true);
+    setEditingIndex(null);
+  };
+
+  const handleConfirmTrade = (tradeData) => {
+    // Extract only the display name (safe string)
+    const traderLabel = selectedTrader
+      ? (selectedTrader.label || selectedTrader.name || 'Unknown Trader')
+      : 'No Trader';
+
+    const finalTrade = { ...tradeData, trader: traderLabel };
+
+    if (editingIndex !== null) {
+      const updated = [...trades];
+      updated[editingIndex] = finalTrade;
+      setTrades(updated);
+    } else {
+      setTrades((prev) => [...prev, finalTrade]);
+    }
+    setDetailsModalOpen(false);
+    setEditingIndex(null);
+  };
+
+  const handleEdit = (index) => {
+    setEditingIndex(index);
+    setDetailsModalOpen(true);
+  };
+
+  const handleDelete = (index) => {
+    setTrades((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSaveAll = () => {
+    console.log('SAVING ALL TRADES →', { trader: selectedTrader, trades });
+    alert(`All ${trades.length} trade(s) saved for ${traderLabel}`);
+  };
+
+  const traderLabel = selectedTrader
+    ? (selectedTrader.label || selectedTrader.name || 'Trader')
+    : 'No trader selected';
 
   return (
-    <div className="bg-white rounded-lg shadow-lg border border-gray-200 ">
-      {/* Header */}
-      <div className="flex items-center justify-between px-5 pt-5 pb-3">
-        <h2 className="text-xl font-semibold">Create Trade</h2>
-        <button className="text-gray-500 hover:text-gray-700 text-2xl">×</button>
+    <>
+      <div className="bg-white rounded-xl shadow-lg border border-gray-200 max-w-4xl mx-auto">
+        {/* HEADER */}
+        <div className="flex items-center justify-between px-5 pt-5 pb-3">
+          <h2 className="text-xl font-semibold text-gray-800">Create Trade</h2>
+          <button className="text-gray-500 hover:text-gray-700 text-2xl leading-none">
+            ×
+          </button>
+        </div>
+
+        {/* TRADER INFO – SAFE STRING ONLY */}
+        <div className="px-5 pb-4">
+          <div className="bg-indigo-50 rounded-lg p-3 border border-indigo-200">
+            <p className="text-xs text-blue-500 font-medium">Selected Trader</p>
+            <p className="font-semibold text-blue-500">{traderLabel}</p>
+          </div>
+        </div>
+
+        {/* RATIO TYPE */}
+        <div className="px-5 pb-5">
+          <div className="bg-gray-50 rounded-md p-1 flex gap-2 w-[50%]">
+            {['Fix', 'Unfix'].map((option) => (
+              <button
+                key={option}
+                onClick={() => setSelectedRatio(option)}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-full text-sm font-medium transition-all ${
+                  selectedRatio === option
+                    ? 'bg-white text-indigo-700 shadow-sm border border-indigo-300'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <span
+                  className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                    selectedRatio === option
+                      ? 'border-indigo-600 bg-indigo-600'
+                      : 'border-gray-400'
+                  }`}
+                >
+                  {selectedRatio === option && (
+                    <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                      <path
+                        fillRule="evenodd"
+                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  )}
+                </span>
+                {option}
+              </button>
+            ))}
+          </div>
+          {showErrors && !selectedRatio && (
+            <p className="text-xs text-red-500 mt-1">Please select Fix or Unfix.</p>
+          )}
+        </div>
+
+        {/* METAL UNIT & RATE */}
+        <div className="px-5 pb-5">
+          <label className="block text-sm font-medium text-gray-700 mb-2">Metal Rate Details</label>
+          <div className="grid grid-cols-2 gap-3">
+            <select
+              value={selectedMetalUnit}
+              onChange={(e) => setSelectedMetalUnit(e.target.value)}
+              className={`px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
+                showErrors && !selectedMetalUnit
+                  ? 'border-red-400 focus:ring-red-300'
+                  : 'border-gray-300 focus:ring-indigo-500'
+              }`}
+            >
+              <option value="">Select Unit</option>
+              <option value="TT Bar">TT Bar</option>
+              <option value="KG Bar">KG Bar</option>
+              <option value="G Oz">G Oz</option>
+            </select>
+            <input
+              type="text"
+              value={selectedRate ? `$${selectedRate.toFixed(2)}` : ''}
+              readOnly
+              placeholder="Rate"
+              className="px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 font-medium text-sm"
+            />
+          </div>
+          {showErrors && !selectedMetalUnit && (
+            <p className="text-xs text-red-500 mt-1">Please select a metal unit.</p>
+          )}
+        </div>
+
+        {/* ADD TRADE BUTTON – DISABLED IF NO TRADER */}
+        <div className="px-5 pb-6">
+          <button
+            onClick={handleAdd}
+            type="button"
+            disabled={!canOpenModal}
+            className={`flex items-center justify-center w-full py-2.5 rounded-md font-medium transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+              canOpenModal
+                ? 'bg-green-600 text-white hover:bg-green-700 focus:ring-green-500'
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            }`}
+          >
+            <span>{canOpenModal ? 'Add Trade' : 'Select Trader & Options First'}</span>
+            <Plus className="ml-2 w-4 h-4" />
+          </button>
+          {!isTraderSelected && showErrors && (
+            <p className="text-xs text-red-500 mt-2 text-center">
+              Please select a trader to create a trade.
+            </p>
+          )}
+        </div>
+
+        {/* TRADE SUMMARY TABLE */}
+        {trades.length > 0 && (
+          <div className="px-5 pb-5">
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-5 border border-blue-200">
+              <h3 className="text-lg font-semibold text-blue-500 mb-4">Trade Summary</h3>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                  <thead className="text-xs text-gray-700 uppercase bg-gray-100">
+                    <tr>
+                      <th className="px-3 py-2">Trader</th>
+                      <th className="px-3 py-2">Stock</th>
+                      <th className="px-3 py-2">Gross Wt</th>
+                      <th className="px-3 py-2">Pure Wt</th>
+                      <th className="px-3 py-2">Weight Oz</th>
+                      <th className="px-3 py-2">Purity</th>
+                      <th className="px-3 py-2">Amount</th>
+                      <th className="px-3 py-2 text-center">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {trades.map((t, i) => (
+                      <tr key={i} className="hover:bg-gray-50">
+                        <td className="px-3 py-2 text-indigo-700 font-medium">{t.trader}</td>
+                        <td className="px-3 py-2 font-medium">{t.stockCode}</td>
+                        <td className="px-3 py-2">{t.grossWeight} g</td>
+                        <td className="px-3 py-2">{t.pureWeight} g</td>
+                        <td className="px-3 py-2">{t.weightInOz}</td>
+                        <td className="px-3 py-2">{(t.purity * 100).toFixed(2)}%</td>
+                        <td className="px-3 py-2 font-semibold text-green-700">
+                          ${t.metalAmount}
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          <button
+                            onClick={() => handleEdit(i)}
+                            className="text-blue-600 hover:text-blue-800 mr-2"
+                            title="Edit"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(i)}
+                            className="text-red-600 hover:text-red-800"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* SAVE ALL */}
+              <div className="mt-5 flex justify-end">
+                <button
+                  onClick={handleSaveAll}
+                  className="flex items-center-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors "
+                >
+                  Save All Trades
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Voucher Details */}
-      <div className="px-5 pb-4">
-        <div className="bg-gray-50 rounded-lg p-3 flex justify-between text-sm">
-          <div><span className="text-gray-500">Voucher Code</span><br /><span className="font-medium">N/A</span></div>
-          <div><span className="text-gray-500">Prefix</span><br /><span className="font-medium">N/A</span></div>
-          <div><span className="text-gray-500">Voucher Type</span><br /><span className="font-medium">MET</span></div>
-        </div>
-      </div>
-    
-      {/* Volume */}
-      <div className="px-5 pb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-1">Volume</label>
-        <input
-          type="number"
-          min="1"
-          value={volume}
-          onChange={(e) => setVolume(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+      {/* DETAILS MODAL */}
+      {detailsModalOpen && (
+        <TradeDetailsModal
+          action={action}
+          ratio={selectedRatio}
+          unit={selectedMetalUnit}
+          rate={selectedRate}
+          tradeData={editingIndex !== null ? trades[editingIndex] : null}
+          onClose={() => {
+            setDetailsModalOpen(false);
+            setEditingIndex(null);
+          }}
+          onConfirm={handleConfirmTrade}
         />
-      </div>
-
-      {/* Current Price + Freeze */}
-      <div className="px-5 pb-4 flex items-center justify-between">
-        <span className="text-sm text-gray-600">Current Price</span>
-        <span className="font-mono font-bold text-lg">${price.toFixed(2)}</span>
-        <button
-          onClick={() => setFreeze(!freeze)}
-          className={`ml-3 px-3 py-1 text-xs rounded transition-colors ${
-            freeze ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'
-          }`}
-        >
-          {freeze ? 'Frozen' : 'Freeze Prices'}
-        </button>
-      </div>
-
-      {/* Trade Summary */}
-      <div className="px-5 pb-4">
-        <div className="bg-blue-50 rounded-lg p-4">
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <span className="text-gray-600">Volume</span><br />
-              <span className="font-semibold">{volume}</span>
-            </div>
-            <div>
-              <span className="text-gray-600">Price</span><br />
-              <span className="font-semibold">${price.toFixed(2)}</span>
-            </div>
-          </div>
-          <div className="mt-3 text-sm">
-            <span className="text-gray-600">Action </span>
-            <span className="font-medium">{action} {freeze ? '(Frozen)' : ''}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Action Buttons */}
-      <div className="px-5 pb-5 flex gap-3">
-        <button className="flex-1 bg-blue-600 text-white py-2 rounded-md font-medium hover:bg-blue-700">
-          {action} {price.toFixed(2)}
-        </button>
-        <button className="flex-1 bg-red-600 text-white py-2 rounded-md font-medium hover:bg-red-700">
-          {opposite} {price.toFixed(2)}
-        </button>
-      </div>
-    </div>
+      )}
+    </>
   );
 }

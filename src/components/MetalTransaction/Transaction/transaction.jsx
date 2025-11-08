@@ -5,7 +5,6 @@ import TradeModalFX from './components/TradeModalFX';
 import TradeModalMetal from './components/TradeModalMetal';
 import GoldFixPage from './components/GoldFixPage';
 
-
 const tabs = [
   { id: "currency", label: "Currency Fix" },
   { id: "gold", label: "Gold Fix" },

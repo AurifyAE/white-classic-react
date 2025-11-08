@@ -12,7 +12,8 @@ export default function TradeModalFX({ selectedTrader }) {
   const [lastEdited, setLastEdited] = useState(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [successData, setSuccessData] = useState(null);
-
+  const [voucherCode, setVoucherCode] = useState('N/A');
+  const [prefix, setPrefix] = useState('N/A');
   const LAKH = 100_000;
 
   const formatNumber = (value) => {
@@ -35,44 +36,64 @@ export default function TradeModalFX({ selectedTrader }) {
     return r > 0 ? LAKH / r : 0; 
   }, [rateLakh]);
 
- useEffect(() => {
+
+const fetchVoucherCode = useCallback(async () => {
+  try {
+    const currentModule = isBuy ? 'CURRENCY-PURCHASE' : 'CURRENCY-SELL';
+    const transactionType = currentModule;
+
+    const response = await axiosInstance.post(
+      `/voucher/generate/${currentModule}`,
+      { transactionType }
+    );
+
+    const data = response.data?.data;
+    if (response.data?.success && data) {
+      setVoucherCode(data.voucherNumber || 'N/A');
+      setPrefix(data.prefix || 'N/A');
+    } else {
+      setVoucherCode('N/A');
+      setPrefix('N/A');
+    }
+  } catch (error) {
+    console.error('Voucher generation failed:', error);
+    setVoucherCode('N/A');
+    setPrefix('N/A');
+  }
+}, [isBuy]);
+
+useEffect(() => {
+  fetchVoucherCode();
+}, [fetchVoucherCode]);
+ 
+
+useEffect(() => {
   if (!rateLakh) {
     setPayAmount('');
     setReceiveAmount('');
     return;
   }
 
+  const MULT = 1000; // 1 (compact) = 1000 INR
   const pay = parseFloat(parseNumber(payAmount)) || 0;
   const recv = parseFloat(parseNumber(receiveAmount)) || 0;
 
-  // unit scaling requested: treat user input units as "1 = 1000"
-  const UNIT = 1000;
-
   if (lastEdited === 'pay' && payAmount) {
-    // pay (user unit) -> actual amount = pay * UNIT
-    const actualPay = pay * UNIT;
-
-    // convert depending on direction
-    const actualRecv = isBuy
-      ? actualPay * ratePerINR // INR -> AED
-      : actualPay * ratePerAED; // AED -> INR (if reverse logic)
-
-    // **Show receive in user units** (divide by 1000 to display 'per 1' where 1==1000)
-    const displayRecvUnits = actualRecv / UNIT;
-
-    setReceiveAmount(formatNumber(displayRecvUnits));
+    let calculated;
+    if (isBuy) {
+      calculated = (pay * MULT * ratePerINR).toFixed(2);
+    } else {
+      calculated = ((pay * ratePerAED) / MULT).toFixed(2);
+    }
+    setReceiveAmount(formatNumber(calculated));
   } else if (lastEdited === 'receive' && receiveAmount) {
-    // user typed receive units -> actual receive = recv * UNIT
-    const actualRecv = recv * UNIT;
-
-    const actualPay = isBuy
-      ? actualRecv * ratePerAED // AED -> INR
-      : actualRecv * ratePerINR; // INR -> AED
-
-    // Show pay in user units (divide by 1000)
-    const displayPayUnits = actualPay / UNIT;
-
-    setPayAmount(formatNumber(displayPayUnits));
+    let calculated;
+    if (isBuy) {
+      calculated = ((recv * ratePerAED) / MULT).toFixed(2);
+    } else {
+      calculated = (recv * MULT * ratePerINR).toFixed(2);
+    }
+    setPayAmount(formatNumber(calculated));
   } else if (!payAmount && !receiveAmount) {
     setPayAmount('');
     setReceiveAmount('');
@@ -83,25 +104,30 @@ export default function TradeModalFX({ selectedTrader }) {
 useEffect(() => {
   if (!rateLakh || !lastEdited) return;
 
+  const MULT = 1000;
   const pay = parseFloat(parseNumber(payAmount)) || 0;
   const recv = parseFloat(parseNumber(receiveAmount)) || 0;
-  const UNIT = 1000;
 
   if (lastEdited === 'pay' && pay > 0) {
-    const actualPay = pay * UNIT;
-    const actualRecv = isBuy ? actualPay * ratePerINR : actualPay * ratePerAED;
-    const displayRecvUnits = actualRecv / UNIT;
-    setReceiveAmount(formatNumber(displayRecvUnits));
+    let calculated;
+    if (isBuy) {
+      calculated = (pay * MULT * ratePerINR).toFixed(2);
+    } else {
+      calculated = ((pay * ratePerAED) / MULT).toFixed(2);
+    }
+    setReceiveAmount(formatNumber(calculated));
   } else if (lastEdited === 'receive' && recv > 0) {
-    const actualRecv = recv * UNIT;
-    const actualPay = isBuy ? actualRecv * ratePerAED : actualRecv * ratePerINR;
-    const displayPayUnits = actualPay / UNIT;
-    setPayAmount(formatNumber(displayPayUnits));
+    let calculated;
+    if (isBuy) {
+      calculated = ((recv * ratePerAED) / MULT).toFixed(2);
+    } else {
+      calculated = (recv * MULT * ratePerINR).toFixed(2);
+    }
+    setPayAmount(formatNumber(calculated));
   }
 }, [rateLakh, ratePerINR, ratePerAED, lastEdited, isBuy]);
 
 
-  // ---------- Create Trade (Real API) ----------
   const handleCreateTrade = useCallback(async () => {
     if (!selectedTrader) {
       toast.error('Please select a trader first');
@@ -153,7 +179,6 @@ useEffect(() => {
       if (res.data.success) {
         toast.success('Trade created successfully');
 
-        // Show success modal
         setSuccessData({
           trader: selectedTrader.trader,
           pay: { amount: payAmount, currency: base },
@@ -163,7 +188,6 @@ useEffect(() => {
         });
         setShowSuccess(true);
 
-        // Reset form
         setPayAmount('');
         setReceiveAmount('');
         setRateLakh('');
@@ -177,7 +201,6 @@ useEffect(() => {
     }
   }, [selectedTrader, payAmount, receiveAmount, rateLakh, isBuy]);
 
-  // ---------- UI helpers ----------
   const payCurrency = isBuy ? 'INR' : 'AED';
   const receiveCurrency = isBuy ? 'AED' : 'INR';
   const payHint = isBuy ? '1 = 1,000 INR | 100 = 1 Lakh INR' : '';
@@ -238,25 +261,27 @@ useEffect(() => {
 
         {/* Voucher Details */}
         <div className="px-5 pb-4">
-          <div className={`rounded-lg p-3 flex justify-between text-sm ${theme.voucherBg}`}>
-            <div>
-              <span className="text-gray-600">Voucher Code</span>
-              <br />
-              <span className="font-medium">N/A</span>
-            </div>
-            <div>
-              <span className="text-gray-600">Prefix</span>
-              <br />
-              <span className="font-medium">N/A</span>
-            </div>
-            <div>
-              <span className="text-gray-600">Voucher Type</span>
-              <br />
-              <span className={`font-bold ${isBuy ? 'text-blue-500' : 'text-red-500'}`}>
-                {voucherType}
-              </span>
-            </div>
-          </div>
+        <div className={`rounded-lg p-3 flex justify-between text-sm ${theme.voucherBg}`}>
+  <div>
+    <span className="text-gray-600">Voucher Code</span>
+    <br />
+    <span className="font-medium">{voucherCode}</span>
+  </div>
+  <div>
+    <span className="text-gray-600">Prefix</span>
+    <br />
+    <span className="font-medium">{prefix}</span>
+  </div>
+  <div>
+    <span className="text-gray-600">Voucher Type</span>
+    <br />
+    <span className={`font-bold ${isBuy ? 'text-blue-500' : 'text-red-500'}`}>
+      {voucherType}
+    </span>
+  </div>
+</div>
+
+
         </div>
 
         {/* Currency Bar */}
