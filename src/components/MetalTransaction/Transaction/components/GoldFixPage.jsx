@@ -47,6 +47,9 @@ export default function TradeModalGold({ selectedTrader }) {
   const [showSuccess, setShowSuccess] = useState(false);
   const [successData, setSuccessData] = useState(null);
 
+  const [currencies, setCurrencies] = useState([]);
+  const [baseCurrencyId, setBaseCurrencyId] = useState('');
+
   // ------------------- Fetch voucher on mount -------------------
   useEffect(() => {
     const fetchVoucher = async () => {
@@ -64,6 +67,21 @@ export default function TradeModalGold({ selectedTrader }) {
       }
     };
     fetchVoucher();
+
+    // Fetch currencies and set baseCurrencyId (AED)
+    const fetchCurrencies = async () => {
+      try {
+        const res = await axiosInstance.get('/currency-master');
+        if (res.data.success && res.data.data) {
+          setCurrencies(res.data.data);
+          const aedCurrency = res.data.data.find(c => c.currencyCode === 'AED');
+          if (aedCurrency) setBaseCurrencyId(aedCurrency._id);
+        }
+      } catch (err) {
+        console.error('Error fetching currencies:', err);
+      }
+    };
+    fetchCurrencies();
   }, []);
 
   // ------------------- Async commodity loader -------------------
@@ -116,16 +134,18 @@ export default function TradeModalGold({ selectedTrader }) {
       return;
     }
 
-    const base = isBuy ? 'INR' : 'XAU';
-    const quote = isBuy ? 'XAU' : 'INR';
+    const isBuyTrade = isBuy;
+    const base = isBuyTrade ? 'INR' : 'XAU';
+    const quote = isBuyTrade ? 'XAU' : 'INR';
 
+    // Unified payload for /currency-trading/trades
     const payload = {
       partyId: selectedTrader.value,
-      type: isBuy ? 'BUY' : 'SELL',
-      amount: calculations.metalAmount,
+      type: isBuyTrade ? 'BUY' : 'SELL',
+      amount: calculations.metalAmount, // INR value for buy, XAU for sell
       currency: base,
-      rate: calculations.rateKg,
-      converted: calculations.pureWeight,
+      rate: calculations.rateKg, // Rate per KG bar
+      converted: calculations.pureWeight, // pure gold weight (grams)
       orderId: `GOLD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       timestamp: new Date().toLocaleString('en-US', {
         month: 'short',
@@ -137,19 +157,27 @@ export default function TradeModalGold({ selectedTrader }) {
         hour12: true,
       }),
       currentRate: calculations.rateKg,
-      buyRate: isBuy ? calculations.rateKg : null,
-      sellRate: !isBuy ? calculations.rateKg : null,
+      bidSpread: null,
+      askSpread: null,
+      buyRate: isBuyTrade ? calculations.rateKg : null,
+      sellRate: !isBuyTrade ? calculations.rateKg : null,
       baseCurrencyCode: base,
-      reference: `GOLD-${isBuy ? 'BUY' : 'SELL'}-${selectedTrader.trader.accountCode}`,
+      targetCurrencyCode: quote,
+      reference: voucher?.voucherNumber || `GOLD-${isBuyTrade ? 'BUY' : 'SELL'}-${selectedTrader.trader.accountCode}`,
       isGoldTrade: true,
+      metalType: 'Kilo',
       grossWeight: calculations.gross,
       purity: calculations.purity,
       pureWeight: calculations.pureWeight,
       valuePerGram: calculations.valuePerGram,
+      // Optionally add commodityId if needed by backend
+      commodityId: selectedCommodity.value,
+      baseCurrencyId: baseCurrencyId,
     };
 
     try {
-      const { data } = await axiosInstance.post('/gold-trading/trades', payload);
+      // Use unified endpoint
+      const { data } = await axiosInstance.post('/currency-trading/trades', payload);
       if (data.success) {
         toast.success('Gold trade created');
         setSuccessData({
@@ -163,7 +191,6 @@ export default function TradeModalGold({ selectedTrader }) {
           isBuy,
         });
         setShowSuccess(true);
-
         // Reset form
         setGrossWeight('1000');
         setRatePerKg('');
@@ -181,6 +208,8 @@ export default function TradeModalGold({ selectedTrader }) {
     calculations,
     isBuy,
     grossWeight,
+    voucher,
+    baseCurrencyId
   ]);
 
   // ------------------- UI theme (Buy / Sell) -------------------

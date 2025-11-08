@@ -110,6 +110,7 @@ const partyOptions = tradingParties.map((party) => ({
   const [inputCurrency, setInputCurrency] = useState('');
   const [grossWeight, setGrossWeight] = useState('1000'); // New state for gross weight
   const [metalType] = useState('Kilo'); // Constant metal type
+  const [baseCurrencyId, setBaseCurrencyId] = useState('');
 
   const formatNumber = (num, decimals = 2) => {
     if (num === null || num === undefined || isNaN(num)) {
@@ -153,6 +154,9 @@ const partyOptions = tradingParties.map((party) => ({
         const res = await axiosInstance.get('/currency-master');
         if (res.data.success && res.data.data) {
           setCurrencies(res.data.data);
+          // Set baseCurrencyId to AED currency _id
+          const aedCurrency = res.data.data.find(c => c.currencyCode === 'AED');
+          if (aedCurrency) setBaseCurrencyId(aedCurrency._id);
         }
       } catch (err) {
         console.error("Error fetching currencies:", err);
@@ -220,10 +224,6 @@ const partyOptions = tradingParties.map((party) => ({
           rate: aedPerGram,
           change: -0.05,
           changePercent: -0.01,
-          volume: '756.1K',
-          lastUpdated: '14:21:41',
-          isUp: false,
-          isCommodity: true
         },
         {
           pair: 'INR/XAU',
@@ -1008,8 +1008,8 @@ const partyOptions = tradingParties.map((party) => ({
       askSpread: ask,
       buyRate: buyRate,
       sellRate: sellRate,
-      baseCurrencyId: baseCurrency?._id,
-      targetCurrencyId: targetCurrency?._id,
+      baseCurrencyId: baseCurrency?._id || '', // Ensure always present
+      targetCurrencyId: targetCurrency?._id || '',
       conversionRate: parseFloat(conversionRate) || null,
       baseCurrencyCode: base,
       targetCurrencyCode: quote,

@@ -12,6 +12,8 @@ export default function TradeModalFX({ selectedTrader }) {
   const [lastEdited, setLastEdited] = useState(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [successData, setSuccessData] = useState(null);
+  const [currencies, setCurrencies] = useState([]);
+  
   const [voucherCode, setVoucherCode] = useState('N/A');
   const [prefix, setPrefix] = useState('N/A');
   const LAKH = 100_000;
@@ -100,6 +102,19 @@ useEffect(() => {
   }
 }, [payAmount, receiveAmount, rateLakh, lastEdited, ratePerINR, ratePerAED, isBuy]);
 
+useEffect(() => {
+  const fetchCurrencies = async () => {
+    try {
+      const res = await axiosInstance.get('/currency-master');
+      if (res.data.success && res.data.data) {
+        setCurrencies(res.data.data);
+      }
+    } catch (err) {
+      console.error("Error fetching currencies:", err);
+    }
+  };
+  fetchCurrencies();
+}, []);
 
 useEffect(() => {
   if (!rateLakh || !lastEdited) return;
@@ -143,10 +158,16 @@ useEffect(() => {
       return;
     }
 
-    const base = isBuy ? 'INR' : 'AED';
-    const quote = isBuy ? 'AED' : 'INR';
+    // Determine base/target currencies
+    const base = isBuy ? 'AED' : 'INR';
+    const quote = isBuy ? 'INR' : 'AED';
     const effectiveRate = rate / LAKH;
 
+    // Find currency IDs
+    const baseCurrency = currencies.find(c => c.currencyCode === base);
+    const targetCurrency = currencies.find(c => c.currencyCode === quote);
+
+    // For demo, set bid/ask spread to 0, conversionRate to null
     const payload = {
       partyId: selectedTrader.value,
       type: isBuy ? 'BUY' : 'SELL',
@@ -154,7 +175,7 @@ useEffect(() => {
       currency: base,
       rate: effectiveRate,
       converted: recv,
-      orderId: `FX-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      orderId: `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       timestamp: new Date().toLocaleString('en-US', {
         month: 'short',
         day: 'numeric',
@@ -165,11 +186,16 @@ useEffect(() => {
         hour12: true,
       }),
       currentRate: effectiveRate,
-      buyRate: isBuy ? effectiveRate : null,
-      sellRate: !isBuy ? effectiveRate : null,
+      bidSpread: 0,
+      askSpread: 0,
+      buyRate: effectiveRate,
+      sellRate: effectiveRate,
+      baseCurrencyId: baseCurrency?._id,
+      targetCurrencyId: targetCurrency?._id,
+      conversionRate: null,
       baseCurrencyCode: base,
-    //   targetCurrencyCode: quote,
-      reference: `FX-${isBuy ? 'BUY' : 'SELL'}-${selectedTrader.trader.accountCode}`,
+      targetCurrencyCode: quote,
+      reference: voucherCode,
       isGoldTrade: false,
     };
 
@@ -199,7 +225,7 @@ useEffect(() => {
       console.error('Trade error:', err);
       toast.error('Error creating trade');
     }
-  }, [selectedTrader, payAmount, receiveAmount, rateLakh, isBuy]);
+  }, [selectedTrader, payAmount, receiveAmount, rateLakh, isBuy, currencies, voucherCode]);
 
   const payCurrency = isBuy ? 'INR' : 'AED';
   const receiveCurrency = isBuy ? 'AED' : 'INR';
@@ -232,7 +258,7 @@ useEffect(() => {
 
   return (
     <>
-      <div className="bg-white rounded-lg shadow-lg border border-gray-200 w-full max-w-md mx-auto">
+      <div className="bg-white rounded-lg shadow-lg border border-gray-200 w-full ">
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-5 pb-3">
           <h2 className="text-xl font-semibold">Create Trade</h2>
