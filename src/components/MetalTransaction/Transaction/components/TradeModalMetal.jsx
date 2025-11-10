@@ -1,27 +1,99 @@
 // Transaction/components/TradeModalMetal.jsx
 import { Plus, Edit2, Trash2, Save } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import TradeDetailsModal from './TradeDetailsModal';
+import axiosInstance from "../../../../api/axios";
 
-export default function TradeModalMetal({ type, selectedTrader }) {
+export default function TradeModalMetal({ type, selectedTrader,liveRate }) {
   const [selectedRatio, setSelectedRatio] = useState('');
   const [selectedMetalUnit, setSelectedMetalUnit] = useState('');
   const [showErrors, setShowErrors] = useState(false);
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [trades, setTrades] = useState([]);
   const [editingIndex, setEditingIndex] = useState(null);
-
+  const [metalRates, setMetalRates] = useState([]);
+  const [rate, setRate] = useState(null);
+    const [voucher, setVoucher] = useState(null);
+  
+  const [loadingRates, setLoadingRates] = useState(true);
   const action = type === 'purchase' ? 'Buy' : 'Sell';
   const isTraderSelected = !!selectedTrader;
 
-  const metalRates = {
-    'TT Bar': 3976.3,
-    'KG Bar': 127900.0,
-    'G Oz': 123.45,
+
+
+  useEffect(() => {
+    const fetchRates = async () => {
+      try {
+        const res = await axiosInstance.get('/metal-rates');
+        let data = res.data;
+        console.log('Raw API response:', data);
+
+        // CASE 1: If API returns { rates: [...] }
+        if (data.rates && Array.isArray(data.rates)) {
+          data = data.rates;
+        }
+        // CASE 2: If API returns { data: [...] }
+        else if (data.data && Array.isArray(data.data)) {
+          data = data.data;
+        }
+        // CASE 3: If API returns direct array → good
+        else if (!Array.isArray(data)) {
+          console.error('Expected array, got:', data);
+          data = []; // fallback
+        }
+
+        setMetalRates(data);
+      } catch (err) {
+        console.error('Failed to fetch rates:', err);
+        setMetalRates([]); // prevent crash
+      } finally {
+        setLoadingRates(false);
+      }
+    };
+
+    fetchRates();
+  }, []);
+
+  // ------------------- Fetch Voucher on Mount (PR001 for Purchase, SAL001 for Sales) -------------------
+useEffect(() => {
+  const fetchVoucher = async () => {
+    try {
+      const transactionType = type === 'purchase' ? 'metal-purchase' : 'metal-sale';
+      const { data } = await axiosInstance.post(`/voucher/generate/${transactionType}`, {
+        transactionType,
+      });
+      if (data.success) {
+        setVoucher(data.data);
+      } else {
+        toast.warn('Could not load voucher – using N/A');
+      }
+    } catch (err) {
+        console.error(err);
+        toast.error('Failed to load voucher');
+    }
   };
+  fetchVoucher();
+}, [type]);
 
-  const selectedRate = selectedMetalUnit ? metalRates[selectedMetalUnit] : '';
+  const HandleChange = (e) => {
+    console.log(e.target.value);
+    setRate(e.target.value);
+  }
+useEffect(() => {
+  if (!selectedMetalUnit || !metalRates.length || !liveRate) return;
 
+  const unitData = metalRates.find((r) => r.rateType === selectedMetalUnit);
+  if (unitData && unitData.convFactGms) {
+    const calculatedRate = (parseFloat(liveRate) / 31.1035) * unitData.convFactGms/1000;
+    setRate(calculatedRate.toFixed(2)); 
+  }
+}, [selectedMetalUnit, liveRate, metalRates]);
+
+
+
+  const selectedRate = selectedMetalUnit
+    ? metalRates.find((r) => r.unit === selectedMetalUnit)?.rate || ''
+    : '';
   const canOpenModal = isTraderSelected && selectedRatio && selectedMetalUnit;
 
   const handleAdd = () => {
@@ -31,24 +103,30 @@ export default function TradeModalMetal({ type, selectedTrader }) {
     setEditingIndex(null);
   };
 
-  const handleConfirmTrade = (tradeData) => {
-    // Extract only the display name (safe string)
-    const traderLabel = selectedTrader
-      ? (selectedTrader.label || selectedTrader.name || 'Unknown Trader')
-      : 'No Trader';
+ const handleConfirmTrade = (tradeData) => {
+  const traderLabel = selectedTrader
+    ? (selectedTrader.label || selectedTrader.name || 'Unknown Trader')
+    : 'No Trader';
 
-    const finalTrade = { ...tradeData, trader: traderLabel };
-
-    if (editingIndex !== null) {
-      const updated = [...trades];
-      updated[editingIndex] = finalTrade;
-      setTrades(updated);
-    } else {
-      setTrades((prev) => [...prev, finalTrade]);
-    }
-    setDetailsModalOpen(false);
-    setEditingIndex(null);
+  const finalTrade = {
+    ...tradeData,
+    trader: traderLabel,
+    // Explicitly include derived fields for display
+    meltingCharge: tradeData.meltingCharge || 0,
+    totalAmount: tradeData.totalAmount || 0,
   };
+
+  if (editingIndex !== null) {
+    const updated = [...trades];
+    updated[editingIndex] = finalTrade;
+    setTrades(updated);
+  } else {
+    setTrades((prev) => [...prev, finalTrade]);
+  }
+
+  setDetailsModalOpen(false);
+  setEditingIndex(null);
+};
 
   const handleEdit = (index) => {
     setEditingIndex(index);
@@ -80,38 +158,42 @@ export default function TradeModalMetal({ type, selectedTrader }) {
         </div>
 
         {/* TRADER INFO – SAFE STRING ONLY */}
-      <div className="px-5 pb-6">
-  <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-200 rounded-xl shadow-sm p-4 flex items-center justify-between">
-    <div>
-      <p className="text-sm text-indigo-600 font-medium tracking-wide uppercase">Selected Trader</p>
-      <h3 className="text-lg font-semibold text-gray-900 mt-1">{traderLabel}</h3>
+        <div className="px-5 pb-6">
+          <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-200 rounded-xl shadow-sm p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm text-indigo-600 font-medium tracking-wide uppercase">Selected Trader</p>
+              <h3 className="text-lg font-semibold text-gray-900 mt-1">{traderLabel}</h3>
+            </div>
+            <div className="text-right">
+              <span className="inline-block bg-indigo-100 text-indigo-700 text-xs font-medium px-3 py-1 rounded-full border border-indigo-200">
+                {type === 'purchase' ? 'Purchase Mode' : 'Sell Mode'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+
+        {/* VOUCHER INFO – RESTORED */}
+       <div className="px-5 pb-5">
+  <div className={`rounded-lg p-3 flex justify-evenly gap-6 text-sm ${
+    type === 'purchase' ? 'bg-green-100' : 'bg-orange-100'
+  }`}>
+    <div className='flex flex-col items-center'>
+      <span className="text-gray-600">Voucher Code</span>
+      <span className="font-medium">{voucher?.voucherNumber ?? 'N/A'}</span>
     </div>
-    <div className="text-right">
-      <span className="inline-block bg-indigo-100 text-indigo-700 text-xs font-medium px-3 py-1 rounded-full border border-indigo-200">
-        {type === 'purchase' ? 'Purchase Mode' : 'Sell Mode'}
+    <div className='flex flex-col items-center'>
+      <span className="text-gray-600">Prefix</span>
+      <span className="font-medium">{voucher?.prefix ?? 'N/A'}</span>
+    </div>
+    <div className='flex flex-col items-center'>
+      <span className="text-gray-600">Voucher Date</span>
+      <span className="font-medium">
+        {voucher?.date ? new Date(voucher.date).toLocaleDateString('en-GB') : 'N/A'}
       </span>
     </div>
   </div>
 </div>
-
-
-        {/* VOUCHER INFO – RESTORED */}
-        <div className="px-5 pb-5">
-          <div className="bg-gray-50 rounded-lg p-3 grid grid-cols-3 gap-2 text-sm">
-            <div>
-              <span className="text-gray-500">Voucher Code</span>
-              <div className="font-medium text-gray-800">N/A</div>
-            </div>
-            <div>
-              <span className="text-gray-500">Prefix</span>
-              <div className="font-medium text-gray-800">N/A</div>
-            </div>
-            <div>
-              <span className="text-gray-500">Voucher Date</span>
-              <div className="font-medium text-gray-800">07 Nov 2025</div>
-            </div>
-          </div>
-        </div>
 
         {/* RATIO TYPE */}
         <div className="px-5 pb-5">
@@ -120,18 +202,16 @@ export default function TradeModalMetal({ type, selectedTrader }) {
               <button
                 key={option}
                 onClick={() => setSelectedRatio(option)}
-                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-full text-sm font-medium transition-all ${
-                  selectedRatio === option
+                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-full text-sm font-medium transition-all ${selectedRatio === option
                     ? 'bg-white text-indigo-700 shadow-sm border border-indigo-300'
                     : 'text-gray-700 hover:bg-gray-100'
-                }`}
+                  }`}
               >
                 <span
-                  className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                    selectedRatio === option
+                  className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${selectedRatio === option
                       ? 'border-indigo-600 bg-indigo-600'
                       : 'border-gray-400'
-                  }`}
+                    }`}
                 >
                   {selectedRatio === option && (
                     <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -155,29 +235,42 @@ export default function TradeModalMetal({ type, selectedTrader }) {
         {/* METAL UNIT & RATE */}
         <div className="px-5 pb-5">
           <label className="block text-sm font-medium text-gray-700 mb-2">Metal Rate Details</label>
-          <div className="grid grid-cols-2 gap-3">
-            <select
-              value={selectedMetalUnit}
-              onChange={(e) => setSelectedMetalUnit(e.target.value)}
-              className={`px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
-                showErrors && !selectedMetalUnit
-                  ? 'border-red-400 focus:ring-red-300'
-                  : 'border-gray-300 focus:ring-indigo-500'
-              }`}
-            >
-              <option value="">Select Unit</option>
-              <option value="TT Bar">TT Bar</option>
-              <option value="KG Bar">KG Bar</option>
-              <option value="G Oz">G Oz</option>
-            </select>
+
+          {loadingRates ? (
+            <p className="text-sm text-gray-500">Loading rates...</p>
+          ) : metalRates.length === 0 ? (
+            <p className="text-sm text-red-500">No rates available</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <select
+                value={selectedMetalUnit}
+                onChange={(e) => setSelectedMetalUnit(e.target.value)}
+                className={`px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${showErrors && !selectedMetalUnit
+                    ? 'border-red-400 focus:ring-red-300'
+                    : 'border-gray-300 focus:ring-indigo-500'
+                  }`}
+              >
+                <option value="">Select Unit</option>
+                {metalRates.map((rate) => (
+                  <option key={rate.rateType} value={rate.rateType}>
+                    {rate.rateType}
+                  </option>
+                ))}
+              </select>
+
             <input
-              type="text"
-              value={selectedRate ? `$${selectedRate.toFixed(2)}` : ''}
-              readOnly
-              placeholder="Rate"
-              className="px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 font-medium text-sm"
-            />
-          </div>
+  type="number"
+  value={rate || ''}
+  onChange={HandleChange}
+  placeholder="Rate"
+  className="px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 font-medium text-sm"
+  readOnly 
+/>
+
+
+            </div>
+          )}
+
           {showErrors && !selectedMetalUnit && (
             <p className="text-xs text-red-500 mt-1">Please select a metal unit.</p>
           )}
@@ -189,11 +282,10 @@ export default function TradeModalMetal({ type, selectedTrader }) {
             onClick={handleAdd}
             type="button"
             disabled={!canOpenModal}
-            className={`flex items-center justify-center w-full py-2.5 rounded-md font-medium transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-              canOpenModal
+            className={`flex items-center justify-center w-full py-2.5 rounded-md font-medium transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 ${canOpenModal
                 ? 'bg-green-600 text-white hover:bg-green-700 focus:ring-green-500'
                 : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            }`}
+              }`}
           >
             <span>{canOpenModal ? 'Add Trade' : 'Select Trader & Options First'}</span>
             <Plus className="ml-2 w-4 h-4" />
@@ -212,51 +304,61 @@ export default function TradeModalMetal({ type, selectedTrader }) {
               <h3 className="text-lg font-semibold text-indigo-800 mb-4">Trade Summary</h3>
 
               <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left">
-                  <thead className="text-xs text-gray-700 uppercase bg-gray-100">
-                    <tr>
-                      <th className="px-3 py-2">Trader</th>
-                      <th className="px-3 py-2">Stock</th>
-                      <th className="px-3 py-2">Gross Wt</th>
-                      <th className="px-3 py-2">Pure Wt</th>
-                      <th className="px-3 py-2">Oz</th>
-                      <th className="px-3 py-2">Purity</th>
-                      <th className="px-3 py-2">Amount</th>
-                      <th className="px-3 py-2 text-center">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {trades.map((t, i) => (
-                      <tr key={i} className="hover:bg-gray-50">
-                        <td className="px-3 py-2 text-indigo-700 font-medium">{t.trader}</td>
-                        <td className="px-3 py-2 font-medium">{t.stockCode}</td>
-                        <td className="px-3 py-2">{t.grossWeight} g</td>
-                        <td className="px-3 py-2">{t.pureWeight} g</td>
-                        <td className="px-3 py-2">{t.weightInOz}</td>
-                        <td className="px-3 py-2">{(t.purity * 100).toFixed(2)}%</td>
-                        <td className="px-3 py-2 font-semibold text-green-700">
-                          ${t.metalAmount}
-                        </td>
-                        <td className="px-3 py-2 text-center">
-                          <button
-                            onClick={() => handleEdit(i)}
-                            className="text-blue-600 hover:text-blue-800 mr-2"
-                            title="Edit"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(i)}
-                            className="text-red-600 hover:text-red-800"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <table className="w-full text-sm text-left">
+  <thead className="text-xs text-gray-700 uppercase bg-gray-100">
+    <tr>
+      <th className="px-3 py-2">Trader</th>
+      <th className="px-3 py-2">Stock</th>
+      <th className="px-3 py-2">Gross Wt</th>
+      <th className="px-3 py-2">Pure Wt</th>
+      <th className="px-3 py-2">Oz</th>
+      <th className="px-3 py-2">Purity</th>
+      <th className="px-3 py-2">Rate/g</th>
+      <th className="px-3 py-2">Metal Amt</th>
+      <th className="px-3 py-2">Melt Chg</th>
+      <th className="px-3 py-2">Total Amt</th>
+      <th className="px-3 py-2 text-center">Actions</th>
+    </tr>
+  </thead>
+  <tbody className="bg-white divide-y divide-gray-200">
+    {trades.map((t, i) => (
+      <tr key={i} className="hover:bg-gray-50">
+        <td className="px-3 py-2 text-indigo-700 font-medium">{t.trader}</td>
+        <td className="px-3 py-2 font-medium">{t.stockCode}</td>
+        <td className="px-3 py-2">{t.grossWeight.toFixed(2)} </td>
+        <td className="px-3 py-2">{t.pureWeight.toFixed(2)} </td>
+        <td className="px-3 py-2">{t.weightInOz.toFixed(2)}</td>
+        <td className="px-3 py-2">{(t.purity )}</td>
+        <td className="px-3 py-2">{t.ratePerGram}</td>
+        <td className="px-3 py-2 font-semibold text-green-700">
+          ${parseFloat(t.metalAmount).toFixed(2)}
+        </td>
+        <td className="px-3 py-2 text-orange-600">
+          ${parseFloat(t.meltingCharge || 0).toFixed(2)}
+        </td>
+        <td className="px-3 py-2 font-bold text-blue-700">
+          ${parseFloat(t.totalAmount).toFixed(2)}
+        </td>
+        <td className="px-3 py-2 text-center">
+          <button
+            onClick={() => handleEdit(i)}
+            className="text-blue-600 hover:text-blue-800 mr-2"
+            title="Edit"
+          >
+            <Edit2 className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => handleDelete(i)}
+            className="text-red-600 hover:text-red-800"
+            title="Delete"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </td>
+      </tr>
+    ))}
+  </tbody>
+</table>
               </div>
 
               {/* SAVE ALL */}
@@ -280,6 +382,7 @@ export default function TradeModalMetal({ type, selectedTrader }) {
           action={action}
           ratio={selectedRatio}
           unit={selectedMetalUnit}
+          manualRate={rate}
           rate={selectedRate}
           tradeData={editingIndex !== null ? trades[editingIndex] : null}
           onClose={() => {

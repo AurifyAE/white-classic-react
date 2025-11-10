@@ -31,6 +31,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useLocation, useNavigate } from "react-router-dom";
 
+
 const useDebouncedToast = () => {
   const toastTimeoutRef = useRef(null);
 
