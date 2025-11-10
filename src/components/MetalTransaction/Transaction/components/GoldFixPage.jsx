@@ -267,16 +267,20 @@ export default function TradeModalGold({ selectedTrader }) {
 
         {/* Voucher Details */}
         <div className={`rounded-lg p-3 flex justify-evenly  gap-6 text-sm ${theme.voucherBg}`}>
-          <div className='flex flex-col items-center'>
-            <span className="text-gray-600">Voucher Code</span>
-            {/* <br /> */}
-            <span className="font-medium">{voucher?.voucherNumber ?? 'N/A'}</span>
-          </div>
-          <div className='flex flex-col items-center'>
-            <span className="text-gray-600">Prefix</span>
-            {/* <br /> */}
-            <span className="font-medium">{voucher?.prefix ?? 'N/A'}</span>
-          </div>
+        <div className='flex flex-col items-center'>
+      <span className="text-gray-600">Voucher Code</span>
+      <span className="font-medium">{voucher?.voucherNumber ?? 'N/A'}</span>
+    </div>
+    <div className='flex flex-col items-center'>
+      <span className="text-gray-600">Prefix</span>
+      <span className="font-medium">{voucher?.prefix ?? 'N/A'}</span>
+    </div>
+    <div className='flex flex-col items-center'>
+      <span className="text-gray-600">Voucher Date</span>
+      <span className="font-medium">
+        {voucher?.date ? new Date(voucher.date).toLocaleDateString('en-GB') : 'N/A'}
+      </span>
+    </div>
           {/* <div>
             <span className="text-gray-600">Voucher Type</span>
             <br />

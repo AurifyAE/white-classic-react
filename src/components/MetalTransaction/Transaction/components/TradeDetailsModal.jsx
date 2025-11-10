@@ -1,13 +1,7 @@
 // Transaction/components/TradeDetailsModal.jsx
 import React, { useState, useEffect, useMemo } from "react";
 import { X, Plus, TrendingUp, ChevronDown } from "lucide-react";
-
-const STOCK_DATA = [
-  { code: "TTBAR", description: "TT Bar", division: "G", purity: 0.999 },
-  { code: "KGBAR", description: "KG Bar", division: "G", purity: 0.995 },
-  { code: "GOZ", description: "Gold Ounce", division: "G", purity: 0.9999 },
-  { code: "SGOZ", description: "Silver Ounce", division: "S", purity: 0.999 },
-];
+import axiosInstance from "../../../../api/axios";
 
 const OZ_PER_TROY_OZ = 31.1035;
 
@@ -26,16 +20,33 @@ export default function TradeDetailsModal({
   const [grossWeight, setGrossWeight] = useState("");
   const [meltingCharge, setMeltingCharge] = useState("");
   const [errors, setErrors] = useState({});
+  const [metalStocks, setMetalStocks] = useState([]);
+  const [loadingMetalStocks, setLoadingMetalStocks] = useState(false);
+  const [metalStockError, setMetalStockError] = useState(null);
+
+  useEffect(() => {
+    setLoadingMetalStocks(true);
+    axiosInstance.get('/metal-stocks')
+      .then((res) => {
+        const data = res.data && Array.isArray(res.data.data) ? res.data.data : [];
+        setMetalStocks(data);
+      })
+      .catch((err) => {
+        setMetalStockError('Failed to load metal stocks');
+        setMetalStocks([]);
+      })
+      .finally(() => setLoadingMetalStocks(false));
+  }, []);
 
   // === Initialize from tradeData (EDIT MODE) ===
   useEffect(() => {
-    if (tradeData) {
-      const stock = STOCK_DATA.find((s) => s.code === tradeData.stockCode);
+    if (tradeData && metalStocks.length) {
+      const stock = metalStocks.find((s) => s.code === tradeData.stockCode);
       setSelectedStock(stock);
       setGrossWeight(tradeData.grossWeight.toString());
       setMeltingCharge(tradeData.meltingCharge?.toString() || "");
     }
-  }, [tradeData]);
+  }, [tradeData, metalStocks]);
 
   // === Sync initialManualRate from parent (e.g., auto-filled) ===
   useEffect(() => {
@@ -49,7 +60,7 @@ export default function TradeDetailsModal({
   // === Core Calculations ===
   const pureWeight = useMemo(() => {
     if (!selectedStock || !grossWeight) return "";
-    return (grossWeight * selectedStock.purity).toFixed(6);
+    return (grossWeight * (selectedStock.karat?.standardPurity || 1)).toFixed(6);
   }, [grossWeight, selectedStock]);
 
   const weightInOz = useMemo(() => {
@@ -58,7 +69,7 @@ export default function TradeDetailsModal({
   }, [pureWeight]);
 
   const ratePerGram = useMemo(() => {
-    return initialManualRate ? (initialManualRate*1000 / 1000).toFixed(2) : "0.00";
+    return initialManualRate ? (initialManualRate * 1000 / 1000).toFixed(2) : "0.00";
   }, [initialManualRate]);
 
   const metalAmountCalc = useMemo(() => {
@@ -73,9 +84,10 @@ export default function TradeDetailsModal({
   }, [metalAmountCalc, meltingCharge]);
 
   // === Stock Filtering ===
-  const filteredStocks = STOCK_DATA.filter(
+  const filteredStocks = metalStocks.filter(
     (s) =>
       s.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      s._id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       s.description.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -93,15 +105,16 @@ export default function TradeDetailsModal({
   // === Submit Handler ===
   const handleSubmit = () => {
     if (!validate()) return;
-
+    console.log("Submitting Trade Details:", selectedStock)
     onConfirm({
       action,
       ratio,
       unit,
       rate: Number(initialManualRate),
       stockCode: selectedStock.code,
+      stockId: selectedStock._id,
       description: selectedStock.description,
-      purity: selectedStock.purity,
+      purity: selectedStock.karat?.standardPurity,
       grossWeight: Number(grossWeight),
       pureWeight: Number(pureWeight),
       weightInOz: Number(weightInOz),
@@ -143,223 +156,220 @@ export default function TradeDetailsModal({
         {/* Body */}
         <div className="p-6 space-y-6">
           {/* Stock Selection */}
-       <section>
-  <label className="block text-sm font-medium text-gray-700 mb-2">
-    Select Stock <span className="text-red-500">*</span>
-  </label>
+          <section>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Select Stock <span className="text-red-500">*</span>
+            </label>
 
-  <div className="flex flex-wrap gap-4">
-    {/* Stock Search / Code Input */}
-    <div className="flex-1">
-      <label className="text-xs text-gray-600 font-medium mb-1 block">Stock Code</label>
-      <div className="relative">
-        <input
-          type="text"
-          value={selectedStock?.code || searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          onFocus={() => setShowDropdown(true)}
-          placeholder="Search stock..."
-          className={`w-full px-4 py-3 pr-10 border rounded-lg text-sm focus:outline-none transition-all ${
-            errors.stock
-              ? "border-red-400 focus:border-red-500 bg-red-50"
-              : "border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white"
-          }`}
-        />
-        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-          <ChevronDown className="w-4 h-4 text-gray-400" />
-        </div>
+            <div className="flex flex-wrap gap-4">
+              {/* Stock Search / Code Input */}
+              <div className="flex-1">
+                <label className="text-xs text-gray-600 font-medium mb-1 block">Stock Code</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={selectedStock?.code || searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onFocus={() => setShowDropdown(true)}
+                    placeholder="Search stock..."
+                    className={`w-full px-4 py-3 pr-10 border rounded-lg text-sm focus:outline-none transition-all ${
+                      errors.stock
+                        ? "border-red-400 focus:border-red-500 bg-red-50"
+                        : "border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white"
+                    }`}
+                  />
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                  </div>
 
-        {/* Dropdown */}
-        {showDropdown && (
-          <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg">
-            {filteredStocks.length ? (
-              filteredStocks.map((stock) => (
-                <button
-                  key={stock.code}
-                  onClick={() => {
-                    setSelectedStock(stock);
-                    setShowDropdown(false);
-                    setSearchTerm("");
-                  }}
-                  className="w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0"
-                >
-                  <div className="font-medium text-gray-800">{stock.code}</div>
-                  <div className="text-sm text-gray-500">{stock.description}</div>
-                </button>
-              ))
-            ) : (
-              <p className="text-center text-gray-500 py-4 text-sm">
-                No stocks found
-              </p>
+                  {/* Dropdown */}
+                  {showDropdown && (
+                    <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg">
+                      {loadingMetalStocks ? (
+                        <p className="text-center text-gray-500 py-4 text-sm">Loading stocks...</p>
+                      ) : metalStockError ? (
+                        <p className="text-center text-red-500 py-4 text-sm">{metalStockError}</p>
+                      ) : filteredStocks.length ? (
+                        filteredStocks.map((stock) => (
+                          <button
+                            key={stock.code}
+                            onClick={() => {
+                              setSelectedStock(stock);
+                              setShowDropdown(false);
+                              setSearchTerm("");
+                            }}
+                            className="w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0"
+                          >
+                            <div className="font-medium text-gray-800">{stock.code}</div>
+                            {/* <div className="text-sm text-gray-500">{stock.description}</div>
+                            <div className="text-xs text-gray-400">Karat: {stock.karat?.karatCode} (Purity: {stock.karat?.standardPurity})</div> */}
+                          </button>
+                        ))
+                      ) : (
+                        <p className="text-center text-gray-500 py-4 text-sm">
+                          No stocks found
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Show Description and Purity only after selecting a stock */}
+              {selectedStock && (
+                <>
+                  <div className="flex-1">
+                    <label className="text-xs text-gray-600 font-medium mb-1 block">Description</label>
+                    <input
+                      type="text"
+                      readOnly
+                      value={selectedStock.description || ""}
+                      placeholder="Description"
+                      className="w-full px-4 py-3 border rounded-lg text-sm text-gray-900 bg-white border-gray-300 focus:outline-none cursor-default"
+                    />
+                  </div>
+
+                  <div className="flex-1">
+                    <label className="text-xs text-gray-600 font-medium mb-1 block">Purity</label>
+                    <input
+                      type="text"
+                      readOnly
+                      value={selectedStock.karat?.standardPurity ?? ""}
+                      placeholder="Purity"
+                      className="w-full px-4 py-3 border rounded-lg text-sm text-gray-900 bg-white border-gray-300 focus:outline-none cursor-default"
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+
+            {errors.stock && (
+              <p className="text-sm text-red-600 mt-2">{errors.stock}</p>
             )}
-          </div>
-        )}
-      </div>
-    </div>
-
-    {/* Show Description and Purity only after selecting a stock */}
-    {selectedStock && (
-      <>
-        <div className="flex-1">
-          <label className="text-xs text-gray-600 font-medium mb-1 block">Description</label>
-          <input
-            type="text"
-            readOnly
-            value={selectedStock.description || ""}
-            placeholder="Description"
-            className="w-full px-4 py-3 border rounded-lg text-sm text-gray-900 bg-white border-gray-300 focus:outline-none cursor-default"
-          />
-        </div>
-
-        <div className="flex-1">
-          <label className="text-xs text-gray-600 font-medium mb-1 block">Purity</label>
-          <input
-            type="text"
-            readOnly
-            value={selectedStock.purity ?? ""}
-            placeholder="Purity"
-            className="w-full px-4 py-3 border rounded-lg text-sm text-gray-900 bg-white border-gray-300 focus:outline-none cursor-default"
-          />
-        </div>
-      </>
-    )}
-  </div>
-
-  {errors.stock && (
-    <p className="text-sm text-red-600 mt-2">{errors.stock}</p>
-  )}
-</section>
-
-
-
-       
+          </section>
 
           {/* Gross Weight */}
-  <section>
+          <section>
+            <div className="flex flex-wrap gap-4">
+              {/* Gross Weight Input */}
+              <div className="flex-1">
+                <label className="text-xs text-gray-600 font-medium mb-1 block">
+                  Gross Weight (g)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.001"
+                  value={grossWeight}
+                  onChange={(e) => setGrossWeight(e.target.value)}
+                  placeholder="Enter Gross Weight"
+                  className={`w-full px-4 py-3 border rounded-lg text-sm focus:outline-none transition-all ${
+                    errors.grossWeight
+                      ? "border-red-400 focus:border-red-500 bg-red-50"
+                      : "border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white"
+                  }`}
+                />
+              </div>
 
-  <div className="flex flex-wrap gap-4">
-    {/* Gross Weight Input */}
-    <div className="flex-1">
-      <label className="text-xs text-gray-600 font-medium mb-1 block">
-        Gross Weight (g)
-      </label>
-      <input
-        type="number"
-        min="0"
-        step="0.001"
-        value={grossWeight}
-        onChange={(e) => setGrossWeight(e.target.value)}
-        placeholder="Enter Gross Weight"
-        className={`w-full px-4 py-3 border rounded-lg text-sm focus:outline-none transition-all ${
-          errors.grossWeight
-            ? "border-red-400 focus:border-red-500 bg-red-50"
-            : "border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white"
-        }`}
-      />
-    </div>
+              {/* Show these only after gross weight entered */}
+              {grossWeight && selectedStock && (
+                <>
+                  <div className="flex-1">
+                    <label className="text-xs text-gray-600 font-medium mb-1 block">
+                      Pure Weight (g)
+                    </label>
+                    <input
+                      type="text"
+                      readOnly
+                      value={pureWeight ? Number(pureWeight).toFixed(2) : "0.00"}
+                      placeholder="Pure Weight"
+                      className="w-full px-4 py-3 border rounded-lg text-sm text-gray-900 bg-white border-gray-300 focus:outline-none cursor-default"
+                    />
+                  </div>
 
-    {/* Show these only after gross weight entered */}
-    {grossWeight && selectedStock && (
-      <>
-        <div className="flex-1">
-          <label className="text-xs text-gray-600 font-medium mb-1 block">
-            Pure Weight (g)
-          </label>
-          <input
-            type="text"
-            readOnly
-            value={pureWeight ? Number(pureWeight).toFixed(2) : "0.00"}
-            placeholder="Pure Weight"
-            className="w-full px-4 py-3 border rounded-lg text-sm text-gray-900 bg-white border-gray-300 focus:outline-none cursor-default"
-          />
-        </div>
+                  <div className="flex-1">
+                    <label className="text-xs text-gray-600 font-medium mb-1 block">
+                      Weight (oz)
+                    </label>
+                    <input
+                      type="text"
+                      readOnly
+                      value={weightInOz ? Number(weightInOz).toFixed(2) : "0.00"}
+                      placeholder="Weight in Oz"
+                      className="w-full px-4 py-3 border rounded-lg text-sm text-gray-900 bg-white border-gray-300 focus:outline-none cursor-default"
+                    />
+                  </div>
+                </>
+              )}
+            </div>
 
-        <div className="flex-1">
-          <label className="text-xs text-gray-600 font-medium mb-1 block">
-            Weight (oz)
-          </label>
-          <input
-            type="text"
-            readOnly
-            value={weightInOz ? Number(weightInOz).toFixed(2) : "0.00"}
-            placeholder="Weight in Oz"
-            className="w-full px-4 py-3 border rounded-lg text-sm text-gray-900 bg-white border-gray-300 focus:outline-none cursor-default"
-          />
-        </div>
-      </>
-    )}
-  </div>
-
-  {errors.grossWeight && (
-    <p className="text-sm text-red-600 mt-2">{errors.grossWeight}</p>
-  )}
-</section>
-
-
+            {errors.grossWeight && (
+              <p className="text-sm text-red-600 mt-2">{errors.grossWeight}</p>
+            )}
+          </section>
 
           {/* === METAL RATE & AMOUNT SECTION === */}
           <section>
             <h3 className="text-sm font-medium text-gray-700 mb-3">Metal Rate & Amount</h3>
-<div className="flex w-full ">
-            {/* Rate (per 1000g) */}
-            <div className="mb-4 w-[25%] mr-4">
-              <label className="text-xs text-gray-500 mb-1 block">
-                Rate (per 1000g) <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={initialManualRate}
-                readOnly // ← Now controlled by parent
-                placeholder="e.g. 65000"
-            className="w-full px-4 py-3 border rounded-lg text-sm text-gray-900 bg-white border-gray-300 focus:outline-none cursor-default"
-              />
-            </div>
+            <div className="flex w-full ">
+              {/* Rate (per 1000g) */}
+              <div className="mb-4 w-[25%] mr-4">
+                <label className="text-xs text-gray-500 mb-1 block">
+                  Rate (per 1000g) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={initialManualRate}
+                  readOnly // ← Now controlled by parent
+                  placeholder="e.g. 65000"
+                  className="w-full px-4 py-3 border rounded-lg text-sm text-gray-900 bg-white border-gray-300 focus:outline-none cursor-default"
+                />
+              </div>
 
-            {/* Rate per Gram & Pure Weight */}
-            <div className="grid  gap-4 w-[25%] mr-4">
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Rate per Gram</p>
-                <div className="w-full px-4 py-3 border rounded-lg text-sm text-gray-900 bg-white border-gray-300 focus:outline-none cursor-default">
-                  {ratePerGram}
+              {/* Rate per Gram & Pure Weight */}
+              <div className="grid  gap-4 w-[25%] mr-4">
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Rate per Gram</p>
+                  <div className="w-full px-4 py-3 border rounded-lg text-sm text-gray-900 bg-white border-gray-300 focus:outline-none cursor-default">
+                    {ratePerGram}
+                  </div>
                 </div>
               </div>
-           
-            </div>
-            {/* Metal Amount (Auto) */}
-            <div className="mb-4 w-[50%] ">
-              <label className="text-xs text-gray-500 mb-1 block">Metal Amount</label>
-              <div
-            className="w-full px-4 py-3 border rounded-lg text-sm text-gray-900 bg-white border-gray-300 focus:outline-none cursor-default">
-                {metalAmountCalc}
+              {/* Metal Amount (Auto) */}
+              <div className="mb-4 w-[50%] ">
+                <label className="text-xs text-gray-500 mb-1 block">Metal Amount</label>
+                <div
+                  className="w-full px-4 py-3 border rounded-lg text-sm text-gray-900 bg-white border-gray-300 focus:outline-none cursor-default">
+                  {metalAmountCalc}
+                </div>
               </div>
             </div>
-</div>
 
             {/* Melting Charge */}
             <div className="grid grid-cols-2 gap-3">
-            <div className="mb-4 ">
-              <label className="text-xs text-gray-500 mb-1 block">Melting Charge</label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={meltingCharge}
-                onChange={(e) => setMeltingCharge(e.target.value)}
-                placeholder="0.00"
-            className="w-full px-4 py-3 border rounded-lg text-sm text-gray-900 bg-white border-gray-300 focus:outline-none cursor-default"
-              />
-            </div>
-            {/* Total Amount (Auto) */}
-            <div>
-              <label className="text-xs text-black mb-1 font-bold block">Total Amount</label>
-              <div
-            className="w-full px-4 py-3 border rounded-lg text-sm text-gray-900 bg-white border-gray-300 focus:outline-none cursor-default"
-               >
-                ${totalAmount}
+              <div className="mb-4 ">
+                <label className="text-xs text-gray-500 mb-1 block">Melting Charge</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={meltingCharge}
+                  onChange={(e) => setMeltingCharge(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full px-4 py-3 border rounded-lg text-sm text-gray-900 bg-white border-gray-300 focus:outline-none cursor-default"
+                />
               </div>
-            </div>
+              {/* Total Amount (Auto) */}
+              <div>
+                <label className="text-xs text-black mb-1 font-bold block">Total Amount</label>
+                <div
+                  className="w-full px-4 py-3 border rounded-lg text-sm text-gray-900 bg-white border-gray-300 focus:outline-none cursor-default"
+                >
+                  ${totalAmount}
+                </div>
+              </div>
             </div>
           </section>
         </div>

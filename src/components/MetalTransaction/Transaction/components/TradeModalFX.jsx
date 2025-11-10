@@ -14,8 +14,8 @@ export default function TradeModalFX({ selectedTrader }) {
   const [successData, setSuccessData] = useState(null);
   const [currencies, setCurrencies] = useState([]);
   
-  const [voucherCode, setVoucherCode] = useState('N/A');
-  const [prefix, setPrefix] = useState('N/A');
+  const [voucher, setVoucher] = useState(null);
+  // const [prefix, setPrefix] = useState('N/A');
   const LAKH = 100_000;
 
   const formatNumber = (value) => {
@@ -51,16 +51,16 @@ const fetchVoucherCode = useCallback(async () => {
 
     const data = response.data?.data;
     if (response.data?.success && data) {
-      setVoucherCode(data.voucherNumber || 'N/A');
-      setPrefix(data.prefix || 'N/A');
+      setVoucher(data );
+      // setPrefix(data.prefix || 'N/A');
     } else {
-      setVoucherCode('N/A');
-      setPrefix('N/A');
+      setVoucher(null);
+      // setPrefix('N/A');
     }
   } catch (error) {
     console.error('Voucher generation failed:', error);
-    setVoucherCode('N/A');
-    setPrefix('N/A');
+    setVoucher(null);
+    // setPrefix('N/A');
   }
 }, [isBuy]);
 
@@ -195,7 +195,7 @@ useEffect(() => {
       conversionRate: null,
       baseCurrencyCode: base,
       targetCurrencyCode: quote,
-      reference: voucherCode,
+      reference: voucher.voucherNumber,
       isGoldTrade: false,
     };
 
@@ -225,7 +225,7 @@ useEffect(() => {
       console.error('Trade error:', err);
       toast.error('Error creating trade');
     }
-  }, [selectedTrader, payAmount, receiveAmount, rateLakh, isBuy, currencies, voucherCode]);
+  }, [selectedTrader, payAmount, receiveAmount, rateLakh, isBuy, currencies, voucher]);
 
   const payCurrency = isBuy ? 'INR' : 'AED';
   const receiveCurrency = isBuy ? 'AED' : 'INR';
@@ -288,23 +288,20 @@ useEffect(() => {
         {/* Voucher Details */}
         <div className="px-5 pb-4">
         <div className={`rounded-lg p-3 flex justify-between text-sm ${theme.voucherBg}`}>
-  <div>
-    <span className="text-gray-600">Voucher Code</span>
-    <br />
-    <span className="font-medium">{voucherCode}</span>
-  </div>
-  <div>
-    <span className="text-gray-600">Prefix</span>
-    <br />
-    <span className="font-medium">{prefix}</span>
-  </div>
-  <div>
-    <span className="text-gray-600">Voucher Type</span>
-    <br />
-    <span className={`font-bold ${isBuy ? 'text-blue-500' : 'text-red-500'}`}>
-      {voucherType}
-    </span>
-  </div>
+ <div className='flex flex-col items-center'>
+      <span className="text-gray-600">Voucher Code</span>
+      <span className="font-medium">{voucher?.voucherNumber ? voucher.voucherNumber : 'N/A'}</span>
+    </div>
+    <div className='flex flex-col items-center'>
+      <span className="text-gray-600">Prefix</span>
+      <span className="font-medium">{voucher?.prefix ? voucher?.prefix : 'N/A'}</span>
+    </div>
+    <div className='flex flex-col items-center'>
+      <span className="text-gray-600">Voucher Date</span>
+      <span className="font-medium">
+        {voucher?.date ? new Date(voucher.date).toLocaleDateString('en-GB') : 'N/A'}
+      </span>
+    </div>
 </div>
 
 
