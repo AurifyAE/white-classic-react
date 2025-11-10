@@ -177,7 +177,7 @@ export default function TradeModalGold({ selectedTrader }) {
 
     try {
       // Use unified endpoint
-      const { data } = await axiosInstance.post('/currency-trading/trades', payload);
+      const { data } = await axiosInstance.post('/gold-trade/trades', payload);
       if (data.success) {
         toast.success('Gold trade created');
         setSuccessData({
