@@ -1,4 +1,3 @@
-// Transaction/components/TradeModalMetal.jsx
 import { Plus, Edit2, Trash2, Save } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import TradeDetailsModal from './TradeDetailsModal';
@@ -113,34 +112,44 @@ export default function TradeModalMetal({ type, selectedTrader, liveRate, onClos
     setEditingIndex(null);
   };
 
-  const handleConfirmTrade = (tradeData) => {
-    const traderLabel = selectedTrader
-      ? (selectedTrader.label || selectedTrader.name || 'Unknown Trader')
-      : 'No Trader';
+ // In TradeModalMetal.jsx - Update the handleConfirmTrade function
+const handleConfirmTrade = (tradeData) => {
+  const traderLabel = selectedTrader
+    ? (selectedTrader.label || selectedTrader.name || 'Unknown Trader')
+    : 'No Trader';
 
-    const finalTrade = {
-      ...tradeData,
-      trader: traderLabel,
-      meltingCharge: tradeData.meltingCharge || 0,
-      totalAmount: tradeData.totalAmount || 0,
-    };
-
-    if (editingIndex !== null) {
-      const updated = [...trades];
-      updated[editingIndex] = finalTrade;
-      setTrades(updated);
-    } else {
-      setTrades((prev) => [...prev, finalTrade]);
-    }
-
-    setDetailsModalOpen(false);
-    setEditingIndex(null);
+  const finalTrade = {
+    ...tradeData,
+    trader: traderLabel,
+    meltingCharge: tradeData.meltingCharge || 0,
+    totalAmount: tradeData.totalAmount || 0,
   };
+
+  if (editingIndex !== null) {
+    const updated = [...trades];
+    updated[editingIndex] = finalTrade;
+    setTrades(updated);
+  } else {
+    setTrades((prev) => [...prev, finalTrade]);
+  }
+
+  // Don't close the modal here - let the modal handle its own state
+  // setDetailsModalOpen(false); - Remove this line
+  setEditingIndex(null);
+};
 
   const handleEdit = (index) => {
     setEditingIndex(index);
     setDetailsModalOpen(true);
   };
+
+const formatNumber = (value, decimals = 2) => {
+  if (value === null || value === undefined || value === '') return '';
+  const num = parseFloat(value);
+  if (isNaN(num)) return value;
+  return num.toLocaleString('en-IN', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+};
+
 
   const handleDelete = (index) => {
     setTrades((prev) => prev.filter((_, i) => i !== index));
@@ -455,44 +464,47 @@ const handleSaveAll = async () => {
                       <th className="px-3 py-2 text-center">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {trades.map((t, i) => (
-                      <tr key={i} className="hover:bg-gray-50">
-                        <td className="px-3 py-2 text-indigo-700 font-medium">{t.trader}</td>
-                        <td className="px-3 py-2 font-medium">{t.stockCode}</td>
-                        <td className="px-3 py-2">{t.grossWeight.toFixed(2)}</td>
-                        <td className="px-3 py-2">{t.pureWeight.toFixed(2)}</td>
-                        <td className="px-3 py-2">{t.weightInOz.toFixed(2)}</td>
-                        <td className="px-3 py-2">{t.purity}</td>
-                        <td className="px-3 py-2">{t.ratePerGram}</td>
-                        <td className="px-3 py-2 font-semibold text-green-700">
-                          ${parseFloat(t.metalAmount).toFixed(2)}
-                        </td>
-                        <td className="px-3 py-2 text-orange-600">
-                          ${parseFloat(t.meltingCharge || 0).toFixed(2)}
-                        </td>
-                        <td className="px-3 py-2 font-bold text-blue-700">
-                          ${parseFloat(t.totalAmount).toFixed(2)}
-                        </td>
-                        <td className="px-3 py-2 text-center">
-                          <button
-                            onClick={() => handleEdit(i)}
-                            className="text-blue-600 hover:text-blue-800 mr-2"
-                            title="Edit"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(i)}
-                            className="text-red-600 hover:text-red-800"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
+                <tbody className="bg-white divide-y divide-gray-200">
+  {trades.map((t, i) => (
+    <tr key={i} className="hover:bg-gray-50">
+      <td className="px-3 py-2 text-indigo-700 font-medium">{t.trader}</td>
+      <td className="px-3 py-2 font-medium">{t.stockCode}</td>
+      <td className="px-3 py-2">{formatNumber(t.grossWeight, 3)}</td>
+      <td className="px-3 py-2">{formatNumber(t.pureWeight, 3)}</td>
+      <td className="px-3 py-2">{formatNumber(t.weightInOz, 3)}</td>
+      <td className="px-3 py-2">{t.purity}</td>
+      <td className="px-3 py-2">{formatNumber(t.ratePerGram, 2)}</td>
+
+      <td className="px-3 py-2 font-semibold text-green-700">
+        ${formatNumber(t.metalAmount, 2)}
+      </td>
+      <td className="px-3 py-2 text-orange-600">
+        ${formatNumber(t.meltingCharge || 0, 2)}
+      </td>
+      <td className="px-3 py-2 font-bold text-blue-700">
+        ${formatNumber(t.totalAmount, 2)}
+      </td>
+
+      <td className="px-3 py-2 text-center">
+        <button
+          onClick={() => handleEdit(i)}
+          className="text-blue-600 hover:text-blue-800 mr-2"
+          title="Edit"
+        >
+          <Edit2 className="w-4 h-4" />
+        </button>
+        <button
+          onClick={() => handleDelete(i)}
+          className="text-red-600 hover:text-red-800"
+          title="Delete"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+      </td>
+    </tr>
+  ))}
+</tbody>
+
                 </table>
               </div>
 
