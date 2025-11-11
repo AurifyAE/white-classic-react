@@ -5,6 +5,17 @@ import axiosInstance from "../../../../api/axios";
 
 const OZ_PER_TROY_OZ = 31.1035;
 
+// Format number with commas
+const formatNumber = (value) => {
+  if (!value) return "";
+  return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+};
+
+// Remove commas and convert to number
+const parseFormattedNumber = (formattedValue) => {
+  return formattedValue.replace(/,/g, "");
+};
+
 export default function TradeDetailsModal({
   action = "BUY",
   ratio = "95:05",
@@ -43,8 +54,8 @@ export default function TradeDetailsModal({
     if (tradeData && metalStocks.length) {
       const stock = metalStocks.find((s) => s.code === tradeData.stockCode);
       setSelectedStock(stock);
-      setGrossWeight(tradeData.grossWeight.toString());
-      setMeltingCharge(tradeData.meltingCharge?.toString() || "");
+      setGrossWeight(formatNumber(tradeData.grossWeight.toString()));
+      setMeltingCharge(formatNumber(tradeData.meltingCharge?.toString() || ""));
     }
   }, [tradeData, metalStocks]);
 
@@ -60,12 +71,13 @@ export default function TradeDetailsModal({
   // === Core Calculations ===
   const pureWeight = useMemo(() => {
     if (!selectedStock || !grossWeight) return "";
-    return (grossWeight * (selectedStock.karat?.standardPurity || 1)).toFixed(6);
+    const numericGrossWeight = parseFloat(parseFormattedNumber(grossWeight)) || 0;
+    return (numericGrossWeight * (selectedStock.karat?.standardPurity || 1)).toFixed(6);
   }, [grossWeight, selectedStock]);
 
   const weightInOz = useMemo(() => {
     if (!pureWeight) return "";
-    return (pureWeight / OZ_PER_TROY_OZ).toFixed(6);
+    return (parseFloat(pureWeight) / OZ_PER_TROY_OZ).toFixed(6);
   }, [pureWeight]);
 
   const ratePerGram = useMemo(() => {
@@ -74,14 +86,53 @@ export default function TradeDetailsModal({
 
   const metalAmountCalc = useMemo(() => {
     if (!ratePerGram || !pureWeight) return "0.00";
-    return (ratePerGram * pureWeight).toFixed(2);
+    return (parseFloat(ratePerGram) * parseFloat(pureWeight)).toFixed(2);
   }, [ratePerGram, pureWeight]);
 
   const totalAmount = useMemo(() => {
     const metal = parseFloat(metalAmountCalc) || 0;
-    const melt = parseFloat(meltingCharge) || 0;
-    return (metal + melt).toFixed(2);
+    const numericMeltingCharge = parseFloat(parseFormattedNumber(meltingCharge)) || 0;
+    return (metal + numericMeltingCharge).toFixed(2);
   }, [metalAmountCalc, meltingCharge]);
+
+  // === Input Handlers with Number Formatting ===
+  const handleGrossWeightChange = (value) => {
+    // Allow only numbers and decimal point
+    const numericValue = value.replace(/[^0-9.]/g, '');
+    
+    // Ensure only one decimal point
+    const parts = numericValue.split('.');
+    if (parts.length > 2) {
+      return;
+    }
+    
+    // Format with commas
+    if (numericValue === '' || numericValue === '.') {
+      setGrossWeight(numericValue);
+    } else {
+      const formattedValue = formatNumber(numericValue);
+      setGrossWeight(formattedValue);
+    }
+  };
+
+  const handleMeltingChargeChange = (value) => {
+    // Allow only numbers and decimal point
+    const numericValue = value.replace(/[^0-9.]/g, '');
+    
+    // Ensure only one decimal point
+    const parts = numericValue.split('.');
+    if (parts.length > 2) {
+      return;
+    }
+    
+    // Format with commas
+    if (numericValue === '' || numericValue === '.') {
+      setMeltingCharge(numericValue);
+    } else {
+      const formattedValue = formatNumber(numericValue);
+      setMeltingCharge(formattedValue);
+    }
+  };
 
   // === Stock Filtering ===
   const filteredStocks = metalStocks.filter(
@@ -95,7 +146,10 @@ export default function TradeDetailsModal({
   const validate = () => {
     const e = {};
     if (!selectedStock) e.stock = "Please select a stock.";
-    if (!grossWeight || grossWeight <= 0) e.grossWeight = "Enter a valid weight.";
+    
+    const numericGrossWeight = parseFloat(parseFormattedNumber(grossWeight)) || 0;
+    if (!grossWeight || numericGrossWeight <= 0) e.grossWeight = "Enter a valid weight.";
+    
     if (!initialManualRate || initialManualRate <= 0)
       e.metalRate = "Enter a valid rate (per 1000g).";
     setErrors(e);
@@ -115,13 +169,13 @@ export default function TradeDetailsModal({
       stockId: selectedStock._id,
       description: selectedStock.description,
       purity: selectedStock.karat?.standardPurity,
-      grossWeight: Number(grossWeight),
+      grossWeight: Number(parseFormattedNumber(grossWeight)),
       pureWeight: Number(pureWeight),
       weightInOz: Number(weightInOz),
       metalRate: Number(initialManualRate), // per 1000g
       ratePerGram: Number(ratePerGram),
       metalAmount: Number(metalAmountCalc),
-      meltingCharge: Number(meltingCharge || 0),
+      meltingCharge: Number(parseFormattedNumber(meltingCharge) || 0),
       totalAmount: Number(totalAmount),
     });
     onClose();
@@ -201,8 +255,6 @@ export default function TradeDetailsModal({
                             className="w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0"
                           >
                             <div className="font-medium text-gray-800">{stock.code}</div>
-                            {/* <div className="text-sm text-gray-500">{stock.description}</div>
-                            <div className="text-xs text-gray-400">Karat: {stock.karat?.karatCode} (Purity: {stock.karat?.standardPurity})</div> */}
                           </button>
                         ))
                       ) : (
@@ -257,11 +309,9 @@ export default function TradeDetailsModal({
                   Gross Weight (g)
                 </label>
                 <input
-                  type="number"
-                  min="0"
-                  step="0.001"
+                  type="text" // Changed to text to handle formatted numbers
                   value={grossWeight}
-                  onChange={(e) => setGrossWeight(e.target.value)}
+                  onChange={(e) => handleGrossWeightChange(e.target.value)}
                   placeholder="Enter Gross Weight"
                   className={`w-full px-4 py-3 border rounded-lg text-sm focus:outline-none transition-all ${
                     errors.grossWeight
@@ -281,7 +331,7 @@ export default function TradeDetailsModal({
                     <input
                       type="text"
                       readOnly
-                      value={pureWeight ? Number(pureWeight).toFixed(2) : "0.00"}
+                      value={pureWeight ? formatNumber(Number(pureWeight).toFixed(2)) : "0.00"}
                       placeholder="Pure Weight"
                       className="w-full px-4 py-3 border rounded-lg text-sm text-gray-900 bg-white border-gray-300 focus:outline-none cursor-default"
                     />
@@ -294,7 +344,7 @@ export default function TradeDetailsModal({
                     <input
                       type="text"
                       readOnly
-                      value={weightInOz ? Number(weightInOz).toFixed(2) : "0.00"}
+                      value={weightInOz ? formatNumber(Number(weightInOz).toFixed(2)) : "0.00"}
                       placeholder="Weight in Oz"
                       className="w-full px-4 py-3 border rounded-lg text-sm text-gray-900 bg-white border-gray-300 focus:outline-none cursor-default"
                     />
@@ -318,22 +368,20 @@ export default function TradeDetailsModal({
                   Rate (per 1000g) <span className="text-red-500">*</span>
                 </label>
                 <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={initialManualRate}
+                  type="text"
+                  value={formatNumber(initialManualRate.toString())}
                   readOnly // ← Now controlled by parent
-                  placeholder="e.g. 65000"
+                  placeholder="e.g. 65,000"
                   className="w-full px-4 py-3 border rounded-lg text-sm text-gray-900 bg-white border-gray-300 focus:outline-none cursor-default"
                 />
               </div>
 
               {/* Rate per Gram & Pure Weight */}
-              <div className="grid  gap-4 w-[25%] mr-4">
+              <div className="grid gap-4 w-[25%] mr-4">
                 <div>
                   <p className="text-xs text-gray-500 mb-1">Rate per Gram</p>
                   <div className="w-full px-4 py-3 border rounded-lg text-sm text-gray-900 bg-white border-gray-300 focus:outline-none cursor-default">
-                    {ratePerGram}
+                    {formatNumber(ratePerGram)}
                   </div>
                 </div>
               </div>
@@ -342,7 +390,7 @@ export default function TradeDetailsModal({
                 <label className="text-xs text-gray-500 mb-1 block">Metal Amount</label>
                 <div
                   className="w-full px-4 py-3 border rounded-lg text-sm text-gray-900 bg-white border-gray-300 focus:outline-none cursor-default">
-                  {metalAmountCalc}
+                  {formatNumber(metalAmountCalc)}
                 </div>
               </div>
             </div>
@@ -352,11 +400,9 @@ export default function TradeDetailsModal({
               <div className="mb-4 ">
                 <label className="text-xs text-gray-500 mb-1 block">Melting Charge</label>
                 <input
-                  type="number"
-                  min="0"
-                  step="0.01"
+                  type="text" // Changed to text to handle formatted numbers
                   value={meltingCharge}
-                  onChange={(e) => setMeltingCharge(e.target.value)}
+                  onChange={(e) => handleMeltingChargeChange(e.target.value)}
                   placeholder="0.00"
                   className="w-full px-4 py-3 border rounded-lg text-sm text-gray-900 bg-white border-gray-300 focus:outline-none cursor-default"
                 />
@@ -367,7 +413,7 @@ export default function TradeDetailsModal({
                 <div
                   className="w-full px-4 py-3 border rounded-lg text-sm text-gray-900 bg-white border-gray-300 focus:outline-none cursor-default"
                 >
-                  ${totalAmount}
+                  ${formatNumber(totalAmount)}
                 </div>
               </div>
             </div>
@@ -375,19 +421,62 @@ export default function TradeDetailsModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 px-6 py-4  bg-gray-50">
-          <button
-            onClick={onClose}
-            className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-all"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSubmit}
-            className="px-5 py-2.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-all flex items-center gap-2"
-          >
-            <Plus size={16} /> {tradeData ? "Update" : "Add"} Trade
-          </button>
+        <div className="flex items-center justify-between px-6 py-4 bg-gray-50">
+          <div className="text-sm text-gray-600">
+            {tradeData ? "Editing trade item" : "Adding new trade item"}
+          </div>
+          
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onClose}
+              className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-all"
+            >
+              Cancel
+            </button>
+            
+            {/* Continue Button - Adds trade and keeps modal open */}
+            <button
+              onClick={() => {
+                if (!validate()) return;
+                onConfirm({
+                  action,
+                  ratio,
+                  unit,
+                  rate: Number(initialManualRate),
+                  stockCode: selectedStock.code,
+                  stockId: selectedStock._id,
+                  description: selectedStock.description,
+                  purity: selectedStock.karat?.standardPurity,
+                  grossWeight: Number(parseFormattedNumber(grossWeight)),
+                  pureWeight: Number(pureWeight),
+                  weightInOz: Number(weightInOz),
+                  metalRate: Number(initialManualRate),
+                  ratePerGram: Number(ratePerGram),
+                  metalAmount: Number(metalAmountCalc),
+                  meltingCharge: Number(parseFormattedNumber(meltingCharge) || 0),
+                  totalAmount: Number(totalAmount),
+                });
+                
+                // Reset form for next entry
+                setSelectedStock(null);
+                setSearchTerm("");
+                setGrossWeight("");
+                setMeltingCharge("");
+                setErrors({});
+              }}
+              className="px-5 py-2.5 text-sm font-medium text-blue-700 bg-blue-100 border border-blue-300 rounded-lg hover:bg-blue-200 transition-all flex items-center gap-2"
+            >
+              <Plus size={16} /> Continue
+            </button>
+            
+            {/* Add/Update Trade Button - Adds trade and closes modal */}
+            <button
+              onClick={handleSubmit}
+              className="px-5 py-2.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-all flex items-center gap-2"
+            >
+              <Plus size={16} /> {tradeData ? "Update" : "Add"} Trade
+            </button>
+          </div>
         </div>
       </div>
 

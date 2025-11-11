@@ -21,24 +21,20 @@ const isMetalTab = (id) => ['purchase', 'sales'].includes(id);
 export default function Transaction() {
   const [activeTab, setActiveTab] = useState('currency');
   const [selectedTrader, setSelectedTrader] = useState(null);
-  const { marketData, refreshData } = useMarketData(["GOLD"]);
+  const { marketData } = useMarketData(["GOLD"]);
 
-  // Live bid & ask prices with fallback
   const bidPrice = marketData?.bid ? marketData.bid.toFixed(2) : "3283.36";
   const askPrice = marketData?.ask ? marketData.ask.toFixed(2) : "3283.66";
 
-  // Track previous price & pulse animation
   const [prevBid, setPrevBid] = useState(bidPrice);
   const [pulse, setPulse] = useState(false);
-  const [priceDirection, setPriceDirection] = useState(null); // "up", "down", or null
+  const [priceDirection, setPriceDirection] = useState(null);
 
   useEffect(() => {
     if (bidPrice !== prevBid) {
       setPulse(true);
       setPriceDirection(
-        parseFloat(bidPrice) > parseFloat(prevBid)
-          ? "up"
-          : "down"
+        parseFloat(bidPrice) > parseFloat(prevBid) ? "up" : "down"
       );
       setPrevBid(bidPrice);
       const timer = setTimeout(() => setPulse(false), 600);
@@ -53,57 +49,59 @@ export default function Transaction() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Top Navbar with Live Rate */}
+      {/* Top Navbar */}
       <div className="bg-white shadow-sm border-b border-gray-200 px-4 py-3">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div className="text-lg font-semibold text-gray-800">Transaction Dashboard</div>
-
-          {/* Live Gold Rate Section */}
-          <div className="flex items-center space-x-6">
-            <div className="text-right">
-              <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Live Gold Rate
-              </div>
-
-              {/* Bid Price with Arrow + Animation */}
-              <div className="flex items-center justify-end space-x-1">
-                <div
-                  className={`text-2xl font-bold transition-all duration-300 ${
-                    pulse
-                      ? priceDirection === "up"
-                        ? "text-green-600 scale-110"
-                        : "text-red-600 scale-110"
-                      : "text-gray-800"
-                  }`}
-                  style={{ transformOrigin: 'right' }}
-                >
-                  {bidPrice}
-                </div>
-                {priceDirection === "up" && (
-                  <ArrowUp className="text-green-600 w-5 h-5 animate-bounce" />
-                )}
-                {priceDirection === "down" && (
-                  <ArrowDown className="text-red-600 w-5 h-5 animate-bounce" />
-                )}
-              </div>
-
-              {/* Bid & Ask */}
-              <div className="flex justify-end space-x-4 text-xs mt-1">
-                <span className="text-gray-600">
-                  Bid: <span className="font-medium text-gray-800">{bidPrice}</span>
-                </span>
-                <span className="text-gray-600">
-                  Ask: <span className="font-medium text-red-600">{askPrice}</span>
-                </span>
-              </div>
-            </div>
-
-            {/* Live Indicator Dot */}
-            <div className="relative">
-              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-              <div className="absolute inset-0 w-3 h-3 bg-green-500 rounded-full animate-ping"></div>
-            </div>
+          <div className="text-lg font-semibold text-gray-800">
+            Transaction Dashboard
           </div>
+
+\          {isMetalTab(activeTab) && (
+            <div className="flex items-center space-x-6">
+              <div className="text-right">
+                <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Live Gold Rate
+                </div>
+
+                <div className="flex items-center justify-end space-x-1">
+                  <div
+                    className={`text-2xl font-bold transition-all duration-300 ${
+                      pulse
+                        ? priceDirection === "up"
+                          ? "text-green-600 scale-110"
+                          : "text-red-600 scale-110"
+                        : "text-gray-800"
+                    }`}
+                    style={{ transformOrigin: "right" }}
+                  >
+                    {bidPrice}
+                  </div>
+                  {priceDirection === "up" && (
+                    <ArrowUp className="text-green-600 w-5 h-5 animate-bounce" />
+                  )}
+                  {priceDirection === "down" && (
+                    <ArrowDown className="text-red-600 w-5 h-5 animate-bounce" />
+                  )}
+                </div>
+
+                {/* Bid & Ask */}
+                <div className="flex justify-end space-x-4 text-xs mt-1">
+                  <span className="text-gray-600">
+                    Bid: <span className="font-medium text-gray-800">{bidPrice}</span>
+                  </span>
+                  <span className="text-gray-600">
+                    Ask: <span className="font-medium text-red-600">{askPrice}</span>
+                  </span>
+                </div>
+              </div>
+
+              {/* Live Indicator Dot */}
+              <div className="relative">
+                <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                <div className="absolute inset-0 w-3 h-3 bg-green-500 rounded-full animate-ping"></div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -134,13 +132,13 @@ export default function Transaction() {
 
             {isFixTab(activeTab) && <TradeModalFX selectedTrader={selectedTrader} />}
             {isGoldFixTab(activeTab) && <GoldFixPage selectedTrader={selectedTrader} />}
-           {isMetalTab(activeTab) && (
-  <TradeModalMetal
-    type={activeTab}
-    selectedTrader={selectedTrader}
-    liveRate={bidPrice}  
-  />
-)}
+            {isMetalTab(activeTab) && (
+              <TradeModalMetal
+                type={activeTab}
+                selectedTrader={selectedTrader}
+                liveRate={bidPrice}
+              />
+            )}
           </div>
 
           {/* Right: Recent Orders */}
