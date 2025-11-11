@@ -69,7 +69,7 @@ export default function TradeDetailsModal({
   }, [pureWeight]);
 
   const ratePerGram = useMemo(() => {
-    return initialManualRate ? (initialManualRate * 1000 / 1000).toFixed(2) : "0.00";
+    return initialManualRate ? (initialManualRate  / 1000).toFixed(2) : "0.00";
   }, [initialManualRate]);
 
   const metalAmountCalc = useMemo(() => {

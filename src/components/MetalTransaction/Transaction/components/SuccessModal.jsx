@@ -39,13 +39,13 @@ export default function SuccessModal({ isOpen, onClose, data }) {
           <div>
             <span className="font-medium text-gray-600">You Pay:</span>
             <p className="font-bold text-gray-900">
-              {pay.amount} {pay.currency}
+              {receive.amount} {receive.currency}
             </p>
           </div>
           <div>
             <span className="font-medium text-gray-600">You Receive:</span>
             <p className="font-bold text-gray-900">
-              {receive.amount} {receive.currency}
+              {pay.amount} {pay.currency}
             </p>
           </div>
         </div>
