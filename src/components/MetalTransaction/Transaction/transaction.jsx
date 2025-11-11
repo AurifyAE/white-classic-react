@@ -48,15 +48,14 @@ export default function Transaction() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Top Navbar */}
+<div className="bg-gray-50  ">      {/* Top Navbar */}
       <div className="bg-white shadow-sm border-b border-gray-200 px-4 py-3">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="text-lg font-semibold text-gray-800">
             Transaction Dashboard
           </div>
 
-\          {isMetalTab(activeTab) && (
+         {isMetalTab(activeTab) && (
             <div className="flex items-center space-x-6">
               <div className="text-right">
                 <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -106,7 +105,7 @@ export default function Transaction() {
       </div>
 
       {/* Main Content */}
-      <div className="p-4">
+      <div className="p-4 ">
         {/* Tabs */}
         <div className="flex border-b border-gray-200 mb-6 bg-white rounded-t-lg overflow-hidden">
           {tabs.map((tab) => (
@@ -125,9 +124,9 @@ export default function Transaction() {
         </div>
 
         {/* Two Column Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 ">
           {/* Left: Trader & Trade Modals */}
-          <div className="lg:col-span-2 bg-white border border-gray-200 rounded-lg p-6 space-y-6">
+          <div className="lg:col-span-2 bg-white border border-gray-200 rounded-lg p-6 space-y-6 max-h-fit">
             <SelectTrader onTraderChange={handleTraderChange} value={selectedTrader} />
 
             {isFixTab(activeTab) && <TradeModalFX selectedTrader={selectedTrader} />}
@@ -142,9 +141,12 @@ export default function Transaction() {
           </div>
 
           {/* Right: Recent Orders */}
-          <div className="lg:col-span-3 bg-white border border-gray-200 rounded-lg p-6">
-            <RecentOrders type={activeTab} />
-          </div>
+      <div className="lg:col-span-3 bg-white border border-gray-200 rounded-lg p-6 h-[60vh] overflow-y-auto scrollbar-hide">
+  <RecentOrders type={activeTab} />
+</div>
+
+
+
         </div>
       </div>
     </div>
