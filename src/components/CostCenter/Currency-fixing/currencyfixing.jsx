@@ -40,7 +40,6 @@ const CurrencyTradingRegistry = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  // const [itemsPerPage] = useState(20);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("ALL");
   const [totalPages, setTotalPages] = useState(1);
@@ -48,8 +47,32 @@ const CurrencyTradingRegistry = () => {
   const [itemsPerPage, setItemsPerPage] = useState(20);
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
+  const [selectedParty, setSelectedParty] = useState("");
+  const [parties, setParties] = useState([]);
+  const [summary, setSummary] = useState({
+    totalBuyAED: 0,
+    totalSellAED: 0,
+    totalBuyINR: 0,
+    totalSellINR: 0,
+    avgBuyRate: 0,
+    avgSellRate: 0,
+  });
   const navigateToVoucher = useVoucherNavigation();
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
+
+  // Fetch parties for dropdown
+  const fetchParties = useCallback(async () => {
+    try {
+      const response = await axios.get("/account-type"); // Adjust endpoint as needed
+      setParties(response.data.data || []);
+    } catch (err) {
+      console.error("Failed to fetch parties:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchParties();
+  }, [fetchParties]);
 
   const fetchCurrencyTradingData = useCallback(async () => {
     setError(null);
@@ -76,71 +99,33 @@ const CurrencyTradingRegistry = () => {
         params.search = debouncedSearchTerm;
       }
 
-      console.log("API Params:", params); // Debug API parameters
-
-      const response = await axios.get("/currency-trading/trades", { params });
-      console.log("API Response:", response.data); // Debug full response
-
-      // Handle different API response structures
-      let data = [];
-      let pagination = { totalPages: 1, totalItems: 0 };
-
-      if (Array.isArray(response.data)) {
-        // If response is directly an array
-        data = response.data;
-        pagination.totalItems = response.data.length;
-      } else if (response.data.data && Array.isArray(response.data.data)) {
-        // If response has a data property
-        data = response.data.data;
-        pagination = response.data.pagination || {
-          totalPages: Math.ceil(data.length / itemsPerPage),
-          totalItems: data.length,
-        };
-      } else {
-        throw new Error("Unexpected API response format");
+      if (selectedParty) {
+        params.partyId = selectedParty;
       }
 
-      console.log("Parsed Transactions:", data); // Debug parsed data
+      if (filterType !== "ALL") {
+        params.type = filterType;
+      }
+
+      const response = await axios.get("/currency-trading/trades", { params });
+
+      const { data = [], pagination = {}, summary: summaryData = {} } = response.data;
 
       setTransactionLogs(data);
       setTotalPages(pagination.totalPages || 1);
       setTotalItems(pagination.totalItems || data.length);
+      setSummary(summaryData);
     } catch (err) {
       setError("Failed to fetch currency trading data: " + err.message);
       console.error("API Error:", err);
     } finally {
       setLoading(false);
     }
-  }, [currentPage, itemsPerPage, debouncedSearchTerm, startDate, endDate]);
+  }, [currentPage, itemsPerPage, debouncedSearchTerm, startDate, endDate, selectedParty, filterType]);
 
   useEffect(() => {
     fetchCurrencyTradingData();
   }, [fetchCurrencyTradingData]);
-
-  const filteredTransactions = useMemo(() => {
-    if (filterType === "ALL") return transactionLogs;
-
-    return transactionLogs.filter((transaction) => {
-      return filterType === transaction.type;
-    });
-  }, [transactionLogs, filterType]);
-
-  const summaryTotals = useMemo(() => {
-    const { totalBuy, totalSell } = filteredTransactions.reduce(
-      (acc, t) => {
-        // Use 'total' field for both buy and sell, assuming it's in AED for consistency
-        if (t.type === "BUY") {
-          acc.totalBuy += Number(t.total) || 0;
-        } else if (t.type === "SELL") {
-          acc.totalSell += Number(t.total) || 0;
-        }
-        return acc;
-      },
-      { totalBuy: 0, totalSell: 0 }
-    );
-
-    return { totalBuy, totalSell };
-  }, [filteredTransactions]);
 
   const formatDate = (dateString) =>
     new Date(dateString).toLocaleString("en-IN", {
@@ -153,34 +138,30 @@ const CurrencyTradingRegistry = () => {
       timeZone: "Asia/Dubai",
     });
 
-const formatCurrency = (
-  amount,
-  currencyCode,
-  colorClass = "text-gray-900"
-) => {
-  const numAmount = Number(amount) || 0;
-  const absAmount = Math.abs(numAmount).toFixed(2);
-  const isNegative = numAmount < 0;
+  const formatCurrency = (amount, currencyCode, colorClass = "text-gray-900") => {
+    const numAmount = Number(amount) || 0;
+    const absAmount = Math.abs(numAmount).toFixed(2);
+    const isNegative = numAmount < 0;
 
-  return (
-    <span className={`inline-flex items-center ${colorClass}`}>
-      {isNegative && "-"}
-      {currencyCode === "AED" ? (
-        <img
-          src={DirhamIcon}
-          alt="AED"
-          className="w-3.5 h-3.5 mr-1"
-          style={{ filter: getColorFilter(colorClass) }}
-        />
-      ) : currencyCode === "INR" ? (
-        <span className="mr-1">₹</span>
-      ) : (
-        <span className="mr-1">{currencyCode}</span>
-      )}
-      {formatCommodityNumber(absAmount, null)}
-    </span>
-  );
-};
+    return (
+      <span className={`inline-flex items-center ${colorClass}`}>
+        {isNegative && "-"}
+        {currencyCode === "AED" ? (
+          <img
+            src={DirhamIcon}
+            alt="AED"
+            className="w-3.5 h-3.5 mr-1"
+            style={{ filter: getColorFilter(colorClass) }}
+          />
+        ) : currencyCode === "INR" ? (
+          <span className="mr-1">₹</span>
+        ) : (
+          <span className="mr-1">{currencyCode}</span>
+        )}
+        {formatCommodityNumber(absAmount, null)}
+      </span>
+    );
+  };
 
   const getColorFilter = (colorClass) => {
     switch (colorClass) {
@@ -210,6 +191,7 @@ const formatCurrency = (
     setFilterType("ALL");
     setStartDate(null);
     setEndDate(null);
+    setSelectedParty("");
     setCurrentPage(1);
   };
 
@@ -261,7 +243,8 @@ const formatCurrency = (
           )}
 
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 px-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8 px-6">
+            {/* Total Buy INR */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
               <div className="p-6">
                 <div className="flex items-center justify-between">
@@ -269,19 +252,16 @@ const formatCurrency = (
                     <div className="flex items-center mb-2">
                       <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
                       <p className="text-sm font-medium text-gray-600 uppercase tracking-wide">
-                        Total Buy
+                        Total Buy (INR)
                       </p>
                     </div>
                     <p className="text-3xl font-bold text-gray-900 mb-1 flex items-center">
                       <span className="mr-1 text-3xl">₹</span>
-                      {Math.abs(
-                        parseFloat(summaryTotals.totalBuy || 0)
-                      ).toLocaleString(undefined, {
+                      {summary?.totalBuyINR?.toLocaleString(undefined, {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                       })}
                     </p>
-                    <p className="text-sm text-gray-500">Total Buy Amount</p>
                   </div>
                   <div className="bg-green-50 p-3 rounded-lg">
                     <TrendingUp className="w-6 h-6 text-green-600" />
@@ -290,6 +270,37 @@ const formatCurrency = (
               </div>
             </div>
 
+            {/* Total Buy AED */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+              <div className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center mb-2">
+                      <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                      <p className="text-sm font-medium text-gray-600 uppercase tracking-wide">
+                        Total Buy (AED)
+                      </p>
+                    </div>
+                    <p className="text-3xl font-bold text-gray-900 mb-1 flex items-center">
+                      <img
+                        src={DirhamIcon}
+                        alt="AED"
+                        className="w-7 h-7 mr-1"
+                      />
+                      {summary?.totalBuyAED?.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </p>
+                  </div>
+                  <div className="bg-green-50 p-3 rounded-lg">
+                    <TrendingUp className="w-6 h-6 text-green-600" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Total Sell INR */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
               <div className="p-6">
                 <div className="flex items-center justify-between">
@@ -297,22 +308,93 @@ const formatCurrency = (
                     <div className="flex items-center mb-2">
                       <div className="w-2 h-2 bg-red-500 rounded-full mr-2"></div>
                       <p className="text-sm font-medium text-gray-600 uppercase tracking-wide">
-                        Total Sell
+                        Total Sell (INR)
                       </p>
                     </div>
                     <p className="text-3xl font-bold text-gray-900 mb-1 flex items-center">
                       <span className="mr-1 text-3xl">₹</span>
-                      {Math.abs(
-                        parseFloat(summaryTotals.totalSell || 0)
-                      ).toLocaleString(undefined, {
+                      {summary?.totalSellINR?.toLocaleString(undefined, {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                       })}
                     </p>
-                    <p className="text-sm text-gray-500">Total Sell Amount</p>
                   </div>
                   <div className="bg-red-50 p-3 rounded-lg">
                     <TrendingDown className="w-6 h-6 text-red-600" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Total Sell AED */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+              <div className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center mb-2">
+                      <div className="w-2 h-2 bg-red-500 rounded-full mr-2"></div>
+                      <p className="text-sm font-medium text-gray-600 uppercase tracking-wide">
+                        Total Sell (AED)
+                      </p>
+                    </div>
+                    <p className="text-3xl font-bold text-gray-900 mb-1 flex items-center">
+                      <img
+                        src={DirhamIcon}
+                        alt="AED"
+                        className="w-7 h-7 mr-1"
+                      />
+                      {summary?.totalSellAED?.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </p>
+                  </div>
+                  <div className="bg-red-50 p-3 rounded-lg">
+                    <TrendingDown className="w-6 h-6 text-red-600" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Average Buy Rate */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+              <div className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center mb-2">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+                      <p className="text-sm font-medium text-gray-600 uppercase tracking-wide">
+                        Avg Buy Rate
+                      </p>
+                    </div>
+                    <p className="text-3xl font-bold text-gray-900 mb-1">
+                      {summary?.avgBuyRate?.toFixed(2)}
+                    </p>
+                  </div>
+                  <div className="bg-blue-50 p-3 rounded-lg">
+                    <ArrowDownUp className="w-6 h-6 text-blue-600" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Average Sell Rate */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+              <div className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center mb-2">
+                      <div className="w-2 h-2 bg-purple-500 rounded-full mr-2"></div>
+                      <p className="text-sm font-medium text-gray-600 uppercase tracking-wide">
+                        Avg Sell Rate
+                      </p>
+                    </div>
+                    <p className="text-3xl font-bold text-gray-900 mb-1">
+                      {summary?.avgSellRate?.toFixed(2)}
+                    </p>
+                  </div>
+                  <div className="bg-purple-50 p-3 rounded-lg">
+                    <ArrowDownUp className="w-6 h-6 text-purple-600" />
                   </div>
                 </div>
               </div>
@@ -342,7 +424,7 @@ const formatCurrency = (
               </div>
 
               {/* Filters */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
                 <div className="relative">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Search
@@ -350,11 +432,29 @@ const formatCurrency = (
                   <Search className="absolute left-3 top-[38px] transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
                     type="text"
-                    placeholder="Search currency trading transactions..."
+                    placeholder="Search..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Party
+                  </label>
+                  <select
+                    value={selectedParty}
+                    onChange={(e) => setSelectedParty(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">All Parties</option>
+                    {parties.map((party) => (
+                      <option key={party._id} value={party._id}>
+                        {party.customerName || party.accountCode}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
@@ -372,23 +472,23 @@ const formatCurrency = (
                   </select>
                 </div>
 
-<div>
-    <label className="block text-sm font-medium text-gray-700 mb-1">
-      Items Per Page
-    </label>
-    <select
-      value={itemsPerPage}
-      onChange={(e) => {
-        setItemsPerPage(Number(e.target.value));
-        setCurrentPage(1);
-      }}
-      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-    >
-      <option value={10}>10 per page</option>
-      <option value={20}>20 per page</option>
-      <option value={50}>50 per page</option>
-    </select>
-  </div>                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Items Per Page
+                  </label>
+                  <select
+                    value={itemsPerPage}
+                    onChange={(e) => {
+                      setItemsPerPage(Number(e.target.value));
+                      setCurrentPage(1);
+                    }}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value={10}>10 per page</option>
+                    <option value={20}>20 per page</option>
+                    <option value={50}>50 per page</option>
+                  </select>
+                </div>
 
                 <div className="relative">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -402,6 +502,7 @@ const formatCurrency = (
                         return;
                       }
                       setStartDate(date);
+                      setError(null);
                     }}
                     selectsStart
                     startDate={startDate}
@@ -425,6 +526,7 @@ const formatCurrency = (
                         return;
                       }
                       setEndDate(date);
+                      setError(null);
                     }}
                     selectsEnd
                     startDate={startDate}
@@ -455,30 +557,21 @@ const formatCurrency = (
                         Parties
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        pairs
+                        Receive Amount
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Base Currency
+                        Convert Rate
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Trading with
+                        Transaction No
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Rate
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Converted
-                      </th>
-                      {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Profit
-                      </th> */}
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Date & Time
                       </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-100">
-                    {filteredTransactions.map((transaction) => (
+                    {transactionLogs.map((transaction) => (
                       <tr
                         key={transaction._id}
                         className="hover:bg-gray-50 transition-colors"
@@ -506,53 +599,27 @@ const formatCurrency = (
                             {transaction?.partyId?.customerName}
                           </div>
                         </td>
-                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {`${transaction?.baseCurrencyCode} / ${transaction?.targetCurrencyCode}`}
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-semibold text-gray-900">
+                            {formatCurrency(
+                              transaction.converted,
+                              transaction.targetCurrencyCode,
+                              transaction.type === "BUY"
+                                ? "text-green-700"
+                                : "text-red-700"
+                            )}
                           </div>
                         </td>
-                       <td className="px-6 py-4 whitespace-nowrap">
-  <div className="text-sm text-gray-900">
-    {formatCurrency(
-      transaction.amount,
-      transaction.baseCurrencyCode, // Use baseCurrencyCode directly
-      transaction.type === "BUY" 
-        ? "text-green-700" 
-        : "text-red-700"
-    )}
-  </div>
-</td>
-
-                       <td className="px-6 py-4 whitespace-nowrap">
-  <div className="text-sm text-gray-900">
-    {formatCurrency(
-      transaction.converted,
-      transaction.targetCurrencyCode, // Use targetCurrencyCode directly
-      transaction.type === "BUY" 
-        ? "text-green-700" 
-        : "text-red-700"
-    )}
-  </div>
-</td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
-                            {transaction.rate.toFixed(6)}
+                            {Number(transaction.rate).toFixed(2)}
                           </div>
                         </td>
-                       <td className="px-6 py-4 whitespace-nowrap">
-  <div className="text-sm font-semibold text-gray-900">
-    {formatCurrency(
-      transaction.converted,
-      transaction.targetCurrencyCode // Use targetCurrencyCode directly
-    )}
-  </div>
-</td>
-
-                        {/* <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-semibold text-gray-900">
-                            {formatCurrency(transaction.profit, "INR")}
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-600">
+                            {transaction._id.slice(-8).toUpperCase()}
                           </div>
-                        </td> */}
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                           {formatDate(transaction.createdAt)}
                         </td>
@@ -561,7 +628,7 @@ const formatCurrency = (
                   </tbody>
                 </table>
 
-                {!loading && filteredTransactions.length === 0 && (
+                {!loading && transactionLogs.length === 0 && (
                   <div className="text-center py-12">
                     <DollarSign className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                     <p className="text-gray-500">
@@ -607,10 +674,11 @@ const formatCurrency = (
                           <button
                             key={page}
                             onClick={() => handlePageChange(page)}
-                            className={`px-3 py-1 text-sm rounded-md ${currentPage === page
+                            className={`px-3 py-1 text-sm rounded-md ${
+                              currentPage === page
                                 ? "bg-blue-600 text-white"
                                 : "border border-gray-300 hover:bg-gray-50"
-                              }`}
+                            }`}
                           >
                             {page}
                           </button>

@@ -159,8 +159,8 @@ useEffect(() => {
     }
 
     // Determine base/target currencies
-    const base = isBuy ? 'AED' : 'INR';
-    const quote = isBuy ? 'INR' : 'AED';
+    const base = isBuy ? 'INR' : 'AED';  // What you're paying
+    const quote = isBuy ? 'AED' : 'INR'; // What you're receiving
     const effectiveRate = rate / LAKH;
 
     // Find currency IDs
