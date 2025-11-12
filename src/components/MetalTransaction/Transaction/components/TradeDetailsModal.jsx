@@ -50,13 +50,14 @@ export default function TradeDetailsModal({
   }, []);
 
   // === Initialize from tradeData (EDIT MODE) ===
-  useEffect(() => {
-    if (tradeData && metalStocks.length) {
-      const stock = metalStocks.find((s) => s.code === tradeData.stockCode);
-      setSelectedStock(stock);
-      setGrossWeight(formatNumber(tradeData.grossWeight.toString()));
-      setMeltingCharge(formatNumber(tradeData.meltingCharge?.toString() || ""));
-    }
+useEffect(() => {
+    if (!tradeData) return;
+
+    const stock = metalStocks.find(s => s._id === tradeData.stockId);
+    if (stock) setSelectedStock(stock);
+
+    setGrossWeight(formatNumber(tradeData.grossWeight.toFixed(3)));
+    setMeltingCharge(formatNumber((tradeData.meltingCharge ?? 0).toFixed(2)));
   }, [tradeData, metalStocks]);
 
   // === Sync initialManualRate from parent (e.g., auto-filled) ===

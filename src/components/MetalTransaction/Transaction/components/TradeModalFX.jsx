@@ -1,10 +1,21 @@
 'use client';
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  useRef,
+} from 'react';
 import { toast } from 'react-toastify';
 import axiosInstance from '../../../../api/axios';
 import SuccessModal from './SuccessModal';
 
-export default function TradeModalFX({ selectedTrader }) {
+export default function TradeModalFX({
+  selectedTrader,
+  editTransaction,          // <-- NEW PROP
+  onClose,                  // optional – close after success
+}) {
+  // ---------- core form state ----------
   const [payAmount, setPayAmount] = useState('');
   const [receiveAmount, setReceiveAmount] = useState('');
   const [rateLakh, setRateLakh] = useState('');
@@ -13,137 +24,155 @@ export default function TradeModalFX({ selectedTrader }) {
   const [showSuccess, setShowSuccess] = useState(false);
   const [successData, setSuccessData] = useState(null);
   const [currencies, setCurrencies] = useState([]);
-  
   const [voucher, setVoucher] = useState(null);
-  // const [prefix, setPrefix] = useState('N/A');
-  const LAKH = 100_000;
 
+  // keep a ref so we know if we are in “edit” mode
+  const isEditMode = useRef(!!editTransaction);
+
+  const LAKH = 100_000;
+  const MULT = 1_000; // 1 (compact) = 1 000 INR
+
+  // ---------- helpers ----------
   const formatNumber = (value) => {
     if (!value) return '';
     const num = parseFloat(value.replace(/,/g, ''));
-    return num.toLocaleString('en-IN');
+    return isNaN(num) ? '' : num.toLocaleString('en-IN');
   };
+  const parseNumber = (value) => value.replace(/,/g, '');
 
-  const parseNumber = (value) => {
-    return value.replace(/,/g, '');
-  };
-
+  // ---------- rates ----------
   const ratePerINR = useMemo(() => {
     const r = parseFloat(parseNumber(rateLakh)) || 0;
-    return r / LAKH; 
+    return r / LAKH;
   }, [rateLakh]);
 
   const ratePerAED = useMemo(() => {
     const r = parseFloat(parseNumber(rateLakh)) || 0;
-    return r > 0 ? LAKH / r : 0; 
+    return r > 0 ? LAKH / r : 0;
   }, [rateLakh]);
 
-
-const fetchVoucherCode = useCallback(async () => {
-  try {
-    const currentModule = isBuy ? 'CURRENCY-PURCHASE' : 'CURRENCY-SELL';
-    const transactionType = currentModule;
-
-    const response = await axiosInstance.post(
-      `/voucher/generate/${currentModule}`,
-      { transactionType }
-    );
-
-    const data = response.data?.data;
-    if (response.data?.success && data) {
-      setVoucher(data );
-      // setPrefix(data.prefix || 'N/A');
-    } else {
-      setVoucher(null);
-      // setPrefix('N/A');
-    }
-  } catch (error) {
-    console.error('Voucher generation failed:', error);
-    setVoucher(null);
-    // setPrefix('N/A');
-  }
-}, [isBuy]);
-
-useEffect(() => {
-  fetchVoucherCode();
-}, [fetchVoucherCode]);
- 
-
-useEffect(() => {
-  if (!rateLakh) {
-    setPayAmount('');
-    setReceiveAmount('');
-    return;
-  }
-
-  const MULT = 1000; // 1 (compact) = 1000 INR
-  const pay = parseFloat(parseNumber(payAmount)) || 0;
-  const recv = parseFloat(parseNumber(receiveAmount)) || 0;
-
-  if (lastEdited === 'pay' && payAmount) {
-    let calculated;
-    if (isBuy) {
-      calculated = (pay * MULT * ratePerINR).toFixed(2);
-    } else {
-      calculated = ((pay * ratePerAED) / MULT).toFixed(2);
-    }
-    setReceiveAmount(formatNumber(calculated));
-  } else if (lastEdited === 'receive' && receiveAmount) {
-    let calculated;
-    if (isBuy) {
-      calculated = ((recv * ratePerAED) / MULT).toFixed(2);
-    } else {
-      calculated = (recv * MULT * ratePerINR).toFixed(2);
-    }
-    setPayAmount(formatNumber(calculated));
-  } else if (!payAmount && !receiveAmount) {
-    setPayAmount('');
-    setReceiveAmount('');
-  }
-}, [payAmount, receiveAmount, rateLakh, lastEdited, ratePerINR, ratePerAED, isBuy]);
-
-useEffect(() => {
-  const fetchCurrencies = async () => {
+  // ---------- voucher ----------
+  const fetchVoucherCode = useCallback(async () => {
     try {
-      const res = await axiosInstance.get('/currency-master');
-      if (res.data.success && res.data.data) {
-        setCurrencies(res.data.data);
-      }
+      const currentModule = isBuy ? 'CURRENCY-PURCHASE' : 'CURRENCY-SELL';
+      const response = await axiosInstance.post(
+        `/voucher/generate/${currentModule}`,
+        { transactionType: currentModule }
+      );
+      const data = response.data?.data;
+      if (response.data?.success && data) setVoucher(data);
+      else setVoucher(null);
     } catch (err) {
-      console.error("Error fetching currencies:", err);
+      console.error('Voucher generation failed:', err);
+      setVoucher(null);
     }
-  };
-  fetchCurrencies();
-}, []);
+  }, [isBuy]);
 
-useEffect(() => {
-  if (!rateLakh || !lastEdited) return;
+  // refresh voucher when BUY/SELL changes (only in create mode)
+  useEffect(() => {
+    if (!isEditMode.current) fetchVoucherCode();
+  }, [fetchVoucherCode, isEditMode]);
 
-  const MULT = 1000;
-  const pay = parseFloat(parseNumber(payAmount)) || 0;
-  const recv = parseFloat(parseNumber(receiveAmount)) || 0;
+  // ---------- currencies ----------
+  useEffect(() => {
+    const fetchCurrencies = async () => {
+      try {
+        const res = await axiosInstance.get('/currency-master');
+        if (res.data.success && res.data.data) setCurrencies(res.data.data);
+      } catch (err) {
+        console.error('Error fetching currencies:', err);
+      }
+    };
+    fetchCurrencies();
+  }, []);
 
-  if (lastEdited === 'pay' && pay > 0) {
-    let calculated;
-    if (isBuy) {
-      calculated = (pay * MULT * ratePerINR).toFixed(2);
-    } else {
-      calculated = ((pay * ratePerAED) / MULT).toFixed(2);
+  // ---------- AUTO-FILL WHEN EDITING ----------
+  useEffect(() => {
+    if (!editTransaction) {
+      // create mode – reset everything
+      setPayAmount('');
+      setReceiveAmount('');
+      setRateLakh('');
+      setIsBuy(true);
+      setLastEdited(null);
+      isEditMode.current = false;
+      return;
     }
-    setReceiveAmount(formatNumber(calculated));
-  } else if (lastEdited === 'receive' && recv > 0) {
-    let calculated;
-    if (isBuy) {
-      calculated = ((recv * ratePerAED) / MULT).toFixed(2);
-    } else {
-      calculated = (recv * MULT * ratePerINR).toFixed(2);
+
+    // ---- EDIT MODE ----
+    isEditMode.current = true;
+
+    const {
+      type,
+      cashDebit,          // amount you pay
+      price,              // AED you receive (formatted)
+      currencyCode,       // e.g. "INR/AED"
+    } = editTransaction;
+
+    // 1. BUY vs SELL
+    const buy = type === 'BUY' || type?.includes('PURCHASE');
+    setIsBuy(buy);
+
+    // 2. Pay amount (always the numeric value)
+    setPayAmount(formatNumber(String(cashDebit || '')));
+
+    // 3. Receive amount – strip "AED " prefix
+    const receiveRaw = price?.replace(/^AED\s*/, '').replace(/,/g, '') || '';
+    setReceiveAmount(formatNumber(receiveRaw));
+
+    // 4. Rate (1 Lakh AED)
+    //    For BUY  : rate = (receiveAED / payINR) * LAKH
+    //    For SELL : rate = (payAED   / receiveINR) * LAKH
+    let calculatedRate = 0;
+    const payNum = parseFloat(cashDebit) || 0;
+    const recvNum = parseFloat(receiveRaw) || 0;
+
+    if (buy && payNum && recvNum) {
+      // BUY: pay INR → receive AED
+      calculatedRate = (recvNum / payNum) * LAKH;
+    } else if (!buy && payNum && recvNum) {
+      // SELL: pay AED → receive INR
+      calculatedRate = (payNum / recvNum) * LAKH;
     }
-    setPayAmount(formatNumber(calculated));
-  }
-}, [rateLakh, ratePerINR, ratePerAED, lastEdited, isBuy]);
+    setRateLakh(formatNumber(String(calculatedRate.toFixed(2))));
 
+    setLastEdited(null);
+  }, [editTransaction]);
 
-  const handleCreateTrade = useCallback(async () => {
+  // ---------- calculations ----------
+  useEffect(() => {
+    if (!rateLakh) {
+      setPayAmount('');
+      setReceiveAmount('');
+      return;
+    }
+
+    const pay = parseFloat(parseNumber(payAmount)) || 0;
+    const recv = parseFloat(parseNumber(receiveAmount)) || 0;
+
+    if (lastEdited === 'pay' && pay) {
+      const calculated = isBuy
+        ? (pay * MULT * ratePerINR).toFixed(2)          // INR → AED
+        : ((pay * ratePerAED) / MULT).toFixed(2);       // AED → INR
+      setReceiveAmount(formatNumber(calculated));
+    } else if (lastEdited === 'receive' && recv) {
+      const calculated = isBuy
+        ? ((recv * ratePerAED) / MULT).toFixed(2)       // AED → INR
+        : (recv * MULT * ratePerINR).toFixed(2);        // INR → AED
+      setPayAmount(formatNumber(calculated));
+    }
+  }, [
+    payAmount,
+    receiveAmount,
+    rateLakh,
+    lastEdited,
+    ratePerINR,
+    ratePerAED,
+    isBuy,
+  ]);
+
+  // ---------- submit ----------
+  const handleSubmit = useCallback(async () => {
     if (!selectedTrader) {
       toast.error('Please select a trader first');
       return;
@@ -158,16 +187,12 @@ useEffect(() => {
       return;
     }
 
-    // Determine base/target currencies
-    const base = isBuy ? 'INR' : 'AED';  // What you're paying
-    const quote = isBuy ? 'AED' : 'INR'; // What you're receiving
-    const effectiveRate = rate / LAKH;
+    const base = isBuy ? 'INR' : 'AED';
+    const quote = isBuy ? 'AED' : 'INR';
 
-    // Find currency IDs
-    const baseCurrency = currencies.find(c => c.currencyCode === base);
-    const targetCurrency = currencies.find(c => c.currencyCode === quote);
+    const baseCurrency = currencies.find((c) => c.currencyCode === base);
+    const targetCurrency = currencies.find((c) => c.currencyCode === quote);
 
-    // For demo, set bid/ask spread to 0, conversionRate to null
     const payload = {
       partyId: selectedTrader.value,
       type: isBuy ? 'BUY' : 'SELL',
@@ -176,15 +201,7 @@ useEffect(() => {
       rate: rateLakh,
       converted: recv,
       orderId: `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      timestamp: new Date().toLocaleString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: true,
-      }),
+      timestamp: new Date().toISOString(),
       currentRate: rateLakh,
       bidSpread: 0,
       askSpread: 0,
@@ -195,38 +212,63 @@ useEffect(() => {
       conversionRate: null,
       baseCurrencyCode: base,
       targetCurrencyCode: quote,
-      reference: voucher.voucherNumber,
+      reference: voucher?.voucherNumber || '',
       isGoldTrade: false,
     };
 
     try {
-      const res = await axiosInstance.post('/currency-trading/trades', payload);
+      let res;
+      if (isEditMode.current && editTransaction?._id) {
+        // ---- UPDATE ----
+        res = await axiosInstance.put(
+          `/currency-trading/trades/${editTransaction._id}`,
+          payload
+        );
+      } else {
+        // ---- CREATE ----
+        res = await axiosInstance.post('/currency-trading/trades', payload);
+      }
 
       if (res.data.success) {
-        toast.success('Trade created successfully');
+        toast.success(isEditMode.current ? 'Trade updated!' : 'Trade created!');
 
         setSuccessData({
           trader: selectedTrader.trader,
           pay: { amount: payAmount, currency: base },
           receive: { amount: receiveAmount, currency: quote },
-          rateLakh: rateLakh,
+          rateLakh,
           isBuy,
         });
         setShowSuccess(true);
 
-        setPayAmount('');
-        setReceiveAmount('');
-        setRateLakh('');
-        setLastEdited(null);
+        // reset form only on create
+        if (!isEditMode.current) {
+          setPayAmount('');
+          setReceiveAmount('');
+          setRateLakh('');
+          setLastEdited(null);
+        }
+        onClose?.();
       } else {
-        toast.error('Trade failed');
+        toast.error(isEditMode.current ? 'Update failed' : 'Create failed');
       }
     } catch (err) {
       console.error('Trade error:', err);
-      toast.error('Error creating trade');
+      toast.error('Error processing trade');
     }
-  }, [selectedTrader, payAmount, receiveAmount, rateLakh, isBuy, currencies, voucher]);
+  }, [
+    selectedTrader,
+    payAmount,
+    receiveAmount,
+    rateLakh,
+    isBuy,
+    currencies,
+    voucher,
+    editTransaction,
+    onClose,
+  ]);
 
+  // ---------- UI helpers ----------
   const payCurrency = isBuy ? 'INR' : 'AED';
   const receiveCurrency = isBuy ? 'AED' : 'INR';
   const payHint = isBuy ? '1 = 1,000 INR | 100 = 1 Lakh INR' : '';
@@ -254,15 +296,20 @@ useEffect(() => {
         inputFocus: 'focus:ring-red-500',
       };
 
-  const voucherType = isBuy ? 'PUR' : 'SAL';
-
   return (
     <>
-      <div className="bg-white rounded-lg shadow-lg border border-gray-200 w-full ">
+      <div className="bg-white rounded-lg shadow-lg border border-gray-200 w-full">
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-5 pb-3">
-          <h2 className="text-xl font-semibold">Create Trade</h2>
-          <button className="text-gray-500 hover:text-gray-700 text-2xl">×</button>
+          <h2 className="text-xl font-semibold">
+            {isEditMode.current ? 'Edit Trade' : 'Create Trade'}
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700 text-2xl"
+          >
+            ×
+          </button>
         </div>
 
         {/* Buy / Sell Toggle */}
@@ -272,6 +319,7 @@ useEffect(() => {
             className={`flex-1 py-2 rounded-md font-medium transition-colors ${
               isBuy ? theme.toggleActive : theme.toggleInactive
             }`}
+            disabled={isEditMode.current}
           >
             Buy AED
           </button>
@@ -280,6 +328,7 @@ useEffect(() => {
             className={`flex-1 py-2 rounded-md font-medium transition-colors ${
               !isBuy ? theme.toggleActive : theme.toggleInactive
             }`}
+            disabled={isEditMode.current}
           >
             Sell AED
           </button>
@@ -287,24 +336,30 @@ useEffect(() => {
 
         {/* Voucher Details */}
         <div className="px-5 pb-4">
-        <div className={`rounded-lg p-3 flex justify-between text-sm ${theme.voucherBg}`}>
- <div className='flex flex-col items-center'>
-      <span className="text-gray-600">Voucher Code</span>
-      <span className="font-medium">{voucher?.voucherNumber ? voucher.voucherNumber : 'N/A'}</span>
-    </div>
-    <div className='flex flex-col items-center'>
-      <span className="text-gray-600">Prefix</span>
-      <span className="font-medium">{voucher?.prefix ? voucher?.prefix : 'N/A'}</span>
-    </div>
-    <div className='flex flex-col items-center'>
-      <span className="text-gray-600">Voucher Date</span>
-      <span className="font-medium">
-        {voucher?.date ? new Date(voucher.date).toLocaleDateString('en-GB') : 'N/A'}
-      </span>
-    </div>
-</div>
-
-
+          <div
+            className={`rounded-lg p-3 flex justify-between text-sm ${theme.voucherBg}`}
+          >
+            <div className="flex flex-col items-center">
+              <span className="text-gray-600">Voucher Code</span>
+              <span className="font-medium">
+                {voucher?.voucherNumber ?? 'N/A'}
+              </span>
+            </div>
+            <div className="flex flex-col items-center">
+              <span className="text-gray-600">Prefix</span>
+              <span className="font-medium">
+                {voucher?.prefix ?? 'N/A'}
+              </span>
+            </div>
+            <div className="flex flex-col items-center">
+              <span className="text-gray-600">Voucher Date</span>
+              <span className="font-medium">
+                {voucher?.date
+                  ? new Date(voucher.date).toLocaleDateString('en-GB')
+                  : 'N/A'}
+              </span>
+            </div>
+          </div>
         </div>
 
         {/* Currency Bar */}
@@ -325,9 +380,9 @@ useEffect(() => {
             placeholder={isBuy ? 'e.g. 100 = 1 Lakh' : 'Enter AED to pay'}
             value={payAmount}
             onChange={(e) => {
-              const rawValue = parseNumber(e.target.value);
-              if (rawValue === '' || /^\d*\.?\d*$/.test(rawValue)) {
-                setPayAmount(formatNumber(rawValue));
+              const raw = parseNumber(e.target.value);
+              if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
+                setPayAmount(formatNumber(raw));
                 setLastEdited('pay');
               }
             }}
@@ -342,12 +397,14 @@ useEffect(() => {
           </label>
           <input
             type="text"
-            placeholder={isBuy ? 'Enter AED to receive' : 'Enter INR to receive'}
+            placeholder={
+              isBuy ? 'Enter AED to receive' : 'Enter INR to receive'
+            }
             value={receiveAmount}
             onChange={(e) => {
-              const rawValue = parseNumber(e.target.value);
-              if (rawValue === '' || /^\d*\.?\d*$/.test(rawValue)) {
-                setReceiveAmount(formatNumber(rawValue));
+              const raw = parseNumber(e.target.value);
+              if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
+                setReceiveAmount(formatNumber(raw));
                 setLastEdited('receive');
               }
             }}
@@ -365,9 +422,9 @@ useEffect(() => {
             placeholder={ratePlaceholder}
             value={rateLakh}
             onChange={(e) => {
-              const rawValue = parseNumber(e.target.value);
-              if (rawValue === '' || /^\d*\.?\d*$/.test(rawValue)) {
-                setRateLakh(formatNumber(rawValue));
+              const raw = parseNumber(e.target.value);
+              if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
+                setRateLakh(formatNumber(raw));
               }
             }}
             className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 ${theme.inputFocus}`}
@@ -376,7 +433,9 @@ useEffect(() => {
 
         {/* Trade Summary */}
         <div className="px-5 pb-4">
-          <div className={`rounded-lg p-4 border ${theme.summaryBorder} ${theme.summaryBg}`}>
+          <div
+            className={`rounded-lg p-4 border ${theme.summaryBorder} ${theme.summaryBg}`}
+          >
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="text-gray-600">You Pay</span>
@@ -394,7 +453,9 @@ useEffect(() => {
               </div>
             </div>
             <div className="mt-3 text-sm">
-              <span className="text-gray-600">Rate (AED per 1 Lakh INR) </span>
+              <span className="text-gray-600">
+                Rate (AED per 1 Lakh INR){' '}
+              </span>
               <span className="font-medium">
                 {rateLakh || '0.00'} {isBuy ? '(Buy)' : '(Sell)'}
               </span>
@@ -402,14 +463,18 @@ useEffect(() => {
           </div>
         </div>
 
-        {/* Create Trade Button */}
+        {/* Submit Button */}
         <div className="px-5 pb-5">
           <button
-            onClick={handleCreateTrade}
+            onClick={handleSubmit}
             className={`w-full py-3 ${theme.buttonBg} text-white rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
-            disabled={!selectedTrader || (!payAmount && !receiveAmount)}
+            disabled={
+              !selectedTrader ||
+              (!payAmount && !receiveAmount) ||
+              !rateLakh
+            }
           >
-            Create Trade
+            {isEditMode.current ? 'Update Trade' : 'Create Trade'}
           </button>
         </div>
       </div>

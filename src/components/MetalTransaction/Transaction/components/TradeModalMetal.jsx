@@ -13,6 +13,7 @@ export default function TradeModalMetal({ type, selectedTrader, liveRate, onClos
   const [editingIndex, setEditingIndex] = useState(null);
   const [metalRates, setMetalRates] = useState([]);
   const [rate, setRate] = useState(null);
+  const [selectedtrader,setSelectedTrader]=useState(null);
   const [voucher, setVoucher] = useState(null);
   const [loadingRates, setLoadingRates] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -22,33 +23,54 @@ export default function TradeModalMetal({ type, selectedTrader, liveRate, onClos
   const isEditMode = !!existingTransaction;
 
   // Load existing transaction data if in edit mode
-  useEffect(() => {
-    if (existingTransaction) {
-      setSelectedRatio(existingTransaction.fixed ? 'Fix' : 'Unfix');
-      setVoucher({
-        voucherNumber: existingTransaction.voucherNumber,
-        prefix: existingTransaction.voucherType || 'N/A',
-        date: existingTransaction.voucherDate
-      });
-      
-      // Transform existing stock items to trades format
-      const existingTrades = existingTransaction.stockItems.map(item => ({
-        trader: selectedTrader?.label || selectedTrader?.name,
-        stockCode: item.stockCode?.code || item.stockCode,
-        description: item.description,
-        grossWeight: item.grossWeight,
-        pureWeight: item.pureWeight,
-        weightInOz: item.weightInOz,
-        purity: item.purity,
-        ratePerGram: item.metalRateRequirements?.rate || 0,
-        metalAmount: item.metalRateRequirements?.amount || 0,
-        meltingCharge: item.meltingCharge?.amount || 0, // Using makingCharges as meltingCharge for now
-        totalAmount: item.itemTotal?.itemTotalAmount || 0
-      }));
-      
-      setTrades(existingTrades);
+// Load existing transaction data if in edit mode
+useEffect(() => {
+  if (existingTransaction) {
+    // Voucher
+    setVoucher({
+      voucherNumber: existingTransaction.voucherNumber || "N/A",
+      prefix: existingTransaction.voucherType || "N/A",
+      date: existingTransaction.voucherDate || new Date().toISOString(),
+    });
+
+    // Fix/Unfix
+    setSelectedRatio(existingTransaction.fix ? "Fix" : "Unfix");
+
+    // Metal Unit (metalRate._id)
+    if (existingTransaction.stockItems?.[0]?.metalRate?._id) {
+      setSelectedMetalUnit(existingTransaction.stockItems[0].metalRate._id);
     }
-  }, [existingTransaction, selectedTrader]);
+
+    // Selected trader — fallback to what was passed from parent
+    if (selectedTrader) {
+      console.log("Using passed trader:", selectedTrader);
+    } else if (existingTransaction.partyCode) {
+      setSelectedTrader({
+        value: existingTransaction.partyCode,
+        label: existingTransaction.partyName || "Trader",
+      });
+    }
+
+    // Transform stockItems into trades for table display
+    const existingTrades = (existingTransaction.stockItems || []).map((item) => ({
+      trader: selectedTrader?.label || selectedTrader?.name || existingTransaction.partyName || "Trader",
+      stockId: item.stockCode?._id || item.stockCode,
+      stockCode: item.stockCode?.code || item.stockCode?.symbol || "-",
+      description: item.description || item.stockCode?.description || "-",
+      grossWeight: item.grossWeight || 0,
+      pureWeight: item.pureWeight || 0,
+      weightInOz: item.weightInOz || 0,
+      purity: item.purity || item.stockCode?.karat?.standardPurity || 0,
+      ratePerGram: item.metalRateRequirements?.rate || 0,
+      metalAmount: item.metalRateRequirements?.amount || 0,
+      meltingCharge: item.meltingCharge?.amount || 0,
+      totalAmount: item.itemTotal?.itemTotalAmount || 0,
+    }));
+
+    setTrades(existingTrades);
+  }
+}, [existingTransaction, selectedTrader]);
+
 
   useEffect(() => {
     const fetchRates = async () => {
