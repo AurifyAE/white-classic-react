@@ -81,8 +81,8 @@ export default function TradeModalMetal({ type, selectedTrader, liveRate, onClos
     if (!isEditMode) {
       const fetchVoucher = async () => {
         try {
-          const transactionType = type === 'purchase' ? 'metal-purchase' : 'metal-sale';
-          const { data } = await axiosInstance.post(`/voucher/generate/${transactionType}`, {
+          const transactionType = type === 'purchase' ? 'purchase' : 'sale';
+          const { data } = await axiosInstance.post(`/voucher/generate/metal-${transactionType}`, {
             transactionType,
           });
           if (data.success) {
