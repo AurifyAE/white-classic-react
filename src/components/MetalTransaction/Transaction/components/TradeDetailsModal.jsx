@@ -369,7 +369,7 @@ export default function TradeDetailsModal({
                 </label>
                 <input
                   type="text"
-                  value={formatNumber(initialManualRate.toString())}
+                  value={formatNumber(initialManualRate?.toString())}
                   readOnly // ← Now controlled by parent
                   placeholder="e.g. 65,000"
                   className="w-full px-4 py-3 border rounded-lg text-sm text-gray-900 bg-white border-gray-300 focus:outline-none cursor-default"
@@ -413,7 +413,7 @@ export default function TradeDetailsModal({
                 <div
                   className="w-full px-4 py-3 border rounded-lg text-sm text-gray-900 bg-white border-gray-300 focus:outline-none cursor-default"
                 >
-                  ${formatNumber(totalAmount)}
+                  {formatNumber(totalAmount)}
                 </div>
               </div>
             </div>
