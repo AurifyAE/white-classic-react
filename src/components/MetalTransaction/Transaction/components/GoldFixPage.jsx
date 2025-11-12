@@ -74,7 +74,7 @@ export default function TradeModalGold({ selectedTrader }) {
         const res = await axiosInstance.get('/currency-master');
         if (res.data.success && res.data.data) {
           setCurrencies(res.data.data);
-          const aedCurrency = res.data.data.find(c => c.currencyCode === 'AED');
+          const aedCurrency = res.data.data.find(c => c.currencyCode === 'INR');
           if (aedCurrency) setBaseCurrencyId(aedCurrency._id);
         }
       } catch (err) {
@@ -102,7 +102,7 @@ export default function TradeModalGold({ selectedTrader }) {
     const pureWeight = gross * purity; // grams
 
     const rateKg = parseFloat(parseNumber(ratePerKg)) || 0;
-    const valuePerGram =rateKg * 1000 /1000; // INR per gram
+    const valuePerGram =rateKg/1000; // INR per gram
     const metalAmount = pureWeight * valuePerGram; // total INR
 
     return {

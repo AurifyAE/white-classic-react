@@ -56,7 +56,7 @@ export default function Transaction() {
             Transaction Dashboard
           </div>
 
-\          {isMetalTab(activeTab) && (
+          {isMetalTab(activeTab) && (
             <div className="flex items-center space-x-6">
               <div className="text-right">
                 <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">

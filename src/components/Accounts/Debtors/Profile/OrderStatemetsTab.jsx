@@ -70,7 +70,8 @@ const OrderStatementsTab = ({
             txn.type !== "CURRENCY_EXCHANGE" &&
             txn.type !== "VAT_AMOUNT" &&
             txn.type !== "GOLD" &&
-            txn.type != "purchase-fixing"
+            txn.type != "purchase-fixing" &&
+            txn.type != "sales-fixing"
         );
 
         console.log(
@@ -94,7 +95,7 @@ const OrderStatementsTab = ({
           const assetType = txn.assetType || 0; // Default to AED if not specified
 
           // Update running balances based on assetType
-          if (assetType === "XAU" || txn.type === "PARTY_GOLD_BALANCE") {
+          if (txn.type === "PARTY_GOLD_BALANCE") {
             console.log("=====================")
             goldRunningBalance += credit - debit;
           } else if (assetType === "AED") {
@@ -114,7 +115,7 @@ const OrderStatementsTab = ({
             balance:
               assetType === "AED" ? aedRunningBalance : inrRunningBalance, // For backward compatibility
             goldInGMS:
-              assetType === "XAU" || txn.type === "PARTY_GOLD_BALANCE"
+               txn.type === "PARTY_GOLD_BALANCE"
                 ? { debit, credit, balance: goldRunningBalance }
                 : { debit: 0, credit: 0, balance: 0 },
             aed:
@@ -885,7 +886,7 @@ const OrderStatementsTab = ({
                         <span className="text-gray-400">--</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-center font-bold text-purple-700">
+                    <td className="px-6 py-4 text-center font-bold text-blue-700">
                       {txn.inr.balance !== 0 ? (
                         <span>{formatWithCRDR(txn.inr.balance, "INR")}</span>
                       ) : (
@@ -910,7 +911,7 @@ const OrderStatementsTab = ({
                         <span className="text-gray-400">--</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-center font-bold text-amber-700">
+                    <td className="px-6 py-4 text-center font-bold text-blue-700">
                       {txn.goldInGMS.balance !== 0 ? (
                         <span>
                           {formatWithCRDR(txn.goldInGMS.balance, "GMS")}
@@ -941,7 +942,7 @@ const OrderStatementsTab = ({
                   <td className="px-6 py-4 text-center text-green-600">
                     {formatIndianAmount(summary.INR.credit)}
                   </td>
-                  <td className="px-6 py-4 text-center text-purple-700 font-bold">
+                  <td className="px-6 py-4 text-center text-blue-700 font-bold">
                     {formatWithCRDR(summary.INR.balance, "INR")}
                   </td>
                   <td className="px-6 py-4 text-center text-red-600 border-l border-gray-200">
@@ -950,7 +951,7 @@ const OrderStatementsTab = ({
                   <td className="px-6 py-4 text-center text-green-600">
                     {formatIndianAmount(summary.gold.credit)}
                   </td>
-                  <td className="px-6 py-4 text-center text-amber-700 font-bold">
+                  <td className="px-6 py-4 text-center text-blue-700 font-bold">
                     {formatWithCRDR(summary.gold.balance, "GMS")}
                   </td>
                 </tr>

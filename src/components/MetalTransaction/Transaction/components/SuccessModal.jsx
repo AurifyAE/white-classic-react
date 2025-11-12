@@ -29,13 +29,13 @@ export default function SuccessModal({ isOpen, onClose, data }) {
         </h3>
 
         {/* Trader */}
-        <div className="mb-3 text-sm">
+        {/* <div className="mb-3 text-sm">
           <span className="font-medium text-gray-600">Trader:</span>{' '}
           {trader?.customerName} ({trader?.accountCode})
-        </div>
+        </div> */}
 
         {/* Pay / Receive */}
-        <div className="mb-3 grid grid-cols-2 gap-4 text-sm">
+        {/* <div className="mb-3 grid grid-cols-2 gap-4 text-sm">
           <div>
             <span className="font-medium text-gray-600">You Pay:</span>
             <p className="font-bold text-gray-900">
@@ -48,15 +48,15 @@ export default function SuccessModal({ isOpen, onClose, data }) {
               {pay.amount} {pay.currency}
             </p>
           </div>
-        </div>
+        </div> */}
 
         {/* Rate */}
-        <div className="text-sm">
+        {/* <div className="text-sm">
           <span className="font-medium text-gray-600">
             Rate (AED per 1 Lakh INR):
           </span>{' '}
           {rateLakh} {isBuy ? '(Buy)' : '(Sell)'}
-        </div>
+        </div> */}
 
         {/* OK button */}
         <button
