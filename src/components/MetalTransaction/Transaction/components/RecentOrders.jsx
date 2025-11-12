@@ -1,9 +1,10 @@
+// Transaction/components/RecentOrders.jsx
 import React, { useEffect, useState, useCallback } from "react";
 import { Edit, Trash2 } from "lucide-react";
 import axiosInstance from "../../../../api/axios";
 import { useNavigate } from "react-router-dom";
 
-export default function RecentOrders({ type,onEdit, onDelete }) {
+export default function RecentOrders({ type }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -88,6 +89,8 @@ export default function RecentOrders({ type,onEdit, onDelete }) {
     }
   }, []);
 
+
+  
   useEffect(() => {
     fetchOrders(type);
   }, [type, fetchOrders]);
@@ -251,20 +254,18 @@ const handleEditOrder = (order) => {
 
                   <td className="py-5 px-6">
                     <div className="flex items-center gap-2">
-                                      <button
-                    onClick={() => onEdit && onEdit(order)}  // 👈 pass order data to parent
-                    className="p-1.5 hover:bg-gray-100 rounded transition-colors text-blue-500"
-                    title="Edit"
-                  >
-                    <Edit color="black" size={18} />
-                  </button>
-                  <button
-                    onClick={() => onDelete && onDelete(order._id)}  // 👈 pass id to parent
-                    className="p-1.5 hover:bg-gray-100 rounded transition-colors text-red-500"
-                    title="Delete"
-                  >
-                    <Trash2 size={18} />
-                  </button>
+                      <button
+                        className="p-1.5 hover:bg-gray-100 rounded transition-colors text-blue-500"
+                        title="Edit"
+                      >
+                        <Edit color="black" size={18} />
+                      </button>
+                      <button
+                        className="p-1.5 hover:bg-gray-100 rounded transition-colors text-red-500"
+                        title="Delete"
+                      >
+                        <Trash2 size={18} />
+                      </button>
                     </div>
                   </td>
                 </tr>
