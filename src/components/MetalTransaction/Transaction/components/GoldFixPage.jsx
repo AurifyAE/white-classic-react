@@ -4,6 +4,7 @@ import React, {
   useEffect,
   useMemo,
   useCallback,
+  useRef,
 } from 'react';
 import { toast } from 'react-toastify';
 import axiosInstance from '../../../../api/axios';
@@ -11,7 +12,7 @@ import SuccessModal from './SuccessModal';
 import AsyncSelect from 'react-select/async';
 
 // -------------------------------------------------------------------
-// Helper utils
+// Helper utils (unchanged)
 // -------------------------------------------------------------------
 const formatNumber = (val) => {
   if (!val) return '';
@@ -32,78 +33,85 @@ const customSelectStyles = {
   }),
 };
 
-
-export default function TradeModalGold({ selectedTrader }) {
+export default function TradeModalGold({ selectedTrader ,traderRefetch}) {
   // ------------------- Core states -------------------
   const [voucher, setVoucher] = useState(null);
   const [selectedCommodity, setSelectedCommodity] = useState(null);
-
   const [grossWeight, setGrossWeight] = useState('1000'); // default 1000 g
-  const [ratePerKg, setRatePerKg] = useState(''); // user input
-
+  const [ratePerKg, setRatePerKg] = useState('');
   const [isBuy, setIsBuy] = useState(true);
-
-  // Success modal
   const [showSuccess, setShowSuccess] = useState(false);
   const [successData, setSuccessData] = useState(null);
-
   const [currencies, setCurrencies] = useState([]);
   const [baseCurrencyId, setBaseCurrencyId] = useState('');
 
-  // ------------------- Fetch voucher on mount -------------------
-  useEffect(() => {
-    const fetchVoucher = async () => {
-      try {
-          const {data} = await axiosInstance.post(`/voucher/generate/gold-fix`, {
-                transactionType: "gold-fix ",
-              });
+  // -----------------------------------------------------------------
+  // 1. Voucher fetcher – extracted to a reusable async function
+  // -----------------------------------------------------------------
+  const fetchVoucher = useCallback(async () => {
+    try {
+      const { data } = await axiosInstance.post('/voucher/generate/gold-fix', {
+        transactionType: 'gold-fix ',
+      });
 
-              console.log(data,'voucher data')
-        if (data.success) setVoucher(data.data);
-        else toast.warn('Could not load voucher – using N/A');
-      } catch (err) {
-        console.error(err);
-        toast.error('Failed to load voucher');
+      if (data.success) {
+        setVoucher(data.data);
+      } else {
+        toast.warn('Could not load voucher – using N/A');
+        setVoucher(null);
       }
-    };
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to load voucher');
+      setVoucher(null);
+    }
+  }, []);
+
+  // -----------------------------------------------------------------
+  // 2. Initial load (mount)
+  // -----------------------------------------------------------------
+  useEffect(() => {
     fetchVoucher();
 
-    // Fetch currencies and set baseCurrencyId (AED)
     const fetchCurrencies = async () => {
       try {
         const res = await axiosInstance.get('/currency-master');
         if (res.data.success && res.data.data) {
           setCurrencies(res.data.data);
-          const aedCurrency = res.data.data.find(c => c.currencyCode === 'AED');
-          if (aedCurrency) setBaseCurrencyId(aedCurrency._id);
+          const inrCurrency = res.data.data.find((c) => c.currencyCode === 'INR');
+          if (inrCurrency) setBaseCurrencyId(inrCurrency._id);
         }
       } catch (err) {
         console.error('Error fetching currencies:', err);
       }
     };
     fetchCurrencies();
-  }, []);
+  }, [fetchVoucher]);
 
-  // ------------------- Async commodity loader -------------------
+  // -----------------------------------------------------------------
+  // 3. Async commodity loader (unchanged)
+  // -----------------------------------------------------------------
   const loadCommodities = async (input) => {
     const { data } = await axiosInstance.get('/commodity', { params: { q: input } });
     return data.data.map((c) => ({
       value: c._id,
       label: `${c.code} - ${c.description}`,
-      purity: parseFloat(c.standardPurity), // Use standardPurity for calculation
+      purity: parseFloat(c.standardPurity),
       commodity: c,
     }));
   };
 
-  // ------------------- Calculations (memoised) -------------------
+  // -----------------------------------------------------------------
+  // 4. Calculations (memoised)
+  // -----------------------------------------------------------------
   const calculations = useMemo(() => {
     const gross = parseFloat(parseNumber(grossWeight)) || 0;
-    const purity = selectedCommodity?.purity ?? 0; // Use purity from selected commodity
-    const pureWeight = gross * purity; // grams
+    const purity = selectedCommodity?.purity ?? 0;
+    const pureWeight = gross * purity;
 
     const rateKg = parseFloat(parseNumber(ratePerKg)) || 0;
-    const valuePerGram =rateKg * 1000 /1000; // INR per gram
-    const metalAmount = pureWeight * valuePerGram; // total INR
+    const valuePerGram = rateKg / 1000;
+    const metalAmount = pureWeight * valuePerGram;
 
     return {
       gross,
@@ -115,37 +123,27 @@ export default function TradeModalGold({ selectedTrader }) {
     };
   }, [grossWeight, selectedCommodity, ratePerKg]);
 
-  // ------------------- Create Trade -------------------
+  // -----------------------------------------------------------------
+  // 5. Create Trade – **refetch voucher on success**
+  // -----------------------------------------------------------------
   const handleCreateTrade = useCallback(async () => {
-    if (!selectedTrader) {
-      toast.error('No trader selected');
-      return;
-    }
-    if (!selectedCommodity) {
-      toast.error('Please select a commodity');
-      return;
-    }
-    if (!calculations.gross) {
-      toast.error('Enter gross weight');
-      return;
-    }
-    if (!calculations.rateKg) {
-      toast.error('Enter rate per KG');
-      return;
-    }
+    // ---- validation (unchanged) ----
+    if (!selectedTrader) return toast.error('No trader selected');
+    if (!selectedCommodity) return toast.error('Please select a commodity');
+    if (!calculations.gross) return toast.error('Enter gross weight');
+    if (!calculations.rateKg) return toast.error('Enter rate per KG');
 
     const isBuyTrade = isBuy;
     const base = isBuyTrade ? 'INR' : 'XAU';
     const quote = isBuyTrade ? 'XAU' : 'INR';
 
-    // Unified payload for /currency-trading/trades
     const payload = {
       partyId: selectedTrader.value,
       type: isBuyTrade ? 'BUY' : 'SELL',
-      amount: calculations.metalAmount, // INR value for buy, XAU for sell
+      amount: calculations.metalAmount,
       currency: base,
-      rate: calculations.rateKg, // Rate per KG bar
-      converted: calculations.pureWeight, // pure gold weight (grams)
+      rate: calculations.rateKg,
+      converted: calculations.pureWeight,
       orderId: `GOLD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       timestamp: new Date().toLocaleString('en-US', {
         month: 'short',
@@ -163,23 +161,26 @@ export default function TradeModalGold({ selectedTrader }) {
       sellRate: !isBuyTrade ? calculations.rateKg : null,
       baseCurrencyCode: base,
       targetCurrencyCode: quote,
-      reference: voucher?.voucherNumber || `GOLD-${isBuyTrade ? 'BUY' : 'SELL'}-${selectedTrader.trader.accountCode}`,
+      reference:
+        voucher?.voucherNumber ||
+        `GOLD-${isBuyTrade ? 'BUY' : 'SELL'}-${selectedTrader.trader.accountCode}`,
       isGoldTrade: true,
       metalType: 'Kilo',
       grossWeight: calculations.gross,
       purity: calculations.purity,
       pureWeight: calculations.pureWeight,
       valuePerGram: calculations.valuePerGram,
-      // Optionally add commodityId if needed by backend
       commodityId: selectedCommodity.value,
-      baseCurrencyId: baseCurrencyId,
+      baseCurrencyId,
     };
 
     try {
-      // Use unified endpoint
       const { data } = await axiosInstance.post('/gold-trade/trades', payload);
+
       if (data.success) {
         toast.success('Gold trade created');
+
+        // ---- success modal data ----
         setSuccessData({
           trader: selectedTrader.trader,
           pay: { amount: formatNumber(calculations.metalAmount), currency: base },
@@ -191,10 +192,15 @@ export default function TradeModalGold({ selectedTrader }) {
           isBuy,
         });
         setShowSuccess(true);
-        // Reset form
+
+        // ---- reset form fields ----
         setGrossWeight('1000');
         setRatePerKg('');
         setSelectedCommodity(null);
+
+        // ---- **REFETCH A NEW VOUCHER** ----
+        await fetchVoucher();
+        traderRefetch?.current && await traderRefetch.current();   // <-- re-load balances instantly
       } else {
         toast.error('Trade failed');
       }
@@ -209,10 +215,14 @@ export default function TradeModalGold({ selectedTrader }) {
     isBuy,
     grossWeight,
     voucher,
-    baseCurrencyId
+    baseCurrencyId,
+    fetchVoucher,
+    traderRefetch // <-- added to deps
   ]);
 
-  // ------------------- UI theme (Buy / Sell) -------------------
+  // -----------------------------------------------------------------
+  // 6. UI theme (Buy / Sell) – unchanged
+  // -----------------------------------------------------------------
   const theme = isBuy
     ? {
         toggleActive: 'bg-yellow-600 text-white',
@@ -235,7 +245,9 @@ export default function TradeModalGold({ selectedTrader }) {
 
   const payHint = isBuy ? '1 = 1,000 INR | 100 = 1 Lakh INR' : '';
 
-  // ------------------- Render -------------------
+  // -----------------------------------------------------------------
+  // 7. Render – unchanged (only minor TSX fixes)
+  // -----------------------------------------------------------------
   return (
     <>
       <div className="bg-white rounded-lg shadow-lg border border-gray-200 w-full max-w-2xl mx-auto p-6 space-y-5">
@@ -266,31 +278,27 @@ export default function TradeModalGold({ selectedTrader }) {
         </div>
 
         {/* Voucher Details */}
-        <div className={`rounded-lg p-3 flex justify-evenly  gap-6 text-sm ${theme.voucherBg}`}>
-        <div className='flex flex-col items-center'>
-      <span className="text-gray-600">Voucher Code</span>
-      <span className="font-medium">{voucher?.voucherNumber ?? 'N/A'}</span>
-    </div>
-    <div className='flex flex-col items-center'>
-      <span className="text-gray-600">Prefix</span>
-      <span className="font-medium">{voucher?.prefix ?? 'N/A'}</span>
-    </div>
-    <div className='flex flex-col items-center'>
-      <span className="text-gray-600">Voucher Date</span>
-      <span className="font-medium">
-        {voucher?.date ? new Date(voucher.date).toLocaleDateString('en-GB') : 'N/A'}
-      </span>
-    </div>
-          {/* <div>
-            <span className="text-gray-600">Voucher Type</span>
-            <br />
-            <span className={`font-bold ${isBuy ? 'text-yellow-600' : 'text-orange-600'}`}>
-              {voucherType}
+        <div
+          className={`rounded-lg p-3 flex justify-evenly gap-6 text-sm ${theme.voucherBg}`}
+        >
+          <div className="flex flex-col items-center">
+            <span className="text-gray-600">Voucher Code</span>
+            <span className="font-medium">{voucher?.voucherNumber ?? 'N/A'}</span>
+          </div>
+          <div className="flex flex-col items-center">
+            <span className="text-gray-600">Prefix</span>
+            <span className="font-medium">{voucher?.prefix ?? 'N/A'}</span>
+          </div>
+          <div className="flex flex-col items-center">
+            <span className="text-gray-600">Voucher Date</span>
+            <span className="font-medium">
+              {voucher?.date
+                ? new Date(voucher.date).toLocaleDateString('en-GB')
+                : 'N/A'}
             </span>
-          </div> */}
+          </div>
         </div>
 
-       
         {/* Commodity Selection */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -308,37 +316,36 @@ export default function TradeModalGold({ selectedTrader }) {
           />
         </div>
 
-        {/* Gross Weight */}
-        <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+        {/* Gross & Pure Weight */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Gross Weight (grams) <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={grossWeight}
+              onChange={(e) => {
+                const raw = parseNumber(e.target.value);
+                if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
+                  setGrossWeight(formatNumber(raw));
+                }
+              }}
+              className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 ${theme.inputFocus}`}
+            />
+          </div>
 
-        
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Gross Weight (grams) <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            value={grossWeight}
-            onChange={(e) => {
-              const raw = parseNumber(e.target.value);
-              if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
-                setGrossWeight(formatNumber(raw));
-              }
-            }}
-            className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 ${theme.inputFocus}`}
-          />
-            </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Pure Weight (grams)
-          </label>
-          <input
-            type="text"
-            readOnly
-            value={formatNumber(calculations.pureWeight)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 cursor-not-allowed"
-          />
-        </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Pure Weight (grams)
+            </label>
+            <input
+              type="text"
+              readOnly
+              value={formatNumber(calculations.pureWeight)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 cursor-not-allowed"
+            />
+          </div>
         </div>
 
         {/* Pure Weight (read-only) */}
@@ -364,7 +371,7 @@ export default function TradeModalGold({ selectedTrader }) {
   />
 </div>
 
-        {/* Value per Gram (read-only) */}
+        {/* Value per Gram */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Value per Gram (INR)
@@ -377,7 +384,7 @@ export default function TradeModalGold({ selectedTrader }) {
           />
         </div>
 
-        {/* Metal Amount (read-only) */}
+        {/* Metal Amount */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Metal Amount (INR)
@@ -391,7 +398,9 @@ export default function TradeModalGold({ selectedTrader }) {
         </div>
 
         {/* Trade Summary */}
-        <div className={`rounded-lg p-4 border ${theme.summaryBorder} ${theme.summaryBg}`}>
+        <div
+          className={`rounded-lg p-4 border ${theme.summaryBorder} ${theme.summaryBg}`}
+        >
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <span className="text-gray-600">You Pay</span>

@@ -10,12 +10,8 @@ import { toast } from 'react-toastify';
 import axiosInstance from '../../../../api/axios';
 import SuccessModal from './SuccessModal';
 
-export default function TradeModalFX({
-  selectedTrader,
-  editTransaction,          // <-- NEW PROP
-  onClose,                  // optional – close after success
-}) {
-  // ---------- core form state ----------
+export default function TradeModalFX({ selectedTrader,traderRefetch }) {
+  // ------------------- Core states -------------------
   const [payAmount, setPayAmount] = useState('');
   const [receiveAmount, setReceiveAmount] = useState('');
   const [rateLakh, setRateLakh] = useState('');
@@ -24,26 +20,25 @@ export default function TradeModalFX({
   const [showSuccess, setShowSuccess] = useState(false);
   const [successData, setSuccessData] = useState(null);
   const [currencies, setCurrencies] = useState([]);
+  
   const [voucher, setVoucher] = useState(null);
-
-  // keep a ref so we know if we are in “edit” mode
-  const isEditMode = useRef(!!editTransaction);
-
+  // const [prefix, setPrefix] = useState('N/A');
   const LAKH = 100_000;
   const MULT = 1_000; // 1 (compact) = 1 000 INR
 
-  // ---------- helpers ----------
   const formatNumber = (value) => {
     if (!value) return '';
     const num = parseFloat(value.replace(/,/g, ''));
     return isNaN(num) ? '' : num.toLocaleString('en-IN');
   };
-  const parseNumber = (value) => value.replace(/,/g, '');
 
-  // ---------- rates ----------
+  const parseNumber = (value) => {
+    return value.replace(/,/g, '');
+  };
+
   const ratePerINR = useMemo(() => {
     const r = parseFloat(parseNumber(rateLakh)) || 0;
-    return r / LAKH;
+    return r / LAKH; 
   }, [rateLakh]);
 
   const ratePerAED = useMemo(() => {
@@ -68,98 +63,35 @@ export default function TradeModalFX({
     }
   }, [isBuy]);
 
-  // refresh voucher when BUY/SELL changes (only in create mode)
-  useEffect(() => {
-    if (!isEditMode.current) fetchVoucherCode();
-  }, [fetchVoucherCode, isEditMode]);
+useEffect(() => {
+  fetchVoucherCode();
+}, [fetchVoucherCode]);
+ 
 
-  // ---------- currencies ----------
-  useEffect(() => {
-    const fetchCurrencies = async () => {
-      try {
-        const res = await axiosInstance.get('/currency-master');
-        if (res.data.success && res.data.data) setCurrencies(res.data.data);
-      } catch (err) {
-        console.error('Error fetching currencies:', err);
-      }
-    };
-    fetchCurrencies();
-  }, []);
+useEffect(() => {
+  if (!rateLakh) {
+    setPayAmount('');
+    setReceiveAmount('');
+    return;
+  }
 
-  // ---------- AUTO-FILL WHEN EDITING ----------
-  useEffect(() => {
-    if (!editTransaction) {
-      // create mode – reset everything
-      setPayAmount('');
-      setReceiveAmount('');
-      setRateLakh('');
-      setIsBuy(true);
-      setLastEdited(null);
-      isEditMode.current = false;
-      return;
-    }
-
-    // ---- EDIT MODE ----
-    isEditMode.current = true;
-
-    const {
-      type,
-      cashDebit,          // amount you pay
-      price,              // AED you receive (formatted)
-      currencyCode,       // e.g. "INR/AED"
-    } = editTransaction;
-
-    // 1. BUY vs SELL
-    const buy = type === 'BUY' || type?.includes('PURCHASE');
-    setIsBuy(buy);
-
-    // 2. Pay amount (always the numeric value)
-    setPayAmount(formatNumber(String(cashDebit || '')));
-
-    // 3. Receive amount – strip "AED " prefix
-    const receiveRaw = price?.replace(/^AED\s*/, '').replace(/,/g, '') || '';
-    setReceiveAmount(formatNumber(receiveRaw));
-
-    // 4. Rate (1 Lakh AED)
-    //    For BUY  : rate = (receiveAED / payINR) * LAKH
-    //    For SELL : rate = (payAED   / receiveINR) * LAKH
-    let calculatedRate = 0;
-    const payNum = parseFloat(cashDebit) || 0;
-    const recvNum = parseFloat(receiveRaw) || 0;
-
-    if (buy && payNum && recvNum) {
-      // BUY: pay INR → receive AED
-      calculatedRate = (recvNum / payNum) * LAKH;
-    } else if (!buy && payNum && recvNum) {
-      // SELL: pay AED → receive INR
-      calculatedRate = (payNum / recvNum) * LAKH;
-    }
-    setRateLakh(formatNumber(String(calculatedRate.toFixed(2))));
-
-    setLastEdited(null);
-  }, [editTransaction]);
-
-  // ---------- calculations ----------
-  useEffect(() => {
-    if (!rateLakh) {
-      setPayAmount('');
-      setReceiveAmount('');
-      return;
-    }
-
+    const MULT = 1000; // 1 (compact) = 1000 INR
     const pay = parseFloat(parseNumber(payAmount)) || 0;
     const recv = parseFloat(parseNumber(receiveAmount)) || 0;
 
-    if (lastEdited === 'pay' && pay) {
+    if (lastEdited === 'pay' && payAmount) {
       const calculated = isBuy
-        ? (pay * MULT * ratePerINR).toFixed(2)          // INR → AED
-        : ((pay * ratePerAED) / MULT).toFixed(2);       // AED → INR
+        ? (pay * MULT * ratePerINR).toFixed(2)
+        : ((pay * ratePerAED) / MULT).toFixed(2);
       setReceiveAmount(formatNumber(calculated));
-    } else if (lastEdited === 'receive' && recv) {
+    } else if (lastEdited === 'receive' && receiveAmount) {
       const calculated = isBuy
-        ? ((recv * ratePerAED) / MULT).toFixed(2)       // AED → INR
-        : (recv * MULT * ratePerINR).toFixed(2);        // INR → AED
+        ? ((recv * ratePerAED) / MULT).toFixed(2)
+        : (recv * MULT * ratePerINR).toFixed(2);
       setPayAmount(formatNumber(calculated));
+    } else if (!payAmount && !receiveAmount) {
+      setPayAmount('');
+      setReceiveAmount('');
     }
   }, [
     payAmount,
@@ -171,21 +103,18 @@ export default function TradeModalFX({
     isBuy,
   ]);
 
-  // ---------- submit ----------
-  const handleSubmit = useCallback(async () => {
-    if (!selectedTrader) {
-      toast.error('Please select a trader first');
-      return;
-    }
+  // -----------------------------------------------------------------
+  // 7. Create Trade – **refetch voucher on success**
+  // -----------------------------------------------------------------
+  const handleCreateTrade = useCallback(async () => {
+    if (!selectedTrader) return toast.error('Please select a trader first');
 
     const pay = parseFloat(parseNumber(payAmount)) || 0;
     const recv = parseFloat(parseNumber(receiveAmount)) || 0;
     const rate = parseFloat(parseNumber(rateLakh)) || 0;
 
-    if (!pay || !recv || !rate) {
-      toast.error('Please fill all fields with valid numbers');
-      return;
-    }
+    if (!pay || !recv || !rate)
+      return toast.error('Please fill all fields with valid numbers');
 
     const base = isBuy ? 'INR' : 'AED';
     const quote = isBuy ? 'AED' : 'INR';
@@ -232,6 +161,7 @@ export default function TradeModalFX({
       if (res.data.success) {
         toast.success(isEditMode.current ? 'Trade updated!' : 'Trade created!');
 
+        // ---- success modal data ----
         setSuccessData({
           trader: selectedTrader.trader,
           pay: { amount: payAmount, currency: base },

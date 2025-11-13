@@ -1,5 +1,5 @@
 // Transaction/components/SelectTrader.jsx
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useImperativeHandle, forwardRef } from "react";
 import Select from "react-select";
 import axiosInstance from "../../../../api/axios";
 import { User, X } from "lucide-react";
@@ -20,30 +20,50 @@ const getDirhamColorFilter = (isNegative) => {
     : "invert(48%) sepia(61%) saturate(512%) hue-rotate(90deg) brightness(93%) contrast(85%)"; // green
 };
 
-export default function SelectTrader({ onTraderChange, value }) {
-  const [traders, setTraders] = useState([]);
+const SelectTrader = forwardRef(({ onTraderChange, value }, ref) => {
+    const [traders, setTraders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currencies, setCurrencies] = useState([]);
+  const [refetchTrigger, setRefetchTrigger] = useState(0); // <-- This is key
 
-  // Fetch traders + currencies
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [traderRes, currencyRes] = await Promise.all([
-          axiosInstance.get("/account-type"),
-          axiosInstance.get("/currency-master"),
-        ]);
 
-        setTraders(traderRes.data.data || []);
-        setCurrencies(currencyRes.data.data || []);
-      } catch (err) {
-        console.error("Failed to load traders", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
+  const loadTraders = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [traderRes, currencyRes] = await Promise.all([
+        axiosInstance.get("/account-type"),
+        axiosInstance.get("/currency-master"),
+      ]);
+
+      setTraders(traderRes.data.data || []);
+      setCurrencies(currencyRes.data.data || []);
+    } catch (err) {
+      console.error("Failed to load traders", err);
+      toast.error("Failed to load traders");
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  // Initial load
+  useEffect(() => {
+    loadTraders();
+  }, [loadTraders]);
+
+  // Re-load when refetchTrigger changes
+  useEffect(() => {
+    if (refetchTrigger > 0) {
+      loadTraders();
+    }
+  }, [refetchTrigger, loadTraders]);
+
+  // Expose refetch method to parent
+  useImperativeHandle(ref, () => ({
+    refetch: () => {
+      setRefetchTrigger((prev) => prev + 1);
+    },
+  }), []);
+
 
   // Helper: get currency code from ID
   const getCurrencyCode = (currencyId) => {
@@ -218,4 +238,6 @@ export default function SelectTrader({ onTraderChange, value }) {
       )}
     </div>
   );
-}
+})
+
+export default SelectTrader;

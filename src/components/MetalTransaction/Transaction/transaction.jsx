@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ArrowUp, ArrowDown } from 'lucide-react';
 import SelectTrader from './components/SelectTrader';
 import RecentOrders from './components/RecentOrders';
@@ -25,6 +25,7 @@ export default function Transaction() {
   const [isTradeModalOpen, setIsTradeModalOpen] = useState(false);
   
   const { marketData } = useMarketData(["GOLD"]);
+  const traderRefetchRef = useRef(null);
   const bidPrice = marketData?.bid ? marketData.bid.toFixed(2) : "3283.36";
   const askPrice = marketData?.ask ? marketData.ask.toFixed(2) : "3283.66";
   const [prevBid, setPrevBid] = useState(bidPrice);
@@ -106,8 +107,8 @@ export default function Transaction() {
           <div className="text-lg font-semibold text-gray-800">
             Transaction Dashboard
           </div>
-          
-          {isMetalTab(activeTab) && (
+
+        {isMetalTab(activeTab) && (
             <div className="flex items-center space-x-6">
               <div className="text-right">
                 <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -178,22 +179,16 @@ export default function Transaction() {
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           {/* Left: Trader & Trade Modals */}
           <div className="lg:col-span-2 bg-white border border-gray-200 rounded-lg p-6 space-y-6 max-h-fit">
-            <SelectTrader onTraderChange={handleTraderChange} value={selectedTrader} />
-            
-            {isFixTab(activeTab) && <TradeModalFX
-    selectedTrader={selectedTrader}
-    editTransaction={editingTransaction}
-    onClose={() => setEditingTransaction(null)}
-  />}
-            {isGoldFixTab(activeTab) && <GoldFixPage selectedTrader={selectedTrader} />}
-            
-            {isMetalTab(activeTab) && (isTradeModalOpen || !editingTransaction) && (
+            <SelectTrader onTraderChange={handleTraderChange} value={selectedTrader} ref={traderRefetchRef}/>
+
+            {isFixTab(activeTab) && <TradeModalFX selectedTrader={selectedTrader}  traderRefetch={traderRefetchRef}/>}
+            {isGoldFixTab(activeTab) && <GoldFixPage selectedTrader={selectedTrader}  traderRefetch={traderRefetchRef}/>}
+            {isMetalTab(activeTab) && (
               <TradeModalMetal
                 type={activeTab}
                 selectedTrader={selectedTrader}
                 liveRate={bidPrice}
-                existingTransaction={editingTransaction}
-                onClose={handleTradeModalClose}
+                traderRefetch={traderRefetchRef}
               />
             )}
           </div>

@@ -163,13 +163,13 @@ const ProfileManagement = () => {
         </div>
       </div>
       <div className="bg-white p-6 mx-auto rounded-lg shadow-md">
-        <div className="mb-6">
+        {/* <div className="mb-6">
           <Tabs activeTab={activeTab} onChange={setActiveTab}>
             <Tab id="profile" label="Profile" />
           </Tabs>
-        </div>
-        <div className="mt-4">
-          {activeTab === "profile" && (
+        </div> */}
+        <div className="">
+          {/* {activeTab === "profile" && ( */}
             <ProfileTab
               userData={userData}
               setUserData={setUserData} // for updating user data
@@ -177,7 +177,7 @@ const ProfileManagement = () => {
               mapAccountStatusToDisplay={mapAccountStatusToDisplay}
               formatDate={formatDate}
             />
-          )}
+          {/* )} */}
         </div>
       </div>
     </div>
