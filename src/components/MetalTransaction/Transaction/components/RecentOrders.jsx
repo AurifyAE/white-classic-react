@@ -1,12 +1,16 @@
 // Transaction/components/RecentOrders.jsx
 import React, { useEffect, useState, useCallback } from "react";
-import { Edit, Trash2 } from "lucide-react";
+import { Edit, FileText, Trash2 } from "lucide-react";
 import axiosInstance from "../../../../api/axios";
 import { useNavigate } from "react-router-dom";
+import InvoiceModal from "./InvoicePage";
+import CurrencyInvoiceModal from "./CurrencyInvoiceModal";
 
 export default function RecentOrders({ type, onEditTransaction, onDeleteTransaction }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
+const [showInvoice, setShowInvoice] = useState(false);
+const [selectedInvoice, setSelectedInvoice] = useState(null);
   const navigate = useNavigate();
 
   // Dummy data for types not yet connected to live API
@@ -93,12 +97,25 @@ export default function RecentOrders({ type, onEditTransaction, onDeleteTransact
     fetchOrders(type);
   }, [type, fetchOrders]);
 
+  
   // Handle edit button click
   const handleEdit = (order) => {
+    console.log("Editing order:", order);
+    
     if (onEditTransaction) {
       onEditTransaction(order);
     }
   };
+
+  const openInvoice = (order) => {
+  setSelectedInvoice(order);
+  setShowInvoice(true);
+};
+
+const closeInvoice = () => {
+  setShowInvoice(false);
+  setSelectedInvoice(null);
+};
 
   // Handle delete button click
   const handleDelete = (order) => {
@@ -109,11 +126,19 @@ export default function RecentOrders({ type, onEditTransaction, onDeleteTransact
     }
   };
 
+  const handleInvoice = (order) => {
+  setInvoiceData(order);
+  setInvoiceModalOpen(true);
+};
+
+
   // Choose table layout based on data type
   const isCurrency = type === "currency";
   const isMetal = type === "purchase" || type === "sales";
 
   return (
+
+    
     <div className="h-full flex flex-col bg-white rounded-lg shadow-sm">
       <div className="flex items-center justify-between mb-4 px-6 pt-6">
         <h2 className="text-xl font-semibold text-gray-700">Recent Transactions</h2>
@@ -244,8 +269,18 @@ export default function RecentOrders({ type, onEditTransaction, onDeleteTransact
                   
                   <td className="py-5 px-6">
                     <div className="flex items-center gap-2">
+                <button
+  onClick={() => openInvoice(order)}
+  className="p-1.5 hover:bg-gray-100 rounded transition-colors text-purple-500"
+  title="Invoice"
+>
+  <FileText size={18} />
+</button>
+
                       <button
-                        onClick={() => handleEdit(order)}
+                        onClick={() => handleEdit(order)
+                          
+                        }
                         className="p-1.5 hover:bg-gray-100 rounded transition-colors text-blue-500"
                         title="Edit"
                       >
@@ -258,10 +293,38 @@ export default function RecentOrders({ type, onEditTransaction, onDeleteTransact
                       >
                         <Trash2 size={18} />
                       </button>
+
                     </div>
                   </td>
                 </tr>
               ))}
+          {showInvoice && (
+  <>
+    {/* Currency invoice */}
+    {type === "currency" && (
+      <InvoiceModal
+        isOpen={showInvoice}
+        data={selectedInvoice}
+        onClose={() => setShowInvoice(false)}
+      />
+    )}
+
+    {/* Purchase/Sales invoice */}
+    {(type === "purchase" || type === "sales") && (
+      <CurrencyInvoiceModal
+        
+        isOpen={showInvoice}
+        purchase={selectedInvoice}
+        onClose={() => setShowInvoice(false)}
+        partyCurrency={selectedInvoice.party || { currencyCode: "INR" }}
+        partyCurrencyValue={selectedInvoice.value}
+        onDownload={() => console.log("DOWNLOAD")}
+      />
+    )}
+  </>
+)}
+
+
             </tbody>
           </table>
         </div>

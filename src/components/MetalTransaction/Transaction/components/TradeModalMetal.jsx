@@ -72,34 +72,6 @@ useEffect(() => {
   }
 }, [existingTransaction, selectedTrader]);
 
-  // Load existing transaction data if in edit mode
-  useEffect(() => {
-    if (existingTransaction) {
-      setSelectedRatio(existingTransaction.fixed ? 'Fix' : 'Unfix');
-      setVoucher({
-        voucherNumber: existingTransaction.voucherNumber,
-        prefix: existingTransaction.voucherType || 'N/A',
-        date: existingTransaction.voucherDate
-      });
-      
-      // Transform existing stock items to trades format
-      const existingTrades = existingTransaction.stockItems.map(item => ({
-        trader: selectedTrader?.label || selectedTrader?.name,
-        stockCode: item.stockCode?.code || item.stockCode,
-        description: item.description,
-        grossWeight: item.grossWeight,
-        pureWeight: item.pureWeight,
-        weightInOz: item.weightInOz,
-        purity: item.purity,
-        ratePerGram: item.metalRateRequirements?.rate || 0,
-        metalAmount: item.metalRateRequirements?.amount || 0,
-        meltingCharge: item.meltingCharge?.amount || 0,
-        totalAmount: item.itemTotal?.itemTotalAmount || 0
-      }));
-      
-      setTrades(existingTrades);
-    }
-  }, [existingTransaction, selectedTrader]);
 
 useEffect(() => {
   const fetchRates = async () => {
@@ -143,45 +115,31 @@ useEffect(() => {
   // Fetch voucher on mount or when type changes (only for new transactions)
   useEffect(() => {
     if (!isEditMode) {
-      const fetchVoucher = async () => {
-        try {
-          const transactionType = type === 'purchase' ? 'purchase' : 'sale';
-          const { data } = await axiosInstance.post(`/voucher/generate/metal-${transactionType}`, {
-            transactionType,
-          });
-          if (data.success) {
-            setVoucher(data.data);
-          } else {
-            toast.warn('Could not load voucher – using N/A');
-          }
-        } catch (err) {
-          console.error(err);
-          toast.error('Failed to load voucher');
-        }
-      };
-      fetchVoucher();
+      fetchNewVoucher();
     }
   }, [type, isEditMode]);
 
- const HandleChange = (value) => {
-  const numericValue = value.replace(/[^0-9.]/g, '');
-  
-  const parts = numericValue.split('.');
-  if (parts.length > 2) {
-    return;
-  }
-  
-  if (numericValue === '' || numericValue === '.') {
-    setRate(numericValue);
-  } else {
-    const formattedValue = formatNumber(numericValue);
-    setRate(formattedValue);
-  }
-};
+  // Function to fetch a new voucher
+  const fetchNewVoucher = async () => {
+    try {
+      const transactionType = type === 'purchase' ? 'purchase' : 'sale';
+      const { data } = await axiosInstance.post(`/voucher/generate/metal-${transactionType}`, {
+        transactionType,
+      });
+      if (data.success) {
+        setVoucher(data.data);
+      } else {
+        toast.warn('Could not load voucher – using N/A');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to load voucher');
+    }
+  };
 
-const getRawRate = () => {
-  return rate ? parseFloat(parseFormattedNumber(rate)) : null;
-};
+  const HandleChange = (e) => {
+    setRate(e.target.value);
+  };
 
   const canOpenModal = isTraderSelected && selectedRatio && selectedMetalUnit;
 
@@ -192,10 +150,6 @@ const getRawRate = () => {
     setEditingIndex(null);
   };
 
-const handleConfirmTrade = (tradeData) => {
-  const traderLabel = selectedTrader
-    ? (selectedTrader.label || selectedTrader.name || 'Unknown Trader')
-    : 'No Trader';
   const handleConfirmTrade = (tradeData) => {
     const traderLabel = selectedTrader
       ? (selectedTrader.label || selectedTrader.name || 'Unknown Trader')
@@ -224,12 +178,6 @@ const handleConfirmTrade = (tradeData) => {
     setDetailsModalOpen(true);
   };
 
-  const formatNumber = (value, decimals = 2) => {
-    if (value === null || value === undefined || value === '') return '';
-    const num = parseFloat(value);
-    if (isNaN(num)) return value;
-    return num.toLocaleString('en-IN', { minimumFractionDigals: decimals, maximumFractionDigits: decimals });
-  };
 const formatNumber = (value) => {
   if (!value) return "";
   return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
@@ -316,55 +264,6 @@ const parseFormattedNumber = (formattedValue) => {
         itemNotes: '',
         itemStatus: 'active'
       }));
-  try {
-    console.log('Saving trades:', trades);
-    const stockItems = trades.map(trade => ({
-      // ✅ FIX 2: Use stockId (the MongoDB _id) instead of stockCode
-      stockCode: trade.stockId, // This should be the metal stock's _id
-      
-      description: trade.description,
-      pieces: 0,
-      grossWeight: trade.grossWeight,
-      purity: trade.purity,
-      pureWeight: trade.pureWeight,
-      purityWeight: trade.pureWeight,
-      weightInOz: trade.weightInOz,
-      
-      // ✅ FIX 3: Send metalRate as ObjectId (the selected rate's _id)
-      metalRate: selectedMetalUnit, // This is the rate document's _id from dropdown
-      
-    metalRateRequirements: {
-  amount: trade.metalAmount,
-  rate: parseFloat(getRawRate() || trade.ratePerGram)
-},
-      meltingCharge: {
-        amount: trade.meltingCharge || 0,
-        rate: 0
-      },
-      otherCharges: {
-        amount: 0,
-        description: '',
-        rate: 0
-      },
-      vat: {
-        percentage: 0,
-        amount: 0
-      },
-      premium: {
-        amount: 0,
-        rate: 0
-      },
-      itemTotal: {
-        baseAmount: trade.metalAmount,
-        meltingChargesTotal: trade.meltingCharge || 0,
-        premiumTotal: 0,
-        subTotal: trade.metalAmount + (trade.meltingCharge || 0),
-        vatAmount: 0,
-        itemTotalAmount: trade.totalAmount
-      },
-      itemNotes: '',
-      itemStatus: 'active'
-    }));
 
       // Calculate totals
       const totalAmountSession = {
