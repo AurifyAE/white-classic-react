@@ -4,7 +4,7 @@ import TradeDetailsModal from './TradeDetailsModal';
 import axiosInstance from "../../../../api/axios";
 import { toast } from 'react-toastify';
 
-export default function TradeModalMetal({ type, selectedTrader, liveRate, onClose, existingTransaction = null,traderRefetch }) {
+export default function TradeModalMetal({ type, selectedTrader, liveRate, onClose, existingTransaction = null }) {
   const [selectedRatio, setSelectedRatio] = useState('');
   const [selectedMetalUnit, setSelectedMetalUnit] = useState('');
   const [showErrors, setShowErrors] = useState(false);
@@ -112,34 +112,47 @@ useEffect(() => {
   fetchRates();
 }, [isEditMode, existingTransaction]);
 
-  // Fetch voucher on mount or when type changes (only for new transactions)
   useEffect(() => {
     if (!isEditMode) {
-      fetchNewVoucher();
+      const fetchVoucher = async () => {
+        try {
+          const transactionType = type === 'purchase' ? 'purchase' : 'sale';
+          const { data } = await axiosInstance.post(`/voucher/generate/metal-${transactionType}`, {
+            transactionType,
+          });
+          if (data.success) {
+            setVoucher(data.data);
+          } else {
+            toast.warn('Could not load voucher – using N/A');
+          }
+        } catch (err) {
+          console.error(err);
+          toast.error('Failed to load voucher');
+        }
+      };
+      fetchVoucher();
     }
   }, [type, isEditMode]);
 
-  // Function to fetch a new voucher
-  const fetchNewVoucher = async () => {
-    try {
-      const transactionType = type === 'purchase' ? 'purchase' : 'sale';
-      const { data } = await axiosInstance.post(`/voucher/generate/metal-${transactionType}`, {
-        transactionType,
-      });
-      if (data.success) {
-        setVoucher(data.data);
-      } else {
-        toast.warn('Could not load voucher – using N/A');
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error('Failed to load voucher');
-    }
-  };
+ const HandleChange = (value) => {
+  const numericValue = value.replace(/[^0-9.]/g, '');
+  
+  const parts = numericValue.split('.');
+  if (parts.length > 2) {
+    return;
+  }
+  
+  if (numericValue === '' || numericValue === '.') {
+    setRate(numericValue);
+  } else {
+    const formattedValue = formatNumber(numericValue);
+    setRate(formattedValue);
+  }
+};
 
-  const HandleChange = (e) => {
-    setRate(e.target.value);
-  };
+const getRawRate = () => {
+  return rate ? parseFloat(parseFormattedNumber(rate)) : null;
+};
 
   const canOpenModal = isTraderSelected && selectedRatio && selectedMetalUnit;
 
@@ -150,28 +163,30 @@ useEffect(() => {
     setEditingIndex(null);
   };
 
-  const handleConfirmTrade = (tradeData) => {
-    const traderLabel = selectedTrader
-      ? (selectedTrader.label || selectedTrader.name || 'Unknown Trader')
-      : 'No Trader';
+const handleConfirmTrade = (tradeData) => {
+  const traderLabel = selectedTrader
+    ? (selectedTrader.label || selectedTrader.name || 'Unknown Trader')
+    : 'No Trader';
 
-    const finalTrade = {
-      ...tradeData,
-      trader: traderLabel,
-      meltingCharge: tradeData.meltingCharge || 0,
-      totalAmount: tradeData.totalAmount || 0,
-    };
-
-    if (editingIndex !== null) {
-      const updated = [...trades];
-      updated[editingIndex] = finalTrade;
-      setTrades(updated);
-    } else {
-      setTrades((prev) => [...prev, finalTrade]);
-    }
-
-    setEditingIndex(null);
+  const finalTrade = {
+    ...tradeData,
+    trader: traderLabel,
+    meltingCharge: tradeData.meltingCharge || 0,
+    totalAmount: tradeData.totalAmount || 0,
   };
+
+  if (editingIndex !== null) {
+    const updated = [...trades];
+    updated[editingIndex] = finalTrade;
+    setTrades(updated);
+  } else {
+    setTrades((prev) => [...prev, finalTrade]);
+  }
+
+  // Don't close the modal here - let the modal handle its own state
+  // setDetailsModalOpen(false); - Remove this line
+  setEditingIndex(null);
+};
 
   const handleEdit = (index) => {
     setEditingIndex(index);
@@ -191,148 +206,142 @@ const parseFormattedNumber = (formattedValue) => {
     setTrades((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // Reset all form data
-  const resetFormData = () => {
+const handleSaveAll = async () => {
+  if (trades.length === 0) {
+    toast.error('Please add at least one trade item');
+    return;
+  }
+
+  if (!selectedTrader) {
+    toast.error('Please select a trader');
+    return;
+  }
+
+  // ✅ FIX 1: Validate metalRate is selected
+  if (!selectedMetalUnit) {
+    toast.error('Please select a metal rate');
+    return;
+  }
+
+  setIsSaving(true);
+
+  try {
+    console.log('Saving trades:', trades);
+    const stockItems = trades.map(trade => ({
+      // ✅ FIX 2: Use stockId (the MongoDB _id) instead of stockCode
+      stockCode: trade.stockId, // This should be the metal stock's _id
+      
+      description: trade.description,
+      pieces: 0,
+      grossWeight: trade.grossWeight,
+      purity: trade.purity,
+      pureWeight: trade.pureWeight,
+      purityWeight: trade.pureWeight,
+      weightInOz: trade.weightInOz,
+      
+      // ✅ FIX 3: Send metalRate as ObjectId (the selected rate's _id)
+      metalRate: selectedMetalUnit, // This is the rate document's _id from dropdown
+      
+    metalRateRequirements: {
+  amount: trade.metalAmount,
+  rate: parseFloat(getRawRate() || trade.ratePerGram)
+},
+      meltingCharge: {
+        amount: trade.meltingCharge || 0,
+        rate: 0
+      },
+      otherCharges: {
+        amount: 0,
+        description: '',
+        rate: 0
+      },
+      vat: {
+        percentage: 0,
+        amount: 0
+      },
+      premium: {
+        amount: 0,
+        rate: 0
+      },
+      itemTotal: {
+        baseAmount: trade.metalAmount,
+        meltingChargesTotal: trade.meltingCharge || 0,
+        premiumTotal: 0,
+        subTotal: trade.metalAmount + (trade.meltingCharge || 0),
+        vatAmount: 0,
+        itemTotalAmount: trade.totalAmount
+      },
+      itemNotes: '',
+      itemStatus: 'active'
+    }));
+
+    // Calculate totals
+    const totalAmountSession = {
+      totalAmountAED: trades.reduce((sum, t) => sum + parseFloat(t.totalAmount || 0), 0),
+      netAmountAED: trades.reduce((sum, t) => sum + parseFloat(t.metalAmount || 0), 0),
+      vatAmount: 0,
+      vatPercentage: 0
+    };
+
+    const payload = {
+      transactionType: type === 'purchase' ? 'purchase' : 'sale',
+      voucherType: voucher?.prefix || 'N/A',
+      voucherDate: voucher?.date || new Date().toISOString(),
+      voucherNumber: voucher?.voucherNumber || 'N/A',
+      
+      // ✅ FIX 4: Ensure partyCode is valid ObjectId
+      partyCode: selectedTrader.value || selectedTrader._id,
+      
+      fix: selectedRatio === 'Fix',
+      unfix: selectedRatio === 'Unfix',
+      
+      // ✅ FIX 5: Ensure currency fields are valid ObjectIds
+      partyCurrency: selectedTrader.partyCurrency || '68c1c9e6ea46ae5eb3aa9f2c',
+      itemCurrency: '68c1c9e6ea46ae5eb3aa9f2c',
+      baseCurrency: '68c1c9e6ea46ae5eb3aa9f2c',
+      
+      stockItems,
+      totalAmountSession,
+      status: 'confirmed',
+      notes: '',
+      effectivePartyCurrencyRate: 1,
+      effectiveItemCurrencyRate: 1
+    };
+
+    console.log('Payload being sent:', payload);
+
+    let response;
+    if (isEditMode) {
+      response = await axiosInstance.put(`/metal-transaction/${existingTransaction._id}`, payload);
+      toast.success(`Transaction updated successfully!`);
+    } else {
+      response = await axiosInstance.post('/metal-transaction', payload);
+      toast.success(`${trades.length} trade(s) saved successfully!`);
+    }
+
+    console.log('Transaction saved:', response.data);
+    
+    if (onClose) {
+      onClose(true);
+    }
+    // Clear form and trades after success
     setTrades([]);
     setSelectedRatio('');
     setSelectedMetalUnit('');
     setRate(null);
-    setShowErrors(false);
-    setEditingIndex(null);
-    setDetailsModalOpen(false);
-  };
-
-  const handleSaveAll = async () => {
-    if (trades.length === 0) {
-      toast.error('Please add at least one trade item');
-      return;
+  } catch (error) {
+    console.error('Save failed:', error);
+    const errorMsg = error.response?.data?.message || 'Failed to save transaction';
+    toast.error(errorMsg);
+    
+    // ✅ FIX 6: Better error logging
+    if (error.response?.data?.errors) {
+      console.error('Validation errors:', error.response.data.errors);
     }
-
-    if (!selectedTrader) {
-      toast.error('Please select a trader');
-      return;
-    }
-
-    if (!selectedMetalUnit) {
-      toast.error('Please select a metal rate');
-      return;
-    }
-
-    setIsSaving(true);
-
-    try {
-      console.log('Saving trades:', trades);
-      const stockItems = trades.map(trade => ({
-        stockCode: trade.stockId,
-        description: trade.description,
-        pieces: 0,
-        grossWeight: trade.grossWeight,
-        purity: trade.purity,
-        pureWeight: trade.pureWeight,
-        purityWeight: trade.pureWeight,
-        weightInOz: trade.weightInOz,
-        metalRate: selectedMetalUnit,
-        metalRateRequirements: {
-          amount: trade.metalAmount,
-          rate: parseFloat(rate || trade.ratePerGram)
-        },
-        meltingCharge: {
-          amount: trade.meltingCharge || 0,
-          rate: 0
-        },
-        otherCharges: {
-          amount: 0,
-          description: '',
-          rate: 0
-        },
-        vat: {
-          percentage: 0,
-          amount: 0
-        },
-        premium: {
-          amount: 0,
-          rate: 0
-        },
-        itemTotal: {
-          baseAmount: trade.metalAmount,
-          meltingChargesTotal: trade.meltingCharge || 0,
-          premiumTotal: 0,
-          subTotal: trade.metalAmount + (trade.meltingCharge || 0),
-          vatAmount: 0,
-          itemTotalAmount: trade.totalAmount
-        },
-        itemNotes: '',
-        itemStatus: 'active'
-      }));
-
-      // Calculate totals
-      const totalAmountSession = {
-        totalAmountAED: trades.reduce((sum, t) => sum + parseFloat(t.totalAmount || 0), 0),
-        netAmountAED: trades.reduce((sum, t) => sum + parseFloat(t.metalAmount || 0), 0),
-        vatAmount: 0,
-        vatPercentage: 0
-      };
-
-      const payload = {
-        transactionType: type === 'purchase' ? 'purchase' : 'sale',
-        voucherType: voucher?.prefix || 'N/A',
-        voucherDate: voucher?.date || new Date().toISOString(),
-        voucherNumber: voucher?.voucherNumber || 'N/A',
-        partyCode: selectedTrader.value || selectedTrader._id,
-        fix: selectedRatio === 'Fix',
-        unfix: selectedRatio === 'Unfix',
-        partyCurrency: selectedTrader.partyCurrency || '68c1c9e6ea46ae5eb3aa9f2c',
-        itemCurrency: '68c1c9e6ea46ae5eb3aa9f2c',
-        baseCurrency: '68c1c9e6ea46ae5eb3aa9f2c',
-        stockItems,
-        totalAmountSession,
-        status: 'confirmed',
-        notes: '',
-        effectivePartyCurrencyRate: 1,
-        effectiveItemCurrencyRate: 1
-      };
-
-      console.log('Payload being sent:', payload);
-
-      let response;
-      if (isEditMode) {
-        response = await axiosInstance.put(`/metal-transaction/${existingTransaction._id}`, payload);
-        toast.success(`Transaction updated successfully!`);
-      } else {
-        response = await axiosInstance.post('/metal-transaction', payload);
-        toast.success(`${trades.length} trade(s) saved successfully!`);
-      }
-
-      console.log('Transaction saved:', response.data);
-      
-      // ✅ Reset form data after successful save
-      resetFormData();
-      
-      // ✅ Fetch new voucher for next transaction (only if not in edit mode)
-      if (!isEditMode) {
-        await fetchNewVoucher();
-      }
-      if (traderRefetch?.current) {
-        await traderRefetch.current();   // <-- re-load balances instantly
-      }
-      // ✅ Close modal or notify parent if needed
-      if (onClose) {
-        onClose(true);
-      }
-      
-    } catch (error) {
-      console.error('Save failed:', error);
-      const errorMsg = error.response?.data?.message || 'Failed to save transaction';
-      toast.error(errorMsg);
-      
-      if (error.response?.data?.errors) {
-        console.error('Validation errors:', error.response.data.errors);
-      }
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
+  } finally {
+    setIsSaving(false);
+  }
+};
   const traderLabel = selectedTrader
     ? (selectedTrader.label || selectedTrader.name || 'Trader')
     : 'No trader selected';
@@ -512,44 +521,47 @@ const parseFormattedNumber = (formattedValue) => {
                       <th className="px-3 py-2 text-center">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {trades.map((t, i) => (
-                      <tr key={i} className="hover:bg-gray-50">
-                        <td className="px-3 py-2 text-indigo-700 font-medium">{t.trader}</td>
-                        <td className="px-3 py-2 font-medium">{t.stockCode}</td>
-                        <td className="px-3 py-2">{formatNumber(t.grossWeight, 3)}</td>
-                        <td className="px-3 py-2">{formatNumber(t.pureWeight, 3)}</td>
-                        <td className="px-3 py-2">{formatNumber(t.weightInOz, 3)}</td>
-                        <td className="px-3 py-2">{t.purity}</td>
-                        <td className="px-3 py-2">{formatNumber(t.ratePerGram, 2)}</td>
-                        <td className="px-3 py-2 font-semibold text-green-700">
-                          {formatNumber(t.metalAmount, 2)}
-                        </td>
-                        <td className="px-3 py-2 text-orange-600">
-                          {formatNumber(t.meltingCharge || 0, 2)}
-                        </td>
-                        <td className="px-3 py-2 font-bold text-blue-700">
-                          {formatNumber(t.totalAmount, 2)}
-                        </td>
-                        <td className="px-3 py-2 text-center">
-                          <button
-                            onClick={() => handleEdit(i)}
-                            className="text-blue-600 hover:text-blue-800 mr-2"
-                            title="Edit"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(i)}
-                            className="text-red-600 hover:text-red-800"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
+                <tbody className="bg-white divide-y divide-gray-200">
+  {trades.map((t, i) => (
+    <tr key={i} className="hover:bg-gray-50">
+      <td className="px-3 py-2 text-indigo-700 font-medium">{t.trader}</td>
+      <td className="px-3 py-2 font-medium">{t.stockCode}</td>
+      <td className="px-3 py-2">{formatNumber(t.grossWeight, 3)}</td>
+      <td className="px-3 py-2">{formatNumber(t.pureWeight, 3)}</td>
+      <td className="px-3 py-2">{formatNumber(t.weightInOz, 3)}</td>
+      <td className="px-3 py-2">{t.purity}</td>
+      <td className="px-3 py-2">{formatNumber(t.ratePerGram, 2)}</td>
+
+      <td className="px-3 py-2 font-semibold text-green-700">
+        ${formatNumber(t.metalAmount, 2)}
+      </td>
+      <td className="px-3 py-2 text-orange-600">
+        ${formatNumber(t.meltingCharge || 0, 2)}
+      </td>
+      <td className="px-3 py-2 font-bold text-blue-700">
+        ${formatNumber(t.totalAmount, 2)}
+      </td>
+
+      <td className="px-3 py-2 text-center">
+        <button
+          onClick={() => handleEdit(i)}
+          className="text-blue-600 hover:text-blue-800 mr-2"
+          title="Edit"
+        >
+          <Edit2 className="w-4 h-4" />
+        </button>
+        <button
+          onClick={() => handleDelete(i)}
+          className="text-red-600 hover:text-red-800"
+          title="Delete"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+      </td>
+    </tr>
+  ))}
+</tbody>
+
                 </table>
               </div>
 
