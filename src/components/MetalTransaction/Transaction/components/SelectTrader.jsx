@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import Select from "react-select";
 import axiosInstance from "../../../../api/axios";
 import { User, X } from "lucide-react";
+import DirhamIcon from "../../../../assets/uae-dirham.svg"; // Your AED SVG
 
 const formatNumber = (num, fraction = 2) => {
   if (!num) return `0.${"0".repeat(fraction)}`;
@@ -12,11 +13,18 @@ const formatNumber = (num, fraction = 2) => {
   });
 };
 
+// Color filter for Dirham icon (only for AED)
+const getDirhamColorFilter = (isNegative) => {
+  return isNegative
+    ? "invert(27%) sepia(94%) saturate(5500%) hue-rotate(340deg) brightness(90%) contrast(90%)" // red
+    : "invert(48%) sepia(61%) saturate(512%) hue-rotate(90deg) brightness(93%) contrast(85%)"; // green
+};
+
 export default function SelectTrader({ onTraderChange, value }) {
   const [traders, setTraders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currencies, setCurrencies] = useState([]);
-  
+
   // Fetch traders + currencies
   useEffect(() => {
     const fetchData = async () => {
@@ -27,8 +35,6 @@ export default function SelectTrader({ onTraderChange, value }) {
         ]);
 
         setTraders(traderRes.data.data || []);
-        console.log("Traders loaded:", traderRes.data.data);
-        
         setCurrencies(currencyRes.data.data || []);
       } catch (err) {
         console.error("Failed to load traders", err);
@@ -59,7 +65,7 @@ export default function SelectTrader({ onTraderChange, value }) {
     onTraderChange(null);
   };
 
-  // Simple custom styles for the input
+  // Custom styles
   const customStyles = {
     control: (base, state) => ({
       ...base,
@@ -95,7 +101,7 @@ export default function SelectTrader({ onTraderChange, value }) {
         Select Trader
       </label>
 
-      {/* Simple Input Dropdown */}
+      {/* Dropdown */}
       <div className="relative">
         <Select
           options={traderOptions}
@@ -112,10 +118,10 @@ export default function SelectTrader({ onTraderChange, value }) {
         />
       </div>
 
-      {/* Balance Box - Exactly like the image */}
+      {/* Balance Box */}
       {value && (
         <div className="mt-4 p-4 bg-white rounded-lg border border-gray-300 shadow-sm">
-          {/* Header with trader info and close button */}
+          {/* Header */}
           <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-200">
             <div className="flex items-center gap-2">
               <User className="w-4 h-4 text-blue-600" />
@@ -130,47 +136,80 @@ export default function SelectTrader({ onTraderChange, value }) {
               <X className="w-4 h-4 text-gray-500" />
             </button>
           </div>
-          {/* Additional Balances */}
+
+          {/* Balances */}
           <div className="mt-4 pt-3 border-t border-gray-200">
             <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-  <span className="text-xs font-medium text-gray-500 block">
-    CASH BALANCE
-  </span>
 
-  {Array.isArray(value.trader.balances?.cashBalance) &&
-  value.trader.balances.cashBalance.length > 0 ? (
-    <div className="flex flex-wrap items-center gap-x-3 text-sm font-bold">
-      {value.trader.balances.cashBalance.map((cb, idx) => (
-        <React.Fragment key={idx}>
-          <span
-            className={`${
-              cb.amount < 0 ? "text-red-600" : "text-green-600"
-            }`}
-          >
-            {formatNumber(cb.amount || 0)}{" "}
-            {cb.currency?.currencyCode || ""}
-          </span>
-
-          {/* Divider (except after last item) */}
-          {idx < value.trader.balances.cashBalance.length - 1 && (
-            <span className="text-gray-300 select-none">|</span>
-          )}
-        </React.Fragment>
-      ))}
-    </div>
-  ) : (
-    <span className="text-sm text-gray-400">No cash balances</span>
-  )}
-</div>
-
-
+              {/* CASH BALANCE */}
               <div className="space-y-1">
-                <span className="text-xs font-medium text-gray-500 block">GOLD BALANCE</span>
-                <span className={`text-sm font-bold ${
-                  value.trader.balances?.goldBalance?.totalGrams < 0 ? "text-red-600" : "text-amber-600"
-                }`}>
-                  {formatNumber(value.trader.balances?.goldBalance?.totalGrams || 0, 3)}g
+                <span className="text-xs font-medium text-gray-500 block">
+                  CASH BALANCE
+                </span>
+
+                {Array.isArray(value.trader.balances?.cashBalance) &&
+                value.trader.balances.cashBalance.length > 0 ? (
+                  <div className="flex flex-wrap items-center gap-x-3 text-sm font-bold">
+                    {value.trader.balances.cashBalance.map((cb, idx) => {
+                      const amount = cb.amount || 0;
+                      const isNegative = amount < 0;
+                      const currencyCode = getCurrencyCode(cb.currency?._id);
+                      const isINR = currencyCode === "INR";
+
+                      return (
+                        <React.Fragment key={idx}>
+                          <span
+                            className={`inline-flex items-center ${
+                              isNegative ? "text-red-600" : "text-green-600"
+                            }`}
+                          >
+                            {isNegative && "-"}
+                            {isINR ? (
+                              <span className="text-lg font-thin  mr-1">₹</span>
+                            ) : (
+                              <img
+                                src={DirhamIcon}
+                                alt="AED"
+                                className="w-4 h-4 mr-1 "
+                                style={{
+                                  filter: getDirhamColorFilter(isNegative),
+                                }}
+                              />
+                            )}
+                            {formatNumber(Math.abs(amount))}
+                          </span>
+
+                          {/* Divider */}
+                          {idx < value.trader.balances.cashBalance.length - 1 && (
+                            <span className="text-gray-300 select-none">|</span>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <span className="text-sm text-gray-400">No cash balances</span>
+                )}
+              </div>
+
+              {/* GOLD BALANCE */}
+              <div className="space-y-1">
+                <span className="text-xs font-medium text-gray-500 block">
+                  GOLD BALANCE
+                </span>
+                <span
+                  className={`text-sm font-bold inline-flex items-center ${
+                    value.trader.balances?.goldBalance?.totalGrams < 0
+                      ? "text-red-600"
+                      : "text-amber-600"
+                  }`}
+                >
+                  {value.trader.balances?.goldBalance?.totalGrams < 0 && "-"}
+                  {formatNumber(
+                    Math.abs(value.trader.balances?.goldBalance?.totalGrams || 0),
+                    3
+                  )}
+                  g
                 </span>
               </div>
             </div>

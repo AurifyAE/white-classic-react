@@ -12,12 +12,13 @@ export default function TradeModalMetal({ type, selectedTrader, liveRate, onClos
   const [trades, setTrades] = useState([]);
   const [editingIndex, setEditingIndex] = useState(null);
   const [metalRates, setMetalRates] = useState([]);
-  const [rate, setRate] = useState(null);
+  const [rate, setRate] = useState('');
   const [selectedtrader,setSelectedTrader]=useState(null);
   const [voucher, setVoucher] = useState(null);
   const [loadingRates, setLoadingRates] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  
+const [rateRaw, setRateRaw] = useState(''); // raw editing string
+const [isRateFocused, setIsRateFocused] = useState(false);
   const action = type === 'purchase' ? 'Buy' : 'Sell';
   const isTraderSelected = !!selectedTrader;
   const isEditMode = !!existingTransaction;
@@ -72,32 +73,44 @@ useEffect(() => {
 }, [existingTransaction, selectedTrader]);
 
 
-  useEffect(() => {
-    const fetchRates = async () => {
-      try {
-        const res = await axiosInstance.get('/metal-rates');
-        let data = res.data;
+useEffect(() => {
+  const fetchRates = async () => {
+    try {
+      const res = await axiosInstance.get('/metal-rates');
+      let data = res.data;
+      console.log('Fetched metal rates:', data);
 
-        if (data.rates && Array.isArray(data.rates)) {
-          data = data.rates;
-        } else if (data.data && Array.isArray(data.data)) {
-          data = data.data;
-        } else if (!Array.isArray(data)) {
-          data = [];
-        }
-
-        setMetalRates(data);
-      } catch (err) {
-        console.error('Failed to fetch rates:', err);
-        toast.error('Failed to load metal rates');
-        setMetalRates([]);
-      } finally {
-        setLoadingRates(false);
+      if (data.rates && Array.isArray(data.rates)) {
+        data = data.rates;
+      } else if (data.data && Array.isArray(data.data)) {
+        data = data.data;
+      } else if (!Array.isArray(data)) {
+        data = [];
       }
-    };
 
-    fetchRates();
-  }, []);
+      setMetalRates(data);
+
+      // Set KGBAR as default 
+      if (!isEditMode && !existingTransaction) {
+        const kgbarRate = data.find(rate => rate.rateType === "KGBAR");
+        if (kgbarRate) {
+          setSelectedMetalUnit(kgbarRate._id);
+          console.log('Set KGBAR as default metal unit:', kgbarRate._id);
+        } else if (data.length > 0) {
+          setSelectedMetalUnit(data[0]._id);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch rates:', err);
+      toast.error('Failed to load metal rates');
+      setMetalRates([]);
+    } finally {
+      setLoadingRates(false);
+    }
+  };
+
+  fetchRates();
+}, [isEditMode, existingTransaction]);
 
   useEffect(() => {
     if (!isEditMode) {
@@ -121,9 +134,25 @@ useEffect(() => {
     }
   }, [type, isEditMode]);
 
-  const HandleChange = (e) => {
-    setRate(e.target.value);
-  };
+ const HandleChange = (value) => {
+  const numericValue = value.replace(/[^0-9.]/g, '');
+  
+  const parts = numericValue.split('.');
+  if (parts.length > 2) {
+    return;
+  }
+  
+  if (numericValue === '' || numericValue === '.') {
+    setRate(numericValue);
+  } else {
+    const formattedValue = formatNumber(numericValue);
+    setRate(formattedValue);
+  }
+};
+
+const getRawRate = () => {
+  return rate ? parseFloat(parseFormattedNumber(rate)) : null;
+};
 
   const canOpenModal = isTraderSelected && selectedRatio && selectedMetalUnit;
 
@@ -134,7 +163,6 @@ useEffect(() => {
     setEditingIndex(null);
   };
 
- // In TradeModalMetal.jsx - Update the handleConfirmTrade function
 const handleConfirmTrade = (tradeData) => {
   const traderLabel = selectedTrader
     ? (selectedTrader.label || selectedTrader.name || 'Unknown Trader')
@@ -165,11 +193,12 @@ const handleConfirmTrade = (tradeData) => {
     setDetailsModalOpen(true);
   };
 
-const formatNumber = (value, decimals = 2) => {
-  if (value === null || value === undefined || value === '') return '';
-  const num = parseFloat(value);
-  if (isNaN(num)) return value;
-  return num.toLocaleString('en-IN', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+const formatNumber = (value) => {
+  if (!value) return "";
+  return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+};
+const parseFormattedNumber = (formattedValue) => {
+  return formattedValue.replace(/,/g, "");
 };
 
 
@@ -213,10 +242,10 @@ const handleSaveAll = async () => {
       // ✅ FIX 3: Send metalRate as ObjectId (the selected rate's _id)
       metalRate: selectedMetalUnit, // This is the rate document's _id from dropdown
       
-      metalRateRequirements: {
-        amount: trade.metalAmount,
-        rate: parseFloat(rate || trade.ratePerGram) // The actual rate value
-      },
+    metalRateRequirements: {
+  amount: trade.metalAmount,
+  rate: parseFloat(getRawRate() || trade.ratePerGram)
+},
       meltingCharge: {
         amount: trade.meltingCharge || 0,
         rate: 0
@@ -403,37 +432,43 @@ const handleSaveAll = async () => {
 
         {/* METAL UNIT & RATE */}
         <div className="px-5 pb-5">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Metal Rate Details</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Metal Rate Type</label>
+            <p className="mt-1 text-xs text-gray-500 mb-3">1 = 1,000 INR | 100 = 1 Lakh INR</p>
+
           {loadingRates ? (
             <p className="text-sm text-gray-500">Loading rates...</p>
           ) : metalRates.length === 0 ? (
             <p className="text-sm text-red-500">No rates available</p>
           ) : (
             <div className="grid grid-cols-2 gap-3">
-              <select
-                value={selectedMetalUnit}
-                onChange={(e) => setSelectedMetalUnit(e.target.value)}
-                className={`px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
-                  showErrors && !selectedMetalUnit
-                    ? 'border-red-400 focus:ring-red-300'
-                    : 'border-gray-300 focus:ring-indigo-500'
-                }`}
-              >
-                <option value="">Select Unit</option>
-                {metalRates.map((rate) => (
-                  <option key={rate._id} value={rate._id}>
-                    {rate.rateType}
-                  </option>
-                ))}
-              </select>
+             <select
+  value={selectedMetalUnit}
+  onChange={(e) => setSelectedMetalUnit(e.target.value)}
+  className={`px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
+    showErrors && !selectedMetalUnit
+      ? 'border-red-400 focus:ring-red-300'
+      : 'border-gray-300 focus:ring-indigo-500'
+  }`}
+>
+  <option value="">Select Unit</option>
+  {metalRates.map((rate) => (
+    <option key={rate._id} value={rate._id}>
+      {rate.rateType} {rate.isDefault && "(Default)"}
+    </option>
+  ))}
+</select>
 
               <input
-                type="number"
-                value={rate || ''}
-                onChange={HandleChange}
-                placeholder="Rate"
-                className="px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 font-medium text-sm"
-              />
+        type="text" 
+        value={rate}
+        onChange={(e) => HandleChange(e.target.value)}
+        placeholder="e.g. 65,000"
+        className={`px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-sm ${
+          showErrors && !rate
+            ? 'border-red-400 focus:ring-red-300 bg-red-50'
+            : 'border-gray-300 focus:ring-indigo-500 bg-white'
+        }`}
+      />
             </div>
           )}
           {showErrors && !selectedMetalUnit && (

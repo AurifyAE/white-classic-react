@@ -362,6 +362,8 @@ useEffect(() => {
           {/* === METAL RATE & AMOUNT SECTION === */}
           <section>
             <h3 className="text-sm font-medium text-gray-700 mb-3">Metal Rate & Amount</h3>
+                        <p className="mt-1 text-xs text-gray-500 mb-3">1 = 1,000 INR | 100 = 1 Lakh INR</p>
+
             <div className="flex w-full ">
               {/* Rate (per 1000g) */}
               <div className="mb-4 w-[25%] mr-4">
@@ -387,34 +389,37 @@ useEffect(() => {
                 </div>
               </div>
               {/* Metal Amount (Auto) */}
-              <div className="mb-4 w-[50%] ">
-                <label className="text-xs text-gray-500 mb-1 block">Metal Amount</label>
-                <div
-                  className="w-full px-4 py-3 border rounded-lg text-sm text-gray-900 bg-white border-gray-300 focus:outline-none cursor-default">
-                  {formatNumber(metalAmountCalc)}
-                </div>
-              </div>
+             <div className="mb-4 w-[50%] ">
+  <label className="text-xs text-gray-500 mb-1 block">Metal Amount</label>
+  <div
+    className="w-full px-4 py-3 border rounded-lg text-sm text-gray-900 bg-white border-gray-300 focus:outline-none cursor-default">
+    ₹{formatNumber(metalAmountCalc)}
+  </div>
+</div>
             </div>
 
             {/* Melting Charge */}
             <div className="grid grid-cols-2 gap-3">
-              <div className="mb-4 ">
-                <label className="text-xs text-gray-500 mb-1 block">Melting Charge</label>
-                <input
-                  type="text" // Changed to text to handle formatted numbers
-                  value={meltingCharge}
-                  onChange={(e) => handleMeltingChargeChange(e.target.value)}
-                  placeholder="0.00"
-                  className="w-full px-4 py-3 border rounded-lg text-sm text-gray-900 bg-white border-gray-300 focus:outline-none cursor-default"
-                />
-              </div>
+           <div className="mb-4 ">
+  <label className="text-xs text-gray-500 mb-1 block">Melting Charge</label>
+  <div className="relative">
+    <input
+      type="text"
+      value={meltingCharge}
+      onChange={(e) => handleMeltingChargeChange(e.target.value)}
+      placeholder="0.00"
+      className="w-full px-4 py-3 pl-8 border rounded-lg text-sm text-gray-900 bg-white border-gray-300 focus:outline-none cursor-default"
+    />
+    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">₹</span>
+  </div>
+</div>
               {/* Total Amount (Auto) */}
               <div>
                 <label className="text-xs text-black mb-1 font-bold block">Total Amount</label>
                 <div
                   className="w-full px-4 py-3 border rounded-lg text-sm text-gray-900 bg-white border-gray-300 focus:outline-none cursor-default"
                 >
-                  ${formatNumber(totalAmount)}
+      ₹{formatNumber(totalAmount)}
                 </div>
               </div>
             </div>

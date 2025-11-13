@@ -391,26 +391,27 @@ export default function TradeModalFX({
         </div>
 
         {/* Receive Amount */}
-        <div className="px-5 pb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Receive Amount ({receiveCurrency})
-          </label>
-          <input
-            type="text"
-            placeholder={
-              isBuy ? 'Enter AED to receive' : 'Enter INR to receive'
-            }
-            value={receiveAmount}
-            onChange={(e) => {
-              const raw = parseNumber(e.target.value);
-              if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
-                setReceiveAmount(formatNumber(raw));
-                setLastEdited('receive');
-              }
-            }}
-            className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 ${theme.inputFocus}`}
-          />
-        </div>
+      <div className="px-5 pb-4">
+  <label className="block text-sm font-medium text-gray-700 mb-1">
+    Receive Amount ({receiveCurrency})
+  </label>
+  {!isBuy && <p className="mt-1 text-xs text-gray-500 mb-2">1 = 1,000 INR | 100 = 1 Lakh INR</p>}
+  <input
+    type="text"
+    placeholder={
+      isBuy ? 'Enter AED to receive' : 'Enter INR to receive'
+    }
+    value={receiveAmount}
+    onChange={(e) => {
+      const raw = parseNumber(e.target.value);
+      if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
+        setReceiveAmount(formatNumber(raw));
+        setLastEdited('receive');
+      }
+    }}
+    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 ${theme.inputFocus}`}
+  />
+</div>
 
         {/* Rate of 1 Lakh */}
         <div className="px-5 pb-4">

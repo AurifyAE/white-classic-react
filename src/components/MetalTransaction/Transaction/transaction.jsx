@@ -102,7 +102,7 @@ export default function Transaction() {
     <div className="bg-gray-50">
       {/* Top Navbar */}
       <div className="bg-white shadow-sm border-b border-gray-200 px-4 py-3">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
+        <div className="max-w-7xl flex justify-between items-center">
           <div className="text-lg font-semibold text-gray-800">
             Transaction Dashboard
           </div>
