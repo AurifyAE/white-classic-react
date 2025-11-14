@@ -1,19 +1,29 @@
-import React, { useState, useEffect, useMemo } from "react";
+// BranchMasterDetail.jsx
+import React, { useState, useEffect } from "react";
 import { Mail, Phone, Globe, Upload, Plus, X } from "lucide-react";
 import axiosInstance from "../../../api/axios";
 import { toast } from "react-toastify";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  setBranchData,
+  setLogoPreview,
+  selectBranch,
+  updateBranchField,
+} from "../../../store/branchSlice"; // change path as needed
 
 const BranchMasterDetail = ({
   branchId = "690224d4dbda6f93e986e0ca",
   onBranchCreated,
 }) => {
+  const dispatch = useDispatch();
+  const globalBranch = useSelector(selectBranch);
+
   const [isEditMode, setIsEditMode] = useState(!branchId);
   const [loading, setLoading] = useState(!!branchId);
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
-  const [logoPreview, setLogoPreview] = useState(null);
+  const [logoPreviewLocal, setLogoPreviewLocal] = useState(null);
   const [logoFile, setLogoFile] = useState(null);
-
   const [originalData, setOriginalData] = useState(null);
   const [formData, setFormData] = useState({
     code: "",
@@ -28,26 +38,47 @@ const BranchMasterDetail = ({
     website: "",
     currency: "",
     goldOzConversion: 31.1035,
-    metalDecimal: 3, // New
-    amountDecimal: 2, // New
-    financialYear: "", // New
+    metalDecimal: 3,
+    amountDecimal: 2,
+    financialYear: "",
     logo: { url: "", key: "" },
   });
-
   const [currencies, setCurrencies] = useState([]);
   const [financialYears, setFinancialYears] = useState([]);
   const [loadingFinancialYears, setLoadingFinancialYears] = useState(false);
 
   const isCreating = !branchId;
 
-  // Fetch currencies & financial years
   useEffect(() => {
     if (branchId) {
       fetchBranchData();
     }
     fetchCurrencies();
     fetchFinancialYears();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [branchId]);
+
+  // Sync global state when originalData changes (i.e., after fetch)
+  useEffect(() => {
+    if (originalData) {
+      dispatch(
+        setBranchData({
+          branchId,
+          companyName: originalData.companyName,
+          name: originalData.name,
+          logo: originalData.logo,
+          metalDecimal: originalData.metalDecimal,
+          amountDecimal: originalData.amountDecimal,
+          currency: originalData.currency,
+          financialYear: originalData.financialYear,
+        })
+      );
+      if (originalData.logo?.url) {
+        dispatch(setLogoPreview(originalData.logo.url));
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [originalData]);
 
   // Detect form changes
   useEffect(() => {
@@ -87,7 +118,6 @@ const BranchMasterDetail = ({
       setLoadingFinancialYears(true);
       const response = await axiosInstance.get("/financial-year");
       const years = response.data.data || [];
-      // Sort by start date descending (latest first)
       setFinancialYears(
         years.sort((a, b) => new Date(b.startDate) - new Date(a.startDate))
       );
@@ -104,7 +134,6 @@ const BranchMasterDetail = ({
       setLoading(true);
       const response = await axiosInstance.get(`/branch/${branchId}`);
       const data = response.data.data;
-
       const mappedData = {
         code: data.code || "",
         name: data.name || "",
@@ -123,7 +152,6 @@ const BranchMasterDetail = ({
         financialYear: data.financialYear?._id || data.financialYear || "",
         logo: data.logo || { url: "", key: "" },
       };
-
       setFormData(mappedData);
       setOriginalData(JSON.parse(JSON.stringify(mappedData)));
       setLoading(false);
@@ -139,6 +167,10 @@ const BranchMasterDetail = ({
       ...prev,
       [field]: value,
     }));
+    // update global for some fields live if desired
+    if (["companyName", "name", "metalDecimal", "amountDecimal"].includes(field)) {
+      dispatch(updateBranchField({ field, value }));
+    }
   };
 
   const handlePhoneChange = (index, value) => {
@@ -177,7 +209,9 @@ const BranchMasterDetail = ({
       setLogoFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
-        setLogoPreview(reader.result);
+        setLogoPreviewLocal(reader.result);
+        dispatch(setLogoPreview(reader.result));
+        // keep global logo preview in sync
       };
       reader.readAsDataURL(file);
     }
@@ -208,14 +242,26 @@ const BranchMasterDetail = ({
         logo: { url: "", key: "" },
       });
       setLogoFile(null);
-      setLogoPreview(null);
+      setLogoPreviewLocal(null);
       setHasChanges(false);
+      dispatch(setBranchData({})); // reset global partial
     } else {
       setFormData(JSON.parse(JSON.stringify(originalData)));
       setIsEditMode(false);
       setHasChanges(false);
       setLogoFile(null);
-      setLogoPreview(null);
+      setLogoPreviewLocal(null);
+      // revert global preview to original logo
+      dispatch(setLogoPreview(originalData?.logo?.url || null));
+      dispatch(
+        setBranchData({
+          companyName: originalData.companyName,
+          name: originalData.name,
+          logo: originalData.logo,
+          metalDecimal: originalData.metalDecimal,
+          amountDecimal: originalData.amountDecimal,
+        })
+      );
     }
   };
 
@@ -231,8 +277,6 @@ const BranchMasterDetail = ({
       );
       return;
     }
-
-    // Validate decimals
     if (formData.metalDecimal < 0 || formData.metalDecimal > 6) {
       toast.error("Metal Decimal must be between 0 and 6");
       return;
@@ -241,11 +285,9 @@ const BranchMasterDetail = ({
       toast.error("Amount Decimal must be between 0 and 6");
       return;
     }
-
     try {
       setSaving(true);
       const formDataToSend = new FormData();
-
       formDataToSend.append("code", formData.code.toUpperCase());
       formDataToSend.append("name", formData.name);
       formDataToSend.append("branchName", formData.branchName);
@@ -260,13 +302,11 @@ const BranchMasterDetail = ({
       formDataToSend.append("metalDecimal", formData.metalDecimal);
       formDataToSend.append("amountDecimal", formData.amountDecimal);
       formDataToSend.append("financialYear", formData.financialYear);
-
       formData.phones.forEach((phone, index) => {
         if (phone.trim()) {
           formDataToSend.append(`phones[${index}]`, phone);
         }
       });
-
       if (logoFile) {
         formDataToSend.append("logo", logoFile);
       }
@@ -277,18 +317,41 @@ const BranchMasterDetail = ({
         });
         toast.success("Branch created successfully");
         onBranchCreated?.(response.data.data);
+        // update global state
+        dispatch(setBranchData(response.data.data));
       } else {
-        await axiosInstance.put(`/branch/${branchId}`, formDataToSend, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
+        const response = await axiosInstance.put(
+          `/branch/${branchId}`,
+          formDataToSend,
+          {
+            headers: { "Content-Type": "multipart/form-data" },
+          }
+        );
         toast.success("Branch updated successfully");
         setIsEditMode(false);
+        // refresh branch data
         await fetchBranchData();
+        // update global store with latest data (server response may contain file url)
+        if (response.data?.data) {
+          dispatch(setBranchData(response.data.data));
+          dispatch(setLogoPreview(response.data.data.logo?.url || null));
+        } else {
+          // fallback: use current formData
+          dispatch(
+            setBranchData({
+              companyName: formData.companyName,
+              name: formData.name,
+              logo: formData.logo,
+              metalDecimal: formData.metalDecimal,
+              amountDecimal: formData.amountDecimal,
+            })
+          );
+        }
       }
 
       setHasChanges(false);
       setLogoFile(null);
-      setLogoPreview(null);
+      setLogoPreviewLocal(null);
     } catch (error) {
       console.error("Error saving branch:", error);
       toast.error(error.response?.data?.message || "Failed to save branch");
@@ -318,6 +381,10 @@ const BranchMasterDetail = ({
     );
   }
 
+  // Prefer local preview if present, otherwise global preview, otherwise formData.logo.url
+  const effectiveLogo =
+    logoPreviewLocal || globalBranch.logoPreview || formData.logo?.url;
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
@@ -328,9 +395,9 @@ const BranchMasterDetail = ({
               {/* Logo */}
               <div className="relative group">
                 <div className="w-32 h-32 rounded-full flex items-center justify-center overflow-hidden border-4 border-white shadow-xl transition-all duration-300">
-                  {logoPreview || formData.logo?.url ? (
+                  {effectiveLogo ? (
                     <img
-                      src={logoPreview || formData.logo.url}
+                      src={effectiveLogo}
                       alt="Branch Logo"
                       className="w-full h-full object-cover"
                     />
@@ -377,7 +444,6 @@ const BranchMasterDetail = ({
                     {formData.companyName || "Global Enterprise Solutions"}
                   </h1>
                 )}
-
                 <div className="flex gap-3">
                   {isEditMode ? (
                     <>
@@ -385,10 +451,7 @@ const BranchMasterDetail = ({
                         type="text"
                         value={formData.code}
                         onChange={(e) =>
-                          handleInputChange(
-                            "code",
-                            e.target.value.toUpperCase()
-                          )
+                          handleInputChange("code", e.target.value.toUpperCase())
                         }
                         className="bg-white/20 border-2 border-white/40 rounded-lg px-4 py-2 text-sm font-medium text-white placeholder-white/70 uppercase focus:bg-white/30 focus:border-white transition-all"
                         placeholder="Branch Code *"

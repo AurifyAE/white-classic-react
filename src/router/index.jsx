@@ -79,6 +79,7 @@ import BranchMasterDetail from "../components/Masters/BranchMaster/BranchMasterD
 import CommodityPage from "../pages/commodityPage.jsx";
 import FinancialYearsMaster from "../pages/FinancialMaster.jsx";
 import Transaction from "../pages/Transaction.jsx";
+import InvoicePage from "../components/MetalTransaction/Transaction/components/InvoicePage.jsx";
 export default function UserRouter() {
   return (
     <Routes>
@@ -203,6 +204,7 @@ export default function UserRouter() {
           path="/inventory/metals/:id"
           element={<MetalinventoryDetailPage />}
         />
+        <Route path="/invoice/:id" element={<InvoicePage />} />
         <Route
           path="/reports/metal-stock-ledger"
           element={<MetalStockLedger />}

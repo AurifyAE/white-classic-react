@@ -333,7 +333,7 @@ export default function TradeModalGold({ selectedTrader ,traderRefetch}) {
         {/* Commodity Selection */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Commodity fix Master<span className="text-red-500">*</span>
+            Commodity Fix Master<span className="text-red-500"> *</span>
           </label>
           <AsyncSelect
             cacheOptions
@@ -379,25 +379,28 @@ export default function TradeModalGold({ selectedTrader ,traderRefetch}) {
           </div>
         </div>
 
-        {/* Rate per KG */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Rate per KGBAR (INR) <span className="text-red-500">*</span>
-            {isBuy && <p className="mt-1 text-xs text-gray-500 mb-2">{payHint}</p>}
-          </label>
-          <input
-            type="text"
-            placeholder="Enter rate per KG"
-            value={ratePerKg}
-            onChange={(e) => {
-              const raw = parseNumber(e.target.value);
-              if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
-                setRatePerKg(formatNumber(raw));
-              }
-            }}
-            className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 ${theme.inputFocus}`}
-          />
-        </div>
+        {/* Pure Weight (read-only) */}
+
+        {/* Rate per KG Bar */}
+       {/* Rate per KG Bar */}
+<div>
+  <label className="block text-sm font-medium text-gray-700 mb-1">
+    Rate per KGBAR (INR) <span className="text-red-500">*</span>
+  </label>
+  <p className="mt-1 text-xs text-gray-500 mb-2">1 = 1,000 INR | 100 = 1 Lakh INR</p>
+  <input
+    type="text"
+    placeholder="Enter rate per KG"
+    value={ratePerKg}
+    onChange={(e) => {
+      const raw = parseNumber(e.target.value);
+      if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
+        setRatePerKg(formatNumber(raw));
+      }
+    }}
+    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 ${theme.inputFocus}`}
+  />
+</div>
 
         {/* Value per Gram */}
         <div>

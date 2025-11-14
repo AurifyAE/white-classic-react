@@ -21,11 +21,13 @@ const isMetalTab = (id) => ['purchase', 'sales'].includes(id);
 export default function Transaction() {
   const [activeTab, setActiveTab] = useState('currency');
   const [selectedTrader, setSelectedTrader] = useState(null);
+  const [editingTransaction, setEditingTransaction] = useState(null);
+  const [isTradeModalOpen, setIsTradeModalOpen] = useState(false);
+  
   const { marketData } = useMarketData(["GOLD"]);
   const traderRefetchRef = useRef(null);
   const bidPrice = marketData?.bid ? marketData.bid.toFixed(2) : "3283.36";
   const askPrice = marketData?.ask ? marketData.ask.toFixed(2) : "3283.66";
-
   const [prevBid, setPrevBid] = useState(bidPrice);
   const [pulse, setPulse] = useState(false);
   const [priceDirection, setPriceDirection] = useState(null);
@@ -47,10 +49,61 @@ export default function Transaction() {
     setSelectedTrader(trader);
   };
 
+  // Handle edit from RecentOrders
+  const handleEditTransaction = (transaction) => {
+    console.log("Editing transaction:", transaction);
+    setEditingTransaction(transaction);
+    setIsTradeModalOpen(true);
+  };
+
+  // Handle delete from RecentOrders
+  const handleDeleteTransaction = async (transactionId) => {
+    if (window.confirm("Are you sure you want to delete this transaction?")) {
+      try {
+        // You'll need to implement the delete API call based on transaction type
+        let endpoint = '';
+        
+        switch (activeTab) {
+          case 'purchase':
+          case 'sales':
+            endpoint = `/metal-transaction/${transactionId}`;
+            break;
+          case 'currency':
+            endpoint = `/currency-trading/trades/${transactionId}`;
+            break;
+          default:
+            console.warn('Delete not implemented for this tab');
+            return;
+        }
+        
+        await axiosInstance.delete(endpoint);
+        toast.success('Transaction deleted successfully');
+        
+        // Refresh the recent orders by triggering re-fetch
+        // This will be handled by the RecentOrders component itself
+      } catch (error) {
+        console.error('Delete failed:', error);
+        toast.error('Failed to delete transaction');
+      }
+    }
+  };
+
+  // Handle modal close
+  const handleTradeModalClose = (shouldRefresh = false) => {
+    setIsTradeModalOpen(false);
+    setEditingTransaction(null);
+    
+    if (shouldRefresh) {
+      // You might want to add a refresh mechanism here
+      console.log("Should refresh recent orders");
+    }
+  };
+
   return (
-<div className="bg-gray-50  ">      {/* Top Navbar */}
+    <div className="bg-gray-50">
+      {/* Top Navbar */}
       <div className="bg-white shadow-sm border-b border-gray-200 px-4 py-3">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
+        <div className="max-w-7xl flex justify-between items-center">
           <div className="text-lg font-semibold text-gray-800">
             Transaction Dashboard
           </div>
@@ -61,7 +114,6 @@ export default function Transaction() {
                 <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Live Gold Rate
                 </div>
-
                 <div className="flex items-center justify-end space-x-1">
                   <div
                     className={`text-2xl font-bold transition-all duration-300 ${
@@ -82,8 +134,6 @@ export default function Transaction() {
                     <ArrowDown className="text-red-600 w-5 h-5 animate-bounce" />
                   )}
                 </div>
-
-                {/* Bid & Ask */}
                 <div className="flex justify-end space-x-4 text-xs mt-1">
                   <span className="text-gray-600">
                     Bid: <span className="font-medium text-gray-800">{bidPrice}</span>
@@ -93,8 +143,6 @@ export default function Transaction() {
                   </span>
                 </div>
               </div>
-
-              {/* Live Indicator Dot */}
               <div className="relative">
                 <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
                 <div className="absolute inset-0 w-3 h-3 bg-green-500 rounded-full animate-ping"></div>
@@ -105,13 +153,17 @@ export default function Transaction() {
       </div>
 
       {/* Main Content */}
-      <div className="p-4 ">
+      <div className="p-4">
         {/* Tabs */}
         <div className="flex border-b border-gray-200 mb-6 bg-white rounded-t-lg overflow-hidden">
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => {
+                setActiveTab(tab.id);
+                setEditingTransaction(null);
+                setIsTradeModalOpen(false);
+              }}
               className={`px-6 py-3 font-medium text-sm border-b-2 transition-all duration-200 ${
                 activeTab === tab.id
                   ? "border-blue-600 text-blue-600 bg-blue-50"
@@ -124,7 +176,7 @@ export default function Transaction() {
         </div>
 
         {/* Two Column Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 ">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           {/* Left: Trader & Trade Modals */}
           <div className="lg:col-span-2 bg-white border border-gray-200 rounded-lg p-6 space-y-6 max-h-fit">
             <SelectTrader onTraderChange={handleTraderChange} value={selectedTrader} ref={traderRefetchRef}/>
@@ -142,12 +194,13 @@ export default function Transaction() {
           </div>
 
           {/* Right: Recent Orders */}
-      <div className="lg:col-span-3 bg-white border border-gray-200 rounded-lg p-6 h-[60vh] overflow-y-auto scrollbar-hide">
-  <RecentOrders type={activeTab} />
-</div>
-
-
-
+          <div className="lg:col-span-3 bg-white border border-gray-200 rounded-lg p-6 h-[60vh] overflow-y-auto scrollbar-hide">
+            <RecentOrders 
+              type={activeTab} 
+              onEditTransaction={handleEditTransaction}
+              onDeleteTransaction={handleDeleteTransaction}
+            />
+          </div>
         </div>
       </div>
     </div>
