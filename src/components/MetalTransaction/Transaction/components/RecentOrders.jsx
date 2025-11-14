@@ -2,35 +2,37 @@ import React, { useEffect, useState, useCallback } from "react";
 import { Edit, FileText, Trash2 } from "lucide-react";
 import axiosInstance from "../../../../api/axios";
 import { useNavigate } from "react-router-dom";
-import InvoiceModal from "./InvoicePage";
-import CurrencyInvoiceModal from "./CurrencyInvoiceModal";
+
+// Import correct modals
+import InvoiceModal from "./InvoicePage";           // Currency Trade Invoice
+import CurrencyInvoiceModal from "./CurrencyInvoiceModal"; // Metal Purchase/Sales
 
 export default function RecentOrders({ type, onEditTransaction, onDeleteTransaction }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [showInvoice, setShowInvoice] = useState(false);
-  const [selectedInvoice, setSelectedInvoice] = useState(null);
+
+  // Separate states for different modals
+  const [showCurrencyInvoice, setShowCurrencyInvoice] = useState(false);
+  const [showMetalInvoice, setShowMetalInvoice] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+
   const navigate = useNavigate();
 
-  // Reset orders when type changes
   useEffect(() => {
     setOrders([]);
+    setShowCurrencyInvoice(false);
+    setShowMetalInvoice(false);
   }, [type]);
 
-  /**
-   * Unified fetch handler for all transaction types
-   */
   const fetchOrders = useCallback(async (tradeType) => {
     setLoading(true);
     try {
       let response;
       let formatted = [];
-     
+
       switch (tradeType) {
         case "currency":
           response = await axiosInstance.get("/currency-trading/trades");
-          console.log("Currency trades response:", response.data);
-         
           formatted = (response.data?.data || response.data || []).map((item) => ({
             _id: item._id,
             orderNo: item.reference || "N/A",
@@ -38,15 +40,14 @@ export default function RecentOrders({ type, onEditTransaction, onDeleteTransact
             rate: item.rate || 0,
             amount: item.amount || 0,
             currencyPair: `${item.baseCurrencyCode}/${item.targetCurrencyCode}`,
-            time: new Date(item.timestamp || item.createdAt).toLocaleTimeString([], { 
-              hour: "2-digit", 
-              minute: "2-digit" 
+            time: new Date(item.timestamp || item.createdAt).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
             }),
-            // Include original data for invoice
-            ...item
+            ...item,
           }));
           break;
-         
+
         case "purchase":
         case "sales":
           response = await axiosInstance.get("/registry", {
@@ -56,7 +57,6 @@ export default function RecentOrders({ type, onEditTransaction, onDeleteTransact
               type: tradeType === "purchase" ? "purchase-fixing" : "sales-fixing",
             },
           });
-         
           const metalData = response.data?.data || response.data || [];
           formatted = metalData.map((item) => ({
             _id: item._id,
@@ -69,14 +69,12 @@ export default function RecentOrders({ type, onEditTransaction, onDeleteTransact
               hour: "2-digit",
               minute: "2-digit",
             }),
-            // Include additional fields needed for editing
-            ...item
+            ...item,
           }));
           break;
-         
+
         case "gold":
-          // For gold fix, use the same structure as currency but with different data source
-          response = await axiosInstance.get("/gold-trades"); // Adjust endpoint as needed
+          response = await axiosInstance.get("/gold-trades");
           formatted = (response.data?.data || response.data || []).map((item) => ({
             _id: item._id,
             orderNo: item.reference || "N/A",
@@ -84,59 +82,61 @@ export default function RecentOrders({ type, onEditTransaction, onDeleteTransact
             rate: item.rate || 0,
             amount: item.amount || 0,
             symbol: item.symbol || "GOLD",
-            time: new Date(item.timestamp || item.createdAt).toLocaleTimeString([], { 
-              hour: "2-digit", 
-              minute: "2-digit" 
+            time: new Date(item.timestamp || item.createdAt).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
             }),
-            ...item
+            ...item,
           }));
           break;
-         
+
         default:
           formatted = [];
       }
-     
+
       setOrders(formatted);
     } catch (error) {
       console.error(`Error fetching ${tradeType} trades:`, error);
-      setOrders([]); // Reset on error
+      setOrders([]);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (type) {
-      fetchOrders(type);
-    }
+    if (type) fetchOrders(type);
   }, [type, fetchOrders]);
- 
+
   const handleEdit = (order) => {
-    console.log("Editing order:", order);
-    if (onEditTransaction) {
-      onEditTransaction(order);
-    }
-  };
-
-  const openInvoice = (order) => {
-    setSelectedInvoice(order);
-    setShowInvoice(true);
-  };
-
-  const closeInvoice = () => {
-    setShowInvoice(false);
-    setSelectedInvoice(null);
+    if (onEditTransaction) onEditTransaction(order);
   };
 
   const handleDelete = (order) => {
     if (onDeleteTransaction && order._id) {
       onDeleteTransaction(order._id);
-    } else {
-      console.warn("Cannot delete - no transaction ID found");
     }
   };
 
-  // Determine table structure based on type
+  // Open correct modal based on type
+  const openInvoice = (order) => {
+    setSelectedOrder(order);
+    if (type === "currency") {
+      setShowCurrencyInvoice(true);
+    } else if (type === "purchase" || type === "sales") {
+      setShowMetalInvoice(true);
+    }
+  };
+
+  const closeCurrencyInvoice = () => {
+    setShowCurrencyInvoice(false);
+    setSelectedOrder(null);
+  };
+
+  const closeMetalInvoice = () => {
+    setShowMetalInvoice(false);
+    setSelectedOrder(null);
+  };
+
   const isCurrency = type === "currency";
   const isGoldFix = type === "gold";
   const isMetal = type === "purchase" || type === "sales";
@@ -149,7 +149,7 @@ export default function RecentOrders({ type, onEditTransaction, onDeleteTransact
           {orders.length} order{orders.length !== 1 ? "s" : ""}
         </span>
       </div>
-     
+
       {loading ? (
         <div className="flex-1 flex items-center justify-center text-gray-400 py-20">
           <p className="text-lg animate-pulse">Loading {type} data...</p>
@@ -169,8 +169,7 @@ export default function RecentOrders({ type, onEditTransaction, onDeleteTransact
                 <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
                   TYPE
                 </th>
-                
-                {/* For Currency Fix and Gold Fix - show Rate and Amount */}
+
                 {(isCurrency || isGoldFix) && (
                   <>
                     <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -191,8 +190,7 @@ export default function RecentOrders({ type, onEditTransaction, onDeleteTransact
                     )}
                   </>
                 )}
-                
-                {/* For Purchase/Sales Metal - show Currency and Amount */}
+
                 {isMetal && (
                   <>
                     <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -203,7 +201,7 @@ export default function RecentOrders({ type, onEditTransaction, onDeleteTransact
                     </th>
                   </>
                 )}
-                
+
                 <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
                   ACTIONS
                 </th>
@@ -227,8 +225,7 @@ export default function RecentOrders({ type, onEditTransaction, onDeleteTransact
                       {order.type}
                     </span>
                   </td>
-                 
-                  {/* Data for Currency Fix and Gold Fix */}
+
                   {(isCurrency || isGoldFix) && (
                     <>
                       <td className="py-5 px-6 text-sm text-gray-900 font-semibold">
@@ -249,8 +246,7 @@ export default function RecentOrders({ type, onEditTransaction, onDeleteTransact
                       )}
                     </>
                   )}
-                 
-                  {/* Data for Purchase/Sales Metal */}
+
                   {isMetal && (
                     <>
                       <td className="py-5 px-6 text-sm text-gray-700 font-medium">
@@ -261,7 +257,7 @@ export default function RecentOrders({ type, onEditTransaction, onDeleteTransact
                       </td>
                     </>
                   )}
-                 
+
                   <td className="py-5 px-6">
                     <div className="flex items-center gap-2">
                       <button
@@ -276,7 +272,7 @@ export default function RecentOrders({ type, onEditTransaction, onDeleteTransact
                         className="p-1.5 hover:bg-gray-100 rounded transition-colors text-blue-500"
                         title="Edit"
                       >
-                        <Edit color="black" size={18} />
+                        <Edit size={18} />
                       </button>
                       <button
                         onClick={() => handleDelete(order)}
@@ -294,28 +290,22 @@ export default function RecentOrders({ type, onEditTransaction, onDeleteTransact
         </div>
       )}
 
-      {/* Invoice Modals */}
-      {showInvoice && (
-        <>
-          {type === "currency" && (
-            <InvoiceModal
-              isOpen={showInvoice}
-              data={selectedInvoice}
-              onClose={closeInvoice}
-            />
-          )}
-          {(type === "purchase" || type === "sales") && (
-            <CurrencyInvoiceModal
-              isOpen={showInvoice}
-              purchase={selectedInvoice}
-              onClose={closeInvoice}
-              partyCurrency={selectedInvoice?.party || { currencyCode: "INR" }}
-              partyCurrencyValue={selectedInvoice?.value}
-              onDownload={() => console.log("DOWNLOAD")}
-            />
-          )}
-        </>
-      )}
+      {/* === MODALS === */}
+      {/* Currency Invoice Modal */}
+      <InvoiceModal
+        show={showCurrencyInvoice}
+        data={selectedOrder}
+        onClose={closeCurrencyInvoice}
+      />
+
+      {/* Metal Purchase/Sales Invoice Modal */}
+      <CurrencyInvoiceModal
+        isOpen={showMetalInvoice}
+        purchase={selectedOrder}
+        onClose={closeMetalInvoice}
+        partyCurrency={selectedOrder?.party || { currencyCode: "AED" }}
+        onDownload={() => console.log("Download PDF")}
+      />
     </div>
   );
 }
