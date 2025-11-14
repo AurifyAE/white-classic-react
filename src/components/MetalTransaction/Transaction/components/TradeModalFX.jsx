@@ -197,7 +197,10 @@ export default function TradeModalFX({ selectedTrader,traderRefetch }) {
 
         // ---- **REFETCH NEW VOUCHER** ----
         await fetchVoucherCode();
-        traderRefetch?.current && await traderRefetch.current();   // <-- re-load balances instantly
+        // Inside handleCreateTrade success block
+if (traderRefetch?.current && typeof traderRefetch.current === 'function') {
+  await traderRefetch.current(); // Now works
+}  // <-- re-load balances instantly
       } else {
         toast.error('Trade failed');
       }

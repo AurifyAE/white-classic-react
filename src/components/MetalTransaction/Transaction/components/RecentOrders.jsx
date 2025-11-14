@@ -12,18 +12,7 @@ export default function RecentOrders({ type }) {
   const navigate = useNavigate();
 
   // Dummy data for types not yet connected to live API
-  const mockData = {
-    gold: [
-      {
-        orderNo: "OR-3219810-INTAP",
-        type: "PURCHASE",
-        symbol: "KGBAR",
-        quantity: "3,079.246 g",
-        price: "AED 1,453,834.41",
-        time: "09:45 AM",
-      },
-    ],
-  };
+  
 
   /**
    * Unified fetch handler for all transaction types
@@ -74,7 +63,6 @@ export default function RecentOrders({ type }) {
 
         case "gold":
         case "sales":
-          formatted = mockData[tradeType] || [];
           break;
 
         default:

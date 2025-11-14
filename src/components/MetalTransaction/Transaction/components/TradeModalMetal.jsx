@@ -275,9 +275,9 @@ export default function TradeModalMetal({ type, selectedTrader, liveRate, onClos
       if (!isEditMode) {
         await fetchNewVoucher();
       }
-      if (traderRefetch?.current) {
-        await traderRefetch.current();   // <-- re-load balances instantly
-      }
+      if (traderRefetch?.current && typeof traderRefetch.current === 'function') {
+        await traderRefetch.current(); // Now works
+      } 
       // ✅ Close modal or notify parent if needed
       if (onClose) {
         onClose(true);

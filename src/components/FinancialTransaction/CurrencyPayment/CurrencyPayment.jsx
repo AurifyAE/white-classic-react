@@ -77,7 +77,7 @@ export default function CashPayment() {
   const [showPreviewAfterSave, setShowPreviewAfterSave] = useState(false);
   const [editingProductIndex, setEditingProductIndex] = useState(-1);
   const [isSaving, setIsSaving] = useState(false);
-const [isDeleting, setIsDeleting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [arrayError, setArrayError] = useState({
     cashType: "",
     amount: "",
@@ -120,6 +120,20 @@ const [isDeleting, setIsDeleting] = useState(false);
     setTimeout(() => setInitialLoading(false), 2000);
   }, []);
 
+
+  const getAllCashBalances = (party) => {
+    console.log(party, 'party in getAllCashBalances');
+    if (!party?.balances?.cashBalance) return [];
+    return party.balances.cashBalance; // <-- array of {currency: _id, amount: number}
+  };
+
+  const getAccountType = (party) => party?.accountType || "N/A";
+
+  const getCurrencyCodeById = (id) => {
+
+    const cur = currencys.find((c) => c._id === id);
+    return cur?.currencyCode ?? "AED";
+  };
 
 
   const generateVoucherNumber = async () => {
@@ -248,616 +262,616 @@ const [isDeleting, setIsDeleting] = useState(false);
   };
 
   // Function to convert number to Dirham words
-// Function to convert number to words based on currency
-const numberToWords = (amount, currencyCode) => {
-  if (
-    amount === null ||
-    amount === undefined ||
-    isNaN(amount) ||
-    amount === ""
-  ) {
-    return "INVALID AMOUNT";
-  }
+  // Function to convert number to words based on currency
+  const numberToWords = (amount, currencyCode) => {
+    if (
+      amount === null ||
+      amount === undefined ||
+      isNaN(amount) ||
+      amount === ""
+    ) {
+      return "INVALID AMOUNT";
+    }
 
-  const num = Number(amount);
-  const isNegative = num < 0;
-  const absoluteNum = Math.abs(num);
-  const [integerPart, decimalPartRaw] = absoluteNum.toFixed(2).split(".");
-  const integer = parseInt(integerPart, 10) || 0;
-  const decimal = parseInt(decimalPartRaw, 10) || 0;
+    const num = Number(amount);
+    const isNegative = num < 0;
+    const absoluteNum = Math.abs(num);
+    const [integerPart, decimalPartRaw] = absoluteNum.toFixed(2).split(".");
+    const integer = parseInt(integerPart, 10) || 0;
+    const decimal = parseInt(decimalPartRaw, 10) || 0;
 
-  const a = [
-    "",
-    "ONE",
-    "TWO",
-    "THREE",
-    "FOUR",
-    "FIVE",
-    "SIX",
-    "SEVEN",
-    "EIGHT",
-    "NINE",
-    "TEN",
-    "ELEVEN",
-    "TWELVE",
-    "THIRTEEN",
-    "FOURTEEN",
-    "FIFTEEN",
-    "SIXTEEN",
-    "SEVENTEEN",
-    "EIGHTEEN",
-    "NINETEEN",
-  ];
-  const b = [
-    "",
-    "",
-    "TWENTY",
-    "THIRTY",
-    "FORTY",
-    "FIFTY",
-    "SIXTY",
-    "SEVENTY",
-    "EIGHTY",
-    "NINETY",
-  ];
+    const a = [
+      "",
+      "ONE",
+      "TWO",
+      "THREE",
+      "FOUR",
+      "FIVE",
+      "SIX",
+      "SEVEN",
+      "EIGHT",
+      "NINE",
+      "TEN",
+      "ELEVEN",
+      "TWELVE",
+      "THIRTEEN",
+      "FOURTEEN",
+      "FIFTEEN",
+      "SIXTEEN",
+      "SEVENTEEN",
+      "EIGHTEEN",
+      "NINETEEN",
+    ];
+    const b = [
+      "",
+      "",
+      "TWENTY",
+      "THIRTY",
+      "FORTY",
+      "FIFTY",
+      "SIXTY",
+      "SEVENTY",
+      "EIGHTY",
+      "NINETY",
+    ];
 
-  const convert = (num) => {
-    if (num === 0) return "";
-    if (num < 20) return a[num];
-    if (num < 100)
-      return b[Math.floor(num / 10)] + (num % 10 ? " " + a[num % 10] : "");
-    if (num < 1000)
-      return (
-        a[Math.floor(num / 100)] +
-        " HUNDRED" +
-        (num % 100 ? " " + convert(num % 100) : "")
-      );
-    if (num < 1000000)
-      return (
-        convert(Math.floor(num / 1000)) +
-        " THOUSAND" +
-        (num % 1000 ? " " + convert(num % 1000) : "")
-      );
-    if (num < 1000000000)
-      return (
-        convert(Math.floor(num / 1000000)) +
-        " MILLION" +
-        (num % 1000000 ? " " + convert(num % 1000000) : "")
-      );
-    if (num < 1000000000000)
-      return (
-        convert(Math.floor(num / 1000000000)) +
-        " BILLION" +
-        (num % 1000000000 ? " " + convert(num % 1000000000) : "")
-      );
-    if (num < 1000000000000000)
-      return (
-        convert(Math.floor(num / 1000000000000)) +
-        " TRILLION" +
-        (num % 1000000000000 ? " " + convert(num % 1000000000000) : "")
-      );
-    return "NUMBER TOO LARGE";
+    const convert = (num) => {
+      if (num === 0) return "";
+      if (num < 20) return a[num];
+      if (num < 100)
+        return b[Math.floor(num / 10)] + (num % 10 ? " " + a[num % 10] : "");
+      if (num < 1000)
+        return (
+          a[Math.floor(num / 100)] +
+          " HUNDRED" +
+          (num % 100 ? " " + convert(num % 100) : "")
+        );
+      if (num < 1000000)
+        return (
+          convert(Math.floor(num / 1000)) +
+          " THOUSAND" +
+          (num % 1000 ? " " + convert(num % 1000) : "")
+        );
+      if (num < 1000000000)
+        return (
+          convert(Math.floor(num / 1000000)) +
+          " MILLION" +
+          (num % 1000000 ? " " + convert(num % 1000000) : "")
+        );
+      if (num < 1000000000000)
+        return (
+          convert(Math.floor(num / 1000000000)) +
+          " BILLION" +
+          (num % 1000000000 ? " " + convert(num % 1000000000) : "")
+        );
+      if (num < 1000000000000000)
+        return (
+          convert(Math.floor(num / 1000000000000)) +
+          " TRILLION" +
+          (num % 1000000000000 ? " " + convert(num % 1000000000000) : "")
+        );
+      return "NUMBER TOO LARGE";
+    };
+
+    // Currency-specific formatting
+    const currencyFormats = {
+      AED: { integer: "DIRHAM", decimal: "FILS" },
+      INR: { integer: "RUPEES", decimal: "PAISE" },
+      // Add more currencies as needed
+      DEFAULT: { integer: "CURRENCY", decimal: "CENTS" },
+    };
+
+    const format = currencyFormats[currencyCode] || currencyFormats.DEFAULT;
+
+    let words = "";
+    if (integer > 0) words += convert(integer) + ` ${format.integer}`;
+    if (decimal > 0)
+      words += (integer > 0 ? " AND " : "") + convert(decimal) + ` ${format.decimal}`;
+    if (words === "") words = `ZERO ${format.integer}`;
+
+    return (isNegative ? "MINUS " : "") + words + " ONLY";
   };
-
-  // Currency-specific formatting
-  const currencyFormats = {
-    AED: { integer: "DIRHAM", decimal: "FILS" },
-    INR: { integer: "RUPEES", decimal: "PAISE" },
-    // Add more currencies as needed
-    DEFAULT: { integer: "CURRENCY", decimal: "CENTS" },
-  };
-
-  const format = currencyFormats[currencyCode] || currencyFormats.DEFAULT;
-
-  let words = "";
-  if (integer > 0) words += convert(integer) + ` ${format.integer}`;
-  if (decimal > 0)
-    words += (integer > 0 ? " AND " : "") + convert(decimal) + ` ${format.decimal}`;
-  if (words === "") words = `ZERO ${format.integer}`;
-
-  return (isNegative ? "MINUS " : "") + words + " ONLY";
-};
 
   // Export single payment by ID to PDF
-const handleExportByIdToPDF = async (id) => {
-  if (typeof window === "undefined") return;
+  const handleExportByIdToPDF = async (id) => {
+    if (typeof window === "undefined") return;
 
-  try {
-    const response = await axiosInstance.get(`/entry/${id}`);
-    const payment = response.data;
-    console.log(payment, 'payment');
+    try {
+      const response = await axiosInstance.get(`/entry/${id}`);
+      const payment = response.data;
+      console.log(payment, 'payment');
 
-    if (!payment || !Array.isArray(payment.cash) || payment.cash.length === 0) {
-      toast.error("No cash items to export");
-      return;
-    }
-
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const centerX = pageWidth / 2;
-
-    const logoImg = '/assets/logo.png';
-    const logoWidth = 20, logoX = centerX - logoWidth / 2, logoY = 5;
-
-    // Header
-    doc.addImage(logoImg, 'PNG', logoX, logoY, logoWidth, 20);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(12);
-    doc.text("CURRENCY PAYMENT", pageWidth - 14, logoY + 24, { align: "right" });
-
-    // Separator
-    const separatorY = logoY + 28;
-    doc.setDrawColor(223, 223, 223);
-    doc.setLineWidth(0.3);
-    doc.line(14, separatorY, pageWidth - 14, separatorY);
-
-    // Info Box
-    const infoStartY = separatorY + 6;
-    const leftX = 14;
-    const rightX = pageWidth / 2 + 4;
-    const lineSpacing = 5;
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.text(`Party Name : ${payment.party?.customerName || 'N/A'}`, leftX, infoStartY);
-    doc.text(`Phone      : ${payment.party?.addresses?.[0]?.phoneNumber1 || 'N/A'}`, leftX, infoStartY + lineSpacing);
-    doc.text(`Email      : ${payment.party?.addresses?.[0]?.email || 'N/A'}`, leftX, infoStartY + lineSpacing * 2);
-    doc.text(`Account Code : ${payment.party?.accountCode || 'N/A'}`, rightX, infoStartY);
-    doc.text(`Date         : ${payment.voucherDate ? new Date(payment.voucherDate).toLocaleDateString("en-GB") : 'N/A'}`, rightX, infoStartY + lineSpacing);
-    doc.text(`Account Type : ${payment.party?.accountType || 'N/A'}`, rightX, infoStartY + lineSpacing * 2);
-
-    const boxTopY = infoStartY - 6;
-    const boxBottomY = infoStartY + lineSpacing * 3;
-    doc.setDrawColor(205, 205, 205);
-    doc.setLineWidth(0.5);
-    doc.line(14, boxTopY, pageWidth - 14, boxTopY);
-    doc.line(14, boxBottomY, pageWidth - 14, boxBottomY);
-    const centerXs = pageWidth / 2;
-    doc.line(centerXs, boxTopY, centerXs, boxBottomY);
-
-    // Check if any cash item has VAT data
-    const hasVat = payment.cash.some(item => item.vatPercentage || item.vatAmount);
-
-    // Main Table
-    const allCashItems = payment.cash.map((item, index) => {
-      const baseColumns = [
-        (index + 1).toString(),
-        item.cashType?.name || payment.type,
-        formatNumber(parseFloat(item.amount || 0), 2),
-      ];
-      if (hasVat) {
-        baseColumns.push(
-          item.vatPercentage ? formatNumber(parseFloat(item.vatPercentage || 0), 2) + '%' : '--',
-          item.vatAmount ? formatNumber(parseFloat(item.vatAmount || 0), 2) : '--'
-        );
+      if (!payment || !Array.isArray(payment.cash) || payment.cash.length === 0) {
+        toast.error("No cash items to export");
+        return;
       }
-      baseColumns.push(
-        item.vatAmount ? formatNumber(parseFloat(item.amount || 0) + parseFloat(item.vatAmount || 0), 2) : formatNumber(parseFloat(item.amount || 0), 2),
-        item.currency?.currencyCode || "AED",
-        item.remarks || "-"
-      );
-      return baseColumns;
-    });
 
-    if (allCashItems.length === 0) {
-      toast.error("No valid cash data");
-      return;
-    }
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const centerX = pageWidth / 2;
 
-    const totalAmount = formatNumber(
-      allCashItems.reduce((acc, row) => acc + parseFloat(row[2].replace(/,/g, "") || 0), 0), 2
-    );
-    const totalVatAmount = hasVat ? formatNumber(
-      allCashItems.reduce((acc, row) => acc + (hasVat && row[4] !== '--' ? parseFloat(row[4].replace(/,/g, "") || 0) : 0), 0), 2
-    ) : null;
-    const totalWithVat = formatNumber(
-      allCashItems.reduce((acc, row) => acc + parseFloat(row[hasVat ? 5 : 3].replace(/,/g, "") || 0), 0), 2
-    );
+      const logoImg = '/assets/logo.png';
+      const logoWidth = 20, logoX = centerX - logoWidth / 2, logoY = 5;
 
-    let tableStartY = logoY + 55;
-    autoTable(doc, {
-      startY: tableStartY,
-      head: [[
-        { content: "#", styles: { halign: 'center', valign: 'middle' } },
-        { content: "Cash Type", styles: { halign: 'center', valign: 'middle' } },
-        { content: "Amount", styles: { halign: 'center', valign: 'middle' } },
-        ...(hasVat ? [
-          { content: "VAT %", styles: { halign: 'center', valign: 'middle' } },
-          { content: "VAT Amount", styles: { halign: 'center', valign: 'middle' } }
-        ] : []),
-        { content: "Total with VAT", styles: { halign: 'center', valign: 'middle' } },
-        { content: "Currency", styles: { halign: 'center', valign: 'middle' } },
-        { content: "Remarks", styles: { halign: 'center', valign: 'middle' } },
-      ]],
-      body: allCashItems.map(row =>
-        row.map((col, i) => ({
-          content: col,
-          styles: { halign: [0, 1, hasVat ? 6 : 4, hasVat ? 7 : 5].includes(i) ? 'right' : [2, 3, 4, hasVat ? 5 : 3].includes(i) ? 'right' : 'center' }
-        }))
-      ),
-      theme: 'grid',
-      styles: {
-        fontSize: 8,
-        font: 'helvetica',
-        textColor: 0,
-        lineWidth: 0.3,
-      },
-      headStyles: {
-        fillColor: [230, 230, 230],
-        textColor: 0,
-        fontStyle: 'bold',
-        fontSize: 8,
-        halign: 'center',
-        valign: 'middle',
-      },
-      bodyStyles: {
-        fontSize: 8,
-        valign: 'middle',
-      },
-      margin: { left: 14, right: 14 },
-      tableWidth: 'auto',
-      didParseCell: function (data) {
-        const isFirstColumn = data.column.index === 0;
-        const isLastColumn = data.column.index === data.table.columns.length - 1;
-        if (isFirstColumn) {
-          data.cell.styles.lineWidth = { left: 0, right: 0.3, top: 0.3, bottom: 0.3 };
-        } else if (isLastColumn) {
-          data.cell.styles.lineWidth = { left: 0.3, right: 0, top: 0.3, bottom: 0.3 };
+      // Header
+      doc.addImage(logoImg, 'PNG', logoX, logoY, logoWidth, 20);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.text("CURRENCY PAYMENT", pageWidth - 14, logoY + 24, { align: "right" });
+
+      // Separator
+      const separatorY = logoY + 28;
+      doc.setDrawColor(223, 223, 223);
+      doc.setLineWidth(0.3);
+      doc.line(14, separatorY, pageWidth - 14, separatorY);
+
+      // Info Box
+      const infoStartY = separatorY + 6;
+      const leftX = 14;
+      const rightX = pageWidth / 2 + 4;
+      const lineSpacing = 5;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.text(`Party Name : ${payment.party?.customerName || 'N/A'}`, leftX, infoStartY);
+      doc.text(`Phone      : ${payment.party?.addresses?.[0]?.phoneNumber1 || 'N/A'}`, leftX, infoStartY + lineSpacing);
+      doc.text(`Email      : ${payment.party?.addresses?.[0]?.email || 'N/A'}`, leftX, infoStartY + lineSpacing * 2);
+      doc.text(`Account Code : ${payment.party?.accountCode || 'N/A'}`, rightX, infoStartY);
+      doc.text(`Date         : ${payment.voucherDate ? new Date(payment.voucherDate).toLocaleDateString("en-GB") : 'N/A'}`, rightX, infoStartY + lineSpacing);
+      doc.text(`Account Type : ${payment.party?.accountType || 'N/A'}`, rightX, infoStartY + lineSpacing * 2);
+
+      const boxTopY = infoStartY - 6;
+      const boxBottomY = infoStartY + lineSpacing * 3;
+      doc.setDrawColor(205, 205, 205);
+      doc.setLineWidth(0.5);
+      doc.line(14, boxTopY, pageWidth - 14, boxTopY);
+      doc.line(14, boxBottomY, pageWidth - 14, boxBottomY);
+      const centerXs = pageWidth / 2;
+      doc.line(centerXs, boxTopY, centerXs, boxBottomY);
+
+      // Check if any cash item has VAT data
+      const hasVat = payment.cash.some(item => item.vatPercentage || item.vatAmount);
+
+      // Main Table
+      const allCashItems = payment.cash.map((item, index) => {
+        const baseColumns = [
+          (index + 1).toString(),
+          item.cashType?.name || payment.type,
+          formatNumber(parseFloat(item.amount || 0), 2),
+        ];
+        if (hasVat) {
+          baseColumns.push(
+            item.vatPercentage ? formatNumber(parseFloat(item.vatPercentage || 0), 2) + '%' : '--',
+            item.vatAmount ? formatNumber(parseFloat(item.vatAmount || 0), 2) : '--'
+          );
         }
-      },
-    });
+        baseColumns.push(
+          item.vatAmount ? formatNumber(parseFloat(item.amount || 0) + parseFloat(item.vatAmount || 0), 2) : formatNumber(parseFloat(item.amount || 0), 2),
+          item.currency?.currencyCode || "AED",
+          item.remarks || "-"
+        );
+        return baseColumns;
+      });
 
-    // Totals Summary Box
-    const totalsStartY = doc.lastAutoTable.finalY;
-    const tableWidth = pageWidth / 3;
-    const leftMargin = pageWidth - tableWidth - 14;
+      if (allCashItems.length === 0) {
+        toast.error("No valid cash data");
+        return;
+      }
 
-    let totalBoxHeight = 0;
-    let totalBoxTopY = totalsStartY;
+      const totalAmount = formatNumber(
+        allCashItems.reduce((acc, row) => acc + parseFloat(row[2].replace(/,/g, "") || 0), 0), 2
+      );
+      const totalVatAmount = hasVat ? formatNumber(
+        allCashItems.reduce((acc, row) => acc + (hasVat && row[4] !== '--' ? parseFloat(row[4].replace(/,/g, "") || 0) : 0), 0), 2
+      ) : null;
+      const totalWithVat = formatNumber(
+        allCashItems.reduce((acc, row) => acc + parseFloat(row[hasVat ? 5 : 3].replace(/,/g, "") || 0), 0), 2
+      );
 
-    autoTable(doc, {
-      startY: totalsStartY,
-      body: [
-        [
-          { content: "Total Amount", styles: { fontStyle: 'bold', halign: 'center' } },
-          { content: totalAmount, styles: { fontStyle: 'bold', halign: 'center' } },
+      let tableStartY = logoY + 55;
+      autoTable(doc, {
+        startY: tableStartY,
+        head: [[
+          { content: "#", styles: { halign: 'center', valign: 'middle' } },
+          { content: "Cash Type", styles: { halign: 'center', valign: 'middle' } },
+          { content: "Amount", styles: { halign: 'center', valign: 'middle' } },
+          ...(hasVat ? [
+            { content: "VAT %", styles: { halign: 'center', valign: 'middle' } },
+            { content: "VAT Amount", styles: { halign: 'center', valign: 'middle' } }
+          ] : []),
+          { content: "Total with VAT", styles: { halign: 'center', valign: 'middle' } },
+          { content: "Currency", styles: { halign: 'center', valign: 'middle' } },
+          { content: "Remarks", styles: { halign: 'center', valign: 'middle' } },
+        ]],
+        body: allCashItems.map(row =>
+          row.map((col, i) => ({
+            content: col,
+            styles: { halign: [0, 1, hasVat ? 6 : 4, hasVat ? 7 : 5].includes(i) ? 'right' : [2, 3, 4, hasVat ? 5 : 3].includes(i) ? 'right' : 'center' }
+          }))
+        ),
+        theme: 'grid',
+        styles: {
+          fontSize: 8,
+          font: 'helvetica',
+          textColor: 0,
+          lineWidth: 0.3,
+        },
+        headStyles: {
+          fillColor: [230, 230, 230],
+          textColor: 0,
+          fontStyle: 'bold',
+          fontSize: 8,
+          halign: 'center',
+          valign: 'middle',
+        },
+        bodyStyles: {
+          fontSize: 8,
+          valign: 'middle',
+        },
+        margin: { left: 14, right: 14 },
+        tableWidth: 'auto',
+        didParseCell: function (data) {
+          const isFirstColumn = data.column.index === 0;
+          const isLastColumn = data.column.index === data.table.columns.length - 1;
+          if (isFirstColumn) {
+            data.cell.styles.lineWidth = { left: 0, right: 0.3, top: 0.3, bottom: 0.3 };
+          } else if (isLastColumn) {
+            data.cell.styles.lineWidth = { left: 0.3, right: 0, top: 0.3, bottom: 0.3 };
+          }
+        },
+      });
+
+      // Totals Summary Box
+      const totalsStartY = doc.lastAutoTable.finalY;
+      const tableWidth = pageWidth / 3;
+      const leftMargin = pageWidth - tableWidth - 14;
+
+      let totalBoxHeight = 0;
+      let totalBoxTopY = totalsStartY;
+
+      autoTable(doc, {
+        startY: totalsStartY,
+        body: [
+          [
+            { content: "Total Amount", styles: { fontStyle: 'bold', halign: 'center' } },
+            { content: totalAmount, styles: { fontStyle: 'bold', halign: 'center' } },
+          ],
+          ...(hasVat ? [[
+            { content: "Total VAT Amount", styles: { fontStyle: 'bold', halign: 'center' } },
+            { content: totalVatAmount !== '0.00' ? totalVatAmount : '--', styles: { fontStyle: 'bold', halign: 'center' } },
+          ]] : []),
+          [
+            { content: "Total with VAT", styles: { fontStyle: 'bold', halign: 'center' } },
+            { content: totalWithVat, styles: { fontStyle: 'bold', halign: 'center' } },
+          ],
         ],
-        ...(hasVat ? [[
-          { content: "Total VAT Amount", styles: { fontStyle: 'bold', halign: 'center' } },
-          { content: totalVatAmount !== '0.00' ? totalVatAmount : '--', styles: { fontStyle: 'bold', halign: 'center' } },
-        ]] : []),
-        [
-          { content: "Total with VAT", styles: { fontStyle: 'bold', halign: 'center' } },
-          { content: totalWithVat, styles: { fontStyle: 'bold', halign: 'center' } },
-        ],
-      ],
-      theme: 'plain',
-      styles: {
+        theme: 'plain',
+        styles: {
+          fontSize: 8,
+          font: 'helvetica',
+          textColor: 0,
+          lineWidth: 0,
+          cellPadding: { top: 1, bottom: 4, left: 2, right: 2 },
+        },
+        columnStyles: {
+          0: { cellWidth: tableWidth / 2 },
+          1: { cellWidth: tableWidth / 2 },
+        },
+        margin: { left: leftMargin, right: 14 },
+        tableWidth: tableWidth,
+        showHead: 'never',
+        didDrawPage: (data) => {
+          totalBoxHeight = data.cursor.y - totalBoxTopY;
+          doc.setDrawColor(205, 205, 205);
+          doc.setLineWidth(0.3);
+          doc.line(leftMargin, totalBoxTopY, leftMargin + tableWidth, totalBoxTopY);
+          doc.line(leftMargin, totalBoxTopY, leftMargin, totalBoxTopY + totalBoxHeight);
+          doc.line(leftMargin, totalBoxTopY + totalBoxHeight, leftMargin + tableWidth, totalBoxTopY + totalBoxHeight);
+        }
+      });
+
+      // Account Update Section
+      const accountUpdateY = doc.lastAutoTable.finalY + 15;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.text("Your account has been updated with:", 14, accountUpdateY);
+
+      const creditAmount = totalWithVat;
+      const creditWords = numberToDirhamWords(parseFloat(totalWithVat.replace(/,/g, "") || 0));
+
+      const sharedStyles = {
         fontSize: 8,
         font: 'helvetica',
         textColor: 0,
-        lineWidth: 0,
-        cellPadding: { top: 1, bottom: 4, left: 2, right: 2 },
-      },
-      columnStyles: {
-        0: { cellWidth: tableWidth / 2 },
-        1: { cellWidth: tableWidth / 2 },
-      },
-      margin: { left: leftMargin, right: 14 },
-      tableWidth: tableWidth,
-      showHead: 'never',
-      didDrawPage: (data) => {
-        totalBoxHeight = data.cursor.y - totalBoxTopY;
-        doc.setDrawColor(205, 205, 205);
-        doc.setLineWidth(0.3);
-        doc.line(leftMargin, totalBoxTopY, leftMargin + tableWidth, totalBoxTopY);
-        doc.line(leftMargin, totalBoxTopY, leftMargin, totalBoxTopY + totalBoxHeight);
-        doc.line(leftMargin, totalBoxTopY + totalBoxHeight, leftMargin + tableWidth, totalBoxTopY + totalBoxHeight);
-      }
-    });
+        cellPadding: { top: 1.5, bottom: 1.5, left: 3, right: 3 },
+        lineColor: [0, 0, 0],
+        lineWidth: 0.3,
+      };
 
-    // Account Update Section
-    const accountUpdateY = doc.lastAutoTable.finalY + 15;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.text("Your account has been updated with:", 14, accountUpdateY);
+      let boxStartY = accountUpdateY + 4;
+      autoTable(doc, {
+        startY: boxStartY,
+        body: [[
+          { content: `AED ${creditAmount} CREDITED`, styles: { ...sharedStyles, fontStyle: 'bold', halign: 'left' } },
+          { content: creditWords, styles: { ...sharedStyles, fontStyle: 'italic', halign: 'left' } }
+        ]],
+        theme: 'plain',
+        styles: sharedStyles,
+        columnStyles: {
+          0: { cellWidth: 80 },
+          1: { cellWidth: pageWidth - 108 },
+        },
+        margin: { left: 14, right: 14 },
+        showHead: 'never',
+        didDrawPage: (data) => {
+          boxStartY = data.cursor.y;
+        }
+      });
 
-    const creditAmount = totalWithVat;
-    const creditWords = numberToDirhamWords(parseFloat(totalWithVat.replace(/,/g, "") || 0));
+      // Footer and Signature
+      const footerY = doc.lastAutoTable.finalY + 15;
+      const signedBy = payment.enteredBy?.name || 'AUTHORIZED SIGNATORY';
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(9);
+      doc.text("Confirmed on behalf of", 14, footerY);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.text(signedBy, 14, footerY + 5);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(0, 0, 0);
+      doc.setLineWidth(0.3);
+      doc.setDrawColor(150, 150, 150);
+      doc.line(20, footerY + 20, 70, footerY + 20);
+      doc.line(80, footerY + 20, 130, footerY + 20);
+      doc.line(140, footerY + 20, 190, footerY + 20);
+      doc.text("PARTY'S SIGNATURE", 45, footerY + 25, null, null, 'center');
+      doc.text("CHECKED BY", 105, footerY + 25, null, null, 'center');
+      doc.text("AUTHORIZED SIGNATORY", 165, footerY + 25, null, null, 'center');
 
-    const sharedStyles = {
-      fontSize: 8,
-      font: 'helvetica',
-      textColor: 0,
-      cellPadding: { top: 1.5, bottom: 1.5, left: 3, right: 3 },
-      lineColor: [0, 0, 0],
-      lineWidth: 0.3,
-    };
-
-    let boxStartY = accountUpdateY + 4;
-    autoTable(doc, {
-      startY: boxStartY,
-      body: [[
-        { content: `AED ${creditAmount} CREDITED`, styles: { ...sharedStyles, fontStyle: 'bold', halign: 'left' } },
-        { content: creditWords, styles: { ...sharedStyles, fontStyle: 'italic', halign: 'left' } }
-      ]],
-      theme: 'plain',
-      styles: sharedStyles,
-      columnStyles: {
-        0: { cellWidth: 80 },
-        1: { cellWidth: pageWidth - 108 },
-      },
-      margin: { left: 14, right: 14 },
-      showHead: 'never',
-      didDrawPage: (data) => {
-        boxStartY = data.cursor.y;
-      }
-    });
-
-    // Footer and Signature
-    const footerY = doc.lastAutoTable.finalY + 15;
-    const signedBy = payment.enteredBy?.name || 'AUTHORIZED SIGNATORY';
-    doc.setFont('helvetica', 'italic');
-    doc.setFontSize(9);
-    doc.text("Confirmed on behalf of", 14, footerY);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.text(signedBy, 14, footerY + 5);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(0, 0, 0);
-    doc.setLineWidth(0.3);
-    doc.setDrawColor(150, 150, 150);
-    doc.line(20, footerY + 20, 70, footerY + 20);
-    doc.line(80, footerY + 20, 130, footerY + 20);
-    doc.line(140, footerY + 20, 190, footerY + 20);
-    doc.text("PARTY'S SIGNATURE", 45, footerY + 25, null, null, 'center');
-    doc.text("CHECKED BY", 105, footerY + 25, null, null, 'center');
-    doc.text("AUTHORIZED SIGNATORY", 165, footerY + 25, null, null, 'center');
-
-    // Save PDF
-    doc.save(`cash-payment-${payment.voucherCode || id}.pdf`);
-    toast.success("Cash payment exported to PDF successfully!");
-  } catch (error) {
-    console.error("Error exporting PDF:", error);
-    toast.error("Failed to export cash payment.");
-  }
-};
+      // Save PDF
+      doc.save(`cash-payment-${payment.voucherCode || id}.pdf`);
+      toast.success("Cash payment exported to PDF successfully!");
+    } catch (error) {
+      console.error("Error exporting PDF:", error);
+      toast.error("Failed to export cash payment.");
+    }
+  };
 
   // Export all filtered payments to PDF
-const handleExportAllToPDF = async () => {
-  if (typeof window === "undefined") return;
+  const handleExportAllToPDF = async () => {
+    if (typeof window === "undefined") return;
 
-  if (filteredPayments.length === 0) {
-    toast.error("No filtered cash payments available to export");
-    return;
-  }
-
-  try {
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const centerX = pageWidth / 2;
-
-    const logoImg = '/assets/logo.png';
-    const logoWidth = 20, logoX = centerX - logoWidth / 2, logoY = 5;
-
-    // Header
-    doc.addImage(logoImg, 'PNG', logoX, logoY, logoWidth, 20);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(12);
-    doc.text("CASH PAYMENTS REPORT", pageWidth - 14, logoY + 24, { align: "right" });
-
-    // Separator
-    const separatorY = logoY + 28;
-    doc.setDrawColor(223, 223, 223);
-    doc.setLineWidth(0.3);
-    doc.line(14, separatorY, pageWidth - 14, separatorY);
-
-    // Main Table Data
-    const allCashItems = filteredPayments.flatMap((payment) =>
-      (payment?.cash || []).map((item) => ({
-        voucher: payment.voucherCode || "-",
-        cashType: item.cashType?.name || "-",
-        amount: formatNumber(parseFloat(item.amount || 0), 2),
-        vatPercentage: item.vatPercentage ? formatNumber(parseFloat(item.vatPercentage || 0), 2) + '%' : '--',
-        vatAmount: item.vatAmount ? formatNumber(parseFloat(item.vatAmount || 0), 2) : '--',
-        totalWithVat: item.vatAmount ? formatNumber(parseFloat(item.amount || 0) + parseFloat(item.vatAmount || 0), 2) : formatNumber(parseFloat(item.amount || 0), 2),
-        currency: item.currency?.currencyCode || "AED",
-        remarks: item.remarks || "-",
-        salesman: payment.enteredBy?.name || "AUTHORIZED SIGNATORY",
-      }))
-    );
-
-    if (allCashItems.length === 0) {
-      toast.error("No cash items available to export");
+    if (filteredPayments.length === 0) {
+      toast.error("No filtered cash payments available to export");
       return;
     }
 
-    const totalAmount = formatNumber(
-      allCashItems.reduce((sum, i) => sum + parseFloat(i.amount.replace(/,/g, "") || 0), 0), 2
-    );
-    const totalVatAmount = formatNumber(
-      allCashItems.reduce((sum, i) => sum + (i.vatAmount !== '--' ? parseFloat(i.vatAmount.replace(/,/g, "") || 0) : 0), 0), 2
-    );
-    const totalWithVat = formatNumber(
-      allCashItems.reduce((sum, i) => sum + parseFloat(i.totalWithVat.replace(/,/g, "") || 0), 0), 2
-    );
+    try {
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const centerX = pageWidth / 2;
 
-    autoTable(doc, {
-      startY: separatorY + 6,
-      head: [[
-        { content: "#", styles: { halign: 'center', valign: 'middle' } },
-        { content: "Voucher", styles: { halign: 'center', valign: 'middle' } },
-        { content: "Cash Type", styles: { halign: 'center', valign: 'middle' } },
-        { content: "Amount", styles: { halign: 'center', valign: 'middle' } },
-        { content: "VAT %", styles: { halign: 'center', valign: 'middle' } },
-        { content: "VAT Amount", styles: { halign: 'center', valign: 'middle' } },
-        { content: "Total with VAT", styles: { halign: 'center', valign: 'middle' } },
-        { content: "Currency", styles: { halign: 'center', valign: 'middle' } },
-        { content: "Remarks", styles: { halign: 'center', valign: 'middle' } },
-      ]],
-      body: allCashItems.map((item, idx) =>
-        [
-          (idx + 1).toString(),
-          item.voucher,
-          item.cashType,
-          item.amount,
-          item.vatPercentage,
-          item.vatAmount,
-          item.totalWithVat,
-          item.currency,
-          item.remarks
-        ].map((col, i) => ({
-          content: col,
-          styles: { halign: [0, 1, 2, 7, 8].includes(i) ? 'left' : [3, 4, 5, 6].includes(i) ? 'right' : 'center' }
+      const logoImg = '/assets/logo.png';
+      const logoWidth = 20, logoX = centerX - logoWidth / 2, logoY = 5;
+
+      // Header
+      doc.addImage(logoImg, 'PNG', logoX, logoY, logoWidth, 20);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.text("CASH PAYMENTS REPORT", pageWidth - 14, logoY + 24, { align: "right" });
+
+      // Separator
+      const separatorY = logoY + 28;
+      doc.setDrawColor(223, 223, 223);
+      doc.setLineWidth(0.3);
+      doc.line(14, separatorY, pageWidth - 14, separatorY);
+
+      // Main Table Data
+      const allCashItems = filteredPayments.flatMap((payment) =>
+        (payment?.cash || []).map((item) => ({
+          voucher: payment.voucherCode || "-",
+          cashType: item.cashType?.name || "-",
+          amount: formatNumber(parseFloat(item.amount || 0), 2),
+          vatPercentage: item.vatPercentage ? formatNumber(parseFloat(item.vatPercentage || 0), 2) + '%' : '--',
+          vatAmount: item.vatAmount ? formatNumber(parseFloat(item.vatAmount || 0), 2) : '--',
+          totalWithVat: item.vatAmount ? formatNumber(parseFloat(item.amount || 0) + parseFloat(item.vatAmount || 0), 2) : formatNumber(parseFloat(item.amount || 0), 2),
+          currency: item.currency?.currencyCode || "AED",
+          remarks: item.remarks || "-",
+          salesman: payment.enteredBy?.name || "AUTHORIZED SIGNATORY",
         }))
-      ),
-      theme: 'grid',
-      styles: {
-        fontSize: 8,
-        font: 'helvetica',
-        textColor: 0,
-        lineWidth: 0.3,
-        cellPadding: { top: 2, bottom: 2, left: 3, right: 3 },
-      },
-      headStyles: {
-        fillColor: [230, 230, 230],
-        textColor: 0,
-        fontStyle: 'bold',
-        fontSize: 8,
-        halign: 'center',
-        valign: 'middle',
-      },
-      bodyStyles: {
-        fontSize: 8,
-        valign: 'middle',
-      },
-      margin: { left: 14, right: 14 },
-      tableWidth: 'auto',
-      didParseCell: function (data) {
-        const isFirstColumn = data.column.index === 0;
-        const isLastColumn = data.column.index === data.table.columns.length - 1;
-        if (isFirstColumn) {
-          data.cell.styles.lineWidth = { left: 0, right: 0.3, top: 0.3, bottom: 0.3 };
-        } else if (isLastColumn) {
-          data.cell.styles.lineWidth = { left: 0.3, right: 0, top: 0.3, bottom: 0.3 };
-        }
-      },
-    });
+      );
 
-    // Totals Summary Box
-    const totalsStartY = doc.lastAutoTable.finalY;
-    const tableWidth = pageWidth / 3;
-    const leftMargin = pageWidth - tableWidth - 14;
-
-    let totalBoxHeight = 0;
-    let totalBoxTopY = totalsStartY;
-
-    autoTable(doc, {
-      startY: totalsStartY,
-      body: [
-        [
-          { content: "Total Amount", styles: { fontStyle: 'bold', halign: 'center' } },
-          { content: totalAmount, styles: { fontStyle: 'bold', halign: 'center' } },
-        ],
-        [
-          { content: "Total VAT Amount", styles: { fontStyle: 'bold', halign: 'center' } },
-          { content: totalVatAmount !== '0.00' ? totalVatAmount : '--', styles: { fontStyle: 'bold', halign: 'center' } },
-        ],
-        [
-          { content: "Total with VAT", styles: { fontStyle: 'bold', halign: 'center' } },
-          { content: totalWithVat, styles: { fontStyle: 'bold', halign: 'center' } },
-        ],
-      ],
-      theme: 'plain',
-      styles: {
-        fontSize: 8,
-        font: 'helvetica',
-        textColor: 0,
-        lineWidth: 0,
-        cellPadding: { top: 1, bottom: 4, left: 2, right: 2 },
-      },
-      columnStyles: {
-        0: { cellWidth: tableWidth / 2 },
-        1: { cellWidth: tableWidth / 2 },
-      },
-      margin: { left: leftMargin, right: 14 },
-      tableWidth: tableWidth,
-      showHead: 'never',
-      didDrawPage: (data) => {
-        totalBoxHeight = data.cursor.y - totalBoxTopY;
-        doc.setDrawColor(205, 205, 205);
-        doc.setLineWidth(0.3);
-        doc.line(leftMargin, totalBoxTopY, leftMargin + tableWidth, totalBoxTopY);
-        doc.line(leftMargin, totalBoxTopY, leftMargin, totalBoxTopY + totalBoxHeight);
-        doc.line(leftMargin, totalBoxTopY + totalBoxHeight, leftMargin + tableWidth, totalBoxTopY + totalBoxHeight);
-      },
-    });
-
-    // Footer Note in Words
-    const finalY = doc.lastAutoTable.finalY + 15;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.text("Your account has been updated with:", 14, finalY);
-
-    const sharedStyles = {
-      fontSize: 8,
-      font: 'helvetica',
-      textColor: 0,
-      cellPadding: { top: 1.5, bottom: 1.5, left: 3, right: 3 },
-      lineColor: [0, 0, 0],
-      lineWidth: 0.3,
-    };
-
-    let boxStartY = finalY + 4;
-    autoTable(doc, {
-      startY: boxStartY,
-      body: [[
-        { content: `AED ${totalWithVat} CREDITED`, styles: { ...sharedStyles, fontStyle: 'bold', halign: 'left' } },
-        { content: numberToDirhamWords(totalWithVat), styles: { ...sharedStyles, fontStyle: 'italic', halign: 'left' } }
-      ]],
-      theme: 'plain',
-      styles: sharedStyles,
-      columnStyles: {
-        0: { cellWidth: 80 },
-        1: { cellWidth: pageWidth - 108 },
-      },
-      margin: { left: 14, right: 14 },
-      showHead: 'never',
-      didDrawPage: (data) => {
-        boxStartY = data.cursor.y;
+      if (allCashItems.length === 0) {
+        toast.error("No cash items available to export");
+        return;
       }
-    });
 
-    // Signatures
-    const sigY = doc.lastAutoTable.finalY + 15;
-    const signedBy = allCashItems[0]?.salesman || "AUTHORIZED SIGNATORY";
-    doc.setFont('helvetica', 'italic');
-    doc.setFontSize(9);
-    doc.text("Confirmed on behalf of", 14, sigY);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.text(signedBy, 14, sigY + 5);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(0, 0, 0);
-    doc.setLineWidth(0.3);
-    doc.setDrawColor(150, 150, 150);
-    doc.line(20, sigY + 20, 70, sigY + 20);
-    doc.line(80, sigY + 20, 130, sigY + 20);
-    doc.line(140, sigY + 20, 190, sigY + 20);
-    doc.text("PARTY'S SIGNATURE", 45, sigY + 25, null, null, 'center');
-    doc.text("CHECKED BY", 105, sigY + 25, null, null, 'center');
-    doc.text("AUTHORIZED SIGNATORY", 165, sigY + 25, null, null, 'center');
+      const totalAmount = formatNumber(
+        allCashItems.reduce((sum, i) => sum + parseFloat(i.amount.replace(/,/g, "") || 0), 0), 2
+      );
+      const totalVatAmount = formatNumber(
+        allCashItems.reduce((sum, i) => sum + (i.vatAmount !== '--' ? parseFloat(i.vatAmount.replace(/,/g, "") || 0) : 0), 0), 2
+      );
+      const totalWithVat = formatNumber(
+        allCashItems.reduce((sum, i) => sum + parseFloat(i.totalWithVat.replace(/,/g, "") || 0), 0), 2
+      );
 
-    // Save PDF
-    doc.save("filtered-cash-payments.pdf");
-    toast.success("Filtered cash payments exported to PDF successfully!");
-  } catch (error) {
-    console.error("Error exporting all to PDF:", error);
-    toast.error("Failed to export filtered cash payments.");
-  }
-};
+      autoTable(doc, {
+        startY: separatorY + 6,
+        head: [[
+          { content: "#", styles: { halign: 'center', valign: 'middle' } },
+          { content: "Voucher", styles: { halign: 'center', valign: 'middle' } },
+          { content: "Cash Type", styles: { halign: 'center', valign: 'middle' } },
+          { content: "Amount", styles: { halign: 'center', valign: 'middle' } },
+          { content: "VAT %", styles: { halign: 'center', valign: 'middle' } },
+          { content: "VAT Amount", styles: { halign: 'center', valign: 'middle' } },
+          { content: "Total with VAT", styles: { halign: 'center', valign: 'middle' } },
+          { content: "Currency", styles: { halign: 'center', valign: 'middle' } },
+          { content: "Remarks", styles: { halign: 'center', valign: 'middle' } },
+        ]],
+        body: allCashItems.map((item, idx) =>
+          [
+            (idx + 1).toString(),
+            item.voucher,
+            item.cashType,
+            item.amount,
+            item.vatPercentage,
+            item.vatAmount,
+            item.totalWithVat,
+            item.currency,
+            item.remarks
+          ].map((col, i) => ({
+            content: col,
+            styles: { halign: [0, 1, 2, 7, 8].includes(i) ? 'left' : [3, 4, 5, 6].includes(i) ? 'right' : 'center' }
+          }))
+        ),
+        theme: 'grid',
+        styles: {
+          fontSize: 8,
+          font: 'helvetica',
+          textColor: 0,
+          lineWidth: 0.3,
+          cellPadding: { top: 2, bottom: 2, left: 3, right: 3 },
+        },
+        headStyles: {
+          fillColor: [230, 230, 230],
+          textColor: 0,
+          fontStyle: 'bold',
+          fontSize: 8,
+          halign: 'center',
+          valign: 'middle',
+        },
+        bodyStyles: {
+          fontSize: 8,
+          valign: 'middle',
+        },
+        margin: { left: 14, right: 14 },
+        tableWidth: 'auto',
+        didParseCell: function (data) {
+          const isFirstColumn = data.column.index === 0;
+          const isLastColumn = data.column.index === data.table.columns.length - 1;
+          if (isFirstColumn) {
+            data.cell.styles.lineWidth = { left: 0, right: 0.3, top: 0.3, bottom: 0.3 };
+          } else if (isLastColumn) {
+            data.cell.styles.lineWidth = { left: 0.3, right: 0, top: 0.3, bottom: 0.3 };
+          }
+        },
+      });
+
+      // Totals Summary Box
+      const totalsStartY = doc.lastAutoTable.finalY;
+      const tableWidth = pageWidth / 3;
+      const leftMargin = pageWidth - tableWidth - 14;
+
+      let totalBoxHeight = 0;
+      let totalBoxTopY = totalsStartY;
+
+      autoTable(doc, {
+        startY: totalsStartY,
+        body: [
+          [
+            { content: "Total Amount", styles: { fontStyle: 'bold', halign: 'center' } },
+            { content: totalAmount, styles: { fontStyle: 'bold', halign: 'center' } },
+          ],
+          [
+            { content: "Total VAT Amount", styles: { fontStyle: 'bold', halign: 'center' } },
+            { content: totalVatAmount !== '0.00' ? totalVatAmount : '--', styles: { fontStyle: 'bold', halign: 'center' } },
+          ],
+          [
+            { content: "Total with VAT", styles: { fontStyle: 'bold', halign: 'center' } },
+            { content: totalWithVat, styles: { fontStyle: 'bold', halign: 'center' } },
+          ],
+        ],
+        theme: 'plain',
+        styles: {
+          fontSize: 8,
+          font: 'helvetica',
+          textColor: 0,
+          lineWidth: 0,
+          cellPadding: { top: 1, bottom: 4, left: 2, right: 2 },
+        },
+        columnStyles: {
+          0: { cellWidth: tableWidth / 2 },
+          1: { cellWidth: tableWidth / 2 },
+        },
+        margin: { left: leftMargin, right: 14 },
+        tableWidth: tableWidth,
+        showHead: 'never',
+        didDrawPage: (data) => {
+          totalBoxHeight = data.cursor.y - totalBoxTopY;
+          doc.setDrawColor(205, 205, 205);
+          doc.setLineWidth(0.3);
+          doc.line(leftMargin, totalBoxTopY, leftMargin + tableWidth, totalBoxTopY);
+          doc.line(leftMargin, totalBoxTopY, leftMargin, totalBoxTopY + totalBoxHeight);
+          doc.line(leftMargin, totalBoxTopY + totalBoxHeight, leftMargin + tableWidth, totalBoxTopY + totalBoxHeight);
+        },
+      });
+
+      // Footer Note in Words
+      const finalY = doc.lastAutoTable.finalY + 15;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.text("Your account has been updated with:", 14, finalY);
+
+      const sharedStyles = {
+        fontSize: 8,
+        font: 'helvetica',
+        textColor: 0,
+        cellPadding: { top: 1.5, bottom: 1.5, left: 3, right: 3 },
+        lineColor: [0, 0, 0],
+        lineWidth: 0.3,
+      };
+
+      let boxStartY = finalY + 4;
+      autoTable(doc, {
+        startY: boxStartY,
+        body: [[
+          { content: `AED ${totalWithVat} CREDITED`, styles: { ...sharedStyles, fontStyle: 'bold', halign: 'left' } },
+          { content: numberToDirhamWords(totalWithVat), styles: { ...sharedStyles, fontStyle: 'italic', halign: 'left' } }
+        ]],
+        theme: 'plain',
+        styles: sharedStyles,
+        columnStyles: {
+          0: { cellWidth: 80 },
+          1: { cellWidth: pageWidth - 108 },
+        },
+        margin: { left: 14, right: 14 },
+        showHead: 'never',
+        didDrawPage: (data) => {
+          boxStartY = data.cursor.y;
+        }
+      });
+
+      // Signatures
+      const sigY = doc.lastAutoTable.finalY + 15;
+      const signedBy = allCashItems[0]?.salesman || "AUTHORIZED SIGNATORY";
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(9);
+      doc.text("Confirmed on behalf of", 14, sigY);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.text(signedBy, 14, sigY + 5);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(0, 0, 0);
+      doc.setLineWidth(0.3);
+      doc.setDrawColor(150, 150, 150);
+      doc.line(20, sigY + 20, 70, sigY + 20);
+      doc.line(80, sigY + 20, 130, sigY + 20);
+      doc.line(140, sigY + 20, 190, sigY + 20);
+      doc.text("PARTY'S SIGNATURE", 45, sigY + 25, null, null, 'center');
+      doc.text("CHECKED BY", 105, sigY + 25, null, null, 'center');
+      doc.text("AUTHORIZED SIGNATORY", 165, sigY + 25, null, null, 'center');
+
+      // Save PDF
+      doc.save("filtered-cash-payments.pdf");
+      toast.success("Filtered cash payments exported to PDF successfully!");
+    } catch (error) {
+      console.error("Error exporting all to PDF:", error);
+      toast.error("Failed to export filtered cash payments.");
+    }
+  };
 
   // Filtering and pagination for payments
   const filteredPayments = currencyPayments.filter((payment) => {
@@ -894,42 +908,42 @@ const handleExportAllToPDF = async () => {
   }));
 
   // Cash type select options
-const cashTypeOptions = useMemo(() => {
-  console.log("=== DEBUG: Computing cashTypeOptions ===");
-  console.log("Selected Currency:", selectedCurrency);
-  console.log("Cash Types:", cashTypes);
+  const cashTypeOptions = useMemo(() => {
+    console.log("=== DEBUG: Computing cashTypeOptions ===");
+    console.log("Selected Currency:", selectedCurrency);
+    console.log("Cash Types:", cashTypes);
 
-  if (!selectedCurrency?.value) {
-    console.log("No currency selected, returning empty cashTypeOptions");
-    return [];
-  }
+    if (!selectedCurrency?.value) {
+      console.log("No currency selected, returning empty cashTypeOptions");
+      return [];
+    }
 
-  const filteredCashTypes = cashTypes
-    .filter((cashType) => {
-      // Handle both string and object currencyId
-      const cashTypeCurrencyId =
-        typeof cashType.currencyId === "object" && cashType.currencyId?._id
-          ? cashType.currencyId._id
-          : cashType.currencyId;
-      const matchesCurrency = cashTypeCurrencyId === selectedCurrency.value;
-      console.log(
-        `Checking cashType ${cashType.name}:`,
-        cashTypeCurrencyId,
-        "matches",
-        selectedCurrency.value,
-        "?",
-        matchesCurrency
-      );
-      return matchesCurrency;
-    })
-    .map((cashType) => ({
-      value: cashType._id,
-      label: `${cashType.name} - ${cashType.uniqId}`,
-    }));
+    const filteredCashTypes = cashTypes
+      .filter((cashType) => {
+        // Handle both string and object currencyId
+        const cashTypeCurrencyId =
+          typeof cashType.currencyId === "object" && cashType.currencyId?._id
+            ? cashType.currencyId._id
+            : cashType.currencyId;
+        const matchesCurrency = cashTypeCurrencyId === selectedCurrency.value;
+        console.log(
+          `Checking cashType ${cashType.name}:`,
+          cashTypeCurrencyId,
+          "matches",
+          selectedCurrency.value,
+          "?",
+          matchesCurrency
+        );
+        return matchesCurrency;
+      })
+      .map((cashType) => ({
+        value: cashType._id,
+        label: `${cashType.name} - ${cashType.uniqId}`,
+      }));
 
-  console.log("Filtered Cash Types:", filteredCashTypes);
-  return filteredCashTypes;
-}, [cashTypes, selectedCurrency]);
+    console.log("Filtered Cash Types:", filteredCashTypes);
+    return filteredCashTypes;
+  }, [cashTypes, selectedCurrency]);
 
 
 
@@ -1027,115 +1041,116 @@ const cashTypeOptions = useMemo(() => {
     setIsProductModalOpen(true);
   };
 
-const handleSaveProduct = () => {
-  if (!ArrayValidateForm()) return;
+  const handleSaveProduct = () => {
+    if (!ArrayValidateForm()) return;
 
-  // ... (rest of your existing code)
+    // ... (rest of your existing code)
 
-  // Calculate final amounts
-  const numericAmount = parseFloat(amount.replace(/,/g, "")) || 0;
-  const numericAmountWithTnr = parseFloat(amountWithTnr.replace(/,/g, "")) || 0;
-  const numericVatTotal = includeVat ? parseFloat(vatTotal.replace(/,/g, "")) || 0 : 0;
-  
-  // Calculate total amount including VAT
-  const totalAmount = numericAmountWithTnr + numericVatTotal;
-  
-  const productItem = {
-    branchName,
-    cashType,
-    amount: formatNumber(numericAmount, 2),
-    amountWithTnr: formatNumber(totalAmount, 2),
-    currency,
-    remarks,
-    // Include VAT details if VAT is enabled
-    ...(includeVat && {
-      vatDetails: {
-        percentage: vatPercentage,
-        amount: formatNumber(numericVatTotal, 2)
-      },
-      vatPercentage: parseFloat(vatPercentage) || 0,
-      vatAmount: formatNumber(numericVatTotal, 2)
-    })
+    // Calculate final amounts
+    const numericAmount = parseFloat(amount.replace(/,/g, "")) || 0;
+    const numericAmountWithTnr = parseFloat(amountWithTnr.replace(/,/g, "")) || 0;
+    const numericVatTotal = includeVat ? parseFloat(vatTotal.replace(/,/g, "")) || 0 : 0;
+
+    // Calculate total amount including VAT
+    const totalAmount = numericAmountWithTnr + numericVatTotal;
+
+    const productItem = {
+      branchName,
+      cashType,
+      amount: formatNumber(numericAmount, 2),
+      amountWithTnr: formatNumber(totalAmount, 2),
+      currency,
+      remarks,
+      // Include VAT details if VAT is enabled
+      ...(includeVat && {
+        vatDetails: {
+          percentage: vatPercentage,
+          amount: formatNumber(numericVatTotal, 2)
+        },
+        vatPercentage: parseFloat(vatPercentage) || 0,
+        vatAmount: formatNumber(numericVatTotal, 2)
+      })
+    };
+
+    // ADD DEBUG LOGGING HERE
+    console.log("=== DEBUG: New Product Item ===");
+    console.log("Product item being added:", JSON.parse(JSON.stringify(productItem)));
+    console.log("VAT included:", includeVat);
+    if (includeVat) {
+      console.log("VAT percentage:", vatPercentage);
+      console.log("VAT amount:", vatTotal);
+      console.log("Total with VAT:", totalAmount);
+    }
+    console.log("=== END DEBUG ===");
+
+    // Update product list
+    setProductList(prev => {
+      const newList = [...prev];
+      if (editingProductIndex >= 0) {
+        newList[editingProductIndex] = productItem;
+      } else {
+        newList.push(productItem);
+      }
+
+      // Log the updated product list
+      console.log("=== DEBUG: Updated Product List ===");
+      console.log("Product list after update:", JSON.parse(JSON.stringify(newList)));
+      console.log("=== END DEBUG ===");
+
+      return newList;
+    });
+
+    setIsProductModalOpen(false);
+    setEditingProductIndex(-1);
+    setCashType(null);
+    setAmount("");
+    setAmountWithTnr("");
+    setRemarks("");
+    setIncludeVat(false);
+    setVatPercentage("");
+    setVatTotal("");
+    setTotalWithVat("");
+    setArrayError({ cashType: "", amount: "", amountWithTnr: "" });
   };
 
-  // ADD DEBUG LOGGING HERE
-  console.log("=== DEBUG: New Product Item ===");
-  console.log("Product item being added:", JSON.parse(JSON.stringify(productItem)));
-  console.log("VAT included:", includeVat);
-  if (includeVat) {
-    console.log("VAT percentage:", vatPercentage);
-    console.log("VAT amount:", vatTotal);
-    console.log("Total with VAT:", totalAmount);
-  }
-  console.log("=== END DEBUG ===");
-
-  // Update product list
-  setProductList(prev => {
-    const newList = [...prev];
-    if (editingProductIndex >= 0) {
-      newList[editingProductIndex] = productItem;
-    } else {
-      newList.push(productItem);
-    }
-    
-    // Log the updated product list
-    console.log("=== DEBUG: Updated Product List ===");
-    console.log("Product list after update:", JSON.parse(JSON.stringify(newList)));
-    console.log("=== END DEBUG ===");
-    
-    return newList;
-  });
-
-  setIsProductModalOpen(false);
-  setEditingProductIndex(-1);
-  setCashType(null);
-  setAmount("");
-  setAmountWithTnr("");
-  setRemarks("");
-  setIncludeVat(false);
-  setVatPercentage("");
-  setVatTotal("");
-  setTotalWithVat("");
-  setArrayError({ cashType: "", amount: "", amountWithTnr: "" });};
-
   // In your modal close handler
-const handleCloseProductModal = () => {
-  setIsProductModalOpen(false);
-  setEditingProductIndex(-1);
-  setCashType(null);
-  setAmount("");
-  setAmountWithTnr("");
-  setRemarks("");
-  setIncludeVat(false);
-  setVatPercentage("");
-  setVatTotal("");
-  setTotalWithVat("");
-  setArrayError({ cashType: "", amount: "", amountWithTnr: "" });
-};
+  const handleCloseProductModal = () => {
+    setIsProductModalOpen(false);
+    setEditingProductIndex(-1);
+    setCashType(null);
+    setAmount("");
+    setAmountWithTnr("");
+    setRemarks("");
+    setIncludeVat(false);
+    setVatPercentage("");
+    setVatTotal("");
+    setTotalWithVat("");
+    setArrayError({ cashType: "", amount: "", amountWithTnr: "" });
+  };
 
   const handleDelete = (id) => {
     setDeletePaymentId(id);
     setShowDeleteConfirmation(true);
-    
+
   };
 
- const handleCancel = () => {
-  setIsModalOpen(false);
-  setSelectedVoucher("");
-  setSelectedParty(null);
-  setSelectedCurrency(null);
-  setProductList([]);
-  setVoucherCode("");
-  setVoucherType("");
-  setPrefix("");
-  setVoucherDate(getToday());
-  setMainRemarks("");
-  setIsEditMode(false);
-  setEditingId(null);
-  setShowPreviewAfterSave(false);
-  setSelectedPayment(null);
-  setErrors({ voucher: "", party: "", currency: "", voucherDate: "", balance: "", remarks: "" });
-};
+  const handleCancel = () => {
+    setIsModalOpen(false);
+    setSelectedVoucher("");
+    setSelectedParty(null);
+    setSelectedCurrency(null);
+    setProductList([]);
+    setVoucherCode("");
+    setVoucherType("");
+    setPrefix("");
+    setVoucherDate(getToday());
+    setMainRemarks("");
+    setIsEditMode(false);
+    setEditingId(null);
+    setShowPreviewAfterSave(false);
+    setSelectedPayment(null);
+    setErrors({ voucher: "", party: "", currency: "", voucherDate: "", balance: "", remarks: "" });
+  };
 
   const handleVoucherChange = (e) => {
     const selectedId = e.target.value;
@@ -1144,40 +1159,40 @@ const handleCloseProductModal = () => {
     clearError("voucher");
   };
 
-const handlePartyChange = (option) => {
-  console.log("=== DEBUG: handlePartyChange ===");
-  console.log("Selected Party:", option);
+  const handlePartyChange = (option) => {
+    console.log("=== DEBUG: handlePartyChange ===");
+    console.log("Selected Party:", option);
 
-  setMainRemarks(`Currency receipt for ${option.label}`);
-  setSelectedParty(option);
-  clearError("party");
-  clearError("balance");
+    setMainRemarks(`Currency receipt for ${option.label}`);
+    setSelectedParty(option);
+    clearError("party");
+    clearError("balance");
 
-  const currencies = option?.party?.acDefinition?.currencies || [];
-  const mappedCurrencies = currencies
-    .map((c) => ({
-      value: c.currency?._id,
-      label: `${c.currency?.currencyCode} - ${c.currency?.description}`,
-      currency: c.currency,
-      isDefault: c.isDefault,
-    }));
+    const currencies = option?.party?.acDefinition?.currencies || [];
+    const mappedCurrencies = currencies
+      .map((c) => ({
+        value: c.currency?._id,
+        label: `${c.currency?.currencyCode} - ${c.currency?.description}`,
+        currency: c.currency,
+        isDefault: c.isDefault,
+      }));
 
-  console.log("Mapped Currencies:", mappedCurrencies);
-  setCurrencyOptions(mappedCurrencies);
-  const defaultCurrency = mappedCurrencies.find((c) => c.isDefault);
-  if (defaultCurrency) {
-    console.log("Setting default currency:", defaultCurrency);
-    setSelectedCurrency(defaultCurrency);
-    clearError("currency");
-  } else {
-    console.log("No default currency found, clearing selectedCurrency");
-    setSelectedCurrency(null);
-  }
+    console.log("Mapped Currencies:", mappedCurrencies);
+    setCurrencyOptions(mappedCurrencies);
+    const defaultCurrency = mappedCurrencies.find((c) => c.isDefault);
+    if (defaultCurrency) {
+      console.log("Setting default currency:", defaultCurrency);
+      setSelectedCurrency(defaultCurrency);
+      clearError("currency");
+    } else {
+      console.log("No default currency found, clearing selectedCurrency");
+      setSelectedCurrency(null);
+    }
 
-  // Reset cashType and product modal state when currency changes
-  setCashType(null);
-  setArrayError((prev) => ({ ...prev, cashType: "" }));
-};
+    // Reset cashType and product modal state when currency changes
+    setCashType(null);
+    setArrayError((prev) => ({ ...prev, cashType: "" }));
+  };
 
   // Product modal logic
   const handleProductModalOpen = () => {
@@ -1252,149 +1267,150 @@ const handlePartyChange = (option) => {
   };
 
   // Save main
-const handleMainSave = async () => {
-  console.group("=== Starting handleMainSave ===");
-  console.log("1. Checking cash balance of selected party...");
+  const handleMainSave = async () => {
+    console.group("=== Starting handleMainSave ===");
+    console.log("1. Checking cash balance of selected party...");
 
-  // const deFaultCurrnecy = selectedParty?.party?.balances?.cashBalance?.currency;
-  // console.log("Default currency for party:", deFaultCurrnecy);
+    // const deFaultCurrnecy = selectedParty?.party?.balances?.cashBalance?.currency;
+    // console.log("Default currency for party:", deFaultCurrnecy);
 
-  // const hasCurrencyMismatch = productList.some(
-  //   (item) => item.currency?.value !== deFaultCurrnecy
-  // );
+    // const hasCurrencyMismatch = productList.some(
+    //   (item) => item.currency?.value !== deFaultCurrnecy
+    // );
 
-  // if (!deFaultCurrnecy) {
-  //   setErrors((prev) => ({
-  //     ...prev,
-  //     balance: "The selected party does not have any payment currency set.",
-  //   }));
-  //   toast.error("The selected party does not have any payment currency set.");
-  //   console.groupEnd();
-  //   return;
-  // }
+    // if (!deFaultCurrnecy) {
+    //   setErrors((prev) => ({
+    //     ...prev,
+    //     balance: "The selected party does not have any payment currency set.",
+    //   }));
+    //   toast.error("The selected party does not have any payment currency set.");
+    //   console.groupEnd();
+    //   return;
+    // }
 
-  // if (hasCurrencyMismatch) {
-  //   setErrors((prev) => ({
-  //     ...prev,
-  //     balance: "All product currencies must match the party's default currency.",
-  //   }));
-  //   toast.error("All product currencies must match the party's default currency.");
-  //   console.groupEnd();
-  //   return;
-  // }
+    // if (hasCurrencyMismatch) {
+    //   setErrors((prev) => ({
+    //     ...prev,
+    //     balance: "All product currencies must match the party's default currency.",
+    //   }));
+    //   toast.error("All product currencies must match the party's default currency.");
+    //   console.groupEnd();
+    //   return;
+    // }
 
-  console.log("2. Preparing loading toast...");
-  setIsSaving(true); // Set loading state
-  const loadingToast = toast.loading("Saving cash payments...");
-  console.log("Loading toast ID:", loadingToast);
+    console.log("2. Preparing loading toast...");
+    setIsSaving(true); // Set loading state
+    const loadingToast = toast.loading("Saving cash payments...");
+    console.log("Loading toast ID:", loadingToast);
 
-  console.log("3. Preparing request data...");
-  
-  const normalize = (val) => {
-    if (typeof val === 'number') return val;
-    if (typeof val === 'string') {
-      return Number(val.replace(/,/g, "")) || 0;
+    console.log("3. Preparing request data...");
+
+    const normalize = (val) => {
+      if (typeof val === 'number') return val;
+      if (typeof val === 'string') {
+        return Number(val.replace(/,/g, "")) || 0;
+      }
+      return 0;
+    };
+
+    const data = {
+      type: "cash payment",
+      voucherCode: voucherCode || "",
+      voucherDate: voucherDate || "",
+      party: selectedParty?.value || "",
+      enteredBy: enteredBy || "",
+      remarks: mainRemarks || "",
+      accountType: getAccountType(selectedParty?.party) || "",
+      cash: productList.map((item) => {
+        const vatPercentage = item.vatDetails?.percentage || item.vatPercentage || 0;
+        const vatAmount = normalize(item.vatDetails?.amount || item.vatAmount || 0);
+
+        return {
+          cashType: item.cashType?.value || "",
+          currency: item.currency?.value || "",
+          amount: normalize(item.amount),
+          amountWithTnr: normalize(item.amountWithTnr),
+          remarks: item.remarks || "",
+          vatPercentage: Number(vatPercentage),
+          vatAmount: vatAmount
+        };
+      }),
+    };
+
+    console.log("Request payload:", JSON.stringify(data, null, 2));
+
+    try {
+      console.log("4. Making API request to /entry endpoint...");
+      let response;
+
+      if (isEditMode) {
+        console.log("Editing existing entry with ID:", editingId);
+        response = await axiosInstance.put(`/entry/${editingId}`, data);
+      } else {
+        console.log("Creating new entry...");
+        response = await axiosInstance.post(`/entry`, data);
+      }
+
+      if (response.data && response.data.data) {
+        const paymentWithPartyInfo = {
+          ...response.data.data,
+          party: {
+            ...response.data.data.party,
+            customerName:
+              selectedParty?.label?.split(" - ")[0] ||
+              response.data.data.party?.customerName,
+            accountCode:
+              selectedParty?.label?.split(" - ")[1] ||
+              response.data.data.party?.accountCode,
+            accountType:
+              selectedParty?.party?.accountType ||
+              response.data.data.party?.accountType,
+            addresses:
+              selectedParty?.party?.addresses ||
+              response.data.data.party?.addresses,
+            balances:
+              selectedParty?.party?.balances ||
+              response.data.data.party?.balances,
+          },
+        };
+        setSelectedPayment(paymentWithPartyInfo);
+        setShowPreviewAfterSave(true);
+      }
+
+      console.log("5. Showing success toast and cleaning up...");
+      toast.success("Cash payment saved successfully!", { id: loadingToast });
+
+      console.log("6. Executing handleCancel...");
+      handleCancel();
+
+      console.log("7. Refreshing currency payments...");
+      fetchAllCurrencyPayments();
+
+      console.log("=== Operation completed successfully ===");
+    } catch (error) {
+      console.error("!!! Operation failed !!!");
+      console.error("Error details:", error);
+      console.error("Response data:", error.response?.data);
+
+      const errorMessage = `Failed to save cash payment. ${error.response?.data?.message || error.message}`;
+      toast.error(errorMessage, { id: loadingToast });
+    } finally {
+      setIsSaving(false); // Clear loading state
+      console.groupEnd();
     }
-    return 0;
   };
-
-  const data = {
-    type: "cash payment",
-    voucherCode: voucherCode || "",
-    voucherDate: voucherDate || "",
-    party: selectedParty?.value || "",
-    enteredBy: enteredBy || "",
-    remarks: mainRemarks || "",
-    cash: productList.map((item) => {
-      const vatPercentage = item.vatDetails?.percentage || item.vatPercentage || 0;
-      const vatAmount = normalize(item.vatDetails?.amount || item.vatAmount || 0);
-      
-      return {
-        cashType: item.cashType?.value || "",
-        currency: item.currency?.value || "",
-        amount: normalize(item.amount),
-        amountWithTnr: normalize(item.amountWithTnr),
-        remarks: item.remarks || "",
-        vatPercentage: Number(vatPercentage),
-        vatAmount: vatAmount
-      };
-    }),
-  };
-
-  console.log("Request payload:", JSON.stringify(data, null, 2));
-
-  try {
-    console.log("4. Making API request to /entry endpoint...");
-    let response;
-
-    if (isEditMode) {
-      console.log("Editing existing entry with ID:", editingId);
-      response = await axiosInstance.put(`/entry/${editingId}`, data);
-    } else {
-      console.log("Creating new entry...");
-      response = await axiosInstance.post(`/entry`, data);
-    }
-
-    if (response.data && response.data.data) {
-      const paymentWithPartyInfo = {
-        ...response.data.data,
-        party: {
-          ...response.data.data.party,
-          customerName:
-            selectedParty?.label?.split(" - ")[0] ||
-            response.data.data.party?.customerName,
-          accountCode:
-            selectedParty?.label?.split(" - ")[1] ||
-            response.data.data.party?.accountCode,
-          accountType:
-            selectedParty?.party?.accountType ||
-            response.data.data.party?.accountType,
-          addresses:
-            selectedParty?.party?.addresses ||
-            response.data.data.party?.addresses,
-          balances:
-            selectedParty?.party?.balances ||
-            response.data.data.party?.balances,
-        },
-      };
-      setSelectedPayment(paymentWithPartyInfo);
-      setShowPreviewAfterSave(true);
-    }
-
-    console.log("5. Showing success toast and cleaning up...");
-    toast.success("Cash payment saved successfully!", { id: loadingToast });
-
-    console.log("6. Executing handleCancel...");
-    handleCancel();
-
-    console.log("7. Refreshing currency payments...");
-    fetchAllCurrencyPayments();
-
-    console.log("=== Operation completed successfully ===");
-  } catch (error) {
-    console.error("!!! Operation failed !!!");
-    console.error("Error details:", error);
-    console.error("Response data:", error.response?.data);
-
-    const errorMessage = `Failed to save cash payment. ${error.response?.data?.message || error.message}`;
-    toast.error(errorMessage, { id: loadingToast });
-  } finally {
-    setIsSaving(false); // Clear loading state
-    console.groupEnd();
-  }
-};
 
   useEffect(() => {
     const checkVoucher = async () => {
-     
+
       const queryParams = new URLSearchParams(location.search);
       const voucher = queryParams.get("voucher");
-  
+
       if (voucher) {
         try {
           const transactionSuccess = await fetchAllCurrencyPayments();
           // Removed alert(transactionSuccess)
-  
+
           if (transactionSuccess && transactionSuccess.length > 0) {
             const transaction = transactionSuccess.find((p) => p.voucherCode === voucher); // Fixed: p.voucherCode instead of p.vocNo
             if (transaction) {
@@ -1433,7 +1449,7 @@ const handleMainSave = async () => {
         }
       }
     };
-  
+
     checkVoucher();
   }, []); // Empty deps: Runs on mount
 
@@ -1488,55 +1504,54 @@ const handleMainSave = async () => {
                   </div>
                 </div>
               </div>
-           <div className="mt-5 flex justify-end space-x-3">
-  <button
-    type="button"
-    onClick={() => setShowDeleteConfirmation(false)}
-    className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-  >
-    Cancel
-  </button>
-  <button
-    type="button"
-    onClick={async () => {
-      try {
-        setIsDeleting(true);
-        const loadingToast = toast.loading("Deleting cash payment...");
-        await axiosInstance.delete(`/entry/${deletePaymentId}`);
-        toast.success("Cash payment deleted successfully!", { id: loadingToast });
+              <div className="mt-5 flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirmation(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      setIsDeleting(true);
+                      const loadingToast = toast.loading("Deleting cash payment...");
+                      await axiosInstance.delete(`/entry/${deletePaymentId}`);
+                      toast.success("Cash payment deleted successfully!", { id: loadingToast });
 
-        // Refresh the currency payments list
-        await fetchAllCurrencyPayments();
+                      // Refresh the currency payments list
+                      await fetchAllCurrencyPayments();
 
-        // Fully reset the modal and related states
-        handleCancel();
-        setShowDeleteConfirmation(false);
-        setDeletePaymentId(null);
-      } catch (error) {
-        toast.error("Failed to delete cash payment.");
-        console.error("Error deleting:", error);
-      } finally {
-        setIsDeleting(false);
-      }
-    }}
-    disabled={isDeleting}
-    className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white flex items-center gap-2 ${
-      isDeleting ? "bg-red-400 cursor-not-allowed" : "bg-red-600 hover:bg-red-700"
-    } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500`}
-  >
-    {isDeleting ? (
-      <>
-        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        Deleting...
-      </>
-    ) : (
-      "Delete"
-    )}
-  </button>
-</div>
+                      // Fully reset the modal and related states
+                      handleCancel();
+                      setShowDeleteConfirmation(false);
+                      setDeletePaymentId(null);
+                    } catch (error) {
+                      toast.error("Failed to delete cash payment.");
+                      console.error("Error deleting:", error);
+                    } finally {
+                      setIsDeleting(false);
+                    }
+                  }}
+                  disabled={isDeleting}
+                  className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white flex items-center gap-2 ${isDeleting ? "bg-red-400 cursor-not-allowed" : "bg-red-600 hover:bg-red-700"
+                    } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500`}
+                >
+                  {isDeleting ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Deleting...
+                    </>
+                  ) : (
+                    "Delete"
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1702,7 +1717,7 @@ const handleMainSave = async () => {
                         <td className="px-6 py-4 text-sm flex space-x-2">
                           <button
                             onClick={(e) => {
-                                  e.stopPropagation();
+                              e.stopPropagation();
                               setSelectedPayment(payment);
                               setIsPreviewOpen(true);
                             }}
@@ -1914,22 +1929,27 @@ const handleMainSave = async () => {
                               className="w-full border-0 rounded-xl focus:ring-4 focus:ring-blue-100 bg-gray-50 hover:bg-white focus:bg-white shadow-sm hover:shadow-md focus:shadow-lg transition-all duration-300"
                               isSearchable
                               placeholder="Select a party..."
-                              formatOptionLabel={(option) => (
-                                <div className="flex flex-col">
-                                  <span>{option.label}</span>
-                                  {/* <span className="text-xs text-gray-500">{option.balanceInfo}</span> */}
-                                </div>
-                              )}
+                              formatOptionLabel={(option) => {
+                                const isVendor = option.party?.accountType?.toLowerCase() === "vendor";
+
+                                return (
+                                  <div className="flex flex-col">
+                                    <div className="flex items-center gap-2">
+                                      <span>{option.label}</span>
+                                      {isVendor && (
+                                        <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded text-xs font-medium">
+                                          VENDOR
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              }}
                               classNames={{
-                                control: () => '!min-h-[48px] !py-0',
-                                menuList: () => '!max-h-[200px] !overflow-y-auto scrollbar-hide',
+                                control: () => "!min-h-[48px] !py-0",
+                                menuList: () => "!max-h-[200px] !overflow-y-auto scrollbar-hide",
                                 option: ({ isSelected, isFocused }) =>
-                                  `!text-gray-900 ${isSelected
-                                    ? '!bg-blue-500 !text-white'
-                                    : isFocused
-                                      ? '!bg-blue-100'
-                                      : '!bg-white'
-                                  }`,
+                                  `!text-gray-900 ${isSelected ? "!bg-blue-500 !text-white" : isFocused ? "!bg-blue-100" : "!bg-white"}`,
                               }}
                             />
                             {errors.party && (
@@ -1938,43 +1958,69 @@ const handleMainSave = async () => {
                               </p>
                             )}
                           </div>
-{selectedCurrency && (
-  <div>
-    <label className="block text-sm font-medium text-gray-700 mb-2">
-      Party Currency <span className="text-red-500">*</span>
-    </label>
-    <Select
-      options={currencyOptions}
-      value={selectedCurrency}
-      onChange={setSelectedCurrency}
-      isSearchable
-      placeholder="Select a currency..."
-      formatOptionLabel={(option) => (
-        <div>
-          {option.label.includes('undefined') 
-            ? option.label.split(' - ')[0] 
-            : option.label
-          }
-        </div>
-      )}
-    />
-    {errors.currency && (
-      <p className="text-red-500 text-sm mt-1">{errors.currency}</p>
-    )}
-  </div>
-)}
+                          {selectedCurrency && (
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Party Currency <span className="text-red-500">*</span>
+                              </label>
+                              <Select
+                                options={currencyOptions}
+                                value={selectedCurrency}
+                                onChange={setSelectedCurrency}
+                                isSearchable
+                                placeholder="Select a currency..."
+                                formatOptionLabel={(option) => (
+                                  <div>
+                                    {option.label.includes('undefined')
+                                      ? option.label.split(' - ')[0]
+                                      : option.label
+                                    }
+                                  </div>
+                                )}
+                              />
+                              {errors.currency && (
+                                <p className="text-red-500 text-sm mt-1">{errors.currency}</p>
+                              )}
+                            </div>
+                          )}
                           {selectedParty && (
                             <div className="mt-2 text-sm text-gray-600">
-                              <div className="flex space-x-4">
-                                <div>
-                                  <span className="font-medium">Cash Balance:</span>{' '}
-                                  <span className={selectedParty.party.balances?.cashBalance?.amount < 0 ? 'text-red-600' : 'text-green-600'}>
-                                    {formatNumber(selectedParty.party.balances?.cashBalance?.amount || 0)} {getCurrencyCode(selectedParty.party.balances?.cashBalance?.currency)}
+                              <div className="flex flex-wrap items-center gap-4">
+                                {/* Account-type badge (Vendor = red) */}
+                                {/* <div className="flex items-center gap-2">
+                                  <span className="font-medium">Account Type:</span>
+                                  <span
+                                    className={`px-2 py-0.5 rounded text-xs font-medium ${selectedParty.party?.accountType?.toLowerCase() === "vendor"
+                                        ? "bg-red-100 text-red-700"
+                                        : "bg-blue-100 text-blue-700"
+                                      }`}
+                                  >
+                                    {getAccountType(selectedParty.party)}
                                   </span>
-                                </div>
+                                </div> */}
+
+                                {/* All cash balances */}
+                                Cash :
+                                {getAllCashBalances(selectedParty.party).map((b, i) => (
+                                  <div key={i}>
+                                    <span className="font-medium">
+                                    </span>{" "}
+                                    <span className={b.amount < 0 ? "text-red-600" : "text-green-600"}>
+                                      {formatNumber(b.amount)} {b.currency.currencyCode}
+                                    </span>
+                                  </div>
+                                ))}
+
+                                {/* Gold balance (unchanged) */}
                                 <div>
-                                  <span className="font-medium">Gold Balance:</span>{' '}
-                                  <span className={selectedParty.party.balances?.goldBalance?.totalGrams < 0 ? 'text-red-600' : 'text-green-600'}>
+                                  <span className="font-medium">Gold Balance:</span>{" "}
+                                  <span
+                                    className={
+                                      selectedParty.party.balances?.goldBalance?.totalGrams < 0
+                                        ? "text-red-600"
+                                        : "text-green-600"
+                                    }
+                                  >
                                     {formatNumber(selectedParty.party.balances?.goldBalance?.totalGrams || 0)}g
                                   </span>
                                 </div>
@@ -2020,33 +2066,33 @@ const handleMainSave = async () => {
                           <table className="w-full divide-y divide-gray-200 shadow-lg rounded-xl overflow-hidden">
                             <thead className="">
                               <tr>
-                               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"> # </th>
-<th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"> Cash Type </th>
-<th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"> Currency </th>
-<th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"> Amount </th>
-<th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"> VAT % </th>
-<th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"> VAT Amount </th>
-<th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"> Total Amount </th>
-<th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"> Action </th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"> # </th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"> Cash Type </th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"> Currency </th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"> Amount </th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"> VAT % </th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"> VAT Amount </th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"> Total Amount </th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"> Action </th>
                               </tr>
                             </thead>
-                          <tbody className="bg-white divide-y divide-gray-100">
-  {productList.map((product, index) => (
-    <tr key={index} className="hover:bg-blue-50 transition-all duration-200">
-      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{index + 1}</td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{product.cashType?.label || "N/A"}</td>
-      <td className="px-6 py-4 whitespace-nowrap"><span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">{product.currency?.label || "N/A"}</span></td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">{product.amount || "0"}</td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.vatDetails?.percentage || "-"}%</td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium">{product.vatDetails?.amount || "0"}</td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-bold">{product.amountWithTnr || "0"}</td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium flex space-x-2">
-        <button onClick={() => handleEditProduct(index)} className="text-green-600 hover:text-green-900 p-2 rounded-lg hover:bg-green-50 transition-all"><Edit2Icon className="w-4 h-4" /></button>
-        <button onClick={() => handleRemoveProduct(index)} className="text-red-600 hover:text-red-900 p-2 rounded-lg hover:bg-red-50 transition-all"><X className="w-4 h-4" /></button>
-      </td>
-    </tr>
-  ))}
-</tbody>
+                            <tbody className="bg-white divide-y divide-gray-100">
+                              {productList.map((product, index) => (
+                                <tr key={index} className="hover:bg-blue-50 transition-all duration-200">
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{index + 1}</td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{product.cashType?.label || "N/A"}</td>
+                                  <td className="px-6 py-4 whitespace-nowrap"><span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">{product.currency?.label || "N/A"}</span></td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">{product.amount || "0"}</td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.vatDetails?.percentage || "-"}%</td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium">{product.vatDetails?.amount || "0"}</td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-bold">{product.amountWithTnr || "0"}</td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium flex space-x-2">
+                                    <button onClick={() => handleEditProduct(index)} className="text-green-600 hover:text-green-900 p-2 rounded-lg hover:bg-green-50 transition-all"><Edit2Icon className="w-4 h-4" /></button>
+                                    <button onClick={() => handleRemoveProduct(index)} className="text-red-600 hover:text-red-900 p-2 rounded-lg hover:bg-red-50 transition-all"><X className="w-4 h-4" /></button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
                           </table>
                         </div>
                       </div>
@@ -2065,27 +2111,26 @@ const handleMainSave = async () => {
                           flexDirection: "column",
                         }}
                       >
-                      {productList.length > 0 && (
-  <button
-    onClick={handleMainSave}
-    disabled={isSaving} // Disable button during save
-    className={`px-4 py-2 rounded-lg text-white flex items-center gap-2 ${
-      isSaving ? "bg-blue-400 cursor-not-allowed" : "bg-blue-500 hover:bg-blue-600"
-    } transition-colors`}
-  >
-    {isSaving ? (
-      <>
-        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        Saving...
-      </>
-    ) : (
-      "Save"
-    )}
-  </button>
-)}
+                        {productList.length > 0 && (
+                          <button
+                            onClick={handleMainSave}
+                            disabled={isSaving} // Disable button during save
+                            className={`px-4 py-2 rounded-lg text-white flex items-center gap-2 ${isSaving ? "bg-blue-400 cursor-not-allowed" : "bg-blue-500 hover:bg-blue-600"
+                              } transition-colors`}
+                          >
+                            {isSaving ? (
+                              <>
+                                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                Saving...
+                              </>
+                            ) : (
+                              "Save"
+                            )}
+                          </button>
+                        )}
                         {errors.balance && (
                           <div className="text-red-500 text-sm mt-2">
                             {errors.balance}
@@ -2272,137 +2317,137 @@ const handleMainSave = async () => {
                     Include VAT
                   </label>
                 </div>
-{includeVat && (
-  <div className="grid grid-cols-1 md:grid-cols-2 w-[200%] gap-4 mt-4 bg-white p-4 rounded-xl shadow-md border border-blue-100">
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-2">
-        VAT (%)
-      </label>
-      <input
-        type="text"
-        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-300 focus:border-blue-500 bg-white shadow-sm hover:shadow-md transition-all duration-300"
-        value={vatPercentage}
-        onChange={(e) => {
-          const value = e.target.value.replace(/[^0-9.]/g, "");
-          if (value === "" || (value.split(".")[0].length <= 2 && (value.split(".")[1]?.length || 0) <= 2)) {
-            setVatPercentage(value);
-            if (value) {
-              calculateVat(parseFloat(value || 0));
-            } else {
-              setVatTotal("");
-              setTotalWithVat("");
-            }
-          }
-        }}
-        placeholder="Enter VAT %"
-      />
-    </div>
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-2">
-        VAT Amount
-      </label>
-      <input
-        type="text"
-        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-300 focus:border-blue-500 bg-white shadow-sm hover:shadow-md transition-all duration-300"
-        value={vatTotal}
-        onChange={(e) => {
-          const value = e.target.value.replace(/[^0-9.]/g, "");
-          if (value === "" || (value.split(".")[0].length <= 10 && (value.split(".")[1]?.length || 0) <= 2)) {
-            const numericVatAmount = parseFloat(value || 0);
-            setVatTotal(
-              numericVatAmount.toLocaleString("en-US", {
-                minimumFractionDigits: value.includes(".") ? value.split(".")[1].length : 0,
-                maximumFractionDigits: 2,
-              })
-            );
-            const amount = parseFloat(amountWithTnr.replace(/,/g, "")) || 0;
-            if (amount > 0 && numericVatAmount >= 0) {
-              const calculatedPercentage = (numericVatAmount / amount) * 100;
-              setVatPercentage(
-                calculatedPercentage.toLocaleString("en-US", {
-                  minimumFractionDigits: calculatedPercentage % 1 !== 0 ? 2 : 0,
-                  maximumFractionDigits: 2,
-                })
-              );
-              const total = amount + numericVatAmount;
-              setTotalWithVat(
-                total.toLocaleString("en-US", {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })
-              );
-            } else {
-              setVatPercentage("");
-              setTotalWithVat("");
-            }
-          }
-        }}
-        onBlur={() => {
-          if (vatTotal) {
-            const numericVatAmount = parseFloat(vatTotal.replace(/,/g, "")) || 0;
-            setVatTotal(
-              numericVatAmount.toLocaleString("en-US", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })
-            );
-            const amount = parseFloat(amountWithTnr.replace(/,/g, "")) || 0;
-            if (amount > 0 && numericVatAmount >= 0) {
-              const calculatedPercentage = (numericVatAmount / amount) * 100;
-              setVatPercentage(
-                calculatedPercentage.toLocaleString("en-US", {
-                  minimumFractionDigits: calculatedPercentage % 1 !== 0 ? 2 : 0,
-                  maximumFractionDigits: 2,
-                })
-              );
-              const total = amount + numericVatAmount;
-              setTotalWithVat(
-                total.toLocaleString("en-US", {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })
-              );
-            }
-          }
-        }}
-        placeholder="Enter VAT amount"
-      />
-    </div>
-    <div className="col-span-2 w-3/3 flex mx-auto flex-col justify-center">
-      <label className="block text-sm font-medium text-gray-700 mb-2">
-        Total with VAT
-      </label>
-      <input
-        type="text"
-        className="w-full px-4 py-3 border-0 rounded-xl bg-blue-50 text-blue-800 font-semibold shadow-inner"
-        value={totalWithVat}
-        readOnly
-        placeholder="Total amount"
-      />
-    </div>
-  </div>
-)}
+                {includeVat && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 w-[200%] gap-4 mt-4 bg-white p-4 rounded-xl shadow-md border border-blue-100">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        VAT (%)
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-300 focus:border-blue-500 bg-white shadow-sm hover:shadow-md transition-all duration-300"
+                        value={vatPercentage}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/[^0-9.]/g, "");
+                          if (value === "" || (value.split(".")[0].length <= 2 && (value.split(".")[1]?.length || 0) <= 2)) {
+                            setVatPercentage(value);
+                            if (value) {
+                              calculateVat(parseFloat(value || 0));
+                            } else {
+                              setVatTotal("");
+                              setTotalWithVat("");
+                            }
+                          }
+                        }}
+                        placeholder="Enter VAT %"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        VAT Amount
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-300 focus:border-blue-500 bg-white shadow-sm hover:shadow-md transition-all duration-300"
+                        value={vatTotal}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/[^0-9.]/g, "");
+                          if (value === "" || (value.split(".")[0].length <= 10 && (value.split(".")[1]?.length || 0) <= 2)) {
+                            const numericVatAmount = parseFloat(value || 0);
+                            setVatTotal(
+                              numericVatAmount.toLocaleString("en-US", {
+                                minimumFractionDigits: value.includes(".") ? value.split(".")[1].length : 0,
+                                maximumFractionDigits: 2,
+                              })
+                            );
+                            const amount = parseFloat(amountWithTnr.replace(/,/g, "")) || 0;
+                            if (amount > 0 && numericVatAmount >= 0) {
+                              const calculatedPercentage = (numericVatAmount / amount) * 100;
+                              setVatPercentage(
+                                calculatedPercentage.toLocaleString("en-US", {
+                                  minimumFractionDigits: calculatedPercentage % 1 !== 0 ? 2 : 0,
+                                  maximumFractionDigits: 2,
+                                })
+                              );
+                              const total = amount + numericVatAmount;
+                              setTotalWithVat(
+                                total.toLocaleString("en-US", {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })
+                              );
+                            } else {
+                              setVatPercentage("");
+                              setTotalWithVat("");
+                            }
+                          }
+                        }}
+                        onBlur={() => {
+                          if (vatTotal) {
+                            const numericVatAmount = parseFloat(vatTotal.replace(/,/g, "")) || 0;
+                            setVatTotal(
+                              numericVatAmount.toLocaleString("en-US", {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })
+                            );
+                            const amount = parseFloat(amountWithTnr.replace(/,/g, "")) || 0;
+                            if (amount > 0 && numericVatAmount >= 0) {
+                              const calculatedPercentage = (numericVatAmount / amount) * 100;
+                              setVatPercentage(
+                                calculatedPercentage.toLocaleString("en-US", {
+                                  minimumFractionDigits: calculatedPercentage % 1 !== 0 ? 2 : 0,
+                                  maximumFractionDigits: 2,
+                                })
+                              );
+                              const total = amount + numericVatAmount;
+                              setTotalWithVat(
+                                total.toLocaleString("en-US", {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })
+                              );
+                            }
+                          }
+                        }}
+                        placeholder="Enter VAT amount"
+                      />
+                    </div>
+                    <div className="col-span-2 w-3/3 flex mx-auto flex-col justify-center">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Total with VAT
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full px-4 py-3 border-0 rounded-xl bg-blue-50 text-blue-800 font-semibold shadow-inner"
+                        value={totalWithVat}
+                        readOnly
+                        placeholder="Total amount"
+                      />
+                    </div>
+                  </div>
+                )}
 
 
-               <div className="col-span-1 md:col-span-2 mt-6">
-  <label className="block text-sm font-semibold text-gray-800 mb-2 tracking-wide">
-    Amount in Words
-  </label>
-  <input
-    type="text"
-    className="w-full px-4 py-3 bg-gray-100/80 border-0 rounded-xl text-gray-500 font-medium shadow-inner transition-all duration-200 cursor-not-allowed"
-    value={numberToWords(
-      parseFloat(
-        includeVat && totalWithVat
-          ? totalWithVat.replace(/,/g, "")
-          : amount.replace(/,/g, "") || "0"
-      ),
-      currency?.label?.split(" - ")[0] || "AED" 
-    )}
-    readOnly
-    placeholder="Amount in words"
-  />
-</div>
+                <div className="col-span-1 md:col-span-2 mt-6">
+                  <label className="block text-sm font-semibold text-gray-800 mb-2 tracking-wide">
+                    Amount in Words
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full px-4 py-3 bg-gray-100/80 border-0 rounded-xl text-gray-500 font-medium shadow-inner transition-all duration-200 cursor-not-allowed"
+                    value={numberToWords(
+                      parseFloat(
+                        includeVat && totalWithVat
+                          ? totalWithVat.replace(/,/g, "")
+                          : amount.replace(/,/g, "") || "0"
+                      ),
+                      currency?.label?.split(" - ")[0] || "AED"
+                    )}
+                    readOnly
+                    placeholder="Amount in words"
+                  />
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Currency

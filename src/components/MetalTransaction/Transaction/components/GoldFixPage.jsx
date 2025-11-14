@@ -49,23 +49,36 @@ export default function TradeModalGold({ selectedTrader ,traderRefetch}) {
   // 1. Voucher fetcher – extracted to a reusable async function
   // -----------------------------------------------------------------
   const fetchVoucher = useCallback(async () => {
-    try {
-      const { data } = await axiosInstance.post('/voucher/generate/gold-fix', {
-        transactionType: 'gold-fix ',
-      });
+    const isBuyTrade = isBuy;
+  
+    const endpoint = isBuyTrade
+      ? '/voucher/generate/gold-fix-buy'
+      : '/voucher/generate/gold-fix-sell';
+  
+    const payload = {
+      transactionType: isBuyTrade ? 'GOLD-FIX-BUY' : 'GOLD-FIX-SELL',
 
-      if (data.success) {
+    };
+  
+    // setIsLoadingVoucher(true);
+    try {
+      const { data } = await axiosInstance.post(endpoint, payload);
+  
+      if (data.success && data.data) {
         setVoucher(data.data);
       } else {
-        toast.warn('Could not load voucher – using N/A');
+        console.warn(`Voucher API failed: ${endpoint}`, data);
         setVoucher(null);
+        toast.warn(`No ${isBuyTrade ? 'purchase' : 'sell'} voucher available`);
       }
     } catch (err) {
-      console.error(err);
-      toast.error('Failed to load voucher');
+      console.error(`Voucher fetch failed [${endpoint}]:`, err);
       setVoucher(null);
+      toast.error(`Failed to load ${isBuyTrade ? 'purchase' : 'sell'} voucher`);
+    } finally {
+      // setIsLoadingVoucher(false);
     }
-  }, []);
+  }, [isBuy]);
 
   // -----------------------------------------------------------------
   // 2. Initial load (mount)
@@ -92,13 +105,29 @@ export default function TradeModalGold({ selectedTrader ,traderRefetch}) {
   // 3. Async commodity loader (unchanged)
   // -----------------------------------------------------------------
   const loadCommodities = async (input) => {
-    const { data } = await axiosInstance.get('/commodity', { params: { q: input } });
-    return data.data.map((c) => ({
-      value: c._id,
-      label: `${c.code} - ${c.description}`,
-      purity: parseFloat(c.standardPurity),
-      commodity: c,
-    }));
+    try {
+      const { data } = await axiosInstance.get('/commodity', { params: { q: input } });
+      const options = (data.data || []).map((c) => ({
+        value: c._id,
+        label: `${c.code} - ${c.description}`,
+        purity: parseFloat(c.standardPurity),
+        commodity: c,
+      }));
+  
+      // Find commodity with purity === 1 (only once, on first load)
+      if (!selectedCommodity && !input) {
+        const pureGold = options.find((opt) => opt.purity === 1);
+        if (pureGold) {
+          setSelectedCommodity(pureGold);
+        }
+      }
+  
+      return options;
+    } catch (err) {
+      console.error('Error fetching commodities:', err);
+      toast.error('Failed to load commodities');
+      return [];
+    }
   };
 
   // -----------------------------------------------------------------
@@ -200,12 +229,14 @@ export default function TradeModalGold({ selectedTrader ,traderRefetch}) {
 
         // ---- **REFETCH A NEW VOUCHER** ----
         await fetchVoucher();
-        traderRefetch?.current && await traderRefetch.current();   // <-- re-load balances instantly
+        if (traderRefetch?.current && typeof traderRefetch.current === 'function') {
+          await traderRefetch.current(); // Now works
+        } 
       } else {
         toast.error('Trade failed');
       }
     } catch (err) {
-      console.error(err);
+      console.error("handle create trade error:",err);
       toast.error(err.response?.data?.message || 'Error creating trade');
     }
   }, [
@@ -302,7 +333,7 @@ export default function TradeModalGold({ selectedTrader ,traderRefetch}) {
         {/* Commodity Selection */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Commodity <span className="text-red-500">*</span>
+            Commodity fix Master<span className="text-red-500">*</span>
           </label>
           <AsyncSelect
             cacheOptions
