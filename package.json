@@ -16,6 +16,7 @@
     "axios-retry": "^4.5.0",
     "canvas-confetti": "^1.9.4",
     "framer-motion": "^12.23.0",
+    "html2canvas": "^1.4.1",
     "jspdf": "^3.0.3",
     "jspdf-autotable": "^5.0.2",
     "lightweight-charts": "^5.0.6",
