@@ -1,10 +1,10 @@
 import { Plus, Edit2, Trash2, Save } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import TradeDetailsModal from './TradeDetailsModal';
 import axiosInstance from "../../../../api/axios";
 import { toast } from 'react-toastify';
 
-export default function TradeModalMetal({ type, selectedTrader, liveRate, onClose, existingTransaction = null }) {
+export default function TradeModalMetal({ type, selectedTrader, liveRate, onClose, traderRefetch, existingTransaction = null }) {
   const [selectedRatio, setSelectedRatio] = useState('');
   const [selectedMetalUnit, setSelectedMetalUnit] = useState('');
   const [showErrors, setShowErrors] = useState(false);
@@ -111,29 +111,40 @@ useEffect(() => {
 
   fetchRates();
 }, [isEditMode, existingTransaction]);
-
-  useEffect(() => {
-    if (!isEditMode) {
-      const fetchVoucher = async () => {
-        try {
-          const transactionType = type === 'purchase' ? 'purchase' : 'sale';
-          const { data } = await axiosInstance.post(`/voucher/generate/metal-${transactionType}`, {
-            transactionType,
-          });
-          if (data.success) {
-            setVoucher(data.data);
-          } else {
-            toast.warn('Could not load voucher – using N/A');
-          }
-        } catch (err) {
-          console.error(err);
-          toast.error('Failed to load voucher');
-        }
-      };
-      fetchVoucher();
+const fetchNewVoucher = useCallback(async () => {
+  try {
+    const transactionType = type === 'purchase' ? 'purchase' : 'sale';
+    const { data } = await axiosInstance.post(`/voucher/generate/metal-${transactionType}`, {
+      transactionType,
+    });
+    if (data.success) {
+      setVoucher(data.data);
+    } else {
+      toast.warn('Using fallback voucher');
+      setVoucher({ voucherNumber: 'N/A', prefix: 'N/A', date: new Date().toISOString() });
     }
-  }, [type, isEditMode]);
+  } catch (err) {
+    console.error(err);
+    toast.error('Failed to load voucher');
+    setVoucher({ voucherNumber: 'N/A', prefix: 'N/A', date: new Date().toISOString() });
+  }
+}, [type]);
 
+useEffect(() => {
+  if (!isEditMode) {
+    fetchNewVoucher();
+  }
+}, [isEditMode, fetchNewVoucher]);
+
+const resetFormData = () => {
+  setTrades([]);
+  setSelectedRatio('');
+  setRate('');
+  setSelectedMetalUnit('');
+  setEditingIndex(null);
+  setShowErrors(false);
+  // Keep trader & voucher will be fetched again
+};
  const HandleChange = (value) => {
   const numericValue = value.replace(/[^0-9.]/g, '');
   
@@ -238,7 +249,7 @@ const handleSaveAll = async () => {
       pureWeight: trade.pureWeight,
       purityWeight: trade.pureWeight,
       weightInOz: trade.weightInOz,
-      
+      ratePerKGBAR: trade.ratePerKGBAR, // per KG
       // ✅ FIX 3: Send metalRate as ObjectId (the selected rate's _id)
       metalRate: selectedMetalUnit, // This is the rate document's _id from dropdown
       
@@ -269,6 +280,7 @@ const handleSaveAll = async () => {
         premiumTotal: 0,
         subTotal: trade.metalAmount + (trade.meltingCharge || 0),
         vatAmount: 0,
+        ratePerKGBAR: trade.ratePerKGBAR,
         itemTotalAmount: trade.totalAmount
       },
       itemNotes: '',
