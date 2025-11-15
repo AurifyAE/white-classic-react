@@ -291,6 +291,7 @@ export default function RecentOrders({ type, onEditTransaction, onDeleteTransact
         show={showCurrencyInvoice}
         data={selectedOrder}
         onClose={closeCurrencyInvoice}
+         type={type}
       />
 
       <CurrencyInvoiceModal
