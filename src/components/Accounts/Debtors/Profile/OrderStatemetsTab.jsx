@@ -720,6 +720,8 @@ const OrderStatementsTab = ({
                     colSpan="3"
                   >
                     Amount in INR
+                    {/* <p className="mt-1 text-xs text-gray-500 mb-2">1 = 1,000 INR | 100 = 1 Lakh INR</p> */}
+
                   </th>
                   <th
                     className="px-6 py-4 text-center border-l border-gray-200"
