@@ -2,7 +2,7 @@ import axios from "axios";
 import { toast } from "react-toastify";
 
 const axiosInstance = axios.create({
-  baseURL: "http://localhost:8080/api/v1",
+  baseURL: "https://api.wc.bullionpro.net/api/v1", // Updated baseURL
   headers: {
     "Content-Type": "application/json",
   },

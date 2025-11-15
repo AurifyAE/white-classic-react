@@ -217,10 +217,10 @@ export default function UserRouter() {
           element={<StatementofAccountsPage />}
         />
 
-          <Route
+          {/* <Route
           path="/currency-fix"
           element={<CurrencyFixing />}
-        />
+        /> */}
       </Route>
 
       {/* Fallback */}

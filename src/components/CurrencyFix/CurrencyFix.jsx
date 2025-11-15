@@ -143,7 +143,7 @@ const formatters = {
   },
 };
 // Main Component
-const CurrencyFixing = () => {
+const   CurrencyFixing = () => {
   // Refs
   const abortControllerRef = useRef();
   // Core state
