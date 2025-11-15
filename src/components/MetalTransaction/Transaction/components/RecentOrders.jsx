@@ -1,17 +1,16 @@
+// Updated RecentOrders.jsx - with metal fetch from /metal-transaction + full data + rate column for metal
 import React, { useEffect, useState, useCallback } from "react";
 import { Edit, FileText, Trash2 } from "lucide-react";
 import axiosInstance from "../../../../api/axios";
 import { useNavigate } from "react-router-dom";
 
-// Import correct modals
-import InvoiceModal from "./InvoicePage";           // Currency Trade Invoice
-import CurrencyInvoiceModal from "./CurrencyInvoiceModal"; // Metal Purchase/Sales
+import InvoiceModal from "./InvoicePage";
+import CurrencyInvoiceModal from "./CurrencyInvoiceModal";
 
 export default function RecentOrders({ type, onEditTransaction, onDeleteTransaction }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Separate states for different modals
   const [showCurrencyInvoice, setShowCurrencyInvoice] = useState(false);
   const [showMetalInvoice, setShowMetalInvoice] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -48,24 +47,18 @@ export default function RecentOrders({ type, onEditTransaction, onDeleteTransact
           }));
           break;
 
-        case "purchase":
-        case "sales":
-          response = await axiosInstance.get("/registry", {
-            params: {
-              page: 1,
-              limit: 20,
-              type: tradeType === "purchase" ? "purchase-fixing" : "sales-fixing",
-            },
-          });
-          const metalData = response.data?.data || response.data || [];
-          formatted = metalData.map((item) => ({
+        case "gold":
+          response = await axiosInstance.get("/gold-trade/trades");
+          formatted = (response.data?.data || response.data || []).map((item) => ({
             _id: item._id,
-            orderNo: item.transactionId || item.reference || "N/A",
-            type: item.type?.replace("-", " ").toUpperCase() || "-",
-            rate: item.rate || 0,
-            amount: item.amount || item.cashDebit || 0,
-            currencyCode: item.currencyCode || "-",
-            time: new Date(item.transactionDate || item.createdAt).toLocaleTimeString([], {
+            orderNo: item.reference || "N/A",
+            type: item.type || "-",
+            rate: item.ratePerKg || 0,
+            amount: item.totalValue || 0,
+            commodity: item.commodityId?.code || "N/A",
+            grossWeight: item.grossWeight || 0,
+            pureWeight: item.pureWeight || 0,
+            time: new Date(item.timestamp || item.createdAt).toLocaleTimeString([], {
               hour: "2-digit",
               minute: "2-digit",
             }),
@@ -73,19 +66,29 @@ export default function RecentOrders({ type, onEditTransaction, onDeleteTransact
           }));
           break;
 
-        case "gold":
-          response = await axiosInstance.get("/gold-trades");
-          formatted = (response.data?.data || response.data || []).map((item) => ({
+        case "purchase":
+        case "sales":
+          response = await axiosInstance.get("/metal-transaction", {
+            params: {
+              transactionType: tradeType === "purchase" ? "purchase" : "sale",
+              page: 1,
+              limit: 20,
+            },
+          });
+          const metalData = response.data?.data || response.data || [];
+          formatted = metalData.map((item) => ({
             _id: item._id,
-            orderNo: item.reference || "N/A",
-            type: item.type || "-",
-            rate: item.rate || 0,
-            amount: item.amount || 0,
-            symbol: item.symbol || "GOLD",
-            time: new Date(item.timestamp || item.createdAt).toLocaleTimeString([], {
+            orderNo: item.voucherNumber || "N/A",
+            type: item.transactionType?.toUpperCase() || "-",
+            fixed: item.fixed === true,
+            rate: item.stockItems?.[0]?.metalRateRequirements?.rate || 0,
+            amount: item.totalAmountSession?.totalAmountAED || 0,
+            currencyCode: item.currencyCode || "-",
+            time: new Date(item.voucherDate || item.createdAt).toLocaleTimeString([], {
               hour: "2-digit",
               minute: "2-digit",
             }),
+            party: item.partyCode,
             ...item,
           }));
           break;
@@ -117,10 +120,9 @@ export default function RecentOrders({ type, onEditTransaction, onDeleteTransact
     }
   };
 
-  // Open correct modal based on type
   const openInvoice = (order) => {
     setSelectedOrder(order);
-    if (type === "currency") {
+    if (type === "currency" || type === "gold") {
       setShowCurrencyInvoice(true);
     } else if (type === "purchase" || type === "sales") {
       setShowMetalInvoice(true);
@@ -169,39 +171,35 @@ export default function RecentOrders({ type, onEditTransaction, onDeleteTransact
                 <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
                   TYPE
                 </th>
-
-                {(isCurrency || isGoldFix) && (
+                <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  RATE
+                </th>
+                <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  AMOUNT
+                </th>
+                {isCurrency && (
+                  <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    CURRENCY PAIR
+                  </th>
+                )}
+                {isGoldFix && (
                   <>
                     <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      RATE
+                      COMMODITY
                     </th>
                     <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      AMOUNT
+                      GROSS WT
                     </th>
-                    {isCurrency && (
-                      <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        CURRENCY PAIR
-                      </th>
-                    )}
-                    {isGoldFix && (
-                      <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        SYMBOL
-                      </th>
-                    )}
+                    <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      PURE WT
+                    </th>
                   </>
                 )}
-
                 {isMetal && (
-                  <>
-                    <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      CURRENCY
-                    </th>
-                    <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      AMOUNT
-                    </th>
-                  </>
+                  <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    CURRENCY
+                  </th>
                 )}
-
                 <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
                   ACTIONS
                 </th>
@@ -223,50 +221,49 @@ export default function RecentOrders({ type, onEditTransaction, onDeleteTransact
                       }`}
                     >
                       {order.type}
+                      {isMetal && ` ${order.fixed ? "(FIX)" : "(UNFIX)"}`}
                     </span>
                   </td>
-
-                  {(isCurrency || isGoldFix) && (
-                    <>
-                      <td className="py-5 px-6 text-sm text-gray-900 font-semibold">
-                        {order.rate?.toLocaleString()}
-                      </td>
-                      <td className="py-5 px-6 text-sm text-gray-500 font-medium">
-                        {order.amount?.toLocaleString()}
-                      </td>
-                      {isCurrency && (
-                        <td className="py-5 px-6 text-sm text-gray-700 font-medium">
-                          {order.currencyPair}
-                        </td>
-                      )}
-                      {isGoldFix && (
-                        <td className="py-5 px-6 text-sm text-gray-700 font-medium">
-                          {order.symbol}
-                        </td>
-                      )}
-                    </>
+                  <td className="py-5 px-6 text-sm text-gray-900 font-semibold">
+                    {order.rate?.toLocaleString() || "N/A"}
+                  </td>
+                  <td className="py-5 px-6 text-sm text-gray-500 font-medium">
+                    {order.amount?.toLocaleString() || "0"}
+                  </td>
+                  {isCurrency && (
+                    <td className="py-5 px-6 text-sm text-gray-700 font-medium">
+                      {order.currencyPair}
+                    </td>
                   )}
-
-                  {isMetal && (
+                  {isGoldFix && (
                     <>
                       <td className="py-5 px-6 text-sm text-gray-700 font-medium">
-                        {order.currencyCode}
+                        {order.commodity}
                       </td>
-                      <td className="py-5 px-6 text-sm text-gray-500 font-medium">
-                        {order.amount?.toLocaleString()}
+                      <td className="py-5 px-6 text-sm text-gray-600">
+                        {order.grossWeight?.toLocaleString() || "0"}g
+                      </td>
+                      <td className="py-5 px-6 text-sm text-gray-600">
+                        {order.pureWeight?.toLocaleString() || "0"}g
                       </td>
                     </>
                   )}
-
+                  {isMetal && (
+                    <td className="py-5 px-6 text-sm text-gray-700 font-medium">
+                      {order.currencyCode}
+                    </td>
+                  )}
                   <td className="py-5 px-6">
                     <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => openInvoice(order)}
-                        className="p-1.5 hover:bg-gray-100 rounded transition-colors text-purple-500"
-                        title="Invoice"
-                      >
-                        <FileText size={18} />
-                      </button>
+                      {(isCurrency || isMetal || isGoldFix) && (
+                        <button
+                          onClick={() => openInvoice(order)}
+                          className="p-1.5 hover:bg-gray-100 rounded transition-colors text-purple-500"
+                          title="Invoice"
+                        >
+                          <FileText size={18} />
+                        </button>
+                      )}
                       <button
                         onClick={() => handleEdit(order)}
                         className="p-1.5 hover:bg-gray-100 rounded transition-colors text-blue-500"
@@ -290,21 +287,18 @@ export default function RecentOrders({ type, onEditTransaction, onDeleteTransact
         </div>
       )}
 
-      {/* === MODALS === */}
-      {/* Currency Invoice Modal */}
       <InvoiceModal
         show={showCurrencyInvoice}
         data={selectedOrder}
         onClose={closeCurrencyInvoice}
       />
 
-      {/* Metal Purchase/Sales Invoice Modal */}
       <CurrencyInvoiceModal
         isOpen={showMetalInvoice}
         purchase={selectedOrder}
         onClose={closeMetalInvoice}
-        partyCurrency={selectedOrder?.party || { currencyCode: "AED" }}
-        onDownload={() => console.log("Download PDF")}
+        partyCurrency={selectedOrder?.partyCode || { currencyCode: "AED" }}
+        // onDownload={() => console.log("Download PDF")}
       />
     </div>
   );

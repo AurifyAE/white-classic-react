@@ -73,6 +73,11 @@ const numberToWords = (amount, currencyCode = "AED") => {
 export default function InvoiceModal({ show, data, onClose }) {
   const [branch, setBranch] = useState(null);
 
+  const rateSuffix =
+  data?.type === "BUY" ? " INR" :
+  data?.type === "SELL" ? " AED" :
+  "";
+  /* --- Fetch branch --- */
   useEffect(() => {
     if (!show || !data) return;
     const fetchBranch = async () => {

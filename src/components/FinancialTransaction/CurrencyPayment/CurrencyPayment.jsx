@@ -122,7 +122,7 @@ export default function CashPayment() {
 
 
   const getAllCashBalances = (party) => {
-    console.log(party, 'party in getAllCashBalances');
+    // console.log(party, 'party in getAllCashBalances');
     if (!party?.balances?.cashBalance) return [];
     return party.balances.cashBalance; // <-- array of {currency: _id, amount: number}
   };
@@ -142,7 +142,7 @@ export default function CashPayment() {
         transactionType: "cash payment",
       });
       const { data } = response.data;
-      console.log(data)
+      // console.log(data)
       localStorage.setItem(data.prefix, location.pathname)
       return {
         voucherCode: data.voucherNumber,
@@ -215,7 +215,7 @@ export default function CashPayment() {
     try {
       const response = await axiosInstance.get("/account");
       setCashTypes(response.data);
-      console.log("Cash Types:", response.data);
+      // console.log("Cash Types:", response.data);
     } catch (error) {
       console.error("Error fetching cash types:", error);
     }
@@ -379,7 +379,7 @@ export default function CashPayment() {
     try {
       const response = await axiosInstance.get(`/entry/${id}`);
       const payment = response.data;
-      console.log(payment, 'payment');
+      // console.log(payment, 'payment');
 
       if (!payment || !Array.isArray(payment.cash) || payment.cash.length === 0) {
         toast.error("No cash items to export");
@@ -901,20 +901,25 @@ export default function CashPayment() {
     return currency ? currency.currencyCode : 'AED';
   };
   const options = partys.map((party) => ({
-    value: party._id,  // Changed from party.id to party._id to match API response
+    value: party._id, // Changed from party.id to party._id to match API response
     label: `${party.customerName} - ${party.accountCode}`,
     party,
-    balanceInfo: `Cash: ${formatNumber(party.balances?.cashBalance?.amount || 0)} ${party.balances?.cashBalance?.currency ? getCurrencyCode(party.balances.cashBalance.currency) : 'AED'}, Gold: ${formatNumber(party.balances?.goldBalance?.totalGrams || 0)}g`
+    balanceInfo: `Cash: ${formatNumber(
+      party.balances?.cashBalance?.amount || 0
+    )} ${party.balances?.cashBalance?.currency
+      ? getCurrencyCode(party.balances.cashBalance.currency)
+      : "AED"
+      }, Gold: ${formatNumber(party.balances?.goldBalance?.totalGrams || 0)}g`,
   }));
 
   // Cash type select options
   const cashTypeOptions = useMemo(() => {
-    console.log("=== DEBUG: Computing cashTypeOptions ===");
-    console.log("Selected Currency:", selectedCurrency);
-    console.log("Cash Types:", cashTypes);
+    // console.log("=== DEBUG: Computing cashTypeOptions ===");
+    // console.log("Selected Currency:", selectedCurrency);
+    // console.log("Cash Types:", cashTypes);
 
     if (!selectedCurrency?.value) {
-      console.log("No currency selected, returning empty cashTypeOptions");
+      // console.log("No currency selected, returning empty cashTypeOptions");
       return [];
     }
 
@@ -926,14 +931,14 @@ export default function CashPayment() {
             ? cashType.currencyId._id
             : cashType.currencyId;
         const matchesCurrency = cashTypeCurrencyId === selectedCurrency.value;
-        console.log(
-          `Checking cashType ${cashType.name}:`,
-          cashTypeCurrencyId,
-          "matches",
-          selectedCurrency.value,
-          "?",
-          matchesCurrency
-        );
+        // console.log(
+        //   `Checking cashType ${cashType.name}:`,
+        //   cashTypeCurrencyId,
+        //   "matches",
+        //   selectedCurrency.value,
+        //   "?",
+        //   matchesCurrency
+        // );
         return matchesCurrency;
       })
       .map((cashType) => ({
@@ -941,7 +946,7 @@ export default function CashPayment() {
         label: `${cashType.name} - ${cashType.uniqId}`,
       }));
 
-    console.log("Filtered Cash Types:", filteredCashTypes);
+    // console.log("Filtered Cash Types:", filteredCashTypes);
     return filteredCashTypes;
   }, [cashTypes, selectedCurrency]);
 
@@ -957,7 +962,7 @@ export default function CashPayment() {
   };
 
   const handleEdit = (payment) => {
-    console.log("Editing payments:", payment);
+    // console.log("Editing payments:", payment);
 
     setIsEditMode(true);
     setEditingId(payment._id);
@@ -1072,16 +1077,16 @@ export default function CashPayment() {
       })
     };
 
-    // ADD DEBUG LOGGING HERE
-    console.log("=== DEBUG: New Product Item ===");
-    console.log("Product item being added:", JSON.parse(JSON.stringify(productItem)));
-    console.log("VAT included:", includeVat);
-    if (includeVat) {
-      console.log("VAT percentage:", vatPercentage);
-      console.log("VAT amount:", vatTotal);
-      console.log("Total with VAT:", totalAmount);
-    }
-    console.log("=== END DEBUG ===");
+    // // ADD DEBUG LOGGING HERE
+    // console.log("=== DEBUG: New Product Item ===");
+    // console.log("Product item being added:", JSON.parse(JSON.stringify(productItem)));
+    // console.log("VAT included:", includeVat);
+    // if (includeVat) {
+    //   console.log("VAT percentage:", vatPercentage);
+    //   console.log("VAT amount:", vatTotal);
+    //   console.log("Total with VAT:", totalAmount);
+    // }
+    // console.log("=== END DEBUG ===");
 
     // Update product list
     setProductList(prev => {
@@ -1093,9 +1098,9 @@ export default function CashPayment() {
       }
 
       // Log the updated product list
-      console.log("=== DEBUG: Updated Product List ===");
-      console.log("Product list after update:", JSON.parse(JSON.stringify(newList)));
-      console.log("=== END DEBUG ===");
+      // console.log("=== DEBUG: Updated Product List ===");
+      // console.log("Product list after update:", JSON.parse(JSON.stringify(newList)));
+      // console.log("=== END DEBUG ===");
 
       return newList;
     });
@@ -1160,8 +1165,8 @@ export default function CashPayment() {
   };
 
   const handlePartyChange = (option) => {
-    console.log("=== DEBUG: handlePartyChange ===");
-    console.log("Selected Party:", option);
+    // console.log("=== DEBUG: handlePartyChange ===");
+    // console.log("Selected Party:", option);
 
     setMainRemarks(`Currency receipt for ${option.label}`);
     setSelectedParty(option);
@@ -1177,15 +1182,15 @@ export default function CashPayment() {
         isDefault: c.isDefault,
       }));
 
-    console.log("Mapped Currencies:", mappedCurrencies);
+    // console.log("Mapped Currencies:", mappedCurrencies);
     setCurrencyOptions(mappedCurrencies);
     const defaultCurrency = mappedCurrencies.find((c) => c.isDefault);
     if (defaultCurrency) {
-      console.log("Setting default currency:", defaultCurrency);
+      // console.log("Setting default currency:", defaultCurrency);
       setSelectedCurrency(defaultCurrency);
       clearError("currency");
     } else {
-      console.log("No default currency found, clearing selectedCurrency");
+      // console.log("No default currency found, clearing selectedCurrency");
       setSelectedCurrency(null);
     }
 
@@ -1269,7 +1274,7 @@ export default function CashPayment() {
   // Save main
   const handleMainSave = async () => {
     console.group("=== Starting handleMainSave ===");
-    console.log("1. Checking cash balance of selected party...");
+    // console.log("1. Checking cash balance of selected party...");
 
     // const deFaultCurrnecy = selectedParty?.party?.balances?.cashBalance?.currency;
     // console.log("Default currency for party:", deFaultCurrnecy);
@@ -1298,12 +1303,12 @@ export default function CashPayment() {
     //   return;
     // }
 
-    console.log("2. Preparing loading toast...");
+    // console.log("2. Preparing loading toast...");
     setIsSaving(true); // Set loading state
     const loadingToast = toast.loading("Saving cash payments...");
-    console.log("Loading toast ID:", loadingToast);
+    // console.log("Loading toast ID:", loadingToast);
 
-    console.log("3. Preparing request data...");
+    // console.log("3. Preparing request data...");
 
     const normalize = (val) => {
       if (typeof val === 'number') return val;
@@ -1337,17 +1342,17 @@ export default function CashPayment() {
       }),
     };
 
-    console.log("Request payload:", JSON.stringify(data, null, 2));
+    // console.log("Request payload:", JSON.stringify(data, null, 2));
 
     try {
-      console.log("4. Making API request to /entry endpoint...");
+      // console.log("4. Making API request to /entry endpoint...");
       let response;
 
       if (isEditMode) {
-        console.log("Editing existing entry with ID:", editingId);
+        // console.log("Editing existing entry with ID:", editingId);
         response = await axiosInstance.put(`/entry/${editingId}`, data);
       } else {
-        console.log("Creating new entry...");
+        // console.log("Creating new entry...");
         response = await axiosInstance.post(`/entry`, data);
       }
 

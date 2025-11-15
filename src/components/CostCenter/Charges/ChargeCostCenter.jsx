@@ -111,7 +111,7 @@ const MeltingChargeCenter = () => {
         );
         setTotalPages(response.data.pagination?.totalPages || 1);
         setTotalItems(response.data.pagination?.totalItems || 0);
-        console.log("Melting Charge Response:", response.data);
+        // console.log("Melting Charge Response:", response.data);
       }
     } catch (err) {
       setError("Failed to fetch melting charge data");

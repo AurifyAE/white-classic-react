@@ -77,7 +77,7 @@ const AccountMaster = () => {
     try {
       setLoading(true);
       const response = await axiosInstance.get("/account");
-      console.log("Fetched accounts:", response.data);
+      // console.log("Fetched accounts:", response.data);
       const validAccounts = Array.isArray(response.data)
         ? response.data.filter(
             (account) => account && account._id && typeof account.openingBalance !== "undefined"

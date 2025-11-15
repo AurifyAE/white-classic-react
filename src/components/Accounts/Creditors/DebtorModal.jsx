@@ -523,7 +523,6 @@ const AcDefinitionTab = ({
       (c) => c.currency.toLowerCase() === val.toLowerCase()
     );
     if (matchedCurrency) {
-      console.log(matchedCurrency);
 
       handleAddCurrency(matchedCurrency.currency);
       setAcDefinitionData({
@@ -580,8 +579,8 @@ const AcDefinitionTab = ({
     }
   }, [currencyOptions]);
 
-  console.log("Filtered Currencies:", filteredTableCurrencies);
-  console.log("Current acDefinitionData:", acDefinitionData);
+  // console.log("Filtered Currencies:", filteredTableCurrencies);
+  // console.log("Current acDefinitionData:", acDefinitionData);
 
   return (
     <div className="space-y-6">

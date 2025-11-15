@@ -570,8 +570,8 @@ const AcDefinitionTab = ({
     }
   }, [searchInput, currencyOptions]);
 
-  console.log("Filtered Currencies:", filteredTableCurrencies);
-  console.log("Current acDefinitionData:", acDefinitionData);
+  // console.log("Filtered Currencies:", filteredTableCurrencies);
+  // console.log("Current acDefinitionData:", acDefinitionData);
   return (
     <div className="space-y-6">
       <Toaster position="top-right" />
@@ -1642,7 +1642,7 @@ export default function DebtorModal({
     },
   ];
 
-  console.log('this is currnecy options', currencyOptions);
+  // console.log('this is currnecy options', currencyOptions);
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">

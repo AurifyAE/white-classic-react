@@ -104,7 +104,7 @@ const VatCenter = () => {
         );
         setTotalPages(response.data.pagination?.totalPages || 1);
         setTotalItems(response.data.pagination?.totalItems || 0);
-        console.log("VAT Response:", response.data);
+        // console.log("VAT Response:", response.data);
       }
     } catch (err) {
       setError("Failed to fetch VAT data");

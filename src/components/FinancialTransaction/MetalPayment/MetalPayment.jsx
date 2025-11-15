@@ -58,7 +58,7 @@ export default function ModeMetalPayment() {
   const [ozWeight, setOzWeight] = useState("");
   const [amount, setAmount] = useState("");
   const [currency, setCurrency] = useState(null);
-  console.log(currency)
+  // console.log(currency)
   const [remarks, setRemarks] = useState("");
   const [voucherCode, setVoucherCode] = useState("");
   const [voucherType, setVoucherType] = useState("");
@@ -70,7 +70,7 @@ export default function ModeMetalPayment() {
   // Add these to your existing state declarations
   const [editingProductIndex, setEditingProductIndex] = useState(null);
   const [isEditingProduct, setIsEditingProduct] = useState(false);
-  console.log(productList)
+  // console.log(productList)
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
@@ -339,7 +339,7 @@ export default function ModeMetalPayment() {
   };
 
   const handleEdit = (payment) => {
-    console.log("Editing payment:", payment);
+    // console.log("Editing payment:", payment);
 
     setIsEditMode(true);
     setEditingPaymentId(payment._id);
@@ -459,7 +459,7 @@ export default function ModeMetalPayment() {
   };
 
   const handleSaveProduct = () => {
-    console.log("first")
+    // console.log("first")
     // if (ArrayValidateForm()) {
     setProductList((prev) => [
       ...prev,
@@ -695,7 +695,7 @@ export default function ModeMetalPayment() {
 
     try {
       const response = await axiosInstance.get(`/entry/${id}`);
-      console.log("API Response:", response.data); // Debug: Log the full API response
+      // console.log("API Response:", response.data); // Debug: Log the full API response
       const payment = response.data;
 
       // Enhanced stock data extraction
@@ -706,7 +706,7 @@ export default function ModeMetalPayment() {
       } else {
         stocks = Array.isArray(payment.stocks) ? payment.stocks : Array.isArray(payment.stockItems) ? payment.stockItems : [];
       }
-      console.log("Extracted Stocks:", stocks); // Debug: Log the extracted stocks
+      // console.log("Extracted Stocks:", stocks); // Debug: Log the extracted stocks
 
       if (stocks.length === 0) {
         toast.error("No stock items to export");
@@ -785,7 +785,7 @@ export default function ModeMetalPayment() {
         item.remarks || "-",
       ]);
 
-      console.log("All Stock Items:", allStockItems); // Debug: Log the mapped stock items
+      // console.log("All Stock Items:", allStockItems); // Debug: Log the mapped stock items
 
       // Totals
       const sumColumn = (index, fraction = 3) =>
@@ -1043,9 +1043,9 @@ export default function ModeMetalPayment() {
 
       // === Main Table Data ===
       const allStockItems = filteredPayments.flatMap((payment) => {
-        console.log("Processing Payment:", payment); // Debug: Log each payment object
+        // console.log("Processing Payment:", payment); // Debug: Log each payment object
         const stocks = Array.isArray(payment.stocks) ? payment.stocks : Array.isArray(payment.stockItems) ? payment.stockItems : [];
-        console.log("Stocks for Payment:", stocks); // Debug: Log stocks array
+        // console.log("Stocks for Payment:", stocks); // Debug: Log stocks array
         return stocks.map((item, index) => ({
           voucher: payment.voucherCode || "-",
           stockCode: item.stock?.code || "-",
@@ -1059,7 +1059,7 @@ export default function ModeMetalPayment() {
         }));
       });
 
-      console.log("All Stock Items:", allStockItems); // Debug: Log all mapped items
+      // console.log("All Stock Items:", allStockItems); // Debug: Log all mapped items
 
       if (allStockItems.length === 0) {
         toast.error("No stock items available to export");

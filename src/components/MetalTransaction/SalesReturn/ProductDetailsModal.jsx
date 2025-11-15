@@ -74,7 +74,7 @@ const ProductDetailsModal = ({
   fixed,
   editingItem,
 }) => {
-  console.log(editingItem,"editing ");
+  // console.log(editingItem,"editing ");
   
   const [productData, setProductData] = useState(initialProductData);
   const [goldData, setGoldData] = useState(initialGoldData);
@@ -989,7 +989,7 @@ useEffect(() => {
         effectiveRate: currencyCode === "AED" ? 1 : effectiveRate,
       },
     };
-    console.log("Transformed Data:", transformedData);
+    // console.log("Transformed Data:", transformedData);
 
     onSave(transformedData);
   }, [validate, productData, onSave, currencyCode, calculateProfit, effectiveRate, partyCurrency]);

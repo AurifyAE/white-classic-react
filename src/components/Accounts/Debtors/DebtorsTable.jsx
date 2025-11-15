@@ -38,7 +38,7 @@ export default function DebtorsTable({
   handleDelete,
   loading = false,
 }) {
-  console.log("Filtered Debtors:", filteredDebtors);
+  // console.log("Filtered Debtors:", filteredDebtors);
   
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedDebtor, setSelectedDebtor] = useState(null);

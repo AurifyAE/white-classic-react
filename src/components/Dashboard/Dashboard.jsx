@@ -49,7 +49,7 @@ const EnhancedMISDashboard = () => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [selectedBank, setSelectedBank] = useState("");
   const { marketData } = useMarketData(["GOLD"]);
-  console.log(marketData)
+  // console.log(marketData)
   const adminId = localStorage.getItem("adminId");
 
   // Calculate risk level based on account type

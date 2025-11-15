@@ -74,7 +74,7 @@ const ProductDetailsModal = ({
   fixed,
   editingItem,
 }) => {
-  console.log(editingItem,"editing ");
+  // console.log(editingItem,"editing ");
   
   const [productData, setProductData] = useState(initialProductData);
   const [goldData, setGoldData] = useState(initialGoldData);

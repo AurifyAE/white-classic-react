@@ -59,7 +59,7 @@ const numberToWords = (amount, currencyCode = "AED") => {
 
 /* ------------------ main component ------------------ */
 const PDFPreviewModal = ({ isOpen, onClose, purchase, onDownload, partyCurrency }) => {
-    console.log("PDF Preview Modal - Purchase Data:", purchase);
+    // console.log("PDF Preview Modal - Purchase Data:", purchase);
     
   const [branch, setBranch] = useState(null);
 

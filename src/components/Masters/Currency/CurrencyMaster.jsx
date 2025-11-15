@@ -225,8 +225,8 @@ export default function CurrencyMaster() {
       const maxRate = parseFloat(formData.maxConversionRate);
       const convRate = parseFloat(formData.conversionRate);
 
-      console.log("Form Data:", formData); // Debug logging
-      console.log("Payload Values:", { minRate, maxRate, convRate }); // Debug logging
+      // console.log("Form Data:", formData); // Debug logging
+      // console.log("Payload Values:", { minRate, maxRate, convRate }); // Debug logging
 
       const payload = {
         currencyCode: formData.code.trim().toUpperCase(),
@@ -236,7 +236,7 @@ export default function CurrencyMaster() {
         maxRate: maxRate,
       };
 
-      console.log("Sending Payload:", payload); // Debug logging
+      // console.log("Sending Payload:", payload); // Debug logging
 
       let response;
       if (editingCurrency) {

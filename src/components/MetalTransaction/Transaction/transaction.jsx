@@ -1,3 +1,4 @@
+// Updated main component - Transaction.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowUp, ArrowDown } from 'lucide-react';
 import SelectTrader from './components/SelectTrader';
@@ -24,7 +25,7 @@ export default function Transaction() {
   const [activeTab, setActiveTab] = useState('currency');
   const [selectedTrader, setSelectedTrader] = useState(null);
   const [editingTransaction, setEditingTransaction] = useState(null);
-  const [isTradeModalOpen, setIsTradeModalOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   
   const { marketData } = useMarketData(["GOLD"]);
   const traderRefetchRef = useRef(null);
@@ -47,22 +48,33 @@ export default function Transaction() {
   }, [bidPrice, prevBid]);
 
   const handleTraderChange = (trader) => {
-    console.log("Selected trader:", trader);
+    // console.log("Selected trader:", trader);
     setSelectedTrader(trader);
   };
 
-  // Handle edit from RecentOrders
   const handleEditTransaction = (transaction) => {
-    console.log("Editing transaction:", transaction);
+    // console.log("Editing transaction:", transaction);
+
+    const party = transaction.partyId || transaction.party || transaction.partyCode;
+
+    if (party) {
+      const traderOption = {
+        value: party._id,
+        label: party.customerName ? `${party.customerName} (${party.accountCode})` : 'Selected Trader',
+        trader: party,
+        name: party.customerName,
+        _id: party._id
+      };
+      setSelectedTrader(traderOption);
+    }
+
     setEditingTransaction(transaction);
-    setIsTradeModalOpen(true);
   };
 
   // Handle delete from RecentOrders
   const handleDeleteTransaction = async (transactionId) => {
     if (window.confirm("Are you sure you want to delete this transaction?")) {
       try {
-        // You'll need to implement the delete API call based on transaction type
         let endpoint = '';
         
         switch (activeTab) {
@@ -73,6 +85,9 @@ export default function Transaction() {
           case 'currency':
             endpoint = `/currency-trading/trades/${transactionId}`;
             break;
+          case 'gold':
+            endpoint = `/gold-trade/trades/${transactionId}`;
+            break;
           default:
             console.warn('Delete not implemented for this tab');
             return;
@@ -81,8 +96,14 @@ export default function Transaction() {
         await axiosInstance.delete(endpoint);
         toast.success('Transaction deleted successfully');
         
-        // Refresh the recent orders by triggering re-fetch
-        // This will be handled by the RecentOrders component itself
+        // Trigger refresh
+        setRefreshKey(prev => prev + 1);
+        
+        // Refetch trader balances
+       
+        if (traderRefetchRef?.current && typeof traderRefetchRef.current === 'function') {
+          await traderRefetchRef.current();
+        }
       } catch (error) {
         console.error('Delete failed:', error);
         toast.error('Failed to delete transaction');
@@ -90,27 +111,27 @@ export default function Transaction() {
     }
   };
 
-  // Handle modal close
-  const handleTradeModalClose = (shouldRefresh = false) => {
-    setIsTradeModalOpen(false);
+  // Handle successful trade creation/update
+  const handleTradeSuccess = () => {
     setEditingTransaction(null);
-    
-    if (shouldRefresh) {
-      // You might want to add a refresh mechanism here
-      console.log("Should refresh recent orders");
-    }
+    setRefreshKey(prev => prev + 1);
+  };
+
+  // Handle cancel editing
+  const handleCancelEdit = () => {
+    setEditingTransaction(null);
   };
 
   return (
     <div className="bg-gray-50">
       {/* Top Navbar */}
       <div className="bg-white shadow-sm border-b border-gray-200 px-4 py-3">
-        <div className="max-w-7xl flex justify-between items-center">
+        <div className="px-3 flex justify-between items-center">
           <div className="text-lg font-semibold text-gray-800">
             Transaction Dashboard
           </div>
 
-        {isMetalTab(activeTab) && (
+          {isMetalTab(activeTab) && (
             <div className="flex items-center space-x-6">
               <div className="text-right">
                 <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -164,7 +185,7 @@ export default function Transaction() {
               onClick={() => {
                 setActiveTab(tab.id);
                 setEditingTransaction(null);
-                setIsTradeModalOpen(false);
+                setSelectedTrader(null);
               }}
               className={`px-6 py-3 font-medium text-sm border-b-2 transition-all duration-200 ${
                 activeTab === tab.id
@@ -181,23 +202,44 @@ export default function Transaction() {
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           {/* Left: Trader & Trade Modals */}
           <div className="lg:col-span-2 bg-white border border-gray-200 rounded-lg p-6 space-y-6 max-h-fit">
-            <SelectTrader onTraderChange={handleTraderChange} value={selectedTrader} ref={traderRefetchRef}/>
+            <SelectTrader 
+              onTraderChange={handleTraderChange} 
+              value={selectedTrader} 
+              ref={traderRefetchRef}
+            />
 
-            {isFixTab(activeTab) && <TradeModalFX selectedTrader={selectedTrader}  traderRefetch={traderRefetchRef}/>}
-            {isGoldFixTab(activeTab) && <GoldFixPage selectedTrader={selectedTrader}  traderRefetch={traderRefetchRef}/>}
-            {isMetalTab(activeTab) && (
-              <TradeModalMetal
-                type={activeTab}
+            {isFixTab(activeTab) && (
+              <TradeModalFX 
                 selectedTrader={selectedTrader}
-                liveRate={bidPrice}
+                editTransaction={editingTransaction}
+                onClose={handleCancelEdit}
                 traderRefetch={traderRefetchRef}
               />
+            )}
+            {isGoldFixTab(activeTab) && (
+              <GoldFixPage 
+                selectedTrader={selectedTrader}
+                traderRefetch={traderRefetchRef}
+                editTransaction={editingTransaction}
+                onClose={handleCancelEdit}
+              />
+            )}
+            {isMetalTab(activeTab) && (
+              <TradeModalMetal
+              type={activeTab}
+              selectedTrader={selectedTrader}
+              liveRate={bidPrice}
+              traderRefetch={traderRefetchRef}
+              existingTransaction={editingTransaction}
+              onClose={handleCancelEdit}
+            />
             )}
           </div>
 
           {/* Right: Recent Orders */}
           <div className="lg:col-span-3 bg-white border border-gray-200 rounded-lg p-6 h-[60vh] overflow-y-auto scrollbar-hide">
             <RecentOrders 
+              key={refreshKey}
               type={activeTab} 
               onEditTransaction={handleEditTransaction}
               onDeleteTransaction={handleDeleteTransaction}

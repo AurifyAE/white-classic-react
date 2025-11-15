@@ -12,9 +12,9 @@ import SuccessModal from './SuccessModal';
 
 export default function TradeModalFX({
   selectedTrader,
-  editTransaction,          // <-- NEW PROP
-  onClose,       
-  traderRefetch           // optional – close after success
+  editTransaction,
+  onClose,
+  traderRefetch
 }) {
   // ---------- core form state ----------
   const [payAmount, setPayAmount] = useState('');
@@ -27,8 +27,8 @@ export default function TradeModalFX({
   const [currencies, setCurrencies] = useState([]);
   const [voucher, setVoucher] = useState(null);
 
-  // keep a ref so we know if we are in “edit” mode
-  const isEditMode = useRef(!!editTransaction);
+  // keep a ref so we know if we are in "edit" mode
+  const isEditMode = useRef(false);
 
   const LAKH = 100_000;
   const MULT = 1_000; // 1 (compact) = 1 000 INR
@@ -72,7 +72,7 @@ export default function TradeModalFX({
   // refresh voucher when BUY/SELL changes (only in create mode)
   useEffect(() => {
     if (!isEditMode.current) fetchVoucherCode();
-  }, [fetchVoucherCode, isEditMode]);
+  }, [fetchVoucherCode]);
 
   // ---------- currencies ----------
   useEffect(() => {
@@ -101,50 +101,34 @@ export default function TradeModalFX({
     }
 
     // ---- EDIT MODE ----
+    // console.log("Loading edit transaction:", editTransaction);
     isEditMode.current = true;
 
     const {
       type,
-      cashDebit,          // amount you pay
-      price,              // AED you receive (formatted)
-      currencyCode,       // e.g. "INR/AED"
+      amount,      // amount paid
+      converted,   // amount received
+      rate,        // rate per lakh
     } = editTransaction;
 
     // 1. BUY vs SELL
-    const buy = type === 'BUY' || type?.includes('PURCHASE');
+    const buy = type === 'BUY';
     setIsBuy(buy);
 
-    // 2. Pay amount (always the numeric value)
-    setPayAmount(formatNumber(String(cashDebit || '')));
+    // 2. Set amounts
+    setPayAmount(formatNumber(String(amount || '')));
+    setReceiveAmount(formatNumber(String(converted || '')));
 
-    // 3. Receive amount – strip "AED " prefix
-    const receiveRaw = price?.replace(/^AED\s*/, '').replace(/,/g, '') || '';
-    setReceiveAmount(formatNumber(receiveRaw));
-
-    // 4. Rate (1 Lakh AED)
-    //    For BUY  : rate = (receiveAED / payINR) * LAKH
-    //    For SELL : rate = (payAED   / receiveINR) * LAKH
-    let calculatedRate = 0;
-    const payNum = parseFloat(cashDebit) || 0;
-    const recvNum = parseFloat(receiveRaw) || 0;
-
-    if (buy && payNum && recvNum) {
-      // BUY: pay INR → receive AED
-      calculatedRate = (recvNum / payNum) * LAKH;
-    } else if (!buy && payNum && recvNum) {
-      // SELL: pay AED → receive INR
-      calculatedRate = (payNum / recvNum) * LAKH;
-    }
-    setRateLakh(formatNumber(String(calculatedRate.toFixed(2))));
+    // 3. Set rate
+    setRateLakh(formatNumber(String(rate || '')));
 
     setLastEdited(null);
   }, [editTransaction]);
 
   // ---------- calculations ----------
   useEffect(() => {
-    if (!rateLakh) {
-      setPayAmount('');
-      setReceiveAmount('');
+    if (!rateLakh || isEditMode.current) {
+      // Skip auto-calculations in edit mode
       return;
     }
 
@@ -171,6 +155,33 @@ export default function TradeModalFX({
     ratePerAED,
     isBuy,
   ]);
+
+  // When user edits fields, allow calculations again
+  const handlePayChange = (value) => {
+    const raw = parseNumber(value);
+    if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
+      setPayAmount(formatNumber(raw));
+      setLastEdited('pay');
+      isEditMode.current = false; // Allow calculations
+    }
+  };
+
+  const handleReceiveChange = (value) => {
+    const raw = parseNumber(value);
+    if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
+      setReceiveAmount(formatNumber(raw));
+      setLastEdited('receive');
+      isEditMode.current = false; // Allow calculations
+    }
+  };
+
+  const handleRateChange = (value) => {
+    const raw = parseNumber(value);
+    if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
+      setRateLakh(formatNumber(raw));
+      isEditMode.current = false; // Allow calculations
+    }
+  };
 
   // ---------- submit ----------
   const handleSubmit = useCallback(async () => {
@@ -199,28 +210,29 @@ export default function TradeModalFX({
       type: isBuy ? 'BUY' : 'SELL',
       amount: pay,
       currency: base,
-      rate: rateLakh,
+      rate: rate,
       converted: recv,
-      orderId: `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      orderId: editTransaction?.orderId || `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       timestamp: new Date().toISOString(),
-      currentRate: rateLakh,
+      currentRate: rate,
       bidSpread: 0,
       askSpread: 0,
-      buyRate: rateLakh,
-      sellRate: rateLakh,
+      buyRate: rate,
+      sellRate: rate,
       baseCurrencyId: baseCurrency?._id,
       targetCurrencyId: targetCurrency?._id,
       conversionRate: null,
       baseCurrencyCode: base,
       targetCurrencyCode: quote,
-      reference: voucher?.voucherNumber || '',
+      reference: voucher?.voucherNumber || editTransaction?.reference || '',
       isGoldTrade: false,
     };
 
     try {
       let res;
-      if (isEditMode.current && editTransaction?._id) {
+      if (editTransaction?._id) {
         // ---- UPDATE ----
+        // console.log("Updating transaction:", editTransaction._id);
         res = await axiosInstance.put(
           `/currency-trading/trades/${editTransaction._id}`,
           payload
@@ -231,7 +243,7 @@ export default function TradeModalFX({
       }
 
       if (res.data.success) {
-        toast.success(isEditMode.current ? 'Trade updated!' : 'Trade created!');
+        toast.success(editTransaction?._id ? 'Trade updated!' : 'Trade created!');
 
         setSuccessData({
           trader: selectedTrader.trader,
@@ -247,12 +259,24 @@ export default function TradeModalFX({
         setReceiveAmount('');
         setRateLakh('');
         setLastEdited(null);
+        isEditMode.current = false;
 
         // ---- **REFETCH NEW VOUCHER** ----
-        await fetchVoucherCode();
-        traderRefetch?.current && await traderRefetch.current();   // <-- re-load balances instantly
+        if (!editTransaction?._id) {
+          await fetchVoucherCode();
+        }
+        
+        // Refetch trader balances
+        if (traderRefetch?.current && typeof traderRefetch.current === 'function') {
+          await traderRefetch.current();
+        }
+
+        // Call parent's onClose to clear edit mode
+        if (onClose && editTransaction?._id) {
+          onClose();
+        }
       } else {
-        toast.error(isEditMode.current ? 'Update failed' : 'Create failed');
+        toast.error(editTransaction?._id ? 'Update failed' : 'Create failed');
       }
     } catch (err) {
       console.error('Trade error:', err);
@@ -268,7 +292,19 @@ export default function TradeModalFX({
     voucher,
     editTransaction,
     onClose,
+    fetchVoucherCode,
+    traderRefetch
   ]);
+
+  // Handle cancel
+  const handleCancel = () => {
+    setPayAmount('');
+    setReceiveAmount('');
+    setRateLakh('');
+    setLastEdited(null);
+    isEditMode.current = false;
+    if (onClose) onClose();
+  };
 
   // ---------- UI helpers ----------
   const payCurrency = isBuy ? 'INR' : 'AED';
@@ -304,14 +340,13 @@ export default function TradeModalFX({
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-5 pb-3">
           <h2 className="text-xl font-semibold">
-            {isEditMode.current ? 'Edit Trade' : 'Create Trade'}
+            {editTransaction ? 'Edit Trade' : 'Create Trade'}
           </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 text-2xl"
-          >
-            ×
-          </button>
+          {editTransaction && (
+            <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+              Editing Mode
+            </span>
+          )}
         </div>
 
         {/* Buy / Sell Toggle */}
@@ -321,7 +356,7 @@ export default function TradeModalFX({
             className={`flex-1 py-2 rounded-md font-medium transition-colors ${
               isBuy ? theme.toggleActive : theme.toggleInactive
             }`}
-            disabled={isEditMode.current}
+            disabled={!!editTransaction}
           >
             Buy AED
           </button>
@@ -330,7 +365,7 @@ export default function TradeModalFX({
             className={`flex-1 py-2 rounded-md font-medium transition-colors ${
               !isBuy ? theme.toggleActive : theme.toggleInactive
             }`}
-            disabled={isEditMode.current}
+            disabled={!!editTransaction}
           >
             Sell AED
           </button>
@@ -344,7 +379,7 @@ export default function TradeModalFX({
             <div className="flex flex-col items-center">
               <span className="text-gray-600">Voucher Code</span>
               <span className="font-medium">
-                {voucher?.voucherNumber ?? 'N/A'}
+                {editTransaction?.reference || voucher?.voucherNumber || 'N/A'}
               </span>
             </div>
             <div className="flex flex-col items-center">
@@ -358,6 +393,8 @@ export default function TradeModalFX({
               <span className="font-medium">
                 {voucher?.date
                   ? new Date(voucher.date).toLocaleDateString('en-GB')
+                  : editTransaction?.createdAt
+                  ? new Date(editTransaction.createdAt).toLocaleDateString('en-GB')
                   : 'N/A'}
               </span>
             </div>
@@ -381,39 +418,27 @@ export default function TradeModalFX({
             type="text"
             placeholder={isBuy ? 'e.g. 100 = 1 Lakh' : 'Enter AED to pay'}
             value={payAmount}
-            onChange={(e) => {
-              const raw = parseNumber(e.target.value);
-              if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
-                setPayAmount(formatNumber(raw));
-                setLastEdited('pay');
-              }
-            }}
+            onChange={(e) => handlePayChange(e.target.value)}
             className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 ${theme.inputFocus}`}
           />
         </div>
 
         {/* Receive Amount */}
-      <div className="px-5 pb-4">
-  <label className="block text-sm font-medium text-gray-700 mb-1">
-    Receive Amount ({receiveCurrency})
-  </label>
-  {!isBuy && <p className="mt-1 text-xs text-gray-500 mb-2">1 = 1,000 INR | 100 = 1 Lakh INR</p>}
-  <input
-    type="text"
-    placeholder={
-      isBuy ? 'Enter AED to receive' : 'Enter INR to receive'
-    }
-    value={receiveAmount}
-    onChange={(e) => {
-      const raw = parseNumber(e.target.value);
-      if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
-        setReceiveAmount(formatNumber(raw));
-        setLastEdited('receive');
-      }
-    }}
-    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 ${theme.inputFocus}`}
-  />
-</div>
+        <div className="px-5 pb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Receive Amount ({receiveCurrency})
+          </label>
+          {!isBuy && <p className="mt-1 text-xs text-gray-500 mb-2">1 = 1,000 INR | 100 = 1 Lakh INR</p>}
+          <input
+            type="text"
+            placeholder={
+              isBuy ? 'Enter AED to receive' : 'Enter INR to receive'
+            }
+            value={receiveAmount}
+            onChange={(e) => handleReceiveChange(e.target.value)}
+            className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 ${theme.inputFocus}`}
+          />
+        </div>
 
         {/* Rate of 1 Lakh */}
         <div className="px-5 pb-4">
@@ -424,12 +449,7 @@ export default function TradeModalFX({
             type="text"
             placeholder={ratePlaceholder}
             value={rateLakh}
-            onChange={(e) => {
-              const raw = parseNumber(e.target.value);
-              if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
-                setRateLakh(formatNumber(raw));
-              }
-            }}
+            onChange={(e) => handleRateChange(e.target.value)}
             className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 ${theme.inputFocus}`}
           />
         </div>
@@ -466,18 +486,26 @@ export default function TradeModalFX({
           </div>
         </div>
 
-        {/* Submit Button */}
-        <div className="px-5 pb-5">
+        {/* Action Buttons */}
+        <div className="px-5 pb-5 flex gap-3">
+          {editTransaction && (
+            <button
+              onClick={handleCancel}
+              className="flex-1 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md font-medium transition-colors"
+            >
+              Cancel Edit
+            </button>
+          )}
           <button
             onClick={handleSubmit}
-            className={`w-full py-3 ${theme.buttonBg} text-white rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
+            className={`${editTransaction ? 'flex-1' : 'w-full'} py-3 ${theme.buttonBg} text-white rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
             disabled={
               !selectedTrader ||
               (!payAmount && !receiveAmount) ||
               !rateLakh
             }
           >
-            {isEditMode.current ? 'Update Trade' : 'Create Trade'}
+            {editTransaction ? 'Update Trade' : 'Create Trade'}
           </button>
         </div>
       </div>

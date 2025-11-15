@@ -12,7 +12,7 @@ import SuccessModal from './SuccessModal';
 import AsyncSelect from 'react-select/async';
 
 // -------------------------------------------------------------------
-// Helper utils (unchanged)
+// Helper utils
 // -------------------------------------------------------------------
 const formatNumber = (val) => {
   if (!val) return '';
@@ -33,20 +33,23 @@ const customSelectStyles = {
   }),
 };
 
-export default function TradeModalGold({ selectedTrader ,traderRefetch}) {
+export default function TradeModalGold({ selectedTrader, traderRefetch, editTransaction, onClose }) {
   // ------------------- Core states -------------------
   const [voucher, setVoucher] = useState(null);
   const [selectedCommodity, setSelectedCommodity] = useState(null);
-  const [grossWeight, setGrossWeight] = useState('1000'); // default 1000 g
+  const [grossWeight, setGrossWeight] = useState('1000');
   const [ratePerKg, setRatePerKg] = useState('');
   const [isBuy, setIsBuy] = useState(true);
   const [showSuccess, setShowSuccess] = useState(false);
   const [successData, setSuccessData] = useState(null);
   const [currencies, setCurrencies] = useState([]);
   const [baseCurrencyId, setBaseCurrencyId] = useState('');
+  
+  // Track if we're in edit mode
+  const isEditMode = useRef(false);
 
   // -----------------------------------------------------------------
-  // 1. Voucher fetcher – extracted to a reusable async function
+  // Voucher fetcher
   // -----------------------------------------------------------------
   const fetchVoucher = useCallback(async () => {
     const isBuyTrade = isBuy;
@@ -57,10 +60,8 @@ export default function TradeModalGold({ selectedTrader ,traderRefetch}) {
   
     const payload = {
       transactionType: isBuyTrade ? 'GOLD-FIX-BUY' : 'GOLD-FIX-SELL',
-
     };
   
-    // setIsLoadingVoucher(true);
     try {
       const { data } = await axiosInstance.post(endpoint, payload);
   
@@ -75,16 +76,64 @@ export default function TradeModalGold({ selectedTrader ,traderRefetch}) {
       console.error(`Voucher fetch failed [${endpoint}]:`, err);
       setVoucher(null);
       toast.error(`Failed to load ${isBuyTrade ? 'purchase' : 'sell'} voucher`);
-    } finally {
-      // setIsLoadingVoucher(false);
     }
   }, [isBuy]);
 
   // -----------------------------------------------------------------
-  // 2. Initial load (mount)
+  // Load existing transaction data if editing
   // -----------------------------------------------------------------
   useEffect(() => {
-    fetchVoucher();
+    if (!editTransaction) {
+      // Create mode - reset
+      setGrossWeight('1000');
+      setRatePerKg('');
+      setSelectedCommodity(null);
+      setIsBuy(true);
+      isEditMode.current = false;
+      return;
+    }
+
+    // Edit mode - populate fields
+    // console.log("Loading edit transaction:", editTransaction);
+    isEditMode.current = true;
+
+    // Set buy/sell
+    setIsBuy(editTransaction.type === 'BUY');
+
+    // Set gross weight
+    setGrossWeight(formatNumber(String(editTransaction.grossWeight || 1000)));
+
+    // Set rate
+    setRatePerKg(formatNumber(String(editTransaction.ratePerKg || '')));
+
+    // Set commodity
+    if (editTransaction.commodityId) {
+      const commodity = editTransaction.commodityId;
+      setSelectedCommodity({
+        value: commodity._id,
+        label: `${commodity.code} - ${commodity.description}`,
+        purity: parseFloat(commodity.standardPurity),
+        commodity: commodity,
+      });
+    }
+
+    // Set voucher from transaction
+    if (editTransaction.reference) {
+      setVoucher({
+        voucherNumber: editTransaction.reference,
+        prefix: editTransaction.type === 'BUY' ? 'GFB' : 'GFS',
+        date: editTransaction.timestamp || editTransaction.createdAt,
+      });
+    }
+  }, [editTransaction]);
+
+  // -----------------------------------------------------------------
+  // Initial load (mount) - only if not editing
+  // -----------------------------------------------------------------
+  useEffect(() => {
+    if (!isEditMode.current) {
+      fetchVoucher();
+    }
 
     const fetchCurrencies = async () => {
       try {
@@ -102,7 +151,7 @@ export default function TradeModalGold({ selectedTrader ,traderRefetch}) {
   }, [fetchVoucher]);
 
   // -----------------------------------------------------------------
-  // 3. Async commodity loader (unchanged)
+  // Async commodity loader
   // -----------------------------------------------------------------
   const loadCommodities = async (input) => {
     try {
@@ -114,8 +163,8 @@ export default function TradeModalGold({ selectedTrader ,traderRefetch}) {
         commodity: c,
       }));
   
-      // Find commodity with purity === 1 (only once, on first load)
-      if (!selectedCommodity && !input) {
+      // Auto-select pure gold only on first load, not when editing
+      if (!selectedCommodity && !input && !isEditMode.current) {
         const pureGold = options.find((opt) => opt.purity === 1);
         if (pureGold) {
           setSelectedCommodity(pureGold);
@@ -131,7 +180,7 @@ export default function TradeModalGold({ selectedTrader ,traderRefetch}) {
   };
 
   // -----------------------------------------------------------------
-  // 4. Calculations (memoised)
+  // Calculations
   // -----------------------------------------------------------------
   const calculations = useMemo(() => {
     const gross = parseFloat(parseNumber(grossWeight)) || 0;
@@ -153,10 +202,10 @@ export default function TradeModalGold({ selectedTrader ,traderRefetch}) {
   }, [grossWeight, selectedCommodity, ratePerKg]);
 
   // -----------------------------------------------------------------
-  // 5. Create Trade – **refetch voucher on success**
+  // Create/Update Trade
   // -----------------------------------------------------------------
   const handleCreateTrade = useCallback(async () => {
-    // ---- validation (unchanged) ----
+    // Validation
     if (!selectedTrader) return toast.error('No trader selected');
     if (!selectedCommodity) return toast.error('Please select a commodity');
     if (!calculations.gross) return toast.error('Enter gross weight');
@@ -173,16 +222,8 @@ export default function TradeModalGold({ selectedTrader ,traderRefetch}) {
       currency: base,
       rate: calculations.rateKg,
       converted: calculations.pureWeight,
-      orderId: `GOLD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      timestamp: new Date().toLocaleString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: true,
-      }),
+      orderId: editTransaction?.orderId || `GOLD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      timestamp: new Date().toISOString(),
       currentRate: calculations.rateKg,
       bidSpread: null,
       askSpread: null,
@@ -190,26 +231,33 @@ export default function TradeModalGold({ selectedTrader ,traderRefetch}) {
       sellRate: !isBuyTrade ? calculations.rateKg : null,
       baseCurrencyCode: base,
       targetCurrencyCode: quote,
-      reference:
-        voucher?.voucherNumber ||
-        `GOLD-${isBuyTrade ? 'BUY' : 'SELL'}-${selectedTrader.trader.accountCode}`,
+      reference: editTransaction?.reference || voucher?.voucherNumber || `GOLD-${isBuyTrade ? 'BUY' : 'SELL'}-${selectedTrader.trader.accountCode}`,
       isGoldTrade: true,
       metalType: 'Kilo',
       grossWeight: calculations.gross,
       purity: calculations.purity,
       pureWeight: calculations.pureWeight,
       valuePerGram: calculations.valuePerGram,
+      ratePerKg: calculations.rateKg,
+      totalValue: calculations.metalAmount,
       commodityId: selectedCommodity.value,
       baseCurrencyId,
     };
 
     try {
-      const { data } = await axiosInstance.post('/gold-trade/trades', payload);
+      let response;
+      if (editTransaction?._id) {
+        // Update existing
+        response = await axiosInstance.put(`/gold-trade/trades/${editTransaction._id}`, payload);
+        toast.success('Gold trade updated successfully');
+      } else {
+        // Create new
+        response = await axiosInstance.post('/gold-trade/trades', payload);
+        toast.success('Gold trade created successfully');
+      }
 
-      if (data.success) {
-        toast.success('Gold trade created');
-
-        // ---- success modal data ----
+      if (response.data.success) {
+        // Success modal
         setSuccessData({
           trader: selectedTrader.trader,
           pay: { amount: formatNumber(calculations.metalAmount), currency: base },
@@ -222,21 +270,31 @@ export default function TradeModalGold({ selectedTrader ,traderRefetch}) {
         });
         setShowSuccess(true);
 
-        // ---- reset form fields ----
+        // Reset form
         setGrossWeight('1000');
         setRatePerKg('');
         setSelectedCommodity(null);
+        isEditMode.current = false;
 
-        // ---- **REFETCH A NEW VOUCHER** ----
-        await fetchVoucher();
+        // Refetch voucher if creating new
+        if (!editTransaction?._id) {
+          await fetchVoucher();
+        }
+
+        // Refetch trader balances
         if (traderRefetch?.current && typeof traderRefetch.current === 'function') {
-          await traderRefetch.current(); // Now works
-        } 
+          await traderRefetch.current();
+        }
+
+        // Close edit mode
+        if (onClose && editTransaction?._id) {
+          onClose();
+        }
       } else {
-        toast.error('Trade failed');
+        toast.error(editTransaction?._id ? 'Update failed' : 'Trade failed');
       }
     } catch (err) {
-      console.error("handle create trade error:",err);
+      console.error("Handle create trade error:", err);
       toast.error(err.response?.data?.message || 'Error creating trade');
     }
   }, [
@@ -248,11 +306,22 @@ export default function TradeModalGold({ selectedTrader ,traderRefetch}) {
     voucher,
     baseCurrencyId,
     fetchVoucher,
-    traderRefetch // <-- added to deps
+    traderRefetch,
+    editTransaction,
+    onClose
   ]);
 
+  // Handle cancel edit
+  const handleCancelEdit = () => {
+    setGrossWeight('1000');
+    setRatePerKg('');
+    setSelectedCommodity(null);
+    isEditMode.current = false;
+    if (onClose) onClose();
+  };
+
   // -----------------------------------------------------------------
-  // 6. UI theme (Buy / Sell) – unchanged
+  // UI theme
   // -----------------------------------------------------------------
   const theme = isBuy
     ? {
@@ -274,44 +343,45 @@ export default function TradeModalGold({ selectedTrader ,traderRefetch}) {
         inputFocus: 'focus:ring-orange-500 focus:border-orange-500',
       };
 
-  const payHint = isBuy ? '1 = 1,000 INR | 100 = 1 Lakh INR' : '';
-
-  // -----------------------------------------------------------------
-  // 7. Render – unchanged (only minor TSX fixes)
-  // -----------------------------------------------------------------
   return (
     <>
       <div className="bg-white rounded-lg shadow-lg border border-gray-200 w-full max-w-2xl mx-auto p-6 space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold">Create Gold Trade</h2>
-          <button className="text-2xl text-gray-500 hover:text-gray-700">×</button>
+          <h2 className="text-2xl font-bold">
+            {editTransaction ? 'Edit Gold Trade' : 'Create Gold Trade'}
+          </h2>
+          {editTransaction && (
+            <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+              Editing Mode
+            </span>
+          )}
         </div>
 
         {/* Buy / Sell Toggle */}
         <div className="flex gap-2">
           <button
             onClick={() => setIsBuy(true)}
+            disabled={!!editTransaction}
             className={`flex-1 py-2 rounded-md font-medium transition-colors ${
               isBuy ? theme.toggleActive : theme.toggleInactive
-            }`}
+            } ${editTransaction ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             Buy XAU
           </button>
           <button
             onClick={() => setIsBuy(false)}
+            disabled={!!editTransaction}
             className={`flex-1 py-2 rounded-md font-medium transition-colors ${
               !isBuy ? theme.toggleActive : theme.toggleInactive
-            }`}
+            } ${editTransaction ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             Sell XAU
           </button>
         </div>
 
         {/* Voucher Details */}
-        <div
-          className={`rounded-lg p-3 flex justify-evenly gap-6 text-sm ${theme.voucherBg}`}
-        >
+        <div className={`rounded-lg p-3 flex justify-evenly gap-6 text-sm ${theme.voucherBg}`}>
           <div className="flex flex-col items-center">
             <span className="text-gray-600">Voucher Code</span>
             <span className="font-medium">{voucher?.voucherNumber ?? 'N/A'}</span>
@@ -323,9 +393,7 @@ export default function TradeModalGold({ selectedTrader ,traderRefetch}) {
           <div className="flex flex-col items-center">
             <span className="text-gray-600">Voucher Date</span>
             <span className="font-medium">
-              {voucher?.date
-                ? new Date(voucher.date).toLocaleDateString('en-GB')
-                : 'N/A'}
+              {voucher?.date ? new Date(voucher.date).toLocaleDateString('en-GB') : 'N/A'}
             </span>
           </div>
         </div>
@@ -360,6 +428,7 @@ export default function TradeModalGold({ selectedTrader ,traderRefetch}) {
                 const raw = parseNumber(e.target.value);
                 if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
                   setGrossWeight(formatNumber(raw));
+                  isEditMode.current = false; // Allow recalculation
                 }
               }}
               className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 ${theme.inputFocus}`}
@@ -379,28 +448,26 @@ export default function TradeModalGold({ selectedTrader ,traderRefetch}) {
           </div>
         </div>
 
-        {/* Pure Weight (read-only) */}
-
         {/* Rate per KG Bar */}
-       {/* Rate per KG Bar */}
-<div>
-  <label className="block text-sm font-medium text-gray-700 mb-1">
-    Rate per KGBAR (INR) <span className="text-red-500">*</span>
-  </label>
-  <p className="mt-1 text-xs text-gray-500 mb-2">1 = 1,000 INR | 100 = 1 Lakh INR</p>
-  <input
-    type="text"
-    placeholder="Enter rate per KG"
-    value={ratePerKg}
-    onChange={(e) => {
-      const raw = parseNumber(e.target.value);
-      if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
-        setRatePerKg(formatNumber(raw));
-      }
-    }}
-    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 ${theme.inputFocus}`}
-  />
-</div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Rate per KGBAR (INR) <span className="text-red-500">*</span>
+          </label>
+          <p className="mt-1 text-xs text-gray-500 mb-2">1 = 1,000 INR | 100 = 1 Lakh INR</p>
+          <input
+            type="text"
+            placeholder="Enter rate per KG"
+            value={ratePerKg}
+            onChange={(e) => {
+              const raw = parseNumber(e.target.value);
+              if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
+                setRatePerKg(formatNumber(raw));
+                isEditMode.current = false; // Allow recalculation
+              }
+            }}
+            className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 ${theme.inputFocus}`}
+          />
+        </div>
 
         {/* Value per Gram */}
         <div>
@@ -429,9 +496,7 @@ export default function TradeModalGold({ selectedTrader ,traderRefetch}) {
         </div>
 
         {/* Trade Summary */}
-        <div
-          className={`rounded-lg p-4 border ${theme.summaryBorder} ${theme.summaryBg}`}
-        >
+        <div className={`rounded-lg p-4 border ${theme.summaryBorder} ${theme.summaryBg}`}>
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <span className="text-gray-600">You Pay</span>
@@ -459,19 +524,29 @@ export default function TradeModalGold({ selectedTrader ,traderRefetch}) {
           </div>
         </div>
 
-        {/* Create Trade Button */}
-        <button
-          onClick={handleCreateTrade}
-          disabled={
-            !selectedTrader ||
-            !selectedCommodity ||
-            !calculations.gross ||
-            !calculations.rateKg
-          }
-          className={`w-full py-3 ${theme.buttonBg} text-white rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
-        >
-          Create Gold Trade
-        </button>
+        {/* Action Buttons */}
+        <div className="flex gap-3">
+          {editTransaction && (
+            <button
+              onClick={handleCancelEdit}
+              className="flex-1 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md font-medium transition-colors"
+            >
+              Cancel Edit
+            </button>
+          )}
+          <button
+            onClick={handleCreateTrade}
+            disabled={
+              !selectedTrader ||
+              !selectedCommodity ||
+              !calculations.gross ||
+              !calculations.rateKg
+            }
+            className={`${editTransaction ? 'flex-1' : 'w-full'} py-3 ${theme.buttonBg} text-white rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
+          >
+            {editTransaction ? 'Update Gold Trade' : 'Create Gold Trade'}
+          </button>
+        </div>
       </div>
 
       {/* Success Modal */}

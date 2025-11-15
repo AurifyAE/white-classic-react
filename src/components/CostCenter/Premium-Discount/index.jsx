@@ -92,12 +92,12 @@ const PremiumDiscountCenter = () => {
         params.search = debouncedSearchTerm;
       }
 
-      console.log("API Params:", params); // Debug API parameters
+      // console.log("API Params:", params); // Debug API parameters
       const response = await axios.get("/registry/get-premium-discount", {
         params,
       });
-      console.log("API Response Data:", response.data.data); // Debug response
-      console.log("Transactions received:", response.data.data.length);
+      // console.log("API Response Data:", response.data.data); // Debug response
+      // console.log("Transactions received:", response.data.data.length);
 
       if (response.data.success) {
         setTransactionLogs(response.data.data || []);
@@ -121,7 +121,7 @@ const PremiumDiscountCenter = () => {
   }, [currentPage, itemsPerPage, debouncedSearchTerm, startDate, endDate]);
 
   useEffect(() => {
-    console.log("Fetching with startDate:", startDate, "endDate:", endDate); // Debug useEffect trigger
+    // console.log("Fetching with startDate:", startDate, "endDate:", endDate); // Debug useEffect trigger
     fetchPremiumDiscountData();
   }, [fetchPremiumDiscountData]);
 
@@ -615,7 +615,7 @@ const PremiumDiscountCenter = () => {
                   <DatePicker
                     selected={startDate}
                     onChange={(date) => {
-                      console.log("Selected startDate:", date); // Debug date selection
+                      // console.log("Selected startDate:", date); // Debug date selection
                       if (date && endDate && date > endDate) {
                         setError("From date cannot be after to date");
                         return;
@@ -639,7 +639,7 @@ const PremiumDiscountCenter = () => {
                   <DatePicker
                     selected={endDate}
                     onChange={(date) => {
-                      console.log("Selected endDate:", date); // Debug date selection
+                      // console.log("Selected endDate:", date); // Debug date selection
                       if (date && startDate && date < startDate) {
                         setError("To date cannot be before from date");
                         return;

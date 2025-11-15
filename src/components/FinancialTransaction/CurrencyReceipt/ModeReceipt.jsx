@@ -127,7 +127,7 @@ export default function ModeReceipt() {
         transactionType: "cash receipt",
       });
       const { data } = response.data;
-      console.log(data);
+      // console.log(data);
       localStorage.setItem(data.prefix, location.pathname);
       return {
         voucherCode: data.voucherNumber,
@@ -213,8 +213,8 @@ export default function ModeReceipt() {
   const fetchAllCashType = async () => {
     try {
       const response = await axiosInstance.get("/account");
-      console.log("=== DEBUG: fetchAllCashType ===");
-      console.log("Cash Types API Response:", response.data);
+      // console.log("=== DEBUG: fetchAllCashType ===");
+      // console.log("Cash Types API Response:", response.data);
       setCashTypes(response.data);
     } catch (error) {
       console.error("Error fetching cash types:", error);
@@ -1154,12 +1154,12 @@ const numberToWords = (amount, currencyCode) => {
   // Cash type select options
   // Inside ModeReceipt component
   const cashTypeOptions = useMemo(() => {
-    console.log("=== DEBUG: Computing cashTypeOptions ===");
-    console.log("Selected Currency:", selectedCurrency);
-    console.log("Cash Types:", cashTypes);
+    // console.log("=== DEBUG: Computing cashTypeOptions ===");
+    // console.log("Selected Currency:", selectedCurrency);
+    // console.log("Cash Types:", cashTypes);
 
     if (!selectedCurrency?.value) {
-      console.log("No currency selected, returning empty cashTypeOptions");
+      // console.log("No currency selected, returning empty cashTypeOptions");
       return [];
     }
 
@@ -1171,14 +1171,14 @@ const numberToWords = (amount, currencyCode) => {
             ? cashType.currencyId._id
             : cashType.currencyId;
         const matchesCurrency = cashTypeCurrencyId === selectedCurrency.value;
-        console.log(
-          `Checking cashType ${cashType.name}:`,
-          cashTypeCurrencyId,
-          "matches",
-          selectedCurrency.value,
-          "?",
-          matchesCurrency
-        );
+        // console.log(
+        //   `Checking cashType ${cashType.name}:`,
+        //   cashTypeCurrencyId,
+        //   "matches",
+        //   selectedCurrency.value,
+        //   "?",
+        //   matchesCurrency
+        // );
         return matchesCurrency;
       })
       .map((cashType) => ({
@@ -1186,7 +1186,7 @@ const numberToWords = (amount, currencyCode) => {
         label: `${cashType.name} - ${cashType.uniqId}`,
       }));
 
-    console.log("Filtered Cash Types:", filteredCashTypes);
+    // console.log("Filtered Cash Types:", filteredCashTypes);
     return filteredCashTypes;
   }, [cashTypes, selectedCurrency]);
 
@@ -1200,7 +1200,7 @@ const numberToWords = (amount, currencyCode) => {
   };
 
   const handleEdit = (payment) => {
-    console.log("Editing receipts:", payment);
+    // console.log("Editing receipts:", payment);
 
     setIsEditMode(true);
     setEditingId(payment._id);
@@ -1262,16 +1262,16 @@ const numberToWords = (amount, currencyCode) => {
   };
 
   const handleEditProduct = (index) => {
-    console.log("=== DEBUG: handleEditProduct ===");
-    console.log("Editing product at index:", index);
+    // console.log("=== DEBUG: handleEditProduct ===");
+    // console.log("Editing product at index:", index);
     const product = productList[index];
-    console.log("Product data:", product);
+    // console.log("Product data:", product);
 
     setEditingProductIndex(index);
     const validCashType = cashTypeOptions.find(
       (option) => option.value === product.cashType?.value
     );
-    console.log("Valid Cash Type for edit:", validCashType);
+    // console.log("Valid Cash Type for edit:", validCashType);
     setCashType(validCashType || null); // Reset if not valid for current currency
     setAmount(
       typeof product.amount === "string"
@@ -1341,18 +1341,18 @@ const numberToWords = (amount, currencyCode) => {
     };
 
     // ADD DEBUG LOGGING HERE
-    console.log("=== DEBUG: New Product Item ===");
-    console.log(
-      "Product item being added:",
-      JSON.parse(JSON.stringify(productItem))
-    );
-    console.log("VAT included:", includeVat);
-    if (includeVat) {
-      console.log("VAT percentage:", vatPercentage);
-      console.log("VAT amount:", vatTotal);
-      console.log("Total with VAT:", totalAmount);
-    }
-    console.log("=== END DEBUG ===");
+    // console.log("=== DEBUG: New Product Item ===");
+    // console.log(
+    //   "Product item being added:",
+    //   JSON.parse(JSON.stringify(productItem))
+    // );
+    // console.log("VAT included:", includeVat);
+    // if (includeVat) {
+    //   console.log("VAT percentage:", vatPercentage);
+    //   console.log("VAT amount:", vatTotal);
+    //   console.log("Total with VAT:", totalAmount);
+    // }
+    // console.log("=== END DEBUG ===");
 
     // Update product list
     setProductList((prev) => {
@@ -1364,12 +1364,12 @@ const numberToWords = (amount, currencyCode) => {
       }
 
       // Log the updated product list
-      console.log("=== DEBUG: Updated Product List ===");
-      console.log(
-        "Product list after update:",
-        JSON.parse(JSON.stringify(newList))
-      );
-      console.log("=== END DEBUG ===");
+      // console.log("=== DEBUG: Updated Product List ===");
+      // console.log(
+      //   "Product list after update:",
+      //   JSON.parse(JSON.stringify(newList))
+      // );
+      // console.log("=== END DEBUG ===");
 
       return newList;
     });
@@ -1458,11 +1458,11 @@ const numberToWords = (amount, currencyCode) => {
         isDefault: c.isDefault,
       }));
 
-    console.log("Mapped Currencies:", mappedCurrencies);
+    // console.log("Mapped Currencies:", mappedCurrencies);
     setCurrencyOptions(mappedCurrencies);
     const defaultCurrency = mappedCurrencies.find((c) => c.isDefault);
     if (defaultCurrency) {
-      console.log("Setting default currency:", defaultCurrency);
+      // console.log("Setting default currency:", defaultCurrency);
       setSelectedCurrency(defaultCurrency);
       clearError("currency");
     } else {
@@ -1547,10 +1547,16 @@ const numberToWords = (amount, currencyCode) => {
     return Object.keys(newErrors).length === 0;
   };
 
+
+  const getAllCashBalances = (party) => {
+    // console.log(party, 'party in getAllCashBalances');
+    if (!party?.balances?.cashBalance) return [];
+    return party.balances.cashBalance; // <-- array of {currency: _id, amount: number}
+  };
+
   // Save main
   const handleMainSave = async () => {
     console.group("=== Starting handleMainSave ===");
-    console.log("1. Checking cash balance of selected party...");
 
     // const deFaultCurrnecy =
     //   selectedParty?.party?.balances?.cashBalance?.currency;
@@ -1583,12 +1589,10 @@ const numberToWords = (amount, currencyCode) => {
     //   return;
     // }
 
-    console.log("2. Preparing loading toast...");
     setIsSaving(true); // Set loading state
     const loadingToast = toast.loading("Saving cash receipts...");
-    console.log("Loading toast ID:", loadingToast);
 
-    console.log("3. Preparing request data...");
+    // console.log("3. Preparing request data...");
 
     const normalize = (val) => {
       if (typeof val === "number") return val;
@@ -1626,7 +1630,7 @@ const numberToWords = (amount, currencyCode) => {
       }),
     };
 
-    console.log("Request payload:", JSON.stringify(data, null, 2));
+    // console.log("Request payload:", JSON.stringify(data, null, 2));
 
     try {
       console.log("4. Making API request to /entry endpoint...");
@@ -2263,23 +2267,27 @@ const numberToWords = (amount, currencyCode) => {
                               className="w-full border-0 rounded-xl focus:ring-4 focus:ring-blue-100 bg-gray-50 hover:bg-white focus:bg-white shadow-sm hover:shadow-md focus:shadow-lg transition-all duration-300"
                               isSearchable
                               placeholder="Select a party..."
-                              formatOptionLabel={(option) => (
-                                <div className="flex flex-col">
-                                  <span>{option.label}</span>
-                                  {/* <span className="text-xs text-gray-500">{option.balanceInfo}</span> */}
-                                </div>
-                              )}
+                              formatOptionLabel={(option) => {
+                                const isVendor = option.party?.accountType?.toLowerCase() === "vendor";
+
+                                return (
+                                  <div className="flex flex-col">
+                                    <div className="flex items-center gap-2">
+                                      <span>{option.label}</span>
+                                      {isVendor && (
+                                        <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded text-xs font-medium">
+                                          VENDOR
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              }}
                               classNames={{
                                 control: () => "!min-h-[48px] !py-0",
-                                menuList: () =>
-                                  "!max-h-[200px] !overflow-y-auto scrollbar-hide",
+                                menuList: () => "!max-h-[200px] !overflow-y-auto scrollbar-hide",
                                 option: ({ isSelected, isFocused }) =>
-                                  `!text-gray-900 ${isSelected
-                                    ? "!bg-blue-500 !text-white"
-                                    : isFocused
-                                      ? "!bg-blue-100"
-                                      : "!bg-white"
-                                  }`,
+                                  `!text-gray-900 ${isSelected ? "!bg-blue-500 !text-white" : isFocused ? "!bg-blue-100" : "!bg-white"}`,
                               }}
                             />
                             {errors.party && (
@@ -2313,47 +2321,45 @@ const numberToWords = (amount, currencyCode) => {
     )}
   </div>
 )}
-                          {selectedParty && (
+                         {selectedParty && (
                             <div className="mt-2 text-sm text-gray-600">
-                              <div className="flex space-x-4">
-                                <div>
-                                  <span className="font-medium">
-                                    Cash Balance:
-                                  </span>{" "}
-                                  {/* list the cuurency and loop */}
+                              <div className="flex flex-wrap items-center gap-4">
+                                {/* Account-type badge (Vendor = red) */}
+                                {/* <div className="flex items-center gap-2">
+                                  <span className="font-medium">Account Type:</span>
+                                  <span
+                                    className={`px-2 py-0.5 rounded text-xs font-medium ${selectedParty.party?.accountType?.toLowerCase() === "vendor"
+                                        ? "bg-red-100 text-red-700"
+                                        : "bg-blue-100 text-blue-700"
+                                      }`}
+                                  >
+                                    {getAccountType(selectedParty.party)}
+                                  </span>
+                                </div> */}
 
-                                  <div className="space-x-2">
-                                    {selectedParty?.party?.balances?.cashBalance?.map((balance, index) => (
-                                      <span
-                                        key={index}
-                                        className={
-                                          balance?.amount < 0 ? "text-red-600" : "text-green-600"
-                                        }
-                                      >
-                                        {formatNumber(balance?.amount ?? 0)}{" "}
-                                        {getCurrencyCode(balance?.currency)}
-                                      </span>
-                                    ))}
+                                {/* All cash balances */}
+                                Cash :
+                                {getAllCashBalances(selectedParty.party).map((b, i) => (
+                                  <div key={i}>
+                                    <span className="font-medium">
+                                    </span>{" "}
+                                    <span className={b.amount < 0 ? "text-red-600" : "text-green-600"}>
+                                      {formatNumber(b.amount)} {b.currency.currencyCode}
+                                    </span>
                                   </div>
+                                ))}
 
-                                </div>
+                                {/* Gold balance (unchanged) */}
                                 <div>
-                                  <span className="font-medium">
-                                    Gold Balance:
-                                  </span>{" "}
+                                  <span className="font-medium">Gold Balance:</span>{" "}
                                   <span
                                     className={
-                                      selectedParty.party.balances?.goldBalance
-                                        ?.totalGrams < 0
+                                      selectedParty.party.balances?.goldBalance?.totalGrams < 0
                                         ? "text-red-600"
                                         : "text-green-600"
                                     }
                                   >
-                                    {formatNumber(
-                                      selectedParty.party.balances?.goldBalance
-                                        ?.totalGrams || 0
-                                    )}
-                                    g
+                                    {formatNumber(selectedParty.party.balances?.goldBalance?.totalGrams || 0)}g
                                   </span>
                                 </div>
                               </div>
@@ -2582,7 +2588,7 @@ const numberToWords = (amount, currencyCode) => {
                     options={cashTypeOptions}
                     value={cashType}
                     onChange={(selectedOption) => {
-                      console.log("Selected Cash Type:", selectedOption);
+                      // console.log("Selected Cash Type:", selectedOption);
                       setCashType(selectedOption);
                       setArrayError((prev) => ({ ...prev, cashType: "" }));
                     }}

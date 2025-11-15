@@ -216,7 +216,7 @@ export default function DebtorManagement() {
         };
       })
     );
-    console.log(debtorUsers);
+    // console.log(debtorUsers);
     
   }, [liveRate, calculateRiskLevel, apiData?.data?.parties]);
 
@@ -324,7 +324,7 @@ export default function DebtorManagement() {
     if (!message || !recipient) return;
 
     try {
-      console.log(`Sending message to ${recipient.name}: ${message}`);
+      // console.log(`Sending message to ${recipient.name}: ${message}`);
       await new Promise((resolve) => setTimeout(resolve, 500));
       alert(`Message sent successfully to ${recipient.name}`);
       setMessageRecipient(null);

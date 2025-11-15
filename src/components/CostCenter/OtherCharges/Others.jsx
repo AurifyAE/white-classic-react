@@ -104,7 +104,7 @@ const OtherChargeCenter = () => {
         );
         setTotalPages(response.data.pagination?.totalPages || 1);
         setTotalItems(response.data.pagination?.totalItems || 0);
-        console.log("Other Charge Response:", response.data);
+        // console.log("Other Charge Response:", response.data);
       }
     } catch (err) {
       setError("Failed to fetch other charge data");
