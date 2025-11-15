@@ -20,17 +20,22 @@ export const formatDate = (date) => {
  * @param {string} currency - Currency code (default: 'USD')
  * @returns {string} Formatted currency string
  */
-export const formatCurrency = (value, currency = 'AED') => {
-  if (value === null || value === undefined) return '-';
+// utils/formatters.js
 
-  // Format just the number
-  const number = new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value);
+// Format a number with specified decimals and optional currency symbol
+export const formatNumber = (num, decimals = 2, currencySymbol = '') => {
+  if (num === null || num === undefined || isNaN(num)) return `${currencySymbol}0.00`;
+  return Number(num).toLocaleString('en-US', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+    style: currencySymbol ? 'currency' : 'decimal',
+    currency: currencySymbol ? 'USD' : undefined, // Use 'USD' as a placeholder; adjust based on currency code if needed
+  }).replace('US$', currencySymbol); // Replace 'US$' with the provided currency symbol
+};
 
-  // Append the currency code manually
-  return `${number} ${currency}`;
+// Map formatCurrency to formatNumber with currency support
+export const formatCurrency = (value, currencySymbol = '') => {
+  return formatNumber(value, 2, currencySymbol);
 };
 
 

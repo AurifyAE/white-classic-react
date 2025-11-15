@@ -31,7 +31,7 @@ const debounce = (func, wait) => {
 const handleError = debounce((error, message) => {
   console.error(message, error.response?.data || error);
   toast.error(error.response?.data?.message || message, {
-    style: { backgroundColor: 'white', color: '#34C759' }, // White background, green text
+    style: { backgroundColor: "white", color: "#34C759" }, // White background, green text
   });
 }, 500);
 
@@ -117,13 +117,13 @@ export default function MetalStock() {
   }, []);
 
   const today = new Date();
-  const formattedDate = today.toISOString().split('T')[0];
+  const formattedDate = today.toISOString().split("T")[0];
 
   const fetchMetalStock = async () => {
     try {
       const response = await axiosInstance.get("/metal-stocks");
       const { data } = response.data;
-      console.log("stock data", data);
+      // console.log("stock data", data);
 
       const mappedData = data.map((item) => ({
         id: item._id || "",
@@ -169,13 +169,13 @@ export default function MetalStock() {
         value: division._id,
         label: division.code,
       }));
-      console.log("Fetched Divisions Data:", mappedDivisions);
+      // console.log("Fetched Divisions Data:", mappedDivisions);
 
       setDivisionOptions(mappedDivisions);
     } catch (error) {
       console.error("Error fetching divisions:", error);
     }
-  }
+  };
 
   const fetchCostCenter = async () => {
     try {
@@ -193,7 +193,9 @@ export default function MetalStock() {
 
   const fetchCategory = async () => {
     try {
-      const response = await axiosInstance.get("/category-master/main-categories");
+      const response = await axiosInstance.get(
+        "/category-master/main-categories"
+      );
       const { data } = response.data;
       const mappedCategories = data.map((category) => ({
         value: category._id,
@@ -207,7 +209,9 @@ export default function MetalStock() {
 
   const fetchSubCategory = async () => {
     try {
-      const response = await axiosInstance.get("/category-master/sub-categories");
+      const response = await axiosInstance.get(
+        "/category-master/sub-categories"
+      );
       const { data } = response.data;
       const mappedSubCategories = data.map((sub) => ({
         value: sub._id,
@@ -270,7 +274,7 @@ export default function MetalStock() {
         label: color.description,
       }));
       setColorOptions(mappedColors);
-      console.log("Fetched Colors Data:", mappedColors);
+      // console.log("Fetched Colors Data:", mappedColors);
     } catch (error) {
       console.error("Error fetching colors:", error);
     }
@@ -335,7 +339,12 @@ export default function MetalStock() {
     } else if (name === "pcsCount" || name === "totalValue") {
       updatedFormData = {
         ...updatedFormData,
-        [name]: value === "" ? "" : name === "pcsCount" ? parseInt(value) || "" : parseFloat(value) || "",
+        [name]:
+          value === ""
+            ? ""
+            : name === "pcsCount"
+            ? parseInt(value) || ""
+            : parseFloat(value) || "",
       };
     } else if (name === "karat") {
       const selectedKarat = karatOptions.find((k) => k.value === value);
@@ -348,12 +357,17 @@ export default function MetalStock() {
       };
       setStdError("");
     } else if (name === "std") {
-      const selectedKarat = karatOptions.find((k) => k.value === formData.karat);
+      const selectedKarat = karatOptions.find(
+        (k) => k.value === formData.karat
+      );
       if (selectedKarat) {
         const stdValue = parseFloat(value);
         if (isNaN(stdValue)) {
           newStdError = "Standard purity must be a number.";
-        } else if (stdValue < selectedKarat.minimum || stdValue > selectedKarat.maximum) {
+        } else if (
+          stdValue < selectedKarat.minimum ||
+          stdValue > selectedKarat.maximum
+        ) {
           newStdError = `Standard purity must be between ${selectedKarat.minimum} and ${selectedKarat.maximum}.`;
         }
       }
@@ -367,15 +381,17 @@ export default function MetalStock() {
   };
 
   const handleAdd = async () => {
-    const defaultDivision = divisionOptions.find((option) => option.label === "G");
+    const defaultDivision = divisionOptions.find(
+      (option) => option.label === "G"
+    );
     const defaultMetalType = defaultDivision ? defaultDivision.value : "";
     setEditingStock(null);
     setFormData({
-      division: defaultMetalType, 
+      division: defaultMetalType,
       description: "",
       karatCode: "",
       typeCode: "",
-      metalType: defaultMetalType,      
+      metalType: defaultMetalType,
       branch: "",
       karat: "",
       std: "",
@@ -431,109 +447,112 @@ export default function MetalStock() {
     setStdError("");
   };
 
-const handleSave = async () => {
-  const requiredFields = {
-    code: "Code",
-    description: "Description",
-    metalType: "Metal Type",
-    karat: "Karat",
-    std: "Standard Purity",
-  };
+  const handleSave = async () => {
+    const requiredFields = {
+      code: "Code",
+      description: "Description",
+      metalType: "Metal Type",
+      karat: "Karat",
+      std: "Standard Purity",
+    };
 
-  const missingFields = Object.keys(requiredFields).filter(
-    (field) => !formData[field] || formData[field].toString().trim() === ""
-  );
-
-  if (missingFields.length > 0) {
-    setError(
-      `Please fill in the following required fields: ${missingFields
-        .map((field) => requiredFields[field])
-        .join(", ")}`
+    const missingFields = Object.keys(requiredFields).filter(
+      (field) => !formData[field] || formData[field].toString().trim() === ""
     );
-    return;
-  }
 
-  if (stdError) {
-    setError("Please fix the standard purity error before saving.");
-    return;
-  }
-
-  const defaultCategory = null;
-  const defaultSubCategory = null;
-  const defaultType = null;
-
-  const payload = {
-    metalType: formData.metalType || null,
-    code: formData.code,
-    description: formData.description?.trim() || null,
-    karat: formData.karat || null,
-    standardPurity: parseFloat(formData.std) || null,
-    pcs: formData.pcs || false,
-    pcsCount: formData.pcs ? parseInt(formData.pcsCount) || 0 : 0,
-    totalValue: formData.pcs ? parseFloat(formData.totalValue) || 0 : 0,
-    charges: parseFloat(formData.charges) || null,
-    makingCharge: parseFloat(formData.makingCharge) || null,
-    costCenter: formData.costCenter || null,
-    category: null,
-    subCategory: null,
-    type: defaultType,
-    size: formData.size || null,
-    color: formData.color || null,
-    brand: formData.brand || null,
-    country: formData.country || null,
-    isActive: true,
-    status: "active",
-    createdBy: "YOUR_ADMIN_ID_HERE",
-    updatedBy: editingStock ? "YOUR_ADMIN_ID_HERE" : null,
-  };
-
-  try {
-    if (editingStock) {
-      await axiosInstance.put(`/metal-stocks/${editingStock.id}`, payload);
-      toast.success("Metal stock updated successfully!", {
-        style: { backgroundColor: 'white', color: '#34C759' }, // White background, green text
-      });
-    } else {
-      await axiosInstance.post("/metal-stocks", payload);
-      toast.success("Metal stock added successfully!", {
-        style: { backgroundColor: 'white', color: '#34C759' }, // White background, green text
-      });
+    if (missingFields.length > 0) {
+      setError(
+        `Please fill in the following required fields: ${missingFields
+          .map((field) => requiredFields[field])
+          .join(", ")}`
+      );
+      return;
     }
-    await fetchMetalStock();
-    setIsModalOpen(false);
-    setError("");
-    setStdError("");
-  } catch (error) {
-    console.error("Error saving metal stock:", error);
-    handleError(error, "Failed to save metal stock. Please try again.");
-  }
-};
+
+    if (stdError) {
+      setError("Please fix the standard purity error before saving.");
+      return;
+    }
+
+    const defaultCategory = null;
+    const defaultSubCategory = null;
+    const defaultType = null;
+
+    const payload = {
+      metalType: formData.metalType || null,
+      code: formData.code,
+      description: formData.description?.trim() || null,
+      karat: formData.karat || null,
+      standardPurity: parseFloat(formData.std) || null,
+      pcs: formData.pcs || false,
+      pcsCount: formData.pcs ? parseInt(formData.pcsCount) || 0 : 0,
+      totalValue: formData.pcs ? parseFloat(formData.totalValue) || 0 : 0,
+      charges: parseFloat(formData.charges) || null,
+      makingCharge: parseFloat(formData.makingCharge) || null,
+      costCenter: formData.costCenter || null,
+      category: null,
+      subCategory: null,
+      type: defaultType,
+      size: formData.size || null,
+      color: formData.color || null,
+      brand: formData.brand || null,
+      country: formData.country || null,
+      isActive: true,
+      status: "active",
+      createdBy: "YOUR_ADMIN_ID_HERE",
+      updatedBy: editingStock ? "YOUR_ADMIN_ID_HERE" : null,
+    };
+
+    try {
+      if (editingStock) {
+        await axiosInstance.put(`/metal-stocks/${editingStock.id}`, payload);
+        toast.success("Metal stock updated successfully!", {
+          style: { backgroundColor: "white", color: "#34C759" }, // White background, green text
+        });
+      } else {
+        await axiosInstance.post("/metal-stocks", payload);
+        toast.success("Metal stock added successfully!", {
+          style: { backgroundColor: "white", color: "#34C759" }, // White background, green text
+        });
+      }
+      await fetchMetalStock();
+      setIsModalOpen(false);
+      setError("");
+      setStdError("");
+    } catch (error) {
+      console.error("Error saving metal stock:", error);
+      handleError(error, "Failed to save metal stock. Please try again.");
+    }
+  };
 
   const handleDelete = (stock) => {
     setStockToDelete(stock);
     setIsDeleteModalOpen(true);
   };
 
-const confirmDelete = async () => {
-  if (!stockToDelete?.id || !/^[a-f\d]{24}$/i.test(stockToDelete.id)) {
-    handleError(new Error("Invalid ID"), "An error occurred. Please try again.");
-    return;
-  }
-  setLoading(true);
-  try {
-    await axiosInstance.delete(`/metal-stocks/${stockToDelete.id}`);
-    toast.success("Metal stock deleted successfully!", {
-      style: { backgroundColor: 'white', color: '#34C759' }, // White background, green text
-    });
-    await fetchMetalStock();
-  } catch (error) {
-    handleError(error, "Failed to delete metal stock. Please try again.");
-  } finally {
-    setLoading(false);
-    setIsDeleteModalOpen(false);
-    setStockToDelete(null);
-  }
-};
+  const confirmDelete = async () => {
+    if (!stockToDelete?.id || !/^[a-f\d]{24}$/i.test(stockToDelete.id)) {
+      handleError(
+        new Error("Invalid ID"),
+        "An error occurred. Please try again."
+      );
+      return;
+    }
+    setLoading(true);
+    try {
+      await axiosInstance.delete(`/metal-stocks/${stockToDelete.id}`);
+      toast.success("Metal stock deleted successfully!", {
+        style: { backgroundColor: "white", color: "#34C759" }, // White background, green text
+      });
+      await fetchMetalStock();
+    } catch (error) {
+      handleError(error, "Failed to delete metal stock. Please try again.");
+    } finally {
+      setLoading(false);
+      setIsDeleteModalOpen(false);
+      setStockToDelete(null);
+    }
+  };
 
   const handleCancel = () => {
     setIsModalOpen(false);
@@ -543,7 +562,8 @@ const confirmDelete = async () => {
 
   const goToPage = (page) => setCurrentPage(page);
   const goToPrevious = () => currentPage > 1 && setCurrentPage(currentPage - 1);
-  const goToNext = () => currentPage < totalPages && setCurrentPage(currentPage + 1);
+  const goToNext = () =>
+    currentPage < totalPages && setCurrentPage(currentPage + 1);
 
   return (
     <div className="min-h-screen w-full">
@@ -654,7 +674,10 @@ const confirmDelete = async () => {
                 <tbody className="divide-y divide-gray-200/50">
                   {currentStock.length > 0 ? (
                     currentStock.map((stock) => (
-                      <tr key={stock.id} className="hover:bg-blue-50/50 transition-all duration-200 group">
+                      <tr
+                        key={stock.id}
+                        className="hover:bg-blue-50/50 transition-all duration-200 group"
+                      >
                         <td className="px-6 py-4 text-sm font-medium text-gray-900">
                           <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-lg text-sm font-semibold">
                             {stock.division || "N/A"}
@@ -745,10 +768,11 @@ const confirmDelete = async () => {
                             <button
                               key={page}
                               onClick={() => goToPage(page)}
-                              className={`px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${currentPage === page
-                                ? "bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg"
-                                : "text-gray-700 bg-white border border-gray-300 hover:bg-gray-50"
-                                }`}
+                              className={`px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+                                currentPage === page
+                                  ? "bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg"
+                                  : "text-gray-700 bg-white border border-gray-300 hover:bg-gray-50"
+                              }`}
                             >
                               {page}
                             </button>
@@ -758,7 +782,10 @@ const confirmDelete = async () => {
                           page === currentPage + 2
                         ) {
                           return (
-                            <span key={page} className="px-2 py-2 text-gray-400">
+                            <span
+                              key={page}
+                              className="px-2 py-2 text-gray-400"
+                            >
                               ...
                             </span>
                           );
@@ -793,7 +820,9 @@ const confirmDelete = async () => {
                   </div>
                   <div>
                     <h2 className="text-xl font-bold">
-                      {editingStock ? "Edit Metal Stock" : "Add New Metal Stock"}
+                      {editingStock
+                        ? "Edit Metal Stock"
+                        : "Add New Metal Stock"}
                     </h2>
                     <p className="text-blue-100 text-sm">
                       Professional Bullion Management
@@ -912,197 +941,14 @@ const confirmDelete = async () => {
                         value={formData.std}
                         onChange={handleInputChange}
                         step="0.1"
-                        className={`w-full px-4 py-3 border-0 rounded-xl focus:ring-4 focus:ring-blue-200 bg-gray-50 hover:bg-white focus:bg-white shadow-md hover:shadow-lg transition-all duration-300 ${stdError ? 'border border-red-500' : ''}`}
+                        className={`w-full px-4 py-3 border-0 rounded-xl focus:ring-4 focus:ring-blue-200 bg-gray-50 hover:bg-white focus:bg-white shadow-md hover:shadow-lg transition-all duration-300 ${
+                          stdError ? "border border-red-500" : ""
+                        }`}
                         placeholder="Enter standard purity"
                       />
                       {stdError && (
                         <p className="mt-1 text-sm text-red-500">{stdError}</p>
                       )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="lg:col-span-3 mb-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="col-span-2 ">
-                      <label className="block text-sm  mx-3 font-medium text-gray-700 mb-2 ">
-                        Piece                </label>
-                      <div className="flex items-center space-x-4 p-2 ">
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            name="pcs"
-                            checked={formData.pcs}
-                            onChange={handleInputChange}
-                            className="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-300 cursor-pointer accent-blue-600"
-                          />
-                        </div>
-                        <div className="flex-1">
-                          <input
-                            type="number"
-                            name="pcsCount"
-                            value={formData.pcsCount}
-                            onChange={handleInputChange}
-                            className="w-full px-4 py-2 border-0 rounded-lg focus:ring-4 focus:ring-blue-200 bg-gray-50 hover:bg-white focus:bg-white shadow-md hover:shadow-lg transition-all duration-300"
-                            placeholder="Count"
-                            min="0"
-                          />
-                        </div>
-                        <div className="flex-1">
-                          <input
-                            type="number"
-                            name="totalValue"
-                            value={formData.totalValue}
-                            onChange={handleInputChange}
-                            step="0.01"
-                            className="w-full px-4 py-2 border-0 rounded-lg focus:ring-4 focus:ring-blue-200 bg-gray-50 hover:bg-white focus:bg-white shadow-md hover:shadow-lg transition-all duration-300"
-                            placeholder="GMS"
-                            min="0"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Making Charge
-                      </label>
-                      <input
-                        type="number"
-                        name="makingCharge"
-                        value={formData.makingCharge}
-                        onChange={handleInputChange}
-                        step="0.01"
-                        className="w-full px-4 py-3 border-0 rounded-xl focus:ring-4 focus:ring-blue-200 bg-gray-50 hover:bg-white focus:bg-white shadow-md hover:shadow-lg transition-all duration-300"
-                        placeholder="0.00"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Other Charges
-                      </label>
-                      <input
-                        type="number"
-                        name="charges"
-                        value={formData.charges}
-                        onChange={handleInputChange}
-                        step="0.01"
-                        className="w-full px-4 py-3 border-0 rounded-xl focus:ring-4 focus:ring-blue-200 bg-gray-50 hover:bg-white focus:bg-white shadow-md hover:shadow-lg transition-all duration-300"
-                        placeholder="0.00"
-                      />
-                    </div>
-                  </div>
-                </div>
-               
-
-                <div className="lg:col-span-3 mb-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Category
-                      </label>
-                      <select
-                        name="category"
-                        value={formData.category}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 border-0 rounded-xl focus:ring-4 focus:ring-blue-200 bg-gray-50 hover:bg-white focus:bg-white shadow-md hover:shadow-lg transition-all duration-300"
-                      >
-                        <option value="">Select Category</option>
-                        {categoryOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Sub Category
-                      </label>
-                      <select
-                        name="subCategory"
-                        value={formData.subCategory}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 border-0 rounded-xl focus:ring-4 focus:ring-blue-200 bg-gray-50 hover:bg-white focus:bg-white shadow-md hover:shadow-lg transition-all duration-300"
-                      >
-                        <option value="">Select Sub Category</option>
-                        {subCategoryOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Type
-                      </label>
-                      <select
-                        name="type"
-                        value={formData.type}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 border-0 rounded-xl focus:ring-4 focus:ring-blue-200 bg-gray-50 hover:bg-white focus:bg-white shadow-md hover:shadow-lg transition-all duration-300"
-                      >
-                        <option value="">Select Type</option>
-                        {typeOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Brand
-                      </label>
-                      <select
-                        name="brand"
-                        value={formData.brand}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 border-0 rounded-xl focus:ring-4 focus:ring-blue-200 bg-gray-50 hover:bg-white focus:bg-white shadow-md hover:shadow-lg transition-all duration-300"
-                      >
-                        <option value="">Select Brand</option>
-                        {brandOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Size
-                      </label>
-                      <select
-                        name="size"
-                        value={formData.size}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 border-0 rounded-xl focus:ring-4 focus:ring-blue-200 bg-gray-50 hover:bg-white focus:bg-white shadow-md hover:shadow-lg transition-all duration-300"
-                      >
-                        <option value="">Select Size</option>
-                        {sizeOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Color
-                      </label>
-                      <select
-                        name="color"
-                        value={formData.color}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 border-0 rounded-xl focus:ring-4 focus:ring-blue-200 bg-gray-50 hover:bg-white focus:bg-white shadow-md hover:shadow-lg transition-all duration-300"
-                      >
-                        <option value="">Select Color</option>
-                        {colorOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
                     </div>
                   </div>
                 </div>

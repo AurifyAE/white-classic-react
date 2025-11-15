@@ -89,10 +89,10 @@ const StockBalanceCenter = () => {
       if (debouncedSearchTerm) {
         params.search = debouncedSearchTerm;
       }
-      console.log("API Params:", params); // Debug API parameters
+      // console.log("API Params:", params); // Debug API parameters
       const response = await axios.get("/registry", { params });
-      console.log("API Response Data:", response.data.data); // Debug response
-      console.log("Transactions received:", response.data.data.length);
+      // console.log("API Response Data:", response.data.data); // Debug response
+      // console.log("Transactions received:", response.data.data.length);
       if (response.data.success) {
         setTransactionLogs(response.data.data || []);
         setSummary(
@@ -118,7 +118,7 @@ const StockBalanceCenter = () => {
   }, [currentPage, itemsPerPage, debouncedSearchTerm, startDate, endDate]);
 
   useEffect(() => {
-    console.log("Fetching with startDate:", startDate, "endDate:", endDate); // Debug useEffect trigger
+    // console.log("Fetching with startDate:", startDate, "endDate:", endDate); // Debug useEffect trigger
     fetchStockBalanceData();
   }, [fetchStockBalanceData]);
 
@@ -601,7 +601,7 @@ const StockBalanceCenter = () => {
                   </select>
                 </div>
 
-                {/* <div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Items Per Page
                   </label>
@@ -617,7 +617,7 @@ const StockBalanceCenter = () => {
                     <option value={20}>20 per page</option>
                     <option value={50}>50 per page</option>
                   </select>
-                </div> */}
+                </div>
 
                 <div className="relative">
                   <label className="block text-sm font-medium text-gray-700 mb-1">

@@ -29,6 +29,7 @@ import {
   Globe,
   Sparkles,
   TrendingUp,
+  DollarSign,
 } from "lucide-react";
 import axios from "../../../api/axios";
 import { motion, AnimatePresence } from "framer-motion";
@@ -96,7 +97,7 @@ const CheckboxFilter = React.memo(
                 prefix.startsWith("PR")
               );
             case "purchase return":
-          return prefix === "PR";
+              return prefix === "PR";
             case "net purchases":
               return prefix.startsWith("PRM") || prefix.startsWith("PR");
             case "receipts":
@@ -167,9 +168,8 @@ const CheckboxFilter = React.memo(
           <Search className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 transform -translate-y-1/2" />
         </div>
         <div
-          className={`space-y-3 overflow-y-auto scrollbar-hide bg-white rounded-lg border border-gray-200 p-4 shadow-inner ${
-            field === "division" || filteredOptions.length > 5 ? "max-h-[180px]" : "max-h-fit"
-          }`}
+          className={`space-y-3 overflow-y-auto scrollbar-hide bg-white rounded-lg border border-gray-200 p-4 shadow-inner ${field === "division" || filteredOptions.length > 5 ? "max-h-[180px]" : "max-h-fit"
+            }`}
         >
           {!hideSelectAll && (
             <label className="flex items-center space-x-3 cursor-pointer hover:bg-gradient-to-r hover:from-blue-50 hover:to-cyan-50 p-2 rounded-lg transition-all duration-200">
@@ -199,14 +199,12 @@ const CheckboxFilter = React.memo(
               />
               <span className="text-sm text-gray-700 flex-1 hover:text-blue-700 transition-colors">
                 {field === "accountType"
-                  ? `${option.accountCode || "N/A"} - ${
-                      option.customerName || "Unknown"
-                    }`
+                  ? `${option.accountCode || "N/A"} - ${option.customerName || "Unknown"
+                  }`
                   : field === "voucher"
-                  ? `${option.code || "N/A"} - ${
-                      option.description || "Unknown"
+                    ? `${option.code || "N/A"} - ${option.description || "Unknown"
                     }`
-                  : option.name ||
+                    : option.name ||
                     option.code ||
                     option.prefix ||
                     option.accountType ||
@@ -368,6 +366,7 @@ export default function MetalStockLedger() {
     showMetalValue: false,
     showPurchaseSales: false,
     showPicture: false,
+    currencies: [],
     groupBy: [""],
     groupByRange: {
       stockCode: [],
@@ -388,6 +387,7 @@ export default function MetalStockLedger() {
     stock: "",
     karat: "",
     accountType: "",
+    currencies: "",
     groupBy: "",
     groupByRange: {
       stockCode: "",
@@ -405,6 +405,7 @@ export default function MetalStockLedger() {
   const [stocks, setStocks] = useState([]);
   const [karats, setKarats] = useState([]);
   const [accountTypes, setAccountTypes] = useState([]);
+  const [currencies, setCurrencies] = useState([]);
   const [groupByOptions, setGroupByOptions] = useState({
     stockCode: [],
     categoryCode: [],
@@ -429,7 +430,6 @@ export default function MetalStockLedger() {
     "All",
   ];
 
-  const currencies = ["AED", "USD", "EUR", "GBP"];
 
   const showToast = useCallback((message, type = "success") => {
     setNotificationMessage(message);
@@ -444,18 +444,18 @@ export default function MetalStockLedger() {
       try {
         const endpoints = [
           {
-          key: "vouchers",
-          url: "/voucher",
-          setter: (data) => {
-            setVouchers(data);
-            // Initialize voucher filter as empty
-            setFilters((prev) => ({
-              ...prev,
-              voucher: [], // Set to empty array instead of selecting all vouchers
-            }));
+            key: "vouchers",
+            url: "/voucher",
+            setter: (data) => {
+              setVouchers(data);
+              // Initialize voucher filter as empty
+              setFilters((prev) => ({
+                ...prev,
+                voucher: [], // Set to empty array instead of selecting all vouchers
+              }));
+            },
+            dataKey: "vouchers",
           },
-          dataKey: "vouchers",
-        },
           { key: "stocks", url: "/metal-stocks", setter: setStocks },
           { key: "karats", url: "/karats/karat", setter: setKarats },
           {
@@ -468,6 +468,26 @@ export default function MetalStockLedger() {
               setAccountTypes(filteredAccounts);
             },
           },
+         {
+  key: "currencies",
+  url: "/currency-master",
+  setter: (data) => {
+    setCurrencies(data.map((item) => ({
+      id: item.id || item._id,
+      code: item.code || item.currencyCode,
+      name: item.currencyName || item.code || item.currencyCode, 
+    })));
+    
+    setGroupByOptions((prev) => ({
+      ...prev,
+      currencies: data.map((item) => ({
+        id: item.id || item._id,
+        code: item.code || item.currencyCode,
+        name: item.currencyName || item.code || item.currencyCode,
+      })),
+    }));
+  },
+},
           {
             key: "stockCode",
             url: "/metal-stocks",
@@ -614,6 +634,7 @@ export default function MetalStockLedger() {
           fetchedData.stocks.length > 0 &&
           fetchedData.karats.length > 0 &&
           fetchedData.accountTypes.length > 0 &&
+          fetchedData.currencies.length > 0 &&
           Object.keys(fetchedData).every((key) =>
             ![
               "stockCode",
@@ -654,7 +675,7 @@ export default function MetalStockLedger() {
 
   const totalStockIn = useMemo(() => {
     console.log("Calculating total stock in for current page:", filteredLedgerData);
-    
+
     return filteredLedgerData.reduce(
       (sum, item) => sum + (item.grossWeight || 0),
       0
@@ -755,110 +776,114 @@ export default function MetalStockLedger() {
   }, []);
 
   const handleToggleAll = useCallback(
-     (field) => {
-       setFilters((prev) => {
-         if (field.startsWith("groupByRange.")) {
-           const groupByField = field.split(".")[1];
-           const allIds = groupByOptions[groupByField].map(
-             (item) => item.id || item._id
-           );
-           const isAllSelected =
-             prev.groupByRange[groupByField].length === allIds.length;
-           return {
-             ...prev,
-             groupByRange: {
-               ...prev.groupByRange,
-               [groupByField]: isAllSelected ? [] : allIds,
-             },
-           };
-         }
-         const allIds =
-           field === "division"
-             ? divisions.map((d) => d.id || d._id)
-             : field === "voucher"
-             ? vouchers
-                 .filter((v) => {
-                   const prefix = v.prefix?.toUpperCase() || "";
-                   switch (prev.transactionType.toLowerCase()) {
-                     case "all":
-                       return true;
-                     case "sales":
-                 return prefix.startsWith("SAL") || prefix.startsWith("SF") || prefix.startsWith("SR");
-                     case "sales return":
-                       return prefix.startsWith("SR");
-                     case "net sales":
-                       return prefix.startsWith("SAL") || prefix.startsWith("SR");
-                     case "purchase":
-                 return prefix.startsWith("PRM") || prefix.startsWith("PF") || prefix.startsWith("PR");
-                     case "purchase return":
-                       return prefix.startsWith("PR");
-                     case "net purchases":
-                       return prefix.startsWith("PRM") || prefix.startsWith("PR");
-                     case "receipts":
-                       return prefix.startsWith("MR") || prefix.startsWith("CR");
-                     case "payment":
-                       return prefix.startsWith("MP") || prefix.startsWith("CP");
-                     case "transfer":
-                       return prefix.startsWith("T");
-                     default:
-                       return false;
-                   }
-                 })
-                 .map((v) => v.id || v._id)
-             : field === "stock"
-             ? stocks.map((s) => s.id || s._id)
-             : field === "karat"
-             ? karats.map((k) => k.id || k._id)
-             : accountTypes.map((a) => a.id || a._id);
- 
-         const isAllSelected = prev[field].length === allIds.length;
-         return {
-           ...prev,
-           [field]: isAllSelected ? [] : allIds,
-         };
-       });
-     },
-     [divisions, vouchers, stocks, karats, accountTypes, groupByOptions]
-   );
+    (field) => {
+      setFilters((prev) => {
+        if (field.startsWith("groupByRange.")) {
+          const groupByField = field.split(".")[1];
+          const allIds = groupByOptions[groupByField].map(
+            (item) => item.id || item._id
+          );
+          const isAllSelected =
+            prev.groupByRange[groupByField].length === allIds.length;
+          return {
+            ...prev,
+            groupByRange: {
+              ...prev.groupByRange,
+              [groupByField]: isAllSelected ? [] : allIds,
+            },
+          };
+        }
+        const allIds =
+          field === "division"
+            ? divisions.map((d) => d.id || d._id)
+            : field === "voucher"
+              ? vouchers
+                .filter((v) => {
+                  const prefix = v.prefix?.toUpperCase() || "";
+                  switch (prev.transactionType.toLowerCase()) {
+                    case "all":
+                      return true;
+                    case "sales":
+                      return prefix.startsWith("SAL") || prefix.startsWith("SF") || prefix.startsWith("SR");
+                    case "sales return":
+                      return prefix.startsWith("SR");
+                    case "net sales":
+                      return prefix.startsWith("SAL") || prefix.startsWith("SR");
+                    case "purchase":
+                      return prefix.startsWith("PRM") || prefix.startsWith("PF") || prefix.startsWith("PR");
+                    case "purchase return":
+                      return prefix.startsWith("PR");
+                    case "net purchases":
+                      return prefix.startsWith("PRM") || prefix.startsWith("PR");
+                    case "receipts":
+                      return prefix.startsWith("MR") || prefix.startsWith("CR");
+                    case "payment":
+                      return prefix.startsWith("MP") || prefix.startsWith("CP");
+                    case "transfer":
+                      return prefix.startsWith("T");
+                    default:
+                      return false;
+                  }
+                })
+                .map((v) => v.id || v._id)
+              : field === "stock"
+                ? stocks.map((s) => s.id || s._id)
+                : field === "karat"
+                  ? karats.map((k) => k.id || k._id)
+                  : field === "accountType"
+                    ? accountTypes.map((a) => a.id || a._id)
+                    : field === "currencies"
+                      ? currencies.map((c) => c.id || c._id)
+                      : [];
 
-   const handleFilterChange = useCallback((field, value) => {
-     setFilters((prev) => {
-       const newFilters = { ...prev, [field]: value };
-       if (field === "transactionType") {
-         // Update voucher selection based on transactionType
-         newFilters.voucher = vouchers
-           .filter((v) => {
-             const prefix = v.prefix?.toUpperCase() || "";
-             switch (value.toLowerCase()) {
-               case "all":
-                 return true;
-               case "sales":
-                 return prefix.startsWith("SAL") || prefix.startsWith("SF") || prefix.startsWith("SR");
-               case "sales return":
-                 return prefix.startsWith("SR");
-               case "net sales":
-                 return prefix.startsWith("SAL") || prefix.startsWith("SR");
-               case "purchase":
-                 return prefix.startsWith("PRM") || prefix.startsWith("PF") || prefix.startsWith("PR");
-               case "purchase return":
-                 return prefix.startsWith("PR")  
-               case "net purchases":
-                 return prefix.startsWith("PRM") || prefix.startsWith("PR");
-               case "receipts":
-                 return prefix.startsWith("MR") || prefix.startsWith("CR");
-               case "payment":
-                 return prefix.startsWith("MP") || prefix.startsWith("CP");
-               case "transfer":
-                 return prefix.startsWith("T");
-               default:
-                 return false;
-             }
-           })
-           .map((v) => v.id || v._id);
-       }
-       return newFilters;
-     });
-   }, [vouchers]);
+        const isAllSelected = prev[field].length === allIds.length;
+        return {
+          ...prev,
+          [field]: isAllSelected ? [] : allIds,
+        };
+      });
+    },
+    [divisions, vouchers, stocks, karats, accountTypes, currencies, groupByOptions]
+  );
+
+  const handleFilterChange = useCallback((field, value) => {
+    setFilters((prev) => {
+      const newFilters = { ...prev, [field]: value };
+      if (field === "transactionType") {
+        // Update voucher selection based on transactionType
+        newFilters.voucher = vouchers
+          .filter((v) => {
+            const prefix = v.prefix?.toUpperCase() || "";
+            switch (value.toLowerCase()) {
+              case "all":
+                return true;
+              case "sales":
+                return prefix.startsWith("SAL") || prefix.startsWith("SF") || prefix.startsWith("SR");
+              case "sales return":
+                return prefix.startsWith("SR");
+              case "net sales":
+                return prefix.startsWith("SAL") || prefix.startsWith("SR");
+              case "purchase":
+                return prefix.startsWith("PRM") || prefix.startsWith("PF") || prefix.startsWith("PR");
+              case "purchase return":
+                return prefix.startsWith("PR")
+              case "net purchases":
+                return prefix.startsWith("PRM") || prefix.startsWith("PR");
+              case "receipts":
+                return prefix.startsWith("MR") || prefix.startsWith("CR");
+              case "payment":
+                return prefix.startsWith("MP") || prefix.startsWith("CP");
+              case "transfer":
+                return prefix.startsWith("T");
+              default:
+                return false;
+            }
+          })
+          .map((v) => v.id || v._id);
+      }
+      return newFilters;
+    });
+  }, [vouchers]);
 
   const handleSearchChange = useCallback((field, value) => {
     setSearchTerms((prev) => {
@@ -884,16 +909,19 @@ export default function MetalStockLedger() {
       if (filters.toDate) body.toDate = filters.toDate;
       if (filters.transactionType) body.transactionType = filters.transactionType;
       if (filters.voucher.length > 0) {
-         body.voucher = filters.voucher
-        .map((voucherId) => {
-          const voucher = vouchers.find((v) => (v.id || v._id) === voucherId);
-          return voucher ? { voucherType: voucher.voucherType, prefix: voucher.prefix } : null;
-        })
-        .filter((voucher) => voucher !== null);
-    }
+        body.voucher = filters.voucher
+          .map((voucherId) => {
+            const voucher = vouchers.find((v) => (v.id || v._id) === voucherId);
+            return voucher ? { voucherType: voucher.voucherType, prefix: voucher.prefix } : null;
+          })
+          .filter((voucher) => voucher !== null);
+      }
       if (filters.stock.length > 0) body.stock = filters.stock;
       if (filters.karat.length > 0) body.karat = filters.karat;
       if (filters.accountType.length > 0) body.accountType = filters.accountType;
+      if (filters.currencies.length > 0) {
+        body.currencies = filters.currencies; // Send selected currency IDs
+      }
       if (filters.costCurrency && filters.costAmount) {
         body.costFilter = {
           currency: filters.costCurrency,
@@ -918,7 +946,7 @@ export default function MetalStockLedger() {
 
       console.log("Filter body:", body);
       const response = await axios.post("/reports/transaction-summary", body);
-      
+
       let transactions = response?.data?.data?.[0]?.transactions || [];
 
       // Apply client-side filtering for costAmount if needed
@@ -955,10 +983,11 @@ export default function MetalStockLedger() {
       fromDate: "",
       toDate: "",
       division: divisions.map((d) => d.id || d._id),
-voucher: [],
+      voucher: [],
       stock: [],
       karat: [],
       accountType: [],
+      currencies: [], // Reset currencies
       grossWeight: false,
       pureWeight: false,
       showMoved: false,
@@ -987,6 +1016,7 @@ voucher: [],
       stock: "",
       karat: "",
       accountType: "",
+      currencies: "", // Reset currencies search term
       groupBy: "",
       groupByRange: {
         stockCode: "",
@@ -1061,11 +1091,10 @@ voucher: [],
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 100 }}
               transition={{ duration: 0.3 }}
-              className={`fixed top-6 right-6 z-50 p-4 rounded-2xl shadow-2xl transform transition-all duration-300 backdrop-blur-md border ${
-                notificationType === "success"
-                  ? "bg-gradient-to-r from-emerald-500 to-green-500 border-emerald-300"
-                  : "bg-gradient-to-r from-rose-500 to-red-500 border-rose-300"
-              } text-white`}
+              className={`fixed top-6 right-6 z-50 p-4 rounded-2xl shadow-2xl transform transition-all duration-300 backdrop-blur-md border ${notificationType === "success"
+                ? "bg-gradient-to-r from-emerald-500 to-green-500 border-emerald-300"
+                : "bg-gradient-to-r from-rose-500 to-red-500 border-rose-300"
+                } text-white`}
             >
               <div className="flex items-center space-x-3">
                 {notificationType === "success" ? (
@@ -1115,28 +1144,7 @@ voucher: [],
                 </div>
               </div>
               <div className="flex items-center space-x-4">
-                {/* <button
-                  onClick={() =>
-                    setViewMode(viewMode === "table" ? "grid" : "table")
-                  }
-                  className="group bg-white/10 hover:bg-white/20 p-3 rounded-xl transition-all duration-300 backdrop-blur-sm hover:scale-105"
-                >
-                  {viewMode === "table" ? (
-                    <Grid className="w-5 h-5 group-hover:rotate-12 transition-transform" />
-                  ) : (
-                    <List className="w-5 h-5 group-hover:rotate-12 transition-transform" />
-                  )}
-                </button>
-                <button
-                  onClick={handleExport}
-                  className="group bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 px-6 py-3 rounded-xl transition-all duration-300 flex items-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-105"
-                >
-                  <Download className="w-5 h-5 group-hover:animate-bounce" />
-                  <span className="font-semibold">Export</span>
-                </button>
-                <button className="group bg-white/10 hover:bg-white/20 p-3 rounded-xl transition-all duration-300 backdrop-blur-sm hover:scale-105">
-                  <Settings className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
-                </button> */}
+
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-8">
@@ -1146,12 +1154,12 @@ voucher: [],
                     <p className="text-blue-200 text-sm font-medium">
                       Total Gross Weight
                     </p>
-                   <p className="text-3xl font-bold text-white mt-1">
-  {totalStockIn.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}
-</p>
+                    <p className="text-3xl font-bold text-white mt-1">
+                      {totalStockIn.toLocaleString("en-US", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </p>
 
                     <p className="text-xs text-gray-300">Grams</p>
                   </div>
@@ -1175,12 +1183,12 @@ voucher: [],
                     <p className="text-blue-200 text-sm font-medium">
                       Total Pure Weight
                     </p>
-                   <p className="text-3xl font-bold text-white mt-1">
-  {totalStockOut.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}
-</p>
+                    <p className="text-3xl font-bold text-white mt-1">
+                      {totalStockOut.toLocaleString("en-US", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </p>
 
                     <p className="text-xs text-gray-300">Grams</p>
                   </div>
@@ -1204,12 +1212,12 @@ voucher: [],
                     <p className="text-blue-200 text-sm font-medium">
                       Total Metal Value
                     </p>
-                   <p className="text-3xl font-bold text-white mt-1">
-  {totalBalance.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}
-</p>
+                    <p className="text-3xl font-bold text-white mt-1">
+                      {totalBalance.toLocaleString("en-US", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </p>
 
                     <p className="text-xs text-gray-300">Grams</p>
                   </div>
@@ -1233,9 +1241,9 @@ voucher: [],
                     <p className="text-blue-200 text-sm font-medium">
                       Active Transactions
                     </p>
-                   <p className="text-3xl font-bold text-white mt-1">
-  {filteredLedgerData.length.toLocaleString("en-US")}
-</p>
+                    <p className="text-3xl font-bold text-white mt-1">
+                      {filteredLedgerData.length.toLocaleString("en-US")}
+                    </p>
 
                     <p className="text-xs text-gray-300">Records</p>
                   </div>
@@ -1256,223 +1264,220 @@ voucher: [],
             </div>
           </div>
         </div>
-   <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-xl border border-white/30 p-4 mb-8">
-  <div className="flex items-center justify-between mb-4">
-    <div className="flex items-center space-x-4">
-      <div className="p-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl shadow-lg">
-        <Filter className="w-6 h-6 text-white" />
-      </div>
-      <div>
-        <h2 className="text-xl font-bold text-gray-800">Smart Filters</h2>
-        <p className="text-sm text-gray-600">Refine your search with precision</p>
-      </div>
-      <button
-        onClick={() => setShowFilters(!showFilters)}
-        className="p-2 hover:bg-gray-100 rounded-xl transition-all duration-200 group"
-      >
-        <ChevronDown
-          className={`w-5 h-5 text-gray-600 transform transition-transform duration-300 group-hover:text-blue-600 ${
-            showFilters ? "rotate-180" : ""
-          }`}
-        />
-      </button>
-    </div>
-    <div className="flex items-center space-x-3">
-      <button
-        onClick={handleClearFilters}
-        className="group px-5 py-2.5 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all duration-200 flex items-center space-x-2 hover:scale-105"
-      >
-        <RefreshCw className="w-4 h-4 group-hover:animate-spin" />
-        <span className="font-medium">Clear All</span>
-      </button>
-      <button
-        onClick={handleApplyFilters}
-        disabled={searchLoading}
-        className="group px-8 py-3 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white rounded-xl transition-all duration-200 flex items-center space-x-2 disabled:opacity-50 shadow-lg hover:shadow-xl transform hover:scale-105"
-      >
-        {searchLoading ? (
-          <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-        ) : (
-          <Search className="w-5 h-5" />
-        )}
-        <span className="font-semibold">Apply Filters</span>
-      </button>
-      <TransactionSummaryStatementPDF transactionData={filteredLedgerData} />
-    </div>
-  </div>
-  <AnimatePresence>
-    {showFilters && !loading ? (
-      <motion.div
-        initial={{ opacity: 0, height: 0 }}
-        animate={{ opacity: 1, height: "auto" }}
-        exit={{ opacity: 0, height: 0 }}
-        transition={{ duration: 0.3 }}
-        className="space-y-4"
-      >
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        
-             <div className="space-y-2">
-      <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700">
-        <div className="p-1.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg">
-          <Calendar className="w-4 h-4 text-white" />
-        </div>
-        <span>From Date</span>
-      </label>
-      <input
-        type="date"
-        value={filters.fromDate}
-        max={new Date().toISOString().split('T')[0]} // Prevent future dates
-        onClick={(e) => e.target.showPicker?.()}
-        onChange={(e) => handleFilterChange("fromDate", e.target.value)}
-        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 backdrop-blur-sm transition-all duration-200 hover:bg-white"
-      />
-    </div>
-       <div className="space-y-2">
-      <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700">
-        <div className="p-1.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg">
-          <Calendar className="w-4 h-4 text-white" />
-        </div>
-        <span>To Date</span>
-      </label>
-      <input
-        type="date"
-        value={filters.toDate}
-        max={new Date().toISOString().split('T')[0]} // Prevent future dates
-        onClick={(e) => e.target.showPicker?.()}
-        onChange={(e) => handleFilterChange("toDate", e.target.value)}
-        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 backdrop-blur-sm transition-all duration-200 hover:bg-white"
-      />
-    </div>
-            <div className="space-y-2">
-            <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700">
-              <div className="p-1.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg">
-                <FileText className="w-4 h-4 text-white" />
+        <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-xl border border-white/30 p-4 mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-4">
+              <div className="p-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl shadow-lg">
+                <Filter className="w-6 h-6 text-white" />
               </div>
-              <span>Transaction Type</span>
-            </label>
-            <select
-              value={filters.transactionType}
-              onChange={(e) => handleFilterChange("transactionType", e.target.value)}
-              className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 backdrop-blur-sm transition-all duration-200 hover:bg-white"
-            >
-              {transactionTypes.map((type) => (
-                <option key={type} value={type.toLowerCase()}>
-                  {type}
-                </option>
-              ))}
-            </select>
-          </div>
-          {/* <div className="space-y-2">
-            <label className="text-sm font-semibold text-gray-700">Show Cost In</label>
-            <div className="flex space-x-2">
-              <select
-                value={filters.costCurrency}
-                onChange={(e) => handleFilterChange("costCurrency", e.target.value)}
-                className="w-1/3 px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 backdrop-blur-sm transition-all duration-200 hover:bg-white"
+              <div>
+                <h2 className="text-xl font-bold text-gray-800">Smart Filters</h2>
+                <p className="text-sm text-gray-600">Refine your search with precision</p>
+              </div>
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className="p-2 hover:bg-gray-100 rounded-xl transition-all duration-200 group"
               >
-                {currencies.map((currency) => (
-                  <option key={currency} value={currency}>
-                    {currency}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="number"
-                value={filters.costAmount}
-                onChange={(e) => handleFilterChange("costAmount", e.target.value)}
-                placeholder="Min Amount (optional)"
-                min="0"
-                step="0.01"
-                className="w-2/3 px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 backdrop-blur-sm transition-all duration-200 hover:bg-white"
-              />
+                <ChevronDown
+                  className={`w-5 h-5 text-gray-600 transform transition-transform duration-300 group-hover:text-blue-600 ${showFilters ? "rotate-180" : ""
+                    }`}
+                />
+              </button>
             </div>
-          </div> */}
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={handleClearFilters}
+                className="group px-5 py-2.5 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all duration-200 flex items-center space-x-2 hover:scale-105"
+              >
+                <RefreshCw className="w-4 h-4 group-hover:animate-spin" />
+                <span className="font-medium">Clear All</span>
+              </button>
+              <button
+                onClick={handleApplyFilters}
+                disabled={searchLoading}
+                className="group px-8 py-3 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white rounded-xl transition-all duration-200 flex items-center space-x-2 disabled:opacity-50 shadow-lg hover:shadow-xl transform hover:scale-105"
+              >
+                {searchLoading ? (
+                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                ) : (
+                  <Search className="w-5 h-5" />
+                )}
+                <span className="font-semibold">Apply Filters</span>
+              </button>
+              <TransactionSummaryStatementPDF transactionData={filteredLedgerData} />
+            </div>
+          </div>
+          <AnimatePresence>
+            {showFilters && !loading ? (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3 }}
+                className="space-y-4"
+              >
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+                  <div className="space-y-2">
+                    <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700">
+                      <div className="p-1.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg">
+                        <Calendar className="w-4 h-4 text-white" />
+                      </div>
+                      <span>From Date</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={filters.fromDate}
+                      max={new Date().toISOString().split('T')[0]} // Prevent future dates
+                      onClick={(e) => e.target.showPicker?.()}
+                      onChange={(e) => handleFilterChange("fromDate", e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 backdrop-blur-sm transition-all duration-200 hover:bg-white"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700">
+                      <div className="p-1.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg">
+                        <Calendar className="w-4 h-4 text-white" />
+                      </div>
+                      <span>To Date</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={filters.toDate}
+                      max={new Date().toISOString().split('T')[0]} // Prevent future dates
+                      onClick={(e) => e.target.showPicker?.()}
+                      onChange={(e) => handleFilterChange("toDate", e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 backdrop-blur-sm transition-all duration-200 hover:bg-white"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700">
+                      <div className="p-1.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg">
+                        <FileText className="w-4 h-4 text-white" />
+                      </div>
+                      <span>Transaction Type</span>
+                    </label>
+                    <select
+                      value={filters.transactionType}
+                      onChange={(e) => handleFilterChange("transactionType", e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 backdrop-blur-sm transition-all duration-200 hover:bg-white"
+                    >
+                      {transactionTypes.map((type) => (
+                        <option key={type} value={type.toLowerCase()}>
+                          {type}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <CheckboxFilter
+                    title="Voucher"
+                    options={vouchers.map((v) => ({
+                      ...v,
+                      checked: filters.voucher.includes(v.id || v._id),
+                    }))}
+                    field="voucher"
+                    icon={FileText}
+                    searchTerm={searchTerms.voucher}
+                    onCheckboxChange={handleCheckboxChange}
+                    onSearchChange={handleSearchChange}
+                    allSelected={filters.voucher.length === vouchers.length}
+                    onToggleAll={handleToggleAll}
+                    hideSelectAll={filters.transactionType !== "all"}
+                    transactionType={filters.transactionType}
+                  />
+                  <CheckboxFilter
+                    title="Currencies"
+                    options={currencies.map((c) => ({
+                      ...c,
+                      name: c.currencyCode, // Display currencyCode (e.g., AED, INR)
+                      checked: filters.currencies.includes(c.id || c._id),
+                    }))}
+                    field="currencies"
+                    icon={DollarSign} // Use appropriate icon
+                    searchTerm={searchTerms.currencies}
+                    onCheckboxChange={handleCheckboxChange}
+                    onSearchChange={handleSearchChange}
+                    allSelected={filters.currencies.length === currencies.length}
+                    onToggleAll={handleToggleAll}
+                  />
+
+                  <CheckboxFilter
+                    title="Group By"
+                    options={[
+                      { id: "stockCode", name: "Stock Code", checked: (filters.groupBy || []).includes("stockCode") },
+                      { id: "categoryCode", name: "Category Code", checked: (filters.groupBy || []).includes("categoryCode") },
+                      { id: "karat", name: "Karat", checked: (filters.groupBy || []).includes("karat") },
+                      { id: "type", name: "Type", checked: (filters.groupBy || []).includes("type") },
+                      { id: "supplierRef", name: "Size", checked: (filters.groupBy || []).includes("supplierRef") },
+                      { id: "countryDetails", name: "Color", checked: (filters.groupBy || []).includes("countryDetails") },
+                      { id: "supplier", name: "Brand", checked: (filters.groupBy || []).includes("supplier") },
+                    ]}
+                    field="groupBy"
+                    icon={Layers}
+                    searchTerm={searchTerms.groupBy}
+                    onCheckboxChange={handleCheckboxChange}
+                    onSearchChange={handleSearchChange}
+                    allSelected={(filters.groupBy || []).length === 7}
+                    onToggleAll={handleToggleAll}
+                    loading={loading}
+                  />
+                  {/* check box for the currency */}
+                  {/* single check box for the aed , inr */}
+
+
+
+
+                  {filters.groupBy.map((field) => {
+                    console.log(`Rendering CheckboxFilter for field: ${field}`, groupByOptions[field]);
+
+                    if (!groupByOptions[field] || !Array.isArray(groupByOptions[field])) {
+                      console.warn(`Skipping CheckboxFilter for field: ${field} - groupByOptions[field] is invalid`, groupByOptions[field]);
+                      return null;
+                    }
+
+                    return (
+                      <CheckboxFilter
+                        key={field}
+                        title={
+                          field === "stockCode" ? "Stock Code" :
+                            field === "categoryCode" ? "Category Code" :
+                              field === "karat" ? "Karat" :
+                                field === "type" ? "Type" :
+                                  field === "supplierRef" ? "Size" :
+                                    field === "countryDetails" ? "Color" :
+                                      field === "supplier" ? "Brand" :
+                                        "Purchase"
+                        }
+                        options={(groupByOptions?.[field] || []).map((option) => {
+                          console.log(`Mapping option for ${field}:`, option);
+                          return {
+                            ...option,
+                            checked: (filters?.groupByRange?.[field] || []).includes(option.id || option._id),
+                          };
+                        })}
+                        field={`groupByRange.${field}`}
+                        icon={Layers}
+                        searchTerm={searchTerms?.groupByRange?.[field] || ''}
+                        onCheckboxChange={handleCheckboxChange}
+                        onSearchChange={handleSearchChange}
+                        allSelected={
+                          (filters?.groupByRange?.[field]?.length || 0) === (groupByOptions?.[field]?.length || 0)
+                        }
+                        onToggleAll={handleToggleAll}
+                      />
+
+                    );
+                  })}
+                </div>
+              </motion.div>
+            ) : showFilters && loading ? (
+              <div className="text-center text-gray-600">Loading filters...</div>
+            ) : null}
+          </AnimatePresence>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <CheckboxFilter
-                             title="Voucher"
-                             options={vouchers.map((v) => ({
-                               ...v,
-                               checked: filters.voucher.includes(v.id || v._id),
-                             }))}
-                             field="voucher"
-                             icon={FileText}
-                             searchTerm={searchTerms.voucher}
-                             onCheckboxChange={handleCheckboxChange}
-                             onSearchChange={handleSearchChange}
-                             allSelected={filters.voucher.length === vouchers.length}
-                             onToggleAll={handleToggleAll}
-                             hideSelectAll={filters.transactionType !== "all"}
-                             transactionType={filters.transactionType}
-                           />
-          <CheckboxFilter
-            title="Group By"
-            options={[
-              { id: "stockCode", name: "Stock Code", checked: (filters.groupBy || []).includes("stockCode") },
-              { id: "categoryCode", name: "Category Code", checked: (filters.groupBy || []).includes("categoryCode") },
-              { id: "karat", name: "Karat", checked: (filters.groupBy || []).includes("karat") },
-              { id: "type", name: "Type", checked: (filters.groupBy || []).includes("type") },
-              { id: "supplierRef", name: "Size", checked: (filters.groupBy || []).includes("supplierRef") },
-              { id: "countryDetails", name: "Color", checked: (filters.groupBy || []).includes("countryDetails") },
-              { id: "supplier", name: "Brand", checked: (filters.groupBy || []).includes("supplier") },
-            ]}
-            field="groupBy"
-            icon={Layers}
-            searchTerm={searchTerms.groupBy}
-            onCheckboxChange={handleCheckboxChange}
-            onSearchChange={handleSearchChange}
-            allSelected={(filters.groupBy || []).length === 7}
-            onToggleAll={handleToggleAll}
-            loading={loading}
-          />
-          {filters.groupBy.map((field) => {
-            console.log(`Rendering CheckboxFilter for field: ${field}`, groupByOptions[field]);
-
-            if (!groupByOptions[field] || !Array.isArray(groupByOptions[field])) {
-              console.warn(`Skipping CheckboxFilter for field: ${field} - groupByOptions[field] is invalid`, groupByOptions[field]);
-              return null;
-            }
-
-            return (
-              <CheckboxFilter
-                key={field}
-                title={
-                  field === "stockCode" ? "Stock Code" :
-                    field === "categoryCode" ? "Category Code" :
-                      field === "karat" ? "Karat" :
-                        field === "type" ? "Type" :
-                          field === "supplierRef" ? "Size" :
-                            field === "countryDetails" ? "Color" :
-                              field === "supplier" ? "Brand" :
-                                "Purchase"
-                }
-             options={(groupByOptions?.[field] || []).map((option) => {
-  console.log(`Mapping option for ${field}:`, option);
-  return {
-    ...option,
-    checked: (filters?.groupByRange?.[field] || []).includes(option.id || option._id),
-  };
-})}
-field={`groupByRange.${field}`}
-icon={Layers}
-searchTerm={searchTerms?.groupByRange?.[field] || ''}
-onCheckboxChange={handleCheckboxChange}
-onSearchChange={handleSearchChange}
-allSelected={
-  (filters?.groupByRange?.[field]?.length || 0) === (groupByOptions?.[field]?.length || 0)
-}
-onToggleAll={handleToggleAll}
-/>
-
-            );
-          })}
-        </div>
-      </motion.div>
-    ) : showFilters && loading ? (
-      <div className="text-center text-gray-600">Loading filters...</div>
-    ) : null}
-  </AnimatePresence>
-</div>
         <DivisionModal
           isOpen={showDivisionModal}
           onClose={() => setShowDivisionModal(false)}
@@ -1482,7 +1487,7 @@ onToggleAll={handleToggleAll}
           handleToggleAll={handleToggleAll}
         />
       </div>
-      <div className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl border border-white/30 p-6 max-w-[160vh] mx-auto scrollbar-hide">
+      <div className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl border border-white/30 p-6 max-w-[160vh]  scrollbar-hide ">
         <TransactionSummaryStatement transactionData={filteredLedgerData} />
       </div>
     </>

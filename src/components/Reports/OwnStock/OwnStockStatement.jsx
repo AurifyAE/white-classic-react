@@ -11,8 +11,11 @@ function OwnStockStatement({
   metalValueAmount,
   metalValueCurrency,
   rateType,
-  onCalculatedValues
+  onCalculatedValues,
+  selectedCurrencies = ["AED", "INR"] // Default to both currencies
 }) {
+// console.log("Selected Currencies:", selectedCurrencies);
+  
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
   const [stockDataState, setStockData] = useState([]);
   const aedRate = 3.674;
@@ -37,10 +40,14 @@ function OwnStockStatement({
     return ((avgGrossWeight / (convFactGms || 31.1035)) * aedRate * goldGms).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
-  // Calculate receivable/payable average
-  const calculateReceivablePayableAverage = (goldGms) => {
+  // Calculate receivable/payable values for both INR and AED
+  const calculateReceivablePayableAverage = (goldGms, currency = "AED") => {
     const effectiveRate = getEffectiveRate();
-    return ((effectiveRate / (convFactGms || 31.1035)) * goldGms * aedRate).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const amount = (effectiveRate / (convFactGms || 31.1035)) * goldGms;
+    if (currency === "INR") {
+      return (amount * aedRate).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    return amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
   // Check if category is a return type (should be subtracted)
@@ -58,22 +65,25 @@ function OwnStockStatement({
     return categories
       .filter((item) => !excludeOpening || item.category !== "OSB")
       .map((item, index) => {
+        console.log("Processing item:", item);
         const goldGms = Number(item.totalGrossWeight) || 0;
         const avgGrossWeight = Number(item.avgBidValue) || 0;
-        const valueAcd = calculateValue(avgGrossWeight, goldGms);
+        // const valueAcd = calculateValue(avgGrossWeight, goldGms);
+        const valueAcd = String(item.avgValue);
         const isReturn = isReturnCategory(item.category);
-
+        console.log("Category:", item.category, "isReturn:", isReturn, valueAcd);
         return {
           id: item.id || index + 1,
           category: item.description || item.category || "Unknown",
           goldGms,
           valueAcd,
-          average: metalValueCurrency === "GOZ"
-            ? avgGrossWeight.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-            : (avgGrossWeight / (convFactGms || 31.1035)).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-          section: ["OSB", "PF", "PR", "PRM"].includes(item.category)
+          average:String(avgGrossWeight),
+          // average: metalValueCurrency === "GOZ"
+          //   ? avgGrossWeight.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+          //   : (avgGrossWeight / (convFactGms || 31.1035)).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+          section: ["OSB", "PF", "PR", "PRM", "GFB"].includes(item.category)
             ? "Purchase"
-            : ["SF", "SR", "SAL"].includes(item.category)
+            : ["SF", "SR", "SAL","GFS"].includes(item.category)
               ? "Sales"
               : "SubTotal",
           isReturn: isReturn
@@ -86,12 +96,19 @@ function OwnStockStatement({
   const payableGrams = Number(stockData.summary?.totalPayableGrams || 0);
   const receivableaverage = Number(stockData.summary?.avgReceivableGrams || 0);
   const payableaverage = Number(stockData.summary?.avgPayableGrams || 0);
+  const totalReceivableAmount = stockData.summary?.totalReceivableAmount || { INR: 0, AED: 0 };
+  const totalPayableAmount = stockData.summary?.totalPayableAmount || { INR: 0, AED: 0 };
 
-  // Calculate receivable/payable values
-  const receivableValue = calculateReceivablePayableAverage(receivableGrams);
-  const payableValue = calculateReceivablePayableAverage(payableGrams);
-  console.log("Receivable Value:", receivableValue, "Payable Value:", payableValue);
+  // Use API-provided receivable/payable amounts
+ const receivableValue = React.useMemo(() => ({
+  INR: Number(totalReceivableAmount.INR || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+  AED: Number(totalReceivableAmount.AED || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}), [totalReceivableAmount.INR, totalReceivableAmount.AED]);
 
+const payableValue = React.useMemo(() => ({
+  INR: Number(totalPayableAmount.INR || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+  AED: Number(totalPayableAmount.AED || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}), [totalPayableAmount.INR, totalPayableAmount.AED]);
   // Combine all data
   const fullStockData = React.useMemo(() => {
     const data = [...formattedStockData];
@@ -101,7 +118,8 @@ function OwnStockStatement({
           id: "receivable",
           category: "Receivable",
           goldGms: receivableGrams,
-          valueAcd: receivableValue,
+          valueAcd: receivableValue.AED,
+          valueINR: receivableValue.INR,
           average: receivableaverage.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
           GOZvalue: receivableaverage,
           section: "Receivable",
@@ -112,7 +130,8 @@ function OwnStockStatement({
           id: "payable",
           category: "Payable",
           goldGms: payableGrams,
-          valueAcd: payableValue,
+          valueAcd: payableValue.AED,
+          valueINR: payableValue.INR,
           average: payableaverage.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
           section: "Payable",
           GOZvalue: payableaverage,
@@ -136,7 +155,7 @@ function OwnStockStatement({
     fullStockData.forEach((item) => {
       const gms = Number(item.goldGms) || 0;
       const val = Number(item.valueAcd.replace(/,/g, '')) || 0; // Parse formatted string back to number
-      const avg = Number(item.average.replace(/,/g, '')) || 0; // Parse formatted string back to number
+      const avg = Number(Number(item.average.replace(/,/g, '')).toFixed(3));
 
       switch (item.section) {
         case "Purchase":
@@ -282,13 +301,37 @@ function OwnStockStatement({
     netCalculations.netSales.valueAcd,
     netCalculations.netPurchase.goldGms,
     netCalculations.netSales.goldGms,
-    onCalculatedValues
+    
   ]);
 
+  const sortedStockData = React.useMemo(() => {
+  const data = [...fullStockData];
+  if (sortConfig.key) {
+    data.sort((a, b) => {
+      const aValue = sortConfig.key === "category" ? a[sortConfig.key] : Number(a[sortConfig.key].replace(/,/g, ''));
+      const bValue = sortConfig.key === "category" ? b[sortConfig.key] : Number(b[sortConfig.key].replace(/,/g, ''));
+      if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
+      return 0;
+    });
+  }
+  return data;
+}, [fullStockData, sortConfig]);
+
+// Remove the useEffect and stockDataState
+// const [stockDataState, setStockData] = useState([]);
+// useEffect(() => {
+//   setStockData(fullStockData);
+// }, [fullStockData]);
   // Update stock data
-  useEffect(() => {
-    setStockData(fullStockData);
-  }, [fullStockData]);
+  // useEffect(() => {
+  //   setStockData(fullStockData);
+  // }, [fullStockData]);
+
+  // Check if currency should be shown
+  const shouldShowCurrency = (currency) => {
+    return selectedCurrencies.includes(currency);
+  };
 
   // Stock table component
   const StockTable = ({ section, title, currentRateValue }) => (
@@ -299,7 +342,7 @@ function OwnStockStatement({
       <table className="w-full h-auto text-sm">
         <thead className="bg-gray-100 text-xs text-gray-600 uppercase font-medium">
           <tr>
-            <th className="px-4 py-2 text-left w-1/3 cursor-pointer"
+            <th className="px-4 py-2 text-left w-1/4 cursor-pointer"
               onClick={() => handleSort("category")}>
               Category
               {sortConfig.key === "category" && (
@@ -313,29 +356,55 @@ function OwnStockStatement({
                 <span className="ml-1">{sortConfig.direction === "asc" ? "↑" : "↓"}</span>
               )}
             </th>
-            {section !== "ReceivablePayable" && (
-              <th className="px-4 py-2 text-right w-1/4 cursor-pointer"
-                onClick={() => handleSort("valueAcd")}>
-                <div className="flex items-center justify-end">
-                  Value
-                  <img src={Dirham} alt="AED" className="w-4 h-4 ml-1" />
-                </div>
-                {sortConfig.key === "valueAcd" && (
-                  <span className="ml-1">{sortConfig.direction === "asc" ? "↓" : "↑"}</span>
+            {section === "ReceivablePayable" ? (
+              <>
+                {shouldShowCurrency("AED") && (
+                  <th className="px-4 py-2 text-right w-1/4 cursor-pointer"
+                    onClick={() => handleSort("valueAcd")}>
+                    <div className="flex items-center justify-end">
+                      AED
+                      <img src={Dirham} alt="AED" className="w-4 h-4 ml-1" />
+                    </div>
+                    {sortConfig.key === "valueAcd" && (
+                      <span className="ml-1">{sortConfig.direction === "asc" ? "↓" : "↑"}</span>
+                    )}
+                  </th>
                 )}
-              </th>
+                {shouldShowCurrency("INR") && (
+                  <th className="px-4 py-2 text-right w-1/4 cursor-pointer"
+                    onClick={() => handleSort("valueINR")}>
+                    INR
+                    {sortConfig.key === "valueINR" && (
+                      <span className="ml-1">{sortConfig.direction === "asc" ? "↓" : "↑"}</span>
+                    )}
+                  </th>
+                )}
+              </>
+            ) : (
+              <>
+                <th className="px-4 py-2 text-right w-1/4 cursor-pointer"
+                  onClick={() => handleSort("valueAcd")}>
+                  <div className="flex items-center justify-end">
+                    Value
+                    <img src={Dirham} alt="AED" className="w-4 h-4 ml-1" />
+                  </div>
+                  {sortConfig.key === "valueAcd" && (
+                    <span className="ml-1">{sortConfig.direction === "asc" ? "↓" : "↑"}</span>
+                  )}
+                </th>
+                <th className="px-4 py-2 text-right w-1/4 cursor-pointer"
+                  onClick={() => handleSort("average")}>
+                  Average({metalValueCurrency})
+                  {sortConfig.key === "average" && (
+                    <span className="ml-1">{sortConfig.direction === "asc" ? "↑" : "↓"}</span>
+                  )}
+                </th>
+              </>
             )}
-            <th className="px-4 py-2 text-right w-1/4 cursor-pointer"
-              onClick={() => handleSort("average")}>
-              {section === "ReceivablePayable" ? "Value Of AED" : `Average(${metalValueCurrency})`}
-              {sortConfig.key === "average" && (
-                <span className="ml-1">{sortConfig.direction === "asc" ? "↑" : "↓"}</span>
-              )}
-            </th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
-          {section !== "SubTotal" && stockDataState
+          {section !== "SubTotal" && sortedStockData
             .filter((item) =>
               item &&
               (item.section === section ||
@@ -351,18 +420,43 @@ function OwnStockStatement({
                   {item.isReturn && <span className="text-black font-medium">- </span>}
                   {Number(item.goldGms).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </td>
-                {section !== "ReceivablePayable" && (
-                  <td className="px-4 py-2 text-right">
-                    <div className="flex items-center justify-end">
+                {section === "ReceivablePayable" ? (
+                  <>
+                    {shouldShowCurrency("AED") && (
+                      <td className="px-4 py-2 text-right">
+                        <div className="flex items-center justify-end">
+                          {item.isReturn && <span className="text-black font-medium">- </span>}
+                          {item.valueAcd}
+                          <img src={Dirham} alt="AED" className="w-4 h-4 ml-1" />
+                        </div>
+                      </td>
+                    )}
+                    {shouldShowCurrency("INR") && (
+                      <td className="px-4 py-2 text-right">
+                        <div className="flex items-center justify-end">
+                          {item.isReturn && <span className="text-black font-medium">- </span>}
+                          ₹ {item.valueINR}
+                        </div>
+                      </td>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <td className="px-4 py-2 text-right">
+                      <div className="flex items-center justify-end">
+                        {item.isReturn && <span className="text-black font-medium">- </span>}
+                        {item.valueAcd}
+                        {section === "ReceivablePayable" && (
+                          <img src={Dirham} alt="AED" className="w-4 h-4 ml-1" />
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-2 text-right">
                       {item.isReturn && <span className="text-black font-medium">- </span>}
-                      {item.valueAcd}
-                    </div>
-                  </td>
+                      {item.average}
+                    </td>
+                  </>
                 )}
-                <td className="px-4 py-2 text-right">
-                  {item.isReturn && <span className="text-black font-medium">- </span>}
-                  {item.average}
-                </td>
               </tr>
             ))
           }
@@ -457,6 +551,9 @@ function OwnStockStatement({
           )}
           {" | Total Records: "}
           {stockDataState.length.toLocaleString("en-US")}
+          {selectedCurrencies.length > 0 && (
+            <> | Currencies: {selectedCurrencies.join(", ")}</>
+          )}
         </p>
       </div>
       <div className="flex flex-col lg:flex-row lg:items-start gap-4 mb-4">

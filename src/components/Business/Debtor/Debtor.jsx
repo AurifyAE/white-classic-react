@@ -82,7 +82,7 @@ export default function DebtorManagement() {
       const calculatedGoldRate =
         metalWeight !== 0
           ? parseFloat(
-              ((valueInAED / metalWeight / 3.674) * 31.1035).toFixed(2)
+              ((accBalance / metalWeight / 3.674) * 31.1035).toFixed(2)
             )
           : 0;
 
@@ -182,10 +182,13 @@ export default function DebtorManagement() {
   useEffect(() => {
     if (!apiData?.data?.parties || !liveRate) return;
 
+
     setDebtorUsers((prevUsers) =>
+
       prevUsers.map((user) => {
         const valueInAED = liveRate * user.metalWeight;
         const netEquity = valueInAED + user.accBalance;
+        
         const marginAmount = (netEquity * user.margin) / 100;
         const totalNeeded = marginAmount + netEquity;
         const marginRatio =
@@ -194,7 +197,7 @@ export default function DebtorManagement() {
           user.metalWeight !== 0
             ? parseFloat(
                 (
-                  (valueInAED / user.metalWeight / 3.674) *
+                  (user.accBalance / user.metalWeight / 3.674) *
                   31.1035
                 ).toFixed(2)
               )
@@ -213,6 +216,8 @@ export default function DebtorManagement() {
         };
       })
     );
+    // console.log(debtorUsers);
+    
   }, [liveRate, calculateRiskLevel, apiData?.data?.parties]);
 
   // Memoized formatting
@@ -319,7 +324,7 @@ export default function DebtorManagement() {
     if (!message || !recipient) return;
 
     try {
-      console.log(`Sending message to ${recipient.name}: ${message}`);
+      // console.log(`Sending message to ${recipient.name}: ${message}`);
       await new Promise((resolve) => setTimeout(resolve, 500));
       alert(`Message sent successfully to ${recipient.name}`);
       setMessageRecipient(null);
@@ -606,7 +611,7 @@ export default function DebtorManagement() {
                     <TableHeader label="Total Needed" sortKey="totalNeeded" />
                     <TableHeader label="Risk Status" sortKey="riskLevel" />
                      <TableHeader
-                      label="Gold Rate As Per Margin"
+                      label="Break-even Gold Rate"
                       sortKey="calculatedGoldRate"
                     />
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-0 bg-gray-100 z-10">

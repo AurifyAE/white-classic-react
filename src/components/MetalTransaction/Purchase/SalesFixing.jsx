@@ -374,7 +374,7 @@ const fetchTransactions = useCallback(async () => {
       }
 
       const priceToUse = parseFloat(firstOrder.price || goldData?.bid || 0);
-      console.log("Order details:", orderDetailsList);
+      // console.log("Order details:", orderDetailsList);
 
       // Map orderDetailsList into only the per-order fields
       const ordersArray = orderDetailsList.map(orderDetails => ({
@@ -405,7 +405,7 @@ const fetchTransactions = useCallback(async () => {
         orders: ordersArray
       };
 
-      console.log("Final batch order data:", orderData);
+      // console.log("Final batch order data:", orderData);
 
       // Single API call
       const response = await axiosInstance.post(

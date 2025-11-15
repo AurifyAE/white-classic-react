@@ -201,7 +201,7 @@ export default function StatementOfAccounts() {
     accountType: [],
     stock: [],
     voucher: [],
-
+currencies: [],
     showGold: true,
     showCash: true,
   });
@@ -209,6 +209,7 @@ export default function StatementOfAccounts() {
     accountType: "",
     stock: "",
     voucher: "",
+    currencies: "",
 
   });
   const [stocks, setStocks] = useState([]);
@@ -216,6 +217,7 @@ export default function StatementOfAccounts() {
   const [accountTypes, setAccountTypes] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [filteredStatementData, setFilteredStatementData] = useState([]);
+  const [currencies, setCurrencies] = useState([]);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
   const navigateToVoucher = useVoucherNavigation();
 
@@ -239,6 +241,18 @@ export default function StatementOfAccounts() {
           url: "/account-type",
           setter: setAccountTypes,
         },
+       { 
+        key: "currencies",
+        url: "/currency-master",
+        setter: (data) => {
+          // Append static "Gold" option to the fetched currencies
+          const updatedCurrencies = [
+            ...data,
+            // { _id: "gold", currencyCode: "XAU - XAU" } // Static gold object with id and display name
+          ];
+          setCurrencies(updatedCurrencies);
+        },
+      },
         {
           key: "vouchers",
           url: "/voucher",
@@ -303,7 +317,27 @@ export default function StatementOfAccounts() {
     fetchData();
   }, [fetchData]);
 
-  const handleApplyFilters = useCallback(async () => {
+// Helper functions to check which currencies are selected
+const showAED = useMemo(() => {
+  return filters.currencies.some(currencyId => {
+    const currency = currencies.find(c => (c.id || c._id) === currencyId);
+    return currency && currency.currencyCode.includes('AED');
+  });
+}, [filters.currencies, currencies]);
+
+const showINR = useMemo(() => {
+  return filters.currencies.some(currencyId => {
+    const currency = currencies.find(c => (c.id || c._id) === currencyId);
+    return currency && currency.currencyCode.includes('INR');
+  });
+}, [filters.currencies, currencies]);
+
+const showGold = filters.showGold;
+
+// Check if any currency columns should be shown
+const showAnyCurrencyColumns = showAED || showINR || showGold;
+
+   const handleApplyFilters = useCallback(async () => {
     setSearchLoading(true);
     try {
       const body = {};
@@ -324,16 +358,23 @@ export default function StatementOfAccounts() {
           })
           .filter((voucher) => voucher !== null);
       }
+     if (filters.currencies.length > 0) {
+      body.currencies = filters.currencies.map(currencyId => {
+        const currency = currencies.find(c => (c.id || c._id) === currencyId);
+        return currency ? currency.currencyCode.split(' - ')[0] : null; // Get currency code like "AED", "INR"
+      }).filter(code => code !== null);
+    }
 
-      // Keep your showGold & showCash flags
-      if (filters.showGold !== undefined) body.showGold = filters.showGold;
-      if (filters.showCash !== undefined) body.showCash = filters.showCash;
+    if (filters.showGold !== undefined) body.showGold = filters.showGold;
+
+    console.log("Filter body (Statement of Account):", JSON.stringify(body, null, 2));
+
 
       console.log("Filter body (Statement of Account):", JSON.stringify(body, null, 2));
 
       const response = await axios.post("reports/account-statements", body);
+      console.log(response.data, "response");
 
-      // Validate the response
       if (!response.data || !response.data.success || !Array.isArray(response.data.data)) {
         throw new Error(response.data?.message || "Invalid API response format");
       }
@@ -346,20 +387,32 @@ export default function StatementOfAccounts() {
         return;
       }
 
-      // Process API data into table-friendly format
-      let runningCashBalance = 0;
+      let runningCashBalanceAED = 0;
+      let runningCashBalanceINR = 0;
       let runningGoldBalance = 0;
 
       const processedData = apiData.flatMap((party) =>
         party.transactions.map((transaction) => {
-          // Cash
           const cashDebit = parseFloat(transaction.cash?.debit) || 0;
           const cashCredit = parseFloat(transaction.cash?.credit) || 0;
-          runningCashBalance += cashDebit - cashCredit;
-
-          // Gold
           const goldDebit = parseFloat(transaction.goldInGMS?.debit) || 0;
           const goldCredit = parseFloat(transaction.goldInGMS?.credit) || 0;
+
+          let aedDebit = 0;
+          let aedCredit = 0;
+          let inrDebit = 0;
+          let inrCredit = 0;
+
+          if (transaction.assetType === "AED") {
+            aedDebit = cashDebit;
+            aedCredit = cashCredit;
+            runningCashBalanceAED += cashDebit - cashCredit;
+          } else if (transaction.assetType === "INR") {
+            inrDebit = cashDebit;
+            inrCredit = cashCredit;
+            runningCashBalanceINR += cashDebit - cashCredit;
+          }
+
           runningGoldBalance += goldDebit - goldCredit;
 
           return {
@@ -368,12 +421,16 @@ export default function StatementOfAccounts() {
             docRef: transaction.docRef,
             branch: transaction.branch,
             particulars: `${transaction.particulars} - ${party.partyName}`,
-            aedDebit: cashDebit,
-            aedCredit: cashCredit,
+            aedDebit,
+            aedCredit,
+            inrDebit,
+            inrCredit,
             goldDebit,
             goldCredit,
-            aedBalanceValue: Math.abs(runningCashBalance),
-            aedBalanceType: runningCashBalance >= 0 ? "CR" : "DR",
+            aedBalanceValue: Math.abs(runningCashBalanceAED),
+            aedBalanceType: runningCashBalanceAED >= 0 ? "CR" : "DR",
+            inrBalanceValue: Math.abs(runningCashBalanceINR),
+            inrBalanceType: runningCashBalanceINR >= 0 ? "CR" : "DR",
             goldBalanceValue: Math.abs(runningGoldBalance),
             goldBalanceType: runningGoldBalance >= 0 ? "CR" : "DR",
             partyName: party.partyName,
@@ -398,7 +455,31 @@ export default function StatementOfAccounts() {
     }
   }, [filters, showToast, vouchers]);
 
+ const totalInrDebit = useMemo(() => {
+    return filteredStatementData.reduce(
+      (sum, item) => sum + (item.inrDebit || 0),
+      0
+    );
+  }, [filteredStatementData]);
 
+  const totalInrCredit = useMemo(() => {
+    return filteredStatementData.reduce(
+      (sum, item) => sum + (item.inrCredit || 0),
+      0
+    );
+  }, [filteredStatementData]);
+
+  const finalInrBalanceValue = useMemo(() => {
+    return filteredStatementData.length > 0
+      ? filteredStatementData[filteredStatementData.length - 1].inrBalanceValue
+      : 0;
+  }, [filteredStatementData]);
+
+  const finalInrBalanceType = useMemo(() => {
+    return filteredStatementData.length > 0
+      ? filteredStatementData[filteredStatementData.length - 1].inrBalanceType
+      : "CR";
+  }, [filteredStatementData]);
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
 
@@ -540,24 +621,50 @@ export default function StatementOfAccounts() {
     }));
   }, []);
 
-  const handleToggleAll = useCallback(
-    (field) => {
-      setFilters((prev) => {
-        const allIds =
-          field === "stock"
-            ? stocks.map((s) => s.id || s._id)
-            : accountTypes.map((a) => a.id || a._id);
+const handleToggleAll = useCallback(
+  (field) => {
+    setFilters((prev) => {
+      const allIds =
+        field === "stock"
+          ? stocks.map((s) => s.id || s._id)
+          : field === "accountType"
+            ? accountTypes.map((a) => a.id || a._id)
+            : field === "voucher"
+              ? vouchers.map((v) => v.id || v._id)
+              : field === "currencies"
+                ? currencies.map((c) => c.id || c._id)
+                : [];
 
-        const isAllSelected = prev[field].length === allIds.length;
-        return {
-          ...prev,
-          [field]: isAllSelected ? [] : allIds,
-        };
-      });
-    },
-    [stocks, accountTypes]
-  );
+      const isAllSelected = prev[field].length === allIds.length;
+      return {
+        ...prev,
+        [field]: isAllSelected ? [] : allIds,
+      };
+    });
+  },
+  [stocks, accountTypes, vouchers, currencies]
+);
 
+const formatCurrencyValue = (value) => {
+  if (value === 0 || value === 0.00) {
+    return "--";
+  }
+  return value.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+};
+
+// Helper function to format balance with type
+const formatBalance = (value, type) => {
+  if (value === 0 || value === 0.00) {
+    return "--";
+  }
+  return `${value.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  })} ${type}`;
+};
   const handleDocClick = (docRef) => {
     if (!docRef) return;
 
@@ -589,6 +696,7 @@ export default function StatementOfAccounts() {
       accountType: [],
       stock: [],
       voucher: [],
+      currencies: [],
       showGold: true,
       showCash: true,
     });
@@ -596,6 +704,7 @@ export default function StatementOfAccounts() {
       accountType: "",
       stock: "",
       voucher: "",
+      currencies: "",
     });
     setFilteredStatementData([]);
     setCurrentPage(1);
@@ -877,38 +986,38 @@ export default function StatementOfAccounts() {
               className="space-y-6"
             >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-               <div className="space-y-2">
-      <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700">
-        <div className="p-1.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg">
-          <Calendar className="w-4 h-4 text-white" />
-        </div>
-        <span>From Date</span>
-      </label>
-      <input
-        type="date"
-        value={filters.fromDate}
-        max={new Date().toISOString().split('T')[0]} // Prevent future dates
-        onClick={(e) => e.target.showPicker?.()}
-        onChange={(e) => handleFilterChange("fromDate", e.target.value)}
-        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 backdrop-blur-sm transition-all duration-200 hover:bg-white"
-      />
-    </div>
-                    <div className="space-y-2">
-      <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700">
-        <div className="p-1.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg">
-          <Calendar className="w-4 h-4 text-white" />
-        </div>
-        <span>To Date</span>
-      </label>
-      <input
-        type="date"
-        value={filters.toDate}
-        max={new Date().toISOString().split('T')[0]} // Prevent future dates
-        onClick={(e) => e.target.showPicker?.()}
-        onChange={(e) => handleFilterChange("toDate", e.target.value)}
-        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 backdrop-blur-sm transition-all duration-200 hover:bg-white"
-      />
-    </div>
+                <div className="space-y-2">
+                  <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700">
+                    <div className="p-1.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg">
+                      <Calendar className="w-4 h-4 text-white" />
+                    </div>
+                    <span>From Date</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={filters.fromDate}
+                    max={new Date().toISOString().split('T')[0]} // Prevent future dates
+                    onClick={(e) => e.target.showPicker?.()}
+                    onChange={(e) => handleFilterChange("fromDate", e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 backdrop-blur-sm transition-all duration-200 hover:bg-white"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700">
+                    <div className="p-1.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg">
+                      <Calendar className="w-4 h-4 text-white" />
+                    </div>
+                    <span>To Date</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={filters.toDate}
+                    max={new Date().toISOString().split('T')[0]} // Prevent future dates
+                    onClick={(e) => e.target.showPicker?.()}
+                    onChange={(e) => handleFilterChange("toDate", e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 backdrop-blur-sm transition-all duration-200 hover:bg-white"
+                  />
+                </div>
 
               </div>
               <div className="flex  mt-4 ml-40  items-center rounded-2xl w-1/3">
@@ -959,6 +1068,21 @@ export default function StatementOfAccounts() {
                   allSelected={filters.voucher.length === vouchers.length}
                   onToggleAll={handleToggleAll}
                 />
+                <CheckboxFilter
+    title="Currencies"
+    options={currencies.map((c) => ({
+      ...c,
+      name: c.currencyCode, // Display currencyCode (e.g., AED, INR)
+      checked: filters.currencies.includes(c.id || c._id),
+    }))}
+    field="currencies"
+    icon={DollarSign}
+    searchTerm={searchTerms.currencies}
+    onCheckboxChange={handleCheckboxChange}
+    onSearchChange={handleSearchChange}
+    allSelected={filters.currencies.length === currencies.length}
+    onToggleAll={handleToggleAll}
+  />
                 {/* <CheckboxFilter
                   title="Stock Code"
                   options={stocks.map((s) => ({
@@ -1026,245 +1150,283 @@ export default function StatementOfAccounts() {
           </div>
         </div>
         <div className="overflow-x-auto">
-          {filteredStatementData.length === 0 ? (
-            <div className="p-6 text-center text-gray-600">
-              No statement data available. Try adjusting the filters or fetching
-              again.
-            </div>
-          ) : (
-            <table className="min-w-full divide-y divide-gray-100 bg-white text-sm">
-              <thead className="bg-gradient-to-r from-gray-50 to-gray-100 text-xs text-gray-600 uppercase tracking-wider font-semibold">
-                <tr>
-                  <th className="px-6 py-4 text-left" colSpan="4"></th>
-                  {filters.showCash && (
-                    <th
-                      className="px-6 py-4 text-center border-l border-gray-200"
-                      colSpan="3"
-                    >
-                      Amount in AED
-                    </th>
-                  )}
-                  {filters.showGold && (
-                    <th
-                      className="px-6 py-4 text-center border-l border-gray-200"
-                      colSpan="3"
-                    >
-                      Gold in GMS
-                    </th>
-                  )}
-                </tr>
-                <tr className="border-b border-gray-200">
-                  <th
-                    className="px-6 py-3 text-left cursor-pointer"
-                    onDoubleClick={() => handleSort("docDate")}
-                  >
-                    Doc Date
-                    {sortConfig.key === "docDate" &&
-                      (sortConfig.direction === "asc" ? "↑" : "↓")}
-                  </th>
-                  <th
-                    className="px-6 py-3 text-left cursor-pointer"
-                    onDoubleClick={() => handleSort("docRef")}
-                  >
-                    Doc Ref
-                    {sortConfig.key === "docRef" &&
-                      (sortConfig.direction === "asc" ? "↑" : "↓")}
-                  </th>
-                  <th
-                    className="px-6 py-3 text-left cursor-pointer"
-                    onDoubleClick={() => handleSort("branch")}
-                  >
-                    Branch
-                    {sortConfig.key === "branch" &&
-                      (sortConfig.direction === "asc" ? "↑" : "↓")}
-                  </th>
-                  <th
-                    className="px-6 py-3 text-left cursor-pointer"
-                    onDoubleClick={() => handleSort("particulars")}
-                  >
-                    Particulars
-                    {sortConfig.key === "particulars" &&
-                      (sortConfig.direction === "asc" ? "↑" : "↓")}
-                  </th>
-                  {filters.showCash && (
-                    <>
-                      <th
-                        className="px-6 py-3 text-center border-l border-gray-200 cursor-pointer"
-                        onDoubleClick={() => handleSort("aedDebit")}
-                      >
-                        Debit
-                        {sortConfig.key === "aedDebit" &&
-                          (sortConfig.direction === "asc" ? "↑" : "↓")}
-                      </th>
-                      <th
-                        className="px-6 py-3 text-center cursor-pointer"
-                        onDoubleClick={() => handleSort("aedCredit")}
-                      >
-                        Credit
-                        {sortConfig.key === "aedCredit" &&
-                          (sortConfig.direction === "asc" ? "↑" : "↓")}
-                      </th>
-                      <th
-                        className="px-6 py-3 text-center cursor-pointer"
-                        onDoubleClick={() => handleSort("aedBalanceValue")}
-                      >
-                        Balance
-                        {sortConfig.key === "aedBalanceValue" &&
-                          (sortConfig.direction === "asc" ? "↑" : "↓")}
-                      </th>
-                    </>
-                  )}
-                  {filters.showGold && (
-                    <>
-                      <th
-                        className="px-6 py-3 text-center border-l border-gray-200 cursor-pointer"
-                        onDoubleClick={() => handleSort("goldDebit")}
-                      >
-                        Debit
-                        {sortConfig.key === "goldDebit" &&
-                          (sortConfig.direction === "asc" ? "↑" : "↓")}
-                      </th>
-                      <th
-                        className="px-6 py-3 text-center cursor-pointer"
-                        onDoubleClick={() => handleSort("goldCredit")}
-                      >
-                        Credit
-                        {sortConfig.key === "goldCredit" &&
-                          (sortConfig.direction === "asc" ? "↑" : "↓")}
-                      </th>
-                      <th
-                        className="px-6 py-3 text-center cursor-pointer"
-                        onDoubleClick={() => handleSort("goldBalanceValue")}
-                      >
-                        Balance
-                        {sortConfig.key === "goldBalanceValue" &&
-                          (sortConfig.direction === "asc" ? "↑" : "↓")}
-                      </th>
-                    </>
-                  )}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 text-sm text-gray-900">
-                {currentData.map((item) => (
-                  <tr
-                    key={item.id}
-                    className="hover:bg-gray-50 transition-all duration-200"
-                  >
-                    <td className="px-6 py-4">
-                      {formatDate(item.docDate)}
-                    </td>
-                    <td onClick={() => navigateToVoucher(item.docRef)} className="px-6 py-4 text-blue-700 font-semibold hover:underline cursor-pointer">
-                      {item.docRef || "N/A"}
-                    </td>
-                    <td className="px-6 py-4">{item.branch || "HO"}</td>
-                    <td className="px-6 py-4">{item.particulars || "N/A"}</td>
-                    {filters.showCash && (
-                      <>
-                        <td className="px-6 py-4 text-center border-l border-gray-200 text-red-600 font-semibold">
-                          {item.aedDebit.toLocaleString("en-US", {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
-                        </td>
+    {filteredStatementData.length === 0 ? (
+      <div className="p-6 text-center text-gray-600">
+        No statement data available. Try adjusting the filters or fetching again.
+      </div>
+    ) : (
+    <table className="min-w-full divide-y divide-gray-100 bg-white text-sm">
+  <thead className="bg-gradient-to-r from-gray-50 to-gray-100 text-xs text-gray-600 uppercase tracking-wider font-semibold">
+    <tr>
+      <th className="px-6 py-4 text-left" colSpan="4"></th>
+      {showAED && (
+        <th
+          className="px-6 py-4 text-center border-l border-gray-200"
+          colSpan="3"
+        >
+          Amount in AED
+        </th>
+      )}
+      {showINR && (
+        <th
+          className="px-6 py-4 text-center border-l border-gray-200"
+          colSpan="3"
+        >
+          Amount in INR
+        </th>
+      )}
+      {showGold && (
+        <th
+          className="px-6 py-4 text-center border-l border-gray-200"
+          colSpan="3"
+        >
+          Gold in GMS
+        </th>
+      )}
+    </tr>
+    <tr className="border-b border-gray-200">
+      <th
+        className="px-6 py-3 text-left cursor-pointer"
+        onDoubleClick={() => handleSort("docDate")}
+      >
+        Doc Date
+        {sortConfig.key === "docDate" &&
+          (sortConfig.direction === "asc" ? "↑" : "↓")}
+      </th>
+      <th
+        className="px-6 py-3 text-left cursor-pointer"
+        onDoubleClick={() => handleSort("docRef")}
+      >
+        Doc Ref
+        {sortConfig.key === "docRef" &&
+          (sortConfig.direction === "asc" ? "↑" : "↓")}
+      </th>
+      <th
+        className="px-6 py-3 text-left cursor-pointer"
+        onDoubleClick={() => handleSort("branch")}
+      >
+        Branch
+        {sortConfig.key === "branch" &&
+          (sortConfig.direction === "asc" ? "↑" : "↓")}
+      </th>
+      <th
+        className="px-6 py-3 text-left cursor-pointer"
+        onDoubleClick={() => handleSort("particulars")}
+      >
+        Particulars
+        {sortConfig.key === "particulars" &&
+          (sortConfig.direction === "asc" ? "↑" : "↓")}
+      </th>
 
-                        <td className="px-6 py-4 text-center text-green-600 font-semibold">
-                          {item.aedCredit.toLocaleString("en-US", {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
-                        </td>
+      {/* AED Columns */}
+      {showAED && (
+        <>
+          <th
+            className="px-6 py-3 text-center border-l border-gray-200 cursor-pointer"
+            onDoubleClick={() => handleSort("aedDebit")}
+          >
+            Debit
+            {sortConfig.key === "aedDebit" &&
+              (sortConfig.direction === "asc" ? "↑" : "↓")}
+          </th>
+          <th
+            className="px-6 py-3 text-center cursor-pointer"
+            onDoubleClick={() => handleSort("aedCredit")}
+          >
+            Credit
+            {sortConfig.key === "aedCredit" &&
+              (sortConfig.direction === "asc" ? "↑" : "↓")}
+          </th>
+          <th
+            className="px-6 py-3 text-center cursor-pointer"
+            onDoubleClick={() => handleSort("aedBalanceValue")}
+          >
+            Balance
+            {sortConfig.key === "aedBalanceValue" &&
+              (sortConfig.direction === "asc" ? "↑" : "↓")}
+          </th>
+        </>
+      )}
 
-                        <td className="px-6 py-4 text-center font-bold text-blue-700">
-                          {item.aedBalanceValue.toLocaleString("en-US", {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })} {item.aedBalanceType}
-                        </td>
+      {/* INR Columns */}
+      {showINR && (
+        <>
+          <th
+            className="px-6 py-3 text-center border-l border-gray-200 cursor-pointer"
+            onDoubleClick={() => handleSort("inrDebit")}
+          >
+            Debit
+            {sortConfig.key === "inrDebit" &&
+              (sortConfig.direction === "asc" ? "↑" : "↓")}
+          </th>
+          <th
+            className="px-6 py-3 text-center cursor-pointer"
+            onDoubleClick={() => handleSort("inrCredit")}
+          >
+            Credit
+            {sortConfig.key === "inrCredit" &&
+              (sortConfig.direction === "asc" ? "↑" : "↓")}
+          </th>
+          <th
+            className="px-6 py-3 text-center cursor-pointer"
+            onDoubleClick={() => handleSort("inrBalanceValue")}
+          >
+            Balance
+            {sortConfig.key === "inrBalanceValue" &&
+              (sortConfig.direction === "asc" ? "↑" : "↓")}
+          </th>
+        </>
+      )}
 
-                      </>
-                    )}
-                    {filters.showGold && (
-                      <>
-                        <td className="px-6 py-4 text-center border-l border-gray-200 text-red-600 font-semibold">
-                          {item.goldDebit.toLocaleString("en-US", {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
-                        </td>
+      {/* Gold Columns */}
+      {showGold && (
+        <>
+          <th
+            className="px-6 py-3 text-center border-l border-gray-200 cursor-pointer"
+            onDoubleClick={() => handleSort("goldDebit")}
+          >
+            Debit
+            {sortConfig.key === "goldDebit" &&
+              (sortConfig.direction === "asc" ? "↑" : "↓")}
+          </th>
+          <th
+            className="px-6 py-3 text-center cursor-pointer"
+            onDoubleClick={() => handleSort("goldCredit")}
+          >
+            Credit
+            {sortConfig.key === "goldCredit" &&
+              (sortConfig.direction === "asc" ? "↑" : "↓")}
+          </th>
+          <th
+            className="px-6 py-3 text-center cursor-pointer"
+            onDoubleClick={() => handleSort("goldBalanceValue")}
+          >
+            Balance
+            {sortConfig.key === "goldBalanceValue" &&
+              (sortConfig.direction === "asc" ? "↑" : "↓")}
+          </th>
+        </>
+      )}
+    </tr>
+  </thead>
+  <tbody className="divide-y divide-gray-100 text-sm text-gray-900">
+    {currentData.map((item) => (
+      <tr
+        key={item.id}
+        className="hover:bg-gray-50 transition-all duration-200"
+      >
+        <td className="px-6 py-4">{formatDate(item.docDate)}</td>
+        <td
+          onClick={() => navigateToVoucher(item.docRef)}
+          className="px-6 py-4 text-blue-700 font-semibold hover:underline cursor-pointer"
+        >
+          {item.docRef || "N/A"}
+        </td>
+        <td className="px-6 py-4">{item.branch || "HO"}</td>
+        <td className="px-6 py-4">{item.particulars || "N/A"}</td>
 
-                        <td className="px-6 py-4 text-center text-green-600 font-semibold">
-                          {item.goldCredit.toLocaleString("en-US", {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
-                        </td>
+        {/* AED Columns */}
+        {showAED && (
+          <>
+            <td className="px-6 py-4 text-center border-l border-gray-200 text-red-600 font-semibold">
+              {formatCurrencyValue(item.aedDebit)}
+            </td>
+            <td className="px-6 py-4 text-center text-green-600 font-semibold">
+              {formatCurrencyValue(item.aedCredit)}
+            </td>
+            <td className="px-6 py-4 text-center font-bold text-blue-700">
+              {formatBalance(item.aedBalanceValue, item.aedBalanceType)}
+            </td>
+          </>
+        )}
 
-                        <td className="px-6 py-4 text-center font-bold text-blue-700">
-                          {item.goldBalanceValue.toLocaleString("en-US", {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })} {item.goldBalanceType}
-                        </td>
+        {/* INR Columns */}
+        {showINR && (
+          <>
+            <td className="px-6 py-4 text-center border-l border-gray-200 text-red-600 font-semibold">
+              {formatCurrencyValue(item.inrDebit)}
+            </td>
+            <td className="px-6 py-4 text-center text-green-600 font-semibold">
+              {formatCurrencyValue(item.inrCredit)}
+            </td>
+            <td className="px-6 py-4 text-center font-bold text-blue-700">
+              {formatBalance(item.inrBalanceValue, item.inrBalanceType)}
+            </td>
+          </>
+        )}
 
-                      </>
-                    )}
-                  </tr>
-                ))}
-                <tr className="bg-gradient-to-r from-gray-50 to-gray-100 font-semibold border-t-2 border-gray-300">
-                  <td className="px-6 py-4" colSpan="4">
-                    Balance Carried Forward
-                  </td>
-                  {filters.showCash && (
-                    <>
-                      <td className="px-6 py-4 text-center border-l border-gray-200">
-                        {totalAedDebit.toLocaleString("en-US", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        {totalAedCredit.toLocaleString("en-US", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </td>
-                      <td className="px-6 py-4 text-center text-blue-700 font-bold">
-                        {finalAedBalanceValue.toLocaleString("en-US", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })} {finalAedBalanceType}
-                      </td>
+        {/* Gold Columns */}
+        {showGold && (
+          <>
+            <td className="px-6 py-4 text-center border-l border-gray-200 text-red-600 font-semibold">
+              {formatCurrencyValue(item.goldDebit)}
+            </td>
+            <td className="px-6 py-4 text-center text-green-600 font-semibold">
+              {formatCurrencyValue(item.goldCredit)}
+            </td>
+            <td className="px-6 py-4 text-center font-bold text-blue-700">
+              {formatBalance(item.goldBalanceValue, item.goldBalanceType)}
+            </td>
+          </>
+        )}
+      </tr>
+    ))}
 
-                    </>
-                  )}
-                  {filters.showGold && (
-                    <>
-                      <td className="px-6 py-4 text-center border-l border-gray-200">
-                        {totalGoldDebit.toLocaleString("en-US", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        {totalGoldCredit.toLocaleString("en-US", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </td>
-                      <td className="px-6 py-4 text-center text-blue-700 font-bold">
-                        {finalGoldBalanceValue.toLocaleString("en-US", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })} {finalGoldBalanceType}
-                      </td>
+    {/* Summary Row */}
+    <tr className="bg-gradient-to-r from-gray-50 to-gray-100 font-semibold border-t-2 border-gray-300">
+      <td className="px-6 py-4" colSpan="4">
+        Balance Carried Forward
+      </td>
 
-                    </>
-                  )}
-                </tr>
-              </tbody>
-            </table>
-          )}
-        </div>
+      {/* AED Summary */}
+      {showAED && (
+        <>
+          <td className="px-6 py-4 text-center border-l border-gray-200">
+            {formatCurrencyValue(totalAedDebit)}
+          </td>
+          <td className="px-6 py-4 text-center">
+            {formatCurrencyValue(totalAedCredit)}
+          </td>
+          <td className="px-6 py-4 text-center text-blue-700 font-bold">
+            {formatBalance(finalAedBalanceValue, finalAedBalanceType)}
+          </td>
+        </>
+      )}
+
+      {/* INR Summary */}
+      {showINR && (
+        <>
+          <td className="px-6 py-4 text-center border-l border-gray-200">
+            {formatCurrencyValue(totalInrDebit)}
+          </td>
+          <td className="px-6 py-4 text-center">
+            {formatCurrencyValue(totalInrCredit)}
+          </td>
+          <td className="px-6 py-4 text-center text-blue-700 font-bold">
+            {formatBalance(finalInrBalanceValue, finalInrBalanceType)}
+          </td>
+        </>
+      )}
+
+      {/* Gold Summary */}
+      {showGold && (
+        <>
+          <td className="px-6 py-4 text-center border-l border-gray-200">
+            {formatCurrencyValue(totalGoldDebit)}
+          </td>
+          <td className="px-6 py-4 text-center">
+            {formatCurrencyValue(totalGoldCredit)}
+          </td>
+          <td className="px-6 py-4 text-center text-blue-700 font-bold">
+            {formatBalance(finalGoldBalanceValue, finalGoldBalanceType)}
+          </td>
+        </>
+      )}
+    </tr>
+  </tbody>
+</table>
+    )}
+  </div>
         {filteredStatementData.length > 0 && (
           <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
             <div className="flex items-center justify-between">

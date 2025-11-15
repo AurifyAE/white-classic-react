@@ -63,6 +63,7 @@ import StockAnalysis from "../pages/StockAnalysis";
 import TransactionSummaryPage from "../pages/TransactionSummary";
 import StockAnalysisPage from "../pages/StockAnalysis";
 import OwnStockPage from "../pages/OwnStockPage.jsx";
+import OwnStockCurrencyPage from "../pages/OwnStockCurrency.jsx";
 import StockMovementPCS from "../pages/StockMovementPCS.jsx";
 import StockBalance from "../pages/StockBalance.jsx";
 import SalesAnalysis from "../pages/SalesAnalysis.jsx";
@@ -71,16 +72,24 @@ import PurchaseFixManagementPage from "../pages/PurchaseFixManagement.jsx";
 import FixingRegistryPage from "../pages/FixingResgitry.jsx";
 import StatementofAccountsPage from "../pages/statementofaccount.jsx";
 import CurrencyFixing from "../components/CurrencyFix/CurrencyFix.jsx";
-
+import CurrencyFix from "../pages/currencyfixing.jsx";
+import Footer from "../components/footer.jsx";
+import AdminProtect from "../protectorRouter/adminProtect.jsx";
+import BranchMasterDetail from "../components/Masters/BranchMaster/BranchMasterDetail.jsx";
+import CommodityPage from "../pages/commodityPage.jsx";
+import FinancialYearsMaster from "../pages/FinancialMaster.jsx";
+import Transaction from "../pages/Transaction.jsx";
+import InvoicePage from "../components/MetalTransaction/Transaction/components/InvoicePage.jsx";
 export default function UserRouter() {
   return (
     <Routes>
-      <Route path="/" element={<Login />} />
 
+      <Route path="/" element={<Login />} />
+      <Route element={<AdminProtect />}>
       <Route element={<Layout />}>
         {/* Dashboard */}
         <Route path="/dashboard" element={<MetalStock />} />
-
+        {/* <Route path="/" element={<Footer />} /> */}
         {/* Masters */}
         <Route path="/division-master" element={<DivisionPage />} />
         <Route path="/karat-master" element={<KaratPage />} />
@@ -105,6 +114,9 @@ export default function UserRouter() {
         <Route path="/others" element={<OthersPage />} />
         <Route path="/expense" element={<ExpenseCostPage />} />
         <Route path="/parties" element={<TradeDebtor />} />
+        <Route path="/settings" element={<BranchMasterDetail />} />
+        <Route path="/commodity-master" element={<CommodityPage />} />
+
         <Route
           path="/sales-fix-management"
           element={<SalesFixManagementPage />}
@@ -113,7 +125,11 @@ export default function UserRouter() {
           path="/purchase-fix-management"
           element={<PurchaseFixManagementPage />}
         />
-
+        <Route path="currencyfix-management" element={<CurrencyFix />} />
+        <Route
+          path="/financial-year-master"
+          element={<FinancialYearsMaster />}
+        />
         {/* <Route path="/metal-stock-ledger" element={<MetalStockLedgerPage />} />
         <Route path="/stock-movement" element={<StockMovement />} />
         <Route path="/stock-analysis" element={<StockAnalysis />} />
@@ -131,7 +147,7 @@ export default function UserRouter() {
         {/* <Route path="/sales-return" element={<SalesReturn />} /> */}
         <Route path="/sales-return" element={<SalesReturn />} />
         <Route path="/sales-return/:module" element={<SalesReturn />} />
-
+        <Route path="/transaction" element={<Transaction />} />
         {/* Accounts */}
         <Route path="/accounts/:debtorId" element={<ProfileManagement />} />
         <Route path="/accounts/:creditorId" element={<AccountCreditors />} />
@@ -146,10 +162,7 @@ export default function UserRouter() {
         <Route path="/metal-payment" element={<MetalPayment />} />
         <Route path="/metal-payment/:module" element={<MetalPayment />} />
 
-        <Route
-          path="/currency-payment"
-          element={<CurrencyPayment />}
-        />
+        <Route path="/currency-payment" element={<CurrencyPayment />} />
         <Route path="/currency-payment/:module" element={<CurrencyPayment />} />
 
         <Route path="/metal-receipt" element={<MetalReceipt />} />
@@ -191,6 +204,7 @@ export default function UserRouter() {
           path="/inventory/metals/:id"
           element={<MetalinventoryDetailPage />}
         />
+        <Route path="/invoice/:id" element={<InvoicePage />} />
         <Route
           path="/reports/metal-stock-ledger"
           element={<MetalStockLedger />}
@@ -202,6 +216,10 @@ export default function UserRouter() {
           element={<TransactionSummaryPage />}
         />
         <Route path="/reports/own-stock" element={<OwnStockPage />} />
+        <Route
+          path="/reports/own-stock/currency"
+          element={<OwnStockCurrencyPage />}
+        />
         <Route
           path="/reports/stock-movement-pcs"
           element={<StockMovementPCS />}
@@ -217,10 +235,8 @@ export default function UserRouter() {
           element={<StatementofAccountsPage />}
         />
 
-          <Route
-          path="/currency-fix"
-          element={<CurrencyFixing />}
-        />
+        <Route path="/currency-fix" element={<CurrencyFixing />} />
+      </Route>
       </Route>
 
       {/* Fallback */}

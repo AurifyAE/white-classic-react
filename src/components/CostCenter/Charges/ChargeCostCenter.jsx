@@ -17,14 +17,13 @@ import {
   Boxes,
   ShoppingCart,
   Truck,
-  Wrench,
+  Flame,
   Settings,
   Settings2,
   CalendarDays,
 } from "lucide-react";
 import axios from "../../../api/axios";
 import Loader from "../../Loader/LoaderComponents";
-import DirhamIcon from "../../../assets/uae-dirham.svg";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { formatCommodityNumber } from "../../../utils/formatters";
@@ -47,7 +46,7 @@ const useDebounce = (value, delay) => {
   return debouncedValue;
 };
 
-const MakingChargeCenter = () => {
+const MeltingChargeCenter = () => {
   const [transactionLogs, setTransactionLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -65,11 +64,12 @@ const MakingChargeCenter = () => {
     totalCredit: 0,
     totalTransactions: 0,
     avgValue: 0,
+    netAmount: 0,
   });
 
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
 
-  const fetchMakingChargeData = useCallback(async () => {
+  const fetchMeltingChargeData = useCallback(async () => {
     setError(null);
     setLoading(true);
 
@@ -77,7 +77,7 @@ const MakingChargeCenter = () => {
       const params = {
         page: currentPage,
         limit: itemsPerPage,
-        type: "MAKING_CHARGES",
+        type: "MELTING_CHARGE",
       };
 
       // Normalize dates to UTC midnight to avoid timezone issues
@@ -88,7 +88,7 @@ const MakingChargeCenter = () => {
       }
       if (endDate) {
         const normalizedEndDate = new Date(endDate);
-        normalizedEndDate.setHours(23, 59, 59, 999); // Set to end of day
+        normalizedEndDate.setHours(23, 59, 59, 999);
         params.endDate = normalizedEndDate.toISOString();
       }
 
@@ -106,14 +106,15 @@ const MakingChargeCenter = () => {
             totalCredit: 0,
             totalTransactions: 0,
             avgValue: 0,
+            netAmount: 0,
           }
         );
         setTotalPages(response.data.pagination?.totalPages || 1);
         setTotalItems(response.data.pagination?.totalItems || 0);
-        console.log("Making Charge Response:", response.data);
+        // console.log("Melting Charge Response:", response.data);
       }
     } catch (err) {
-      setError("Failed to fetch making charge data");
+      setError("Failed to fetch melting charge data");
       console.error("API Error:", err);
     } finally {
       setLoading(false);
@@ -121,23 +122,23 @@ const MakingChargeCenter = () => {
   }, [currentPage, itemsPerPage, debouncedSearchTerm, startDate, endDate]);
 
   useEffect(() => {
-    fetchMakingChargeData();
-  }, [fetchMakingChargeData]);
+    fetchMeltingChargeData();
+  }, [fetchMeltingChargeData]);
 
   const handleSoftDelete = async (id) => {
     if (
       !window.confirm(
-        "Are you sure you want to delete this making charge transaction?"
+        "Are you sure you want to delete this melting charge transaction?"
       )
     ) {
       return;
     }
 
     try {
-      await axios.delete(`/making-charge/${id}`);
-      fetchMakingChargeData();
+      await axios.delete(`/melting-charge/${id}`);
+      fetchMeltingChargeData();
     } catch (err) {
-      setError("Failed to delete making charge transaction");
+      setError("Failed to delete melting charge transaction");
       console.error("Delete Error:", err);
     }
   };
@@ -155,6 +156,47 @@ const MakingChargeCenter = () => {
       return true;
     });
   }, [transactionLogs, filterNature]);
+
+  // Only INR transactions
+  const inrTransactions = useMemo(() => 
+    filteredTransactions.filter(t => t.assetType === "INR" || t.currencyCode === "INR"), 
+    [filteredTransactions]
+  );
+
+  const computeSummary = useCallback((transactions) => {
+    const { totalCredits, totalDebits, totalTransactions, avgValue } =
+      transactions.reduce(
+        (acc, t) => {
+          acc.totalCredits += Number(t.credit) || 0;
+          acc.totalDebits += Number(t.debit) || 0;
+          acc.totalTransactions += 1;
+          acc.avgValue += Number(t.value) || 0;
+          return acc;
+        },
+        {
+          totalCredits: 0,
+          totalDebits: 0,
+          totalTransactions: 0,
+          avgValue: 0,
+        }
+      );
+
+    const netBalance = totalDebits - totalCredits;
+    const netAmount = totalDebits + totalCredits; // Sum of all transactions
+    const finalAvgValue =
+      totalTransactions > 0 ? avgValue / totalTransactions : 0;
+
+    return {
+      totalCredits,
+      totalDebits,
+      netBalance,
+      netAmount,
+      totalTransactions,
+      avgValue: finalAvgValue,
+    };
+  }, []);
+
+  const summaryINR = useMemo(() => computeSummary(inrTransactions), [inrTransactions, computeSummary]);
 
   const transactionsWithBalance = useMemo(() => {
     // Sort in chronological order (oldest to newest) for balance calculation
@@ -181,37 +223,6 @@ const MakingChargeCenter = () => {
     return calculated.reverse();
   }, [filteredTransactions]);
 
-  const summaryTotals = useMemo(() => {
-    const { totalCredits, totalDebits, totalTransactions, avgValue } =
-      filteredTransactions.reduce(
-        (acc, t) => {
-          acc.totalCredits += Number(t.credit) || 0;
-          acc.totalDebits += Number(t.debit) || 0;
-          acc.totalTransactions += 1;
-          acc.avgValue += Number(t.value) || 0;
-          return acc;
-        },
-        {
-          totalCredits: 0,
-          totalDebits: 0,
-          totalTransactions: 0,
-          avgValue: 0,
-        }
-      );
-
-    const netBalance = totalDebits - totalCredits;
-    const finalAvgValue =
-      totalTransactions > 0 ? avgValue / totalTransactions : 0;
-
-    return {
-      totalCredits,
-      totalDebits,
-      netBalance,
-      totalTransactions,
-      avgValue: finalAvgValue,
-    };
-  }, [filteredTransactions]);
-
   const formatDate = (dateString) =>
     new Date(dateString).toLocaleString("en-IN", {
       year: "numeric",
@@ -223,50 +234,32 @@ const MakingChargeCenter = () => {
       timeZone: "Asia/Kolkata",
     });
 
-  const formatCurrency = (amount, colorClass = "text-gray-900") => {
+  const formatCurrency = (amount, colorClass = "text-gray-900", size = "small") => {
     const numAmount = Number(amount) || 0;
     const absAmount = Math.abs(numAmount).toFixed(2);
     const isNegative = numAmount < 0;
 
+    const symbolSize = size === "large" ? "text-2xl" : "text-sm";
+
     return (
       <span className={`inline-flex items-center ${colorClass}`}>
         {isNegative && "-"}
-        <img
-          src={DirhamIcon}
-          alt="AED"
-          className={`w-3.5 h-3.5 mr-1`}
-          style={{ filter: getColorFilter(colorClass) }}
-        />
+        <span className={`${symbolSize} mr-1`}>₹</span>
         {formatCommodityNumber(absAmount, null)}
       </span>
     );
   };
 
-
-  const getColorFilter = (colorClass) => {
-    switch (colorClass) {
-      case "text-red-700":
-        return "invert(27%) sepia(94%) saturate(5500%) hue-rotate(340deg) brightness(90%) contrast(90%)";
-      case "text-green-700":
-        return "invert(48%) sepia(61%) saturate(512%) hue-rotate(90deg) brightness(93%) contrast(85%)";
-      case "text-orange-900":
-        return "invert(20%) sepia(94%) saturate(2000%) hue-rotate(350deg) brightness(85%) contrast(110%)";
-      case "text-gray-900":
-      default:
-        return "invert(0%)"; // dark default
-    }
-  };
-
   const getTypeIcon = (type) => {
     switch (type) {
-      case "making_charge":
-      case "manufacturing":
-        return <Settings2 className="w-4 h-4 text-blue-600" />;
+      case "melting_charge":
+      case "melting":
+        return <Flame className="w-4 h-4 text-orange-600" />;
       case "labor":
-        return <Wrench className="w-4 h-4 text-green-600" />;
+        return <Settings className="w-4 h-4 text-green-600" />;
       case "service":
-        return <Settings className="w-4 h-4 text-orange-600" />;
-      case "crafting":
+        return <Settings2 className="w-4 h-4 text-blue-600" />;
+      case "processing":
         return <Package className="w-4 h-4 text-purple-600" />;
       case "adjustment":
         return <ArrowDownUp className="w-4 h-4 text-red-600" />;
@@ -297,16 +290,15 @@ const MakingChargeCenter = () => {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold mb-2">
-                Making Charge Management
+                Melting Charge Management
               </h1>
               <p className="text-orange-100">
-                Monitor and manage making charge transactions and balance
-                entries
+                Monitor and manage melting charge transactions and balance entries
               </p>
             </div>
             <div className="flex items-center space-x-4">
               <div className="bg-white/20 rounded-lg p-3">
-                <Settings2 className="w-8 h-8" />
+                <Flame className="w-8 h-8" />
               </div>
             </div>
           </div>
@@ -328,141 +320,78 @@ const MakingChargeCenter = () => {
             </div>
           )}
 
-          {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 px-6">
-            {/* Credit */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              <div className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center mb-2">
-                      <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                      <p className="text-sm font-medium text-gray-600 uppercase tracking-wide">
-                        Credit
-                      </p>
-                    </div>
-                    <p className="text-3xl font-bold text-gray-900 mb-1 flex items-center">
-                      <img
-                        src={DirhamIcon}
-                        alt="AED"
-                        className="w-8 h-8 mr-1"
-                      />
-                      {Math.abs(summaryTotals.totalCredits || 0).toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}{" "}
-                      CR
-                    </p>
-                    <p className="text-sm text-gray-500">Total Credits</p>
-                  </div>
-                  <div className="bg-green-50 p-3 rounded-lg">
-                    <TrendingUp className="w-6 h-6 text-green-600" />
-                  </div>
-                </div>
+          {/* Summary Cards - INR Only */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+            {/* INR Credit */}
+            <div className="bg-white rounded-lg shadow border border-gray-200 p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-700 uppercase">INR Credit</h3>
+                <TrendingUp className="w-5 h-5 text-green-600" />
               </div>
+              <div className="text-2xl font-bold text-gray-900 mb-1">
+                {formatCurrency(summaryINR.totalCredits || 0, "text-gray-900", "large")}
+              </div>
+              <p className="text-xs text-gray-500">Total Credits</p>
             </div>
 
-            {/* Debit */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              <div className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center mb-2">
-                      <div className="w-2 h-2 bg-red-500 rounded-full mr-2"></div>
-                      <p className="text-sm font-medium text-gray-600 uppercase tracking-wide">
-                        Debit
-                      </p>
-                    </div>
-                    <p className="text-3xl font-bold text-gray-900 mb-1 flex items-center">
-                      <img
-                        src={DirhamIcon}
-                        alt="AED"
-                        className="w-8 h-8 mr-1"
-                      />
-                      {Math.abs(summaryTotals.totalDebits || 0).toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}{" "}
-                      DR
-                    </p>
-                    <p className="text-sm text-gray-500">Total Debits</p>
-                  </div>
-                  <div className="bg-red-50 p-3 rounded-lg">
-                    <TrendingDown className="w-6 h-6 text-red-600" />
-                  </div>
-                </div>
+            {/* INR Debit */}
+            <div className="bg-white rounded-lg shadow border border-gray-200 p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-700 uppercase">INR Debit</h3>
+                <TrendingDown className="w-5 h-5 text-red-600" />
               </div>
+              <div className="text-2xl font-bold text-gray-900 mb-1">
+                {formatCurrency(summaryINR.totalDebits || 0, "text-gray-900", "large")}
+              </div>
+              <p className="text-xs text-gray-500">Total Debits</p>
             </div>
 
-            {/* Net Balance */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              <div className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center mb-2">
-                      <div className="w-2 h-2 bg-orange-500 rounded-full mr-2"></div>
-                      <p className="text-sm font-medium text-gray-600 uppercase tracking-wide">
-                        Making Charge Balance
-                      </p>
-                    </div>
-                    <p className="text-3xl font-bold text-gray-900 mb-1 flex items-center">
-                      <img
-                        src={DirhamIcon}
-                        alt="AED"
-                        className="w-8 h-8 mr-1"
-                      />
-                      {parseFloat(summaryTotals.netBalance || 0) < 0 ? "-" : ""}
-                      {Math.abs(
-                        parseFloat(summaryTotals.netBalance || 0)
-                      ).toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}{" "}
-                      {parseFloat(summaryTotals.netBalance || 0) >= 0
-                        ? "CR"
-                        : "DR"}
-                    </p>
-                    <p className="text-sm text-gray-500">Available Balance</p>
-                  </div>
-                  <div className="bg-orange-50 p-3 rounded-lg">
-                    <Settings2 className="w-6 h-6 text-orange-600" />
-                  </div>
-                </div>
+            {/* INR Balance */}
+            <div className="bg-white rounded-lg shadow border border-gray-200 p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-700 uppercase">INR Balance</h3>
+                <Scale className="w-5 h-5 text-blue-600" />
               </div>
+              <div className="text-2xl font-bold mb-1">
+                {(() => {
+                  const balanceColor = summaryINR.netBalance >= 0 ? "text-green-700" : "text-red-700";
+                  return formatCurrency(summaryINR.netBalance || 0, balanceColor, "large");
+                })()}
+              </div>
+              <p className="text-xs text-gray-500">Net Balance</p>
+            </div>
+
+            {/* Net Amount */}
+            <div className="bg-white rounded-lg shadow border border-gray-200 p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-700 uppercase">Net Amount</h3>
+                <DollarSign className="w-5 h-5 text-purple-600" />
+              </div>
+              <div className="text-2xl font-bold text-gray-900 mb-1">
+                {formatCurrency(summaryINR.netAmount || 0, "text-gray-900", "large")}
+              </div>
+              <p className="text-xs text-gray-500">Total Transaction Value</p>
             </div>
 
             {/* Total Records */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              <div className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center mb-2">
-                      <div className="w-2 h-2 bg-purple-500 rounded-full mr-2"></div>
-                      <p className="text-sm font-medium text-gray-600 uppercase tracking-wide">
-                        Total Records
-                      </p>
-                    </div>
-                    <p className="text-3xl font-bold text-gray-900 mb-1">
-                      {totalItems.toLocaleString()}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      Making Charge Transactions
-                    </p>
-                  </div>
-                  <div className="bg-purple-50 p-3 rounded-lg">
-                    <BarChart3 className="w-6 h-6 text-purple-600" />
-                  </div>
-                </div>
+            <div className="bg-white rounded-lg shadow border border-gray-200 p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-700 uppercase">Total Records</h3>
+                <BarChart3 className="w-5 h-5 text-gray-600" />
               </div>
+              <div className="text-2xl font-bold text-gray-900 mb-1">
+                {totalItems.toLocaleString()}
+              </div>
+              <p className="text-xs text-gray-500">Transactions</p>
             </div>
           </div>
 
           {/* Transaction Registry */}
-          <div className="bg-white rounded-xl shadow-2xl  ">
+          <div className="bg-white rounded-xl shadow-2xl">
             <div className="p-6 border-b border-gray-200">
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6">
                 <h2 className="text-xl font-semibold text-gray-800 mb-4 lg:mb-0">
-                  Making Charge Transactions
+                  Melting Charge Transactions
                 </h2>
                 <div className="flex flex-wrap gap-3">
                   <button
@@ -472,7 +401,7 @@ const MakingChargeCenter = () => {
                     <X className="w-4 h-4 mr-2" />
                     Clear Filters
                   </button>
-                  <button className="flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-lg hover:from-blue-700 hover:to-cyan-600 transition-all">
+                  <button className="flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-lg hover:from-orange-700 hover:to-red-600 transition-all">
                     <Download className="w-4 h-4 mr-2" />
                     Export
                   </button>
@@ -488,10 +417,10 @@ const MakingChargeCenter = () => {
                   <Search className="absolute left-3 top-[38px] transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
                     type="text"
-                    placeholder="Search making charge transactions..."
+                    placeholder="Search melting charge transactions..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
@@ -502,7 +431,7 @@ const MakingChargeCenter = () => {
                   <select
                     value={filterNature}
                     onChange={(e) => setFilterNature(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="ALL">All Transactions</option>
                     <option value="CREDIT">Credit Only</option>
@@ -510,7 +439,7 @@ const MakingChargeCenter = () => {
                   </select>
                 </div>
 
-                {/* <div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Items Per Page
                   </label>
@@ -520,13 +449,13 @@ const MakingChargeCenter = () => {
                       setItemsPerPage(Number(e.target.value));
                       setCurrentPage(1);
                     }}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value={10}>10 per page</option>
                     <option value={20}>20 per page</option>
                     <option value={50}>50 per page</option>
                   </select>
-                </div> */}
+                </div>
 
                 <div className="relative">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -546,7 +475,7 @@ const MakingChargeCenter = () => {
                     endDate={endDate}
                     placeholderText="DD/MM/YY"
                     dateFormat="dd/MM/yy"
-                    className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                   <CalendarDays className="absolute right-3 top-[38px] w-4 h-4 text-gray-500 pointer-events-none" />
                 </div>
@@ -570,7 +499,7 @@ const MakingChargeCenter = () => {
                     minDate={startDate}
                     placeholderText="DD/MM/YY"
                     dateFormat="dd/MM/yy"
-                    className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                   <CalendarDays className="absolute right-3 top-[38px] w-4 h-4 text-gray-500 pointer-events-none" />
                 </div>
@@ -582,7 +511,7 @@ const MakingChargeCenter = () => {
               <div className="flex items-center justify-center py-12">
                 <Loader className="w-6 h-6 animate-spin text-orange-600 mr-2" />
                 <span className="text-gray-600">
-                  Loading making charge transactions...
+                  Loading melting charge transactions...
                 </span>
               </div>
             )}
@@ -620,105 +549,97 @@ const MakingChargeCenter = () => {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Date & Time
                       </th>
-                      {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </th> */}
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-100">
-                    {transactionsWithBalance.map((transaction) => (
-                      <tr
-                        key={transaction.id}
-                        className="hover:bg-gray-50 transition-colors"
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {transaction.transactionId}
+                    {transactionsWithBalance.map((transaction) => {
+                      return (
+                        <tr
+                          key={transaction.id}
+                          className="hover:bg-gray-50 transition-colors"
+                        >
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">
+                                {transaction.transactionId}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                Status: {transaction.status}
+                              </div>
                             </div>
-                            <div className="text-xs text-gray-500">
-                              Status: {transaction.status}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              {getTypeIcon(transaction.type)}
+                              <span className="ml-2 text-sm font-medium text-gray-900 capitalize">
+                                {transaction.type.replace("_", " ")}
+                              </span>
                             </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            {getTypeIcon(transaction.type)}
-                            <span className="ml-2 text-sm font-medium text-gray-900 capitalize">
-                              {transaction.type.replace("_", " ")}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap overflow-hidden text-ellipsis font-semibold ">
-                          <div
-                            className="flex items-center text-blue-600 cursor-pointer hover:underline"
-                            onClick={() => navigateToVoucher(transaction.reference)}
-                          >
-                            {transaction.reference}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="text-sm text-gray-900 whitespace-pre-wrap">
-                            {transaction.description}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-semibold">
-                            {formatCurrency(transaction.value, transaction.value < 0 ? "text-red-700" : "text-gray-900")}
-                          </div>
-                        </td>
-
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {transaction.debit > 0 ? (
-                            <div className="text-sm font-bold">
-                              {formatCurrency(transaction.debit, "text-red-700")}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap overflow-hidden text-ellipsis font-semibold">
+                            <div
+                              className="flex items-center text-blue-600 cursor-pointer hover:underline"
+                              onClick={() => navigateToVoucher(transaction.reference)}
+                            >
+                              {transaction.reference}
                             </div>
-                          ) : (
-                            <div className="text-sm text-gray-300">_____</div>
-                          )}
-                        </td>
-
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {transaction.credit > 0 ? (
-                            <div className="text-sm font-bold">
-                              {formatCurrency(transaction.credit, "text-green-700")}
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="text-sm text-gray-900 whitespace-pre-wrap">
+                              {transaction.description}
                             </div>
-                          ) : (
-                            <div className="text-sm text-gray-300">_____</div>
-                          )}
-                        </td>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-semibold">
+                              {formatCurrency(
+                                transaction.value, 
+                                transaction.value < 0 ? "text-red-700" : "text-gray-900"
+                              )}
+                            </div>
+                          </td>
 
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-semibold">
-                            {formatCurrency(transaction.runningBalance, "text-orange-900")}
-                          </div>
-                        </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {transaction.debit > 0 ? (
+                              <div className="text-sm font-bold">
+                                {formatCurrency(transaction.debit, "text-red-700")}
+                              </div>
+                            ) : (
+                              <div className="text-sm text-gray-300">_____</div>
+                            )}
+                          </td>
 
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                          {transaction.formattedDate ||
-                            formatDate(transaction.transactionDate)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          {/* <button
-                            onClick={() => handleSoftDelete(transaction._id)}
-                            className="text-red-600 hover:text-red-900 cursor-pointer p-1 rounded transition-colors"
-                            title="Delete Making Charge Transaction"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button> */}
-                        </td>
-                      </tr>
-                    ))}
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {transaction.credit > 0 ? (
+                              <div className="text-sm font-bold">
+                                {formatCurrency(transaction.credit, "text-green-700")}
+                              </div>
+                            ) : (
+                              <div className="text-sm text-gray-300">_____</div>
+                            )}
+                          </td>
+
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-semibold">
+                              {formatCurrency(transaction.runningBalance, "text-orange-900")}
+                            </div>
+                          </td>
+
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                            {transaction.formattedDate ||
+                              formatDate(transaction.transactionDate)}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
 
                 {/* Empty State */}
                 {!loading && transactionsWithBalance.length === 0 && (
                   <div className="text-center py-12">
-                    <Settings2 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <Flame className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                     <p className="text-gray-500">
-                      No making charge transactions found matching your
-                      criteria.
+                      No melting charge transactions found matching your criteria.
                     </p>
                   </div>
                 )}
@@ -791,4 +712,4 @@ const MakingChargeCenter = () => {
   );
 };
 
-export default MakingChargeCenter;
+export default MeltingChargeCenter;

@@ -194,7 +194,7 @@ const fetchCurrencyMaster = async (setCurrencies, setFilteredCurrencies) => {
       currency: currency.currencyCode,
       minRate: currency.minRate || 1.0,
       maxRate: currency.maxRate || 1.0,
-      default: currency.currencyCode === "AED",
+      default: currency.currencyCode === "INR",
       description: currency.description || "",
     }));
 
@@ -269,7 +269,7 @@ export default function TradeDebtors() {
     branch: null,
     creditLimit: {
       limitType: "Fixed",
-      currency: "AED",
+      currency: "INR",
       unfixGold: "",
       netAmount: "",
       creditDaysAmt: "",
@@ -398,10 +398,10 @@ export default function TradeDebtors() {
     setAcDefinitionData({
       currencies: [
         {
-          currency: "AED",
-          no: currencies.find((c) => c.currency === "AED")?.no || "",
-          minRate: currencies.find((c) => c.currency === "AED")?.minRate || 1.0,
-          maxRate: currencies.find((c) => c.currency === "AED")?.maxRate || 1.0,
+          currency: "INR",
+          no: currencies.find((c) => c.currency === "INR")?.no || "",
+          minRate: currencies.find((c) => c.currency === "INR")?.minRate || 1.0,
+          maxRate: currencies.find((c) => c.currency === "INR")?.maxRate || 1.0,
           isDefault: true,
           ask: 0,
           bid: 0,
@@ -410,7 +410,7 @@ export default function TradeDebtors() {
       branch: null,
       creditLimit: {
         limitType: "Fixed",
-        currency: "AED",
+        currency: "INR",
         unfixGold: "",
         netAmount: "",
         creditDaysAmt: "",
@@ -509,12 +509,12 @@ export default function TradeDebtors() {
       setAcDefinitionData({
         currencies: debtor.currencies || [
           {
-            currency: "AED",
-            no: currencies.find((c) => c.currency === "AED")?.no || "",
+            currency: "INR",
+            no: currencies.find((c) => c.currency === "INR")?.no || "",
             minRate:
-              currencies.find((c) => c.currency === "AED")?.minRate || 1.0,
+              currencies.find((c) => c.currency === "IMR")?.minRate || 1.0,
             maxRate:
-              currencies.find((c) => c.currency === "AED")?.maxRate || 1.0,
+              currencies.find((c) => c.currency === "INR")?.maxRate || 1.0,
             isDefault: true,
             ask: 0,
             bid: 0,
@@ -585,9 +585,6 @@ export default function TradeDebtors() {
     const errors = [];
     if (!basicFormData.acCode) errors.push("Account Code is required");
     if (!basicFormData.customerName) errors.push("Customer Name is required");
-    if (!basicFormData.title) errors.push("Title is required");
-    if (!acDefinitionData.creditLimit.shortMargin)
-      errors.push("Short margin is required");
     if (!acDefinitionData.currencies?.length)
       errors.push("At least one currency is required");
     return errors;
@@ -605,7 +602,6 @@ export default function TradeDebtors() {
       "accountType",
       basicFormData.type.charAt(0).toUpperCase() + basicFormData.type.slice(1)
     );
-    formData.append("title", basicFormData.title || "");
     formData.append("mode", basicFormData.mode || "");
     formData.append("accountCode", basicFormData.acCode || "");
     formData.append("customerName", basicFormData.customerName || "");
@@ -641,120 +637,6 @@ export default function TradeDebtors() {
           : null,
       })
     );
-
-    formData.append(
-      "limitsMargins",
-      JSON.stringify([
-        {
-          limitType: acDefinitionData.creditLimit.limitType || "Fixed",
-          currency: {
-            _id:
-              currencies.find(
-                (c) => c.currency === acDefinitionData.creditLimit.currency
-              )?.no ||
-              currencies.find((c) => c.currency === "AED")?.no ||
-              "",
-            currencyCode: acDefinitionData.creditLimit.currency || "AED",
-          },
-          unfixGold: parseFloat(acDefinitionData.creditLimit.unfixGold) || 0,
-          netAmount: parseFloat(acDefinitionData.creditLimit.netAmount) || 0,
-          creditDaysAmt:
-            parseInt(acDefinitionData.creditLimit.creditDaysAmt) || 0,
-          creditDaysMtl:
-            parseInt(acDefinitionData.creditLimit.creditDaysMtl) || 0,
-          shortMargin:
-            parseFloat(acDefinitionData.creditLimit.shortMargin) || 0,
-          longMargin: parseFloat(acDefinitionData.creditLimit.longMargin) || 0,
-        },
-      ])
-    );
-
-    formData.append(
-      "addresses",
-      JSON.stringify([
-        {
-          streetAddress: addressData.address || null,
-          city: addressData.city || null,
-          country: addressData.country || null,
-          zipCode: addressData.zip || null,
-          phoneNumber1: addressData.phoneNumber1 || null,
-          phoneNumber2: addressData.phoneNumber2 || null,
-          phoneNumber3: addressData.phoneNumber3 || null,
-          email: addressData.email || null,
-          telephone: addressData.telephone || null,
-          website: addressData.website || null,
-          isPrimary: true,
-        },
-      ])
-    );
-
-    formData.append(
-      "employees",
-      JSON.stringify(
-        employees.map((emp) => ({
-          name: emp.name || "",
-          designation: emp.designation || "",
-          email: emp.email || "",
-          mobile: emp.mobile || "",
-          poAlert: emp.poAlert || false,
-          soAlert: emp.soAlert || false,
-          isPrimary: emp.isPrimary || false,
-        }))
-      )
-    );
-
-    formData.append(
-      "vatGstDetails",
-      JSON.stringify({
-        vatStatus: vatGstData.registrationType || "UnRegistered",
-        vatNumber: vatGstData.registrationNumber || "",
-        registrationDate: vatGstData.registrationDate || null,
-      })
-    );
-
-    formData.append(
-      "bankDetails",
-      JSON.stringify(
-        bankDetails.map((bank) => ({
-          bankName: bank.name || "",
-          swiftId: bank.swiftId || "",
-          iban: bank.iban || "",
-          accountNumber: bank.accNo || "",
-          branchCode: bank.branchCode || "",
-          purpose: bank.purpose || "",
-          country: bank.country || "",
-          city: bank.city || "",
-          routingCode: bank.routingCode || "",
-          address: bank.address || "",
-          isPrimary: bank.isPrimary || false,
-        }))
-      )
-    );
-
-    formData.append(
-      "kycDetails",
-      JSON.stringify([
-        {
-          documentType: kycData.documentType || "",
-          documentNumber: kycData.documentNumber || "",
-          issueDate: kycData.issueDate || "",
-          expiryDate: kycData.expiryDate || "",
-          isVerified: false,
-        },
-      ])
-    );
-
-    if (vatGstData.documents?.length > 0) {
-      vatGstData.documents.forEach((file) =>
-        formData.append("vatGstDetails.documents", file)
-      );
-    }
-
-    if (kycData.documents?.length > 0) {
-      kycData.documents.forEach((file) =>
-        formData.append("kycDetails.documents", file)
-      );
-    }
 
     try {
       setLoading(true);

@@ -4,8 +4,12 @@ export const Tabs = ({ activeTab, onChange }) => {
   return (
     <div className="border-b border-gray-200">
       <nav className="-mb-px flex space-x-8">
-        <Tab id="profile" label="Profile" isActive={activeTab === "profile"} onClick={() => onChange("profile")} />
-        <Tab id="orders" label="Statements" isActive={activeTab === "orders"} onClick={() => onChange("orders")} />
+        <Tab
+          id="profile"
+          label="Profile"
+          isActive={activeTab === "profile"}
+          onClick={() => onChange("profile")}
+        />
       </nav>
     </div>
   );

@@ -8,7 +8,7 @@ import axiosInstance from "../../../../api/axios";
 import DirhamIcon from "../../../../assets/uae-dirham.svg";
 
 const OrderStatementsTab = ({ getStatusBadgeColor = () => "gray", userData }) => {
-  console.log("User Data:", userData);
+  // console.log("User Data:", userData);
 
   const [registries, setRegistries] = useState([]);
   const [filteredRegistries, setFilteredRegistries] = useState([]);
@@ -50,11 +50,11 @@ const OrderStatementsTab = ({ getStatusBadgeColor = () => "gray", userData }) =>
         const res = await axiosInstance.get(`/registry/get-by-party/${debtorId}`);
         const { data } = res.data;
 
-        console.log("Raw data:", data);
-        console.log(
-          "All txn types from backend:",
-          data.map((txn) => txn.type)
-        );
+        // console.log("Raw data:", data);
+        // console.log(
+        //   "All txn types from backend:",
+        //   data.map((txn) => txn.type)
+        // );
 
         const goldTypes = ["PARTY_GOLD_BALANCE"];
         const cashTypes = [
@@ -68,7 +68,7 @@ const OrderStatementsTab = ({ getStatusBadgeColor = () => "gray", userData }) =>
           (txn) => goldTypes.includes(txn.type) || cashTypes.includes(txn.type)
         );
 
-        console.log("Filtered data (only gold & cash types):", filteredData);
+        // console.log("Filtered data (only gold & cash types):", filteredData);
 
         // Sort transactions by transactionDate to ensure correct balance calculation
         const sortedData = filteredData.sort(
@@ -116,7 +116,7 @@ const OrderStatementsTab = ({ getStatusBadgeColor = () => "gray", userData }) =>
           };
         });
 
-        console.log("Mapped registry:", mappedRegistry);
+        // console.log("Mapped registry:", mappedRegistry);
 
         // Reverse the registry for display (LIFO)
         const reversedRegistry = [...mappedRegistry].reverse();
@@ -152,16 +152,16 @@ const OrderStatementsTab = ({ getStatusBadgeColor = () => "gray", userData }) =>
         );
         const cashBalance = cashCredit - cashDebit; // Net balance: credit - debit
 
-        console.log("Summary gold:", {
-          debit: goldDebit,
-          credit: goldCredit,
-          balance: goldBalance,
-        });
-        console.log("Summary cash:", {
-          debit: cashDebit,
-          credit: cashCredit,
-          balance: cashBalance,
-        });
+        // console.log("Summary gold:", {
+        //   debit: goldDebit,
+        //   credit: goldCredit,
+        //   balance: goldBalance,
+        // });
+        // console.log("Summary cash:", {
+        //   debit: cashDebit,
+        //   credit: cashCredit,
+        //   balance: cashBalance,
+        // });
 
         setSummary({
           gold: { debit: goldDebit, credit: goldCredit, balance: goldBalance },
@@ -290,9 +290,9 @@ const OrderStatementsTab = ({ getStatusBadgeColor = () => "gray", userData }) =>
     const code = userData.acCode;
     const email = userData.address?.[0]?.email || "Not Mentioned";
     const phone = userData.address?.[0]?.phoneNumber1 || "Not Mentioned";
-    console.log("mail", email);
-    console.log("code", code);
-    console.log("name", name);
+    // console.log("mail", email);
+    // console.log("code", code);
+    // console.log("name", name);
 
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.width;

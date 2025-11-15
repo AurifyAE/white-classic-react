@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useEffect, useState } from "react";
-import { Edit3, Trash2, User } from "lucide-react";
+import { Edit3, Trash2, User, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import axiosInstance from "../../../api/axios";
 import { toast } from "sonner";
@@ -16,9 +16,7 @@ const UserAvatar = ({ name }) => {
     : "?";
 
   const colors = [
-    "bg-blue-500", "bg-green-500", "bg-yellow-500", "bg-purple-500",
-    "bg-pink-500", "bg-indigo-500", "bg-teal-500", "bg-red-500",
-    "bg-orange-500", "bg-lime-500", "bg-amber-500", "bg-rose-500",
+   "bg-gradient-to-r from-blue-600 to-cyan-500"
   ];
 
   const colorIndex = name
@@ -40,28 +38,66 @@ export default function DebtorsTable({
   handleDelete,
   loading = false,
 }) {
-  console.log("Filtered Debtors:", filteredDebtors);
+  // console.log("Filtered Debtors:", filteredDebtors);
   
   const [currentPage, setCurrentPage] = useState(1);
-
-
-  // Fix invalid page if total pages reduced
- useEffect(() => {
-  const totalPages = Math.ceil(filteredDebtors.length / itemsPerPage);
-  if (currentPage > totalPages && totalPages > 0) {
-    setCurrentPage(1);
-  }
-}, [filteredDebtors, itemsPerPage]);
   const [selectedDebtor, setSelectedDebtor] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [checked, setChecked] = useState(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [debtorToDelete, setDebtorToDelete] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
+  // Fix invalid page if total pages reduced
+  useEffect(() => {
+    const totalPages = Math.ceil(filteredDebtors.length / itemsPerPage);
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(1);
+    }
+  }, [filteredDebtors, itemsPerPage]);
 
   const handleMakeSupplier = (debtor) => {
     setSelectedDebtor(debtor);
     setIsModalOpen(true);
   };
 
+  const handleDeleteModal = (debtor) => {
+    setDebtorToDelete(debtor);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!debtorToDelete?.id || !/^[a-f\d]{24}$/i.test(debtorToDelete.id)) {
+      toast.error("Invalid debtor ID.", {
+        style: { background: "#ef4444", color: "#ffffff", border: "1px solid #dc2626" },
+      });
+      setIsDeleteModalOpen(false);
+      return;
+    }
+
+    const previousDebtors = [...filteredDebtors];
+    try {
+      setDeleteLoading(true);
+      await axiosInstance.put(`/account-type/${debtorToDelete.id}`, {
+        ...debtorToDelete,
+        status: 'inactive',
+      });
+      toast.success("Debtor deactivated successfully!", {
+        style: { background: "#22c55e", color: "#ffffff", border: "1px solid #16a34a" },
+      });
+      setFilteredDebtors((prev) => prev.filter((d) => d.id !== debtorToDelete.id));
+      setIsDeleteModalOpen(false);
+      setDebtorToDelete(null);
+    } catch (err) {
+      console.error(err);
+      setFilteredDebtors(previousDebtors);
+      toast.error("Failed to deactivate debtor.", {
+        style: { background: "#ef4444", color: "#ffffff", border: "1px solid #dc2626" },
+      });
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
 
   const paginationData = useMemo(() => {
     const totalPages = Math.ceil(filteredDebtors.length / itemsPerPage);
@@ -120,40 +156,14 @@ export default function DebtorsTable({
     });
   }, [totalPages, currentPage, goToPage]);
 
-  const confirmMakeSupplier = async () => {
-    try {
-      console.log(selectedDebtor);
 
-
-      const response = await axiosInstance.put(`/account-type/${selectedDebtor.id}?updatetype=true`, {
-        isSupplier: checked,
-      });
-      toast.success(`Updated to ${checked ? "SUPPLIER" : "DEBTOR"}`);
-
-      setFilteredDebtors((prev) =>
-        prev.map((d) =>
-          d.id === selectedDebtor.id ? { ...d, isSupplier: checked } : d
-        )
-      );
-
-      if (response.status === 200) {
-        setIsModalOpen(false);
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Update failed");
-      setIsModalOpen(false)
-    }
-  };
 
   const handleToggleAccountType = async (debtor, isChecked) => {
     const newType = isChecked ? true : false;
-    setIsModalOpen(true)
+    setIsModalOpen(true);
     setSelectedDebtor(debtor);
-    setChecked(newType)
-
+    setChecked(newType);
   };
-
 
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -164,17 +174,16 @@ export default function DebtorsTable({
               <th className="px-6 py-4 text-left text-sm font-semibold">
                 <div className="flex items-center gap-2">
                   <User className="w-4 h-4" />
-                  <span>Party Name</span>
+                  <span>Account Name</span>
                 </div>
               </th>
               <th className="px-6 py-4 text-left text-sm font-semibold">
                 <div className="flex items-center gap-2">
                   <User className="w-4 h-4" />
-                  <span>Account Type</span>
+                  <span>Account Mode</span>
                 </div>
               </th>
               <th className="px-6 py-4 text-left text-sm font-semibold">Account Code</th>
-              <th className="px-6 py-4 text-left text-sm font-semibold">Make Supplier</th>
               <th className="px-6 py-4 text-center text-sm font-semibold">Actions</th>
             </tr>
           </thead>
@@ -203,19 +212,12 @@ export default function DebtorsTable({
                     </Link>
                   </td>
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                    DEBTOR
+                  {debtor.type || "-"}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-700">
                     {debtor.acCode || "-"}
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-700">
-                    <input
-                      type="checkbox"
-                      checked={debtor.isSupplier === true}
-                      onChange={(e) => handleToggleAccountType(debtor, e.target.checked)}
-                      className="w-6 h-6 cursor-pointer accent-blue-600"
-                    />
-                  </td>
+                  
                   <td className="px-6 py-4 text-center">
                     <div className="flex justify-center gap-2">
                       <button
@@ -226,9 +228,9 @@ export default function DebtorsTable({
                         <Edit3 className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => handleDelete(debtor.id)}
+                        onClick={() => handleDeleteModal(debtor)}
                         className="text-red-600 hover:text-red-800 p-1 rounded transition hover:cursor-pointer"
-                        title="Delete"
+                        title="Deactivate"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -264,7 +266,47 @@ export default function DebtorsTable({
           </div>
         </div>
       )}
-
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white px-6 py-4 rounded-t-lg">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold">Confirm Deactivation</h2>
+                <button
+                  onClick={() => setIsDeleteModalOpen(false)}
+                  className="text-white hover:text-gray-400"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            <div className="p-6">
+              <p className="text-gray-700">
+                Are you sure you want to deactivate the debtor "
+                <span className="font-semibold">{debtorToDelete?.customerName}</span>"?
+              </p>
+              <p className="text-sm text-gray-500 mt-2">
+                This will mark the debtor as inactive.
+              </p>
+            </div>
+            <div className="px-6 py-4 bg-gray-50 rounded-b-lg flex justify-end space-x-3">
+              <button
+                onClick={() => setIsDeleteModalOpen(false)}
+                className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={deleteLoading}
+                className="px-6 py-2 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-lg hover:from-blue-700 hover:to-cyan-600 disabled:opacity-50"
+              >
+                Deactivate
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {filteredDebtors.length > itemsPerPage && (
         <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
           <div className="flex items-center justify-between">

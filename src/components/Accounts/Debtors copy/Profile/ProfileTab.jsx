@@ -10,7 +10,7 @@ const ProfileTab = ({
   formatDate,
 }) => {
   // log the userData to check its structure
-  console.log("User Data:", userData);
+  // console.log("User Data:", userData);
   const UserAvatar = ({ name }) => {
     const initials = name
       ? name

@@ -328,7 +328,7 @@ const OpeningBalance = () => {
     // Refresh market data if gold transaction
     if (balanceType === "gold") {
       try {
-        console.log("Refreshed market data:", marketData);
+        // console.log("Refreshed market data:", marketData);
 
         if (!marketData?.bid) {
           toast.error("Gold price data is not available. Please try again later.", {

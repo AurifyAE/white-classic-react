@@ -78,10 +78,10 @@ const PurchaseFixCenter = () => {
       if (debouncedSearchTerm) {
         params.search = debouncedSearchTerm;
       }
-      console.log("API Params:", params); // Debug API parameters
+      // console.log("API Params:", params); // Debug API parameters
       const response = await axios.get("/registry", { params });
-      console.log("API Response Data:", response.data.data); // Debug response
-      console.log("Transactions received:", response.data.data.length);
+      // console.log("API Response Data:", response.data.data); // Debug response
+      // console.log("Transactions received:", response.data.data.length);
       if (response.data.success) {
         setTransactionLogs(response.data.data || []);
         setTotalPages(response.data.pagination?.totalPages || 1);
@@ -96,7 +96,7 @@ const PurchaseFixCenter = () => {
   }, [currentPage, itemsPerPage, debouncedSearchTerm, startDate, endDate]);
 
   useEffect(() => {
-    console.log("Fetching with startDate:", startDate, "endDate:", endDate); // Debug useEffect trigger
+    // console.log("Fetching with startDate:", startDate, "endDate:", endDate); // Debug useEffect trigger
     fetchStockBalanceData();
   }, [fetchStockBalanceData]);
 
@@ -580,6 +580,26 @@ const PurchaseFixCenter = () => {
                   </select>
                 </div>
 
+ <div>
+    <label className="block text-sm font-medium text-gray-700 mb-1">
+      Items Per Page
+    </label>
+    <select
+      value={itemsPerPage}
+      onChange={(e) => {
+        setItemsPerPage(Number(e.target.value));
+        setCurrentPage(1);
+      }}
+      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+    >
+      <option value={10}>10 per page</option>
+      <option value={20}>20 per page</option>
+      <option value={50}>50 per page</option>
+    </select>
+  </div>
+
+
+
                 <div className="relative">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     From Date
@@ -587,7 +607,7 @@ const PurchaseFixCenter = () => {
                   <DatePicker
                     selected={startDate}
                     onChange={(date) => {
-                      console.log("Selected startDate:", date); // Debug date selection
+                      // console.log("Selected startDate:", date); // Debug date selection
                       if (date && endDate && date > endDate) {
                         setError("From date cannot be after to date");
                         return;
@@ -615,7 +635,7 @@ const PurchaseFixCenter = () => {
                   <DatePicker
                     selected={endDate}
                     onChange={(date) => {
-                      console.log("Selected endDate:", date); // Debug date selection
+                      // console.log("Selected endDate:", date); // Debug date selection
                       if (date && startDate && date < startDate) {
                         setError("To date cannot be before from date");
                         return;

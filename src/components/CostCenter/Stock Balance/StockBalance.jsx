@@ -111,7 +111,7 @@ const StockBalanceCenter = () => {
         );
         setTotalPages(stockResponse.data.pagination?.totalPages || 1);
         setTotalItems(stockResponse.data.pagination?.totalItems || 0);
-        console.log("Stock Response:", stockResponse.data);
+        // console.log("Stock Response:", stockResponse.data);
       }
     } catch (err) {
       setError("Failed to fetch stock balance data");

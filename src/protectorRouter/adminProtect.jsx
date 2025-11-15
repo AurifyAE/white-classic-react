@@ -12,6 +12,7 @@ function AdminProtect() {
 
   useEffect(() => {
     const verifyToken = async () => {
+      // console.log("Verifying admin token...");
       if (!token) {
         setAuthState({ isAuthenticated: false, isLoading: false });
         return;
@@ -19,15 +20,16 @@ function AdminProtect() {
 
       try {
         const res = await axiosInstance.post("/verify-token", { token });
-        
+
         // Check if admin property exists in response
-        if (res.data.admin) {
-          console.log(res.data)
+        // console.log("Verifying admin token...");
+        // console.log(res.data);
+        if (res.data.success) {
+          // console.log("Admin token verified successfully.");
           setAuthState({ isAuthenticated: true, isLoading: false });
         } else {
           // Not an admin user
-          console.log("test")
-
+          // console.log("Token is not valid for admin.");
           localStorage.removeItem("token");
           setAuthState({ isAuthenticated: false, isLoading: false });
           navigate("/");
@@ -36,7 +38,7 @@ function AdminProtect() {
         console.log(error)
         console.error("Authentication error:", error.response?.data?.message || error.message);
         setAuthState({ isAuthenticated: false, isLoading: false });
-        
+
         // Handle token validation errors
         if (error.response?.status === 401 || error.response?.status === 403 || error.response?.status === 404) {
           // Clear invalid token
@@ -57,7 +59,7 @@ function AdminProtect() {
       </div>
     );
   }
-  
+
   // Redirect to home if not authenticated, otherwise render child routes
   return authState.isAuthenticated ? <Outlet /> : <Navigate to="/" replace />;
 }

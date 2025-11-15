@@ -1,14 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-// import { toast, ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
 import { motion } from "framer-motion";
+import { Toaster, toast } from "sonner";
 import goldBarImage from "../../assets/GoldBar.jpg";
-import axios from '../../api/axios';
-import { Toaster, toast } from 'sonner';
+import axios from "../../api/axios";
 
 const LoginPage = () => {
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
@@ -19,18 +16,13 @@ const LoginPage = () => {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      navigate("/dashboard");
-    }
-  }, [navigate]);
-
   // Check for existing token when component mounts
   useEffect(() => {
     const checkExistingToken = async () => {
       const token = localStorage.getItem("token");
-      if (!token) {
+
+      if (!token || token.trim() === "") {
+        localStorage.removeItem("token");
         setIsCheckingAuth(false);
         return;
       }
@@ -38,22 +30,21 @@ const LoginPage = () => {
       try {
         // Verify the token with the backend
         const response = await axios.post("/verify-token", { token });
-
         // Check if valid admin in response
-        if (response.data.admin) {
+        if (response.data?.success) {
           // Token is valid, navigate to dashboard
           navigate("/dashboard");
         } else {
-          // Response doesn't contain admin data despite success
+          // Response doesn't contain admin data or user is not admin
           handleLogout();
         }
       } catch (error) {
-        console.error("Token verification error:", error);
+        console.error("Token verification error:", error.response?.data?.message || error.message);
         handleLogout();
 
         // Show error message if service expired
         const errorResponse = error.response?.data;
-        if (errorResponse && errorResponse.serviceExpired) {
+        if (errorResponse?.serviceExpired) {
           toast.error("Your service has expired. Please renew your subscription.");
         }
       } finally {
@@ -65,10 +56,12 @@ const LoginPage = () => {
   }, [navigate]);
 
   const handleLogout = () => {
-    // Clear all auth related data
+    // Clear all auth-related data
     localStorage.removeItem("token");
+    localStorage.removeItem("refreshToken");
     localStorage.removeItem("adminId");
     localStorage.removeItem("rememberMe");
+    localStorage.removeItem("email");
   };
 
   const handleLogin = async (e) => {
@@ -81,7 +74,7 @@ const LoginPage = () => {
 
     // Simple validation
     if (!email) {
-      setEmailError("email is required");
+      setEmailError("Email is required");
       setIsLoading(false);
       return;
     }
@@ -94,77 +87,72 @@ const LoginPage = () => {
 
     try {
       // Call the login API endpoint using axios
-      const response = await axios.post('/login', {
+      const response = await axios.post("/login", {
         email,
         password,
-        rememberMe
+        rememberMe,
       });
 
       const responseData = response.data;
-
       if (responseData.success) {
-        // Login successful
-        toast.success(responseData.message || "Login Successful", {
-          position: "top-right",
-          autoClose: 2000,
-        });
+        // Validate response data
 
-        // Get admin data and token from response
-        const { admin, accessToken, refreshToken } = responseData.data;
-
+        const { admin, accessToken, refreshToken } = responseData.data || {};
+        if (!admin?._id || !accessToken || !refreshToken) {
+          throw new Error("Invalid login response data");
+        }
+        // Save auth data to localStorage
         localStorage.setItem("token", accessToken);
         localStorage.setItem("refreshToken", refreshToken);
-
-        // Save auth data to localStorage
         localStorage.setItem("adminId", admin._id);
 
-        // Save username if remember me is checked
+        // Save email if remember me is checked
         if (rememberMe) {
           localStorage.setItem("email", email);
           localStorage.setItem("rememberMe", "true");
         }
+        //  else {
+        //   localStorage.removeItem("email");
+        //   localStorage.removeItem("rememberMe");
+        // }
 
-        // Navigate to dashboard after toast
+        // Show success toast and navigate after delay
+        toast.success(responseData.message || "Login Successful", {
+          position: "top-right",
+          duration: 2000,
+        });
+
+        // Delay navigation to ensure token is set
         setTimeout(() => {
           navigate("/dashboard");
-        }, 2000);
+        }, 2500);
       } else {
         // Handle API success: false response
         setPasswordError(responseData.message || "Login failed");
       }
-
     } catch (error) {
       // Handle errors
       if (error.response) {
-        // The request was made and the server responded with a status code
-        // that falls out of the range of 2xx
         const errorData = error.response.data;
-
-        if (!errorData.success) {
-          setPasswordError(errorData.message || errorData.error || "Invalid credentials");
-        } else {
-          setPasswordError("An unexpected error occurred");
-        }
+        setPasswordError(errorData.message || errorData.error || "Invalid credentials");
       } else if (error.request) {
-        // The request was made but no response was received
         toast.error("No response from server. Please try again.");
       } else {
-        // Something happened in setting up the request
         toast.error("Connection error. Please try again.");
       }
-      console.error("Login error:", error);
+      console.error("Login error:", error.message);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Set remembered username if available
+  // Set remembered email if available
   useEffect(() => {
     const rememberedUser = localStorage.getItem("email");
     const isRemembered = localStorage.getItem("rememberMe") === "true";
 
     if (rememberedUser && isRemembered) {
-      setEmailError(rememberedUser);
+      setEmail(rememberedUser); // Fixed: setEmail instead of setEmailError
       setRememberMe(true);
     }
   }, []);
@@ -173,16 +161,13 @@ const LoginPage = () => {
   if (isCheckingAuth) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
   return (
     <div className="flex h-screen w-full bg-gray-50 overflow-hidden">
-      {/* <ToastContainer /> */}
-
-      {/* Left side - Login Form */}
       <motion.div
         initial={{ opacity: 0, x: -50 }}
         animate={{ opacity: 1, x: 0 }}
@@ -246,13 +231,31 @@ const LoginPage = () => {
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
                 >
                   {showPassword ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
                       <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                      <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                      <path
+                        fillRule="evenodd"
+                        d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z"
+                        clipRule="evenodd"
+                      />
                     </svg>
                   ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zm4.261 4.26l1.514 1.515a2.003 2.003 0 012.45 2.45l1.514 1.514a4 4 0 00-5.478-5.478z" clipRule="evenodd" />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zm4.261 4.26l1.514 1.515a2.003 2.003 0 012.45 2.45l1.514 1.514a4 4 0 00-5.478-5.478z"
+                        clipRule="evenodd"
+                      />
                       <path d="M12.454 16.697L9.75 13.992a4 4 0 01-3.742-3.741L2.335 6.578A9.98 9.98 0 00.458 10c1.274 4.057 5.065 7 9.542 7 .847 0 1.669-.105 2.454-.303z" />
                     </svg>
                   )}
@@ -273,12 +276,18 @@ const LoginPage = () => {
                   onChange={(e) => setRememberMe(e.target.checked)}
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
-                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
+                <label
+                  htmlFor="remember-me"
+                  className="ml-2 block text-sm text-gray-700"
+                >
                   Remember me
                 </label>
               </div>
               <div className="text-sm">
-                <a href="#" className="font-medium text-blue-600 hover:text-blue-500">
+                <a
+                  href="#"
+                  className="font-medium text-blue-600 hover:text-blue-500"
+                >
                   Forgot password?
                 </a>
               </div>
@@ -288,14 +297,31 @@ const LoginPage = () => {
               type="submit"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className={`w-full py-3 px-4 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-medium text-sm uppercase tracking-wider shadow-lg hover:shadow-xl transition-all flex justify-center items-center ${isLoading ? "opacity-75 cursor-wait" : ""
-                }`}
+              className={`w-full py-3 px-4 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-medium text-sm uppercase tracking-wider shadow-lg hover:shadow-xl transition-all flex justify-center items-center ${
+                isLoading ? "opacity-75 cursor-wait" : ""
+              }`}
               disabled={isLoading}
             >
               {isLoading ? (
-                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                <svg
+                  className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
                 </svg>
               ) : null}
               Sign In
@@ -339,7 +365,8 @@ const LoginPage = () => {
             transition={{ delay: 1, duration: 0.6 }}
             className="text-white/90"
           >
-            Manage your metal inventory and track performance with our advanced analytics dashboard
+            Manage your metal inventory and track performance with our advanced
+            analytics dashboard
           </motion.p>
         </div>
       </motion.div>
@@ -348,13 +375,11 @@ const LoginPage = () => {
         toastOptions={{
           duration: 4000,
           style: {
-            background: '#ffffff',
-            color: '#5CE65C',
+            background: "#ffffff",
+            color: "#5CE65C",
           },
         }}
       />
-
-
     </div>
   );
 };

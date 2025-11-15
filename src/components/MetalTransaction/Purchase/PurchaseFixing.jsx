@@ -1,3 +1,5 @@
+//old
+
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   DollarSign,
@@ -65,7 +67,7 @@ export default function PurchaseFixing() {
   const [currentPage, setCurrentPage] = useState(1);
   const [isDataLoaded, setIsDataLoaded] = useState(false); // New state for data loading
   const [isRedirectLoading, setIsRedirectLoading] = useState(false);
-    const [isDeleting, setIsDeleting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [itemsPerPage] = useState(5);
   const navigateToVoucher = useVoucherNavigation();
   const [voucherDetails, setVoucherDetails] = useState({
@@ -90,7 +92,7 @@ export default function PurchaseFixing() {
       const response = await axiosInstance.get(
         "/metal-transaction-fix/transactions",
         {
-          params: { 
+          params: {
             type: "purchase",
             isActive: true // Only fetch active records
           },
@@ -109,7 +111,7 @@ export default function PurchaseFixing() {
     }
   }, []);
 
-  
+
   const handleEditOrder = useCallback((order) => {
     setVoucherDetails({
       voucherCode: order.voucherNumber || order.transactionId || "",
@@ -142,62 +144,62 @@ export default function PurchaseFixing() {
   }, [module]);
 
   // Updated useEffect
-useEffect(() => {
-  const checkVoucher = async () => {
-    const queryParams = new URLSearchParams(location.search);
-    const voucher = queryParams.get("voucher");
+  useEffect(() => {
+    const checkVoucher = async () => {
+      const queryParams = new URLSearchParams(location.search);
+      const voucher = queryParams.get("voucher");
 
-    if (voucher) {
-      setIsRedirectLoading(true);
-      const startTime = Date.now();
+      if (voucher) {
+        setIsRedirectLoading(true);
+        const startTime = Date.now();
 
-      try {
-        const response = await axiosInstance.get(
-          "/metal-transaction-fix/transactions",
-          {
-            params: { type: "purchase", isActive: true },
+        try {
+          const response = await axiosInstance.get(
+            "/metal-transaction-fix/transactions",
+            {
+              params: { type: "purchase", isActive: true },
+            }
+          );
+          const uniqueOrders = Array.from(
+            new Map(response.data.data.map((item) => [item._id, item])).values()
+          );
+
+          // Update state
+          setOrders(uniqueOrders);
+          setFilteredOrders(uniqueOrders);
+
+          // Find transaction using the fetched data directly
+          const transaction = uniqueOrders.find((p) => p.voucherNumber === voucher);
+
+          // Ensure minimum 3-second delay
+          const elapsedTime = Date.now() - startTime;
+          const remainingTime = 3000 - elapsedTime;
+
+          if (remainingTime > 0) {
+            await new Promise((resolve) => setTimeout(resolve, remainingTime));
           }
-        );
-        const uniqueOrders = Array.from(
-          new Map(response.data.data.map((item) => [item._id, item])).values()
-        );
-        
-        // Update state
-        setOrders(uniqueOrders);
-        setFilteredOrders(uniqueOrders);
 
-        // Find transaction using the fetched data directly
-        const transaction = uniqueOrders.find((p) => p.voucherNumber === voucher);
-
-        // Ensure minimum 3-second delay
-        const elapsedTime = Date.now() - startTime;
-        const remainingTime = 3000 - elapsedTime;
-
-        if (remainingTime > 0) {
-          await new Promise((resolve) => setTimeout(resolve, remainingTime));
+          if (transaction) {
+            handleEditOrder(transaction); // Open modal only if transaction is found
+          } else {
+            console.warn(`No transaction found for voucher: ${voucher}`);
+            toast.error(`No transaction found for voucher: ${voucher}`);
+          }
+        } catch (err) {
+          console.error("Error fetching metal transactions:", err);
+          toast.error("Failed to fetch transaction data");
+        } finally {
+          setIsRedirectLoading(false);
+          setIsDataLoaded(true);
+          navigate(location.pathname, { replace: true });
         }
-
-        if (transaction) {
-          handleEditOrder(transaction); // Open modal only if transaction is found
-        } else {
-          console.warn(`No transaction found for voucher: ${voucher}`);
-          toast.error(`No transaction found for voucher: ${voucher}`);
-        }
-      } catch (err) {
-        console.error("Error fetching metal transactions:", err);
-        toast.error("Failed to fetch transaction data");
-      } finally {
-        setIsRedirectLoading(false);
+      } else {
         setIsDataLoaded(true);
-        navigate(location.pathname, { replace: true });
       }
-    } else {
-      setIsDataLoaded(true);
-    }
-  };
+    };
 
-  checkVoucher();
-}, [location, navigate, handleEditOrder]); 
+    checkVoucher();
+  }, [location, navigate, handleEditOrder]);
 
   useEffect(() => {
     fetchTransactions();
@@ -359,7 +361,7 @@ useEffect(() => {
       }
 
       const priceToUse = parseFloat(firstOrder.price || goldData?.bid || 0);
-      console.log("Order details:", orderDetailsList);
+      // console.log("Order details:", orderDetailsList);
 
       // Map orderDetailsList into only the per-order fields
       const ordersArray = orderDetailsList.map(orderDetails => ({
@@ -390,7 +392,7 @@ useEffect(() => {
         orders: ordersArray
       };
 
-      console.log("Final batch order data:", orderData);
+      // console.log("Final batch order data:", orderData);
 
       // Single API call
       const response = await axiosInstance.post(
@@ -408,11 +410,11 @@ useEffect(() => {
     }
   };
 
- const handleCloseOrder = (orderId, e) => {
-  e.stopPropagation(); // Prevent row click from triggering
-  setOrderToDelete(orderId);
-  setIsDeleteModalOpen(true);
-};
+  const handleCloseOrder = (orderId, e) => {
+    e.stopPropagation(); // Prevent row click from triggering
+    setOrderToDelete(orderId);
+    setIsDeleteModalOpen(true);
+  };
 
   const confirmDeleteOrder = async () => {
     if (!orderToDelete) return;
@@ -960,8 +962,8 @@ useEffect(() => {
           </div>
         </div>
 
-{initialLoading || isRedirectLoading || !isDataLoaded ? (
-            <div className="flex justify-center items-center h-[calc(100vh-200px)]">
+        {initialLoading || isRedirectLoading || !isDataLoaded ? (
+          <div className="flex justify-center items-center h-[calc(100vh-200px)]">
             <Loader />
           </div>
         ) : (
@@ -1149,82 +1151,81 @@ useEffect(() => {
                       ))}
                     </tr>
                   </thead>
-           <tbody className="divide-y divide-gray-100">
-  {currentOrders.length > 0 ? (
-    currentOrders.map((order) => {
-      const totalQuantity = order.orders?.reduce(
-        (sum, o) => sum + (o.quantityGm || 0),
-        0
-      );
-      const totalAmount = order.orders?.reduce(
-        (sum, o) => sum + (o.price || 0),
-        0
-      );
+                  <tbody className="divide-y divide-gray-100">
+                    {currentOrders.length > 0 ? (
+                      currentOrders.map((order) => {
+                        const totalQuantity = order.orders?.reduce(
+                          (sum, o) => sum + (o.quantityGm || 0),
+                          0
+                        );
+                        const totalAmount = order.orders?.reduce(
+                          (sum, o) => sum + (o.price || 0),
+                          0
+                        );
 
-      return (
-        <tr
-          key={order._id}
-          className="hover:bg-gray-50 transition-colors cursor-pointer"
-          onClick={() => handleEditOrder(order)} 
-        >
-          <td className="py-3 px-4 whitespace-nowrap text-left font-medium">
-            <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-lg text-xs font-semibold">
-              {order.transactionId || "N/A"}
-            </span>
-          </td>
-          <td className="py-3 px-5 whitespace-nowrap">
-            <span
-              onClick={(e) => {
-                e.stopPropagation(); // Prevent row click from triggering
-                navigateToVoucher(order.voucherNumber);
-              }}
-              className="text-blue-600 underline cursor-pointer"
-            >
-              {order.voucherNumber || "N/A"}
-            </span>
-          </td>
-          <td className="py-3 px-4 whitespace-nowrap">
-            <span
-              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                order.type === "purchase"
-                  ? "bg-green-100 text-green-800"
-                  : "bg-red-100 text-red-800"
-              }`}
-            >
-              {order.type || "N/A"}
-            </span>
-          </td>
-          <td className="py-3 px-4 whitespace-nowrap text-right">
-            {totalQuantity || "N/A"}
-          </td>
-          <td className="py-3 px-4 whitespace-nowrap text-right">
-            {formatCurrency(totalAmount, "AED") || "N/A"}
-          </td>
-          <td className="py-3 px-4 whitespace-nowrap text-left">
-            <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-medium">
-              {order.partyId
-                ? order.partyId.customerName || order.partyId.accountCode || "N/A"
-                : "N/A"}
-            </span>
-          </td>
-          <td className="py-3 px-4 whitespace-nowrap">
-            <div className="flex items-center">
-              <Clock size={14} className="mr-1 text-gray-400" />
-              {formatDate(order.createdAt)}
-            </div>
-          </td>
-          <td className="py-3 px-4 whitespace-nowrap text-center">
-            <div className="flex items-center justify-center gap-2">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation(); // Prevent row click from triggering
-                  handlePreviewOrder(order);
-                }}
-                className="text-yellow-600 px-3 py-1 rounded hover:bg-yellow-200 text-xs font-medium transition-colors flex items-center gap-1"
-              >
-                <DownloadIcon size={14} />
-              </button>
-              {/* <button
+                        return (
+                          <tr
+                            key={order._id}
+                            className="hover:bg-gray-50 transition-colors cursor-pointer"
+                            onClick={() => handleEditOrder(order)}
+                          >
+                            <td className="py-3 px-4 whitespace-nowrap text-left font-medium">
+                              <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-lg text-xs font-semibold">
+                                {order.transactionId || "N/A"}
+                              </span>
+                            </td>
+                            <td className="py-3 px-5 whitespace-nowrap">
+                              <span
+                                onClick={(e) => {
+                                  e.stopPropagation(); // Prevent row click from triggering
+                                  navigateToVoucher(order.voucherNumber);
+                                }}
+                                className="text-blue-600 underline cursor-pointer"
+                              >
+                                {order.voucherNumber || "N/A"}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 whitespace-nowrap">
+                              <span
+                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${order.type === "purchase"
+                                    ? "bg-green-100 text-green-800"
+                                    : "bg-red-100 text-red-800"
+                                  }`}
+                              >
+                                {order.type || "N/A"}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 whitespace-nowrap text-right">
+                              {totalQuantity || "N/A"}
+                            </td>
+                            <td className="py-3 px-4 whitespace-nowrap text-right">
+                              {formatCurrency(totalAmount, "AED") || "N/A"}
+                            </td>
+                            <td className="py-3 px-4 whitespace-nowrap text-left">
+                              <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-medium">
+                                {order.partyId
+                                  ? order.partyId.customerName || order.partyId.accountCode || "N/A"
+                                  : "N/A"}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 whitespace-nowrap">
+                              <div className="flex items-center">
+                                <Clock size={14} className="mr-1 text-gray-400" />
+                                {formatDate(order.createdAt)}
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 whitespace-nowrap text-center">
+                              <div className="flex items-center justify-center gap-2">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation(); // Prevent row click from triggering
+                                    handlePreviewOrder(order);
+                                  }}
+                                  className="text-yellow-600 px-3 py-1 rounded hover:bg-yellow-200 text-xs font-medium transition-colors flex items-center gap-1"
+                                >
+                                  <DownloadIcon size={14} />
+                                </button>
+                                {/* <button
                 onClick={(e) => {
                   e.stopPropagation(); // Prevent row click from triggering
                   handleEditOrder(order); // Keep for consistency, but row click handles it
@@ -1233,29 +1234,29 @@ useEffect(() => {
               >
                 <Edit3 size={14} />
               </button> */}
-                          <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleCloseOrder(order._id, e);
-                }}
-                className="text-red-600 px-3 py-1 rounded hover:bg-red-200 text-xs font-medium transition-colors flex items-center gap-1"
-              >
-                <Trash2 size={14} />
-              </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCloseOrder(order._id, e);
+                                  }}
+                                  className="text-red-600 px-3 py-1 rounded hover:bg-red-200 text-xs font-medium transition-colors flex items-center gap-1"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
 
-            </div>
-          </td>
-        </tr>
-      );
-    })
-  ) : (
-    <tr>
-      <td colSpan={8} className="py-6 text-center text-gray-500">
-        No open fixing orders. Click <strong>“New Fixing”</strong> to place a trade.
-      </td>
-    </tr>
-  )}
-</tbody>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    ) : (
+                      <tr>
+                        <td colSpan={8} className="py-6 text-center text-gray-500">
+                          No open fixing orders. Click <strong>“New Fixing”</strong> to place a trade.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
                 </table>
               </div>
 
@@ -1326,62 +1327,60 @@ useEffect(() => {
                 </div>
               )}
             </div>
-  {isDeleteModalOpen && (
-    <div className="fixed inset-0 bg-black/50 bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full">
-        <h3 className="text-lg font-bold mb-4">Confirm Delete</h3>
-        <p className="mb-6">Are you sure you want to delete this order? This action cannot be undone.</p>
-        <div className="flex justify-end gap-3">
-          <button
-            onClick={() => setIsDeleteModalOpen(false)}
-            disabled={isDeleting}
-            className={`px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 ${
-              isDeleting ? "opacity-50 cursor-not-allowed" : ""
-            }`}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={confirmDeleteOrder}
-            disabled={isDeleting}
-            className={`px-4 py-2 bg-red-600 text-white rounded-md flex items-center gap-2 ${
-              isDeleting
-                ? "opacity-50 cursor-not-allowed"
-                : "hover:bg-red-700"
-            }`}
-          >
-            {isDeleting ? (
-              <>
-                <svg
-                  className="animate-spin h-5 w-5 text-white"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  ></circle>
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
-                Deleting...
-              </>
-            ) : (
-              "Delete"
+            {isDeleteModalOpen && (
+              <div className="fixed inset-0 bg-black/50 bg-opacity-50 flex items-center justify-center z-50">
+                <div className="bg-white rounded-lg p-6 max-w-md w-full">
+                  <h3 className="text-lg font-bold mb-4">Confirm Delete</h3>
+                  <p className="mb-6">Are you sure you want to delete this order? This action cannot be undone.</p>
+                  <div className="flex justify-end gap-3">
+                    <button
+                      onClick={() => setIsDeleteModalOpen(false)}
+                      disabled={isDeleting}
+                      className={`px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 ${isDeleting ? "opacity-50 cursor-not-allowed" : ""
+                        }`}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={confirmDeleteOrder}
+                      disabled={isDeleting}
+                      className={`px-4 py-2 bg-red-600 text-white rounded-md flex items-center gap-2 ${isDeleting
+                          ? "opacity-50 cursor-not-allowed"
+                          : "hover:bg-red-700"
+                        }`}
+                    >
+                      {isDeleting ? (
+                        <>
+                          <svg
+                            className="animate-spin h-5 w-5 text-white"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            ></circle>
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            ></path>
+                          </svg>
+                          Deleting...
+                        </>
+                      ) : (
+                        "Delete"
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
             )}
-          </button>
-        </div>
-      </div>
-    </div>
-  )}
             {isOrderDialogOpen && (
               <div className="fixed inset-0 bg-white/60 bg-opacity-50 flex items-center justify-center z-50">
                 <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">

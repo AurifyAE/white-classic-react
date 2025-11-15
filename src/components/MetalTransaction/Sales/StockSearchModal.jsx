@@ -19,7 +19,7 @@ const StockSearchModal = ({
     try {
       const response = await axiosInstance.get("/metal-stocks");
       const { data } = response.data;
-      console.log("Fetched Metal Stock Data:", data);
+      // console.log("Fetched Metal Stock Data:", data);
 
       const mappedData = data.map((item) => {
         if (!item._id) {
@@ -40,10 +40,10 @@ const StockSearchModal = ({
       });
 
       setMetalStock(mappedData);
-      console.log(
-        "Mapped Metal Stock Data:",
-        JSON.stringify(mappedData, null, 2)
-      );
+      // console.log(
+      //   "Mapped Metal Stock Data:",
+      //   JSON.stringify(mappedData, null, 2)
+      // );
     } catch (error) {
       console.error("Error fetching metal stock:", error);
     }
