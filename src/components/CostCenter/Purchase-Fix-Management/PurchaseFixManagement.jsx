@@ -15,6 +15,7 @@ import {
   Activity,
   CalendarDays,
   Settings2,
+  IndianRupee,
 } from "lucide-react";
 import axios from "../../../api/axios";
 import Loader from "../../Loader/LoaderComponents";
@@ -241,7 +242,7 @@ const PurchaseFixCenter = () => {
       <span className={`inline-flex items-center ${colorClass}`}>
         {isNegative && "-"}
         <img
-          src={DirhamIcon}
+          src={IndianRupee}
           alt="AED"
           className="w-6 h-6 mr-1"
           style={{ filter: getColorFilter(colorClass) }}
@@ -362,6 +363,8 @@ const PurchaseFixCenter = () => {
                         Cash Credit
                       </p>
                     </div>
+                    <p className="mt-1 text-xs text-gray-500 mb-2">1 = 1,000 INR | 100 = 1 Lakh INR</p>
+
                     <p className="text-3xl font-bold mb-1">
                       {formatCurrency(
                         summaryTotals.totalCashCredits,
@@ -388,6 +391,8 @@ const PurchaseFixCenter = () => {
                         Cash Debit
                       </p>
                     </div>
+                    <p className="mt-1 text-xs text-gray-500 mb-2">1 = 1,000 INR | 100 = 1 Lakh INR</p>
+
                     <p className="text-3xl font-bold mb-1">
                       {formatCurrency(
                         summaryTotals.totalCashDebits,
@@ -414,6 +419,8 @@ const PurchaseFixCenter = () => {
                         Cash Balance
                       </p>
                     </div>
+                    <p className="mt-1 text-xs text-gray-500 mb-2">1 = 1,000 INR | 100 = 1 Lakh INR</p>
+
                     <p className="text-3xl font-bold mb-1">
                       {formatCurrency(
                         summaryTotals.cashNetBalance,
@@ -442,6 +449,7 @@ const PurchaseFixCenter = () => {
                         Gold Credit
                       </p>
                     </div>
+                    
                     <p className="text-3xl font-bold mb-1">
                       {formatGold(
                         summaryTotals.totalGoldCredits,
