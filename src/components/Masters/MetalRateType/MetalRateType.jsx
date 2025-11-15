@@ -128,7 +128,7 @@ export default function MetalRateType() {
         isActive: division.isActive,
       }));
       setDivisionOptions(mappedDivisions);
-      console.log("Fetched divisions:", mappedDivisions);
+      // console.log("Fetched divisions:", mappedDivisions);
     } catch (error) {
       throw error; // Let the parent catch handle the error
     }
@@ -172,9 +172,9 @@ export default function MetalRateType() {
           posRateTo,
         };
       });
-      console.log("Fetched metal rates:", mappedData);
+      // console.log("Fetched metal rates:", mappedData);
       setMetalRateTypes(mappedData);
-      console.log("Filtered Rate Types:", mappedData);
+      // console.log("Filtered Rate Types:", mappedData);
 
       setFilteredRateTypes(mappedData);
     } catch (error) {
@@ -193,7 +193,7 @@ export default function MetalRateType() {
         description: currency.description,
       }));
       setCurrencyOption(mappedCurrencies);
-      console.log("Fetched currencies:", mappedCurrencies);
+      // console.log("Fetched currencies:", mappedCurrencies);
     } catch (error) {
       throw error; // Let the parent catch handle the error
     }
@@ -295,7 +295,7 @@ export default function MetalRateType() {
       posRateTo: rateType.posRateTo || "0",
     });
     setIsModalOpen(true);
-    console.log("Editing rate type:", rateType);
+    // console.log("Editing rate type:", rateType);
   };
 
   const handleSave = async () => {
@@ -315,7 +315,7 @@ export default function MetalRateType() {
       isDefault: formData.defaultRate || false,
     };
 
-    console.log("Sending payload:", finalData);
+    // console.log("Sending payload:", finalData);
 
     setLoading(true);
     try {

@@ -260,7 +260,7 @@ export default function ModeMetalReceipt() {
 
 
   const handleEdit = (receipt) => {
-    console.log("Editing receipt:", receipt);
+    // console.log("Editing receipt:", receipt);
 
     setIsEditMode(true);
     setEditingReceiptId(receipt._id);
@@ -538,7 +538,7 @@ export default function ModeMetalReceipt() {
 
     try {
       const response = await axiosInstance.get(`/entry/${id}`);
-      console.log("API Response:", response.data); // Debug: Log the full API response
+      // console.log("API Response:", response.data); // Debug: Log the full API response
       const receipt = response.data;
 
       // Enhanced stock data extraction
@@ -549,7 +549,7 @@ export default function ModeMetalReceipt() {
       } else {
         stocks = Array.isArray(receipt.stocks) ? receipt.stocks : Array.isArray(receipt.stockItems) ? receipt.stockItems : [];
       }
-      console.log("Extracted Stocks:", stocks); // Debug: Log the extracted stocks
+      // console.log("Extracted Stocks:", stocks); // Debug: Log the extracted stocks
 
       if (stocks.length === 0) {
         toast.error("No stock items to export");
@@ -629,7 +629,7 @@ export default function ModeMetalReceipt() {
         item.remarks || "-",
       ]);
 
-      console.log("All Stock Items:", allStockItems); // Debug: Log the mapped stock items
+      // console.log("All Stock Items:", allStockItems); // Debug: Log the mapped stock items
 
       if (allStockItems.length === 0) {
         toast.error("No valid stock data");
@@ -892,9 +892,9 @@ export default function ModeMetalReceipt() {
 
       // === Main Table Data ===
       const allStockItems = filteredReceipts.flatMap((receipt) => {
-        console.log("Processing Receipt:", receipt); // Debug: Log each receipt object
+        // console.log("Processing Receipt:", receipt); // Debug: Log each receipt object
         const stocks = Array.isArray(receipt.stocks) ? receipt.stocks : Array.isArray(receipt.stockItems) ? receipt.stockItems : [];
-        console.log("Stocks for Receipt:", stocks); // Debug: Log stocks array
+        // console.log("Stocks for Receipt:", stocks); // Debug: Log stocks array
         return stocks.map((item) => ({
           voucher: receipt.voucherCode || "-",
           stockCode: item.stock?.code || "-",
@@ -908,7 +908,7 @@ export default function ModeMetalReceipt() {
         }));
       });
 
-      console.log("All Stock Items:", allStockItems); // Debug: Log all mapped items
+      // console.log("All Stock Items:", allStockItems); // Debug: Log all mapped items
 
       if (allStockItems.length === 0) {
         toast.error("No stock items available to export");

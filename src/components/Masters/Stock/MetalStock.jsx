@@ -123,7 +123,7 @@ export default function MetalStock() {
     try {
       const response = await axiosInstance.get("/metal-stocks");
       const { data } = response.data;
-      console.log("stock data", data);
+      // console.log("stock data", data);
 
       const mappedData = data.map((item) => ({
         id: item._id || "",
@@ -169,7 +169,7 @@ export default function MetalStock() {
         value: division._id,
         label: division.code,
       }));
-      console.log("Fetched Divisions Data:", mappedDivisions);
+      // console.log("Fetched Divisions Data:", mappedDivisions);
 
       setDivisionOptions(mappedDivisions);
     } catch (error) {
@@ -274,7 +274,7 @@ export default function MetalStock() {
         label: color.description,
       }));
       setColorOptions(mappedColors);
-      console.log("Fetched Colors Data:", mappedColors);
+      // console.log("Fetched Colors Data:", mappedColors);
     } catch (error) {
       console.error("Error fetching colors:", error);
     }

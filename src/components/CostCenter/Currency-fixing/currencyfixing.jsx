@@ -142,7 +142,7 @@ const CurrencyTradingRegistry = () => {
     const numAmount = Number(amount) || 0;
     const absAmount = Math.abs(numAmount).toFixed(2);
     const isNegative = numAmount < 0;
-    console.log(currencyCode,'--',amount,'====================')
+    // console.log(currencyCode,'--',amount,'====================')
     return (
       <span className={`inline-flex items-center ${colorClass}`}>
         {isNegative && "-"}

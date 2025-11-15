@@ -87,7 +87,7 @@ const GoldCostCenter = () => {
       }
 
       const response = await axios.get("/registry", { params });
-console.log("====================================",response.data);
+// console.log("====================================",response.data);
 
       if (response.data.success) {
    setTransactionLogs((response.data.data || []));

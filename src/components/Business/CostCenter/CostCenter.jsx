@@ -257,7 +257,7 @@ export default function CostCenter() {
       setLoading(true);
       const res = await axiosInstance.get('/cost-centers');
       const costCentersData = Array.isArray(res.data.data) ? res.data.data : [];
-      console.log('Fetched cost centers:', costCentersData);
+      // console.log('Fetched cost centers:', costCentersData);
       const mappedData = costCentersData.map(item => ({
         id: item.id,
         costCode: item.costCode || item.code || item.cost_code || generateCostCode(item.description) || 'N/A',
@@ -370,7 +370,7 @@ export default function CostCenter() {
         description: formData.description,
         status: formData.status,
       };
-      console.log('Saving cost center with payload:', payload);
+      // console.log('Saving cost center with payload:', payload);
       
       if (editingCostCenter) {
         await axiosInstance.put(`/cost-centers/${editingCostCenter.id}`, payload);

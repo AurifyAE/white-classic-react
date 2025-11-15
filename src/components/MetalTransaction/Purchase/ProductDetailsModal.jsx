@@ -989,7 +989,7 @@ useEffect(() => {
         effectiveRate: currencyCode === "AED" ? 1 : effectiveRate,
       },
     };
-    console.log("Transformed Data:", transformedData);
+    // console.log("Transformed Data:", transformedData);
 
     onSave(transformedData);
   }, [validate, productData, onSave, currencyCode, calculateProfit, effectiveRate, partyCurrency]);

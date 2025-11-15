@@ -199,9 +199,9 @@ const Transfer = () => {
     };
 
     try {
-      console.log("Sending payload:", payload);
+      // console.log("Sending payload:", payload);
       const res = await axiosInstance.post("/fund-transfer", payload);
-      console.log("API Response:", res);
+      // console.log("API Response:", res);
 
       toast.success(res.data?.message || "Transfer successful", { position: "top-right", autoClose: 1500 });
       await Promise.all([fetchHistory(), fetchParties()]);

@@ -126,7 +126,7 @@ const partyOptions = tradingParties.map((party) => ({
   const formatCurrencyWithCode = (value, currencyCode, decimals = 2) => {
     const formattedValue = formatNumber(value, decimals);
     const code = currencyCode || 'AED';
-    console.log(`Formatting value: ${value}, currencyCode: ${code}, result: ${code} ${formattedValue}`);
+    // console.log(`Formatting value: ${value}, currencyCode: ${code}, result: ${code} ${formattedValue}`);
     return `${code} ${formattedValue}`;
   };
 
@@ -953,7 +953,7 @@ const partyOptions = tradingParties.map((party) => ({
   
     const party = tradingParties.find(p => p._id === selectedTradeParty);
     if (!party || (!payAmount && !receiveAmount) || !selectedPair) {
-      console.log(party ,payAmount , receiveAmount , selectedPair)
+      // console.log(party ,payAmount , receiveAmount , selectedPair)
       console.error('Missing required trade details');
       toast.error('Please enter a non-zero amount');
       return;

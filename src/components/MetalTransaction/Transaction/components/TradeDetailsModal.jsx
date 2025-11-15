@@ -93,7 +93,7 @@ useEffect(() => {
   }, [initialManualRate]);
 
   const metalAmountCalc = useMemo(() => {
-    console.log("Calculating metal amount:", { ratePerGram, pureWeight });
+    // console.log("Calculating metal amount:", { ratePerGram, pureWeight });
     if (!ratePerGram || !pureWeight) return "0.00";
     return (parseFloat(ratePerGram) * parseFloat(pureWeight)).toFixed(2);
   }, [ratePerGram, pureWeight]);
@@ -168,7 +168,7 @@ useEffect(() => {
   // === Submit Handler ===
   const handleSubmit = () => {
     if (!validate()) return;
-    console.log("Submitting Trade Details:", selectedStock)
+    // console.log("Submitting Trade Details:", selectedStock)
     onConfirm({
       action,
       ratio,

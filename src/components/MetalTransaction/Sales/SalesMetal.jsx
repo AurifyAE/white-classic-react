@@ -145,7 +145,7 @@ const [formData, setFormData] = useState({
     try {
       const response = await axiosInstance.get("/account-type");
       const { data } = response.data;
-      console.log(data);
+      // console.log(data);
       if (!Array.isArray(data)) {
         setError("Invalid trade debtors data format");
         return false;
@@ -394,7 +394,7 @@ const [formData, setFormData] = useState({
         `/currency-master/${currencyId}`
       );
       const data = response.data.data;
-      console.log(data);
+      // console.log(data);
       setFormData((prev) => ({
         ...prev,
         partyCurrencyValue: data.conversionRate,
@@ -1575,11 +1575,11 @@ const handleEdit = useCallback(
     setIsModalOpen(false); // Reset modal state to avoid stale state issues
 
     try {
-      console.log("Fetching transaction for ID:", stock.id);
+      // console.log("Fetching transaction for ID:", stock.id);
       const response = await axiosInstance.get(`/metal-transaction/${stock.id}`);
       const transaction = response.data.data;
 
-      console.log("Transaction Data:", transaction); // Log full transaction data
+      // console.log("Transaction Data:", transaction); // Log full transaction data
 
       let partyName = "Unknown Party";
       let partyDetails = {
@@ -1697,7 +1697,7 @@ const handleEdit = useCallback(
       const isFixed = transaction.fix === true || transaction.fixed === true;
       const isUnfixed = transaction.unfix === true || transaction.internalUnfix === true;
 
-      console.log("Fix/Unfix State:", { isFixed, isUnfixed, fix: transaction.fix, fixed: transaction.fixed, unfix: transaction.unfix, internalUnfix: transaction.internalUnfix });
+      // console.log("Fix/Unfix State:", { isFixed, isUnfixed, fix: transaction.fix, fixed: transaction.fixed, unfix: transaction.unfix, internalUnfix: transaction.internalUnfix });
 
       setFormData({
         transactionType: "sale",
@@ -1907,7 +1907,7 @@ const handleSave = useCallback(async () => {
       setNewlyCreatedSale(newStock);
       setSelectedPurchase(newStock);
 
-      console.log("newStock.partyCurrency:", newStock.partyCurrency);
+      // console.log("newStock.partyCurrency:", newStock.partyCurrency);
 
       setShowPreviewAfterSave(true);
 

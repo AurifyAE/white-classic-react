@@ -55,7 +55,7 @@ export default function PurchaseFixing() {
           params: { type: "purchase" },
         }
       );
-      console.log(response.data.data);
+      // console.log(response.data.data);
       setOrders(response.data.data);
       setInitialLoading(false);
     } catch (error) {

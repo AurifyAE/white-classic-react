@@ -29,8 +29,8 @@ const fetchTradeDebtors = async (setTradeDebtors, setFilteredDebtors) => {
   try {
     const response = await axiosInstance.get('/account-type/');
     const { data } = response.data;
-    console.log('====================================');
-    console.log(data);
+    // console.log('====================================');
+    // console.log(data);
     console.log('====================================');
 
     if (!Array.isArray(data) || data.length === 0) {
@@ -137,7 +137,7 @@ const fetchTradeDebtors = async (setTradeDebtors, setFilteredDebtors) => {
         state: debtor.addresses?.[0]?.city || "",
       },
     }));
-    console.log("API response kycDetails:", data[0]?.kycDetails);
+    // console.log("API response kycDetails:", data[0]?.kycDetails);
 
     // Filter for CREDITOR type
     const creditorDebtors = mappedTradeDebtors.filter((debtor) => debtor.type === "CREDITOR");
@@ -154,7 +154,7 @@ const fetchTradeDebtors = async (setTradeDebtors, setFilteredDebtors) => {
 };
 export default function TradeCreditors() {
   const [tradeDebtors, setTradeDebtors] = useState([]);
-  console.log("TradeDebtors:", tradeDebtors);
+  // console.log("TradeDebtors:", tradeDebtors);
   const [filteredDebtors, setFilteredDebtors] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);

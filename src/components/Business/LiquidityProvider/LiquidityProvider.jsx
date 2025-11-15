@@ -346,7 +346,7 @@ export default function LiquidityProviderManagement() {
       try {
         setLoading(true);
         await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate API call
-        console.log(`Sending message to ${recipient.name}: ${message}`);
+        // console.log(`Sending message to ${recipient.name}: ${message}`);
         alert(`Message sent successfully to ${recipient.name}`);
         setMessageRecipient(null);
       } catch (err) {

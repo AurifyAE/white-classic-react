@@ -5,7 +5,7 @@ const StockCodeField = ({ formData, setFormData, handleInputChange }) => {
   const [isStockModalOpen, setIsStockModalOpen] = useState(false);
 
   const handleSelectStock = (stock) => {
-    console.log('Selected stock:', stock);
+    // console.log('Selected stock:', stock);
     setFormData({
       ...formData,
       stockId: stock.id, // _id for backend

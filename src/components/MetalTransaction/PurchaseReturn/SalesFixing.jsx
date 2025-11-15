@@ -157,7 +157,7 @@ export default function PurchaseFixing() {
 
   const handlePlaceOrder = async (orderDetails) => {
     try {
-      console.log(orderDetails);
+      // console.log(orderDetails);
       const orderData = {
         partyId: orderDetails.user,
         quantityGm: parseFloat(orderDetails.volume),

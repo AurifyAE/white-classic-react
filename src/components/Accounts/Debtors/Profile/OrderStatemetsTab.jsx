@@ -12,8 +12,8 @@ const OrderStatementsTab = ({
   getStatusBadgeColor = () => "gray",
   userData,
 }) => {
-  console.log("User Data:", userData);
-
+//   console.log("User Data:", userData);
+// // 
   const [registries, setRegistries] = useState([]);
   const [filteredRegistries, setFilteredRegistries] = useState([]);
   const [totalItems, setTotalItems] = useState(0);
@@ -62,7 +62,7 @@ const OrderStatementsTab = ({
         );
         const { data } = res.data;
 
-        console.log("Raw data:", data);
+        // console.log("Raw data:", data);
 
         // Filter out CURRENCY_EXCHANGE transactions
         const filteredData = data.filter(
@@ -75,10 +75,10 @@ const OrderStatementsTab = ({
             txn.type != "sales-fixing"
         );
 
-        console.log(
-          "Filtered data (excluding CURRENCY_EXCHANGE, VAT_AMOUNT, GOLD):",
-          filteredData
-        );
+        // console.log(
+        //   "Filtered data (excluding CURRENCY_EXCHANGE, VAT_AMOUNT, GOLD):",
+        //   filteredData
+        // );
 
         // Sort data in chronological order for balance calculation (oldest to newest)
         const chronologicalData = [...filteredData].sort(
@@ -130,7 +130,7 @@ const OrderStatementsTab = ({
           };
         });
 
-        console.log("Mapped registry:", mappedRegistry);
+        // console.log("Mapped registry:", mappedRegistry);
 
         // Reverse for display (newest first, LIFO)
         const displayRegistry = [...mappedRegistry].reverse();
@@ -178,21 +178,21 @@ const OrderStatementsTab = ({
         const inrBalance =
           inrTxns.length > 0 ? inrTxns[inrTxns.length - 1].inr.balance : 0;
 
-        console.log("Summary gold:", {
-          debit: goldDebit,
-          credit: goldCredit,
-          balance: goldBalance,
-        });
-        console.log("Summary AED:", {
-          debit: aedDebit,
-          credit: aedCredit,
-          balance: aedBalance,
-        });
-        console.log("Summary INR:", {
-          debit: inrDebit,
-          credit: inrCredit,
-          balance: inrBalance,
-        });
+        // console.log("Summary gold:", {
+        //   debit: goldDebit,
+        //   credit: goldCredit,
+        //   balance: goldBalance,
+        // });
+        // console.log("Summary AED:", {
+        //   debit: aedDebit,
+        //   credit: aedCredit,
+        //   balance: aedBalance,
+        // });
+        // console.log("Summary INR:", {
+        //   debit: inrDebit,
+        //   credit: inrCredit,
+        //   balance: inrBalance,
+        // });
 
         setSummary({
           gold: { debit: goldDebit, credit: goldCredit, balance: goldBalance },

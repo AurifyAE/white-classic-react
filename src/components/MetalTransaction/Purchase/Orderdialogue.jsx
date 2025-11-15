@@ -621,9 +621,9 @@ const handleSaveOrders = async () => {
           })),
         }
       );
-      console.log("Update response:", response.data);
+      // console.log("Update response:", response.data);
     } else {
-      console.log("Order data being sent:", orderData);
+      // console.log("Order data being sent:", orderData);
       await onPlaceOrder(orderData);
     }
     setShowConfirmation(true);

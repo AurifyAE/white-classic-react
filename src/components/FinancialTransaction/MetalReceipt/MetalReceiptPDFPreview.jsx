@@ -45,7 +45,7 @@ const MetalPaymentPreviewModal = ({ isOpen, onClose, payment, onDownload }) => {
   const stocks = Array.isArray(payment.stockItems) ? payment.stockItems : Array.isArray(payment.stocks) ? payment.stocks : [];
 
   // Debug: Log the stocks array to verify its content
-  console.log('Stocks in Modal:', stocks);
+  // console.log('Stocks in Modal:', stocks);
 
   // Map stock items to table data, ensuring all properties are safely accessed
   const tableData = stocks.map((item, idx) => ({
