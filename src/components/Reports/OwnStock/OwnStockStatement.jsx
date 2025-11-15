@@ -65,11 +65,13 @@ function OwnStockStatement({
     return categories
       .filter((item) => !excludeOpening || item.category !== "OSB")
       .map((item, index) => {
+        console.log("Processing item:", item);
         const goldGms = Number(item.totalGrossWeight) || 0;
         const avgGrossWeight = Number(item.avgBidValue) || 0;
-        const valueAcd = calculateValue(avgGrossWeight, goldGms);
+        // const valueAcd = calculateValue(avgGrossWeight, goldGms);
+        const valueAcd = String(item.avgValue);
         const isReturn = isReturnCategory(item.category);
-
+        console.log("Category:", item.category, "isReturn:", isReturn, valueAcd);
         return {
           id: item.id || index + 1,
           category: item.description || item.category || "Unknown",
