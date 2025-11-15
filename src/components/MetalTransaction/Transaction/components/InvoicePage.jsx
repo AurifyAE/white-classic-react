@@ -1,4 +1,4 @@
-// InvoiceModal.jsx
+// InvoiceModal.jsx - Updated Debit/Credit Table
 import React, { useEffect, useState } from "react";
 import { X, DownloadIcon } from "lucide-react";
 import axiosInstance from "../../../../api/axios";
@@ -70,13 +70,60 @@ const numberToWords = (amount, currencyCode = "AED") => {
 };
 
 /* ---------------- main component ---------------- */
-export default function InvoiceModal({ show, data, onClose }) {
+export default function InvoiceModal({ show, data, onClose, type = "currency" }) {
+    console.log("InvoiceModal data:", data);
+    
   const [branch, setBranch] = useState(null);
 
-//   const rateSuffix =
-//   data.type === "BUY" ? " INR" :
-//   data.type === "SELL" ? " AED" :
-//   "";
+  // Determine invoice type and heading
+  const getInvoiceType = () => {
+    switch (type) {
+      case "currency":
+        return {
+          heading: "CURRENCY TRADE INVOICE",
+          pdfTitle: "CURRENCY TRADE INVOICE",
+          fileName: "currency-invoice"
+        };
+      case "gold":
+        return {
+          heading: "GOLD TRADE INVOICE",
+          pdfTitle: "GOLD TRADE INVOICE",
+          fileName: "gold-invoice"
+        };
+      default:
+        return {
+          heading: "TRADE INVOICE",
+          pdfTitle: "TRADE INVOICE",
+          fileName: "trade-invoice"
+        };
+    }
+  };
+
+  const invoiceType = getInvoiceType();
+
+  // Get gold trade sentence
+  const getGoldTradeSentence = () => {
+    if (type !== "gold" || !data) return "";
+    
+    const action = data.type === "BUY" ? "PURCHASED" : "SOLD";
+    const pureWeight = data.pureWeight || data.pureWeight || 0;
+    const ratePerKg = data.ratePerKg || data.rate || 0;
+    const totalValue = data.totalValue || data.amount || 0;
+    const commodity = data.commodity || data.commodityId?.code || "GOLD";
+    
+    return `WE HAVE ${action} FINE PURE  ${formatNumber(pureWeight)} GMS @ ${formatNumber(ratePerKg)}/GOZ`;
+  };
+
+  // Get gold equivalent value
+  const getGoldEquivalentValue = () => {
+    if (type !== "gold" || !data) return "";
+    
+    const totalValue = data.totalValue || data.amount || 0;
+    const currencyCode = data.baseCurrencyCode || "INR";
+    
+    return `Equivalent value ${formatNumber(totalValue)} ${currencyCode}`;
+  };
+
   /* --- Fetch branch --- */
   useEffect(() => {
     if (!show || !data) return;
@@ -111,151 +158,224 @@ export default function InvoiceModal({ show, data, onClose }) {
   const createdAt = data.createdAt ? new Date(data.createdAt).toLocaleDateString() : "N/A";
   const time = data.time || "N/A";
   const rate = formatNumber(data.rate);
+  const amount = formatNumber(data.amount * 1000);
   const converted = formatNumber(data.converted);
   const rateSuffix = data?.type === "BUY" ? " INR" : data?.type === "SELL" ? " AED" : "";
   const convertedSuffix = data?.type === "BUY" ? " AED" : data?.type === "SELL" ? " INR" : "";
   const amountInWords = numberToWords(data.total, data.type === "SELL" ? "INR" : data.targetCurrencyCode || "AED");
 
-  /* ---------------- PDF GENERATION ---------------- */
-const handleDownloadPDF = async () => {
-  try {
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const leftMargin = 14;
-    const rightMargin = 14;
+  // Gold specific values
+  const goldTradeSentence = getGoldTradeSentence();
+  const goldEquivalentValue = getGoldEquivalentValue();
 
-    // HEADER
-    // Logo
-    if (branchLogo) {
-      const logoWidth = 20;
-      const logoHeight = 20;
-      const logoX = pageWidth / 2 - logoWidth / 2;
-      doc.addImage(branchLogo, "PNG", logoX, 10, logoWidth, logoHeight);
+  // Get debit/credit values based on type
+  const getDebitCreditValues = () => {
+    if (type === "currency") {
+      if (data.type === "BUY") {
+        return {
+          debitAmount: data.amount ? formatNumber(data.amount * 1000) : "0",
+          debitCurrency: "AED",
+          debitLabel: "DEBITED AED",
+          creditAmount: data.converted ? formatNumber(data.converted) : "0",
+          creditCurrency: "INR",
+          creditLabel: "CREDITED INR"
+        };
+      } else { // SELL
+        return {
+          debitAmount: data.amount ? formatNumber(data.amount * 1000) : "0",
+          debitCurrency: "INR",
+          debitLabel: "DEBITED INR",
+          creditAmount: data.converted ? formatNumber(data.converted) : "0",
+          creditCurrency: "AED",
+          creditLabel: "CREDITED AED"
+        };
+      }
+    } else if (type === "gold") {
+      if (data.type === "BUY") {
+        return {
+          debitAmount: data.totalValue ? formatNumber(data.totalValue) : "0",
+          debitCurrency: "INR",
+          debitLabel: "DEBITED INR",
+          creditAmount: data.pureWeight ? formatNumber(data.pureWeight) : "0",
+          creditCurrency: "GOLD",
+          creditLabel: "CREDITED GOLD"
+        };
+      } else { // SELL
+        return {
+          debitAmount: data.pureWeight ? formatNumber(data.pureWeight) : "0",
+          debitCurrency: "GOLD",
+          debitLabel: "DEBITED GOLD",
+          creditAmount: data.totalValue ? formatNumber(data.totalValue) : "0",
+          creditCurrency: "INR",
+          creditLabel: "CREDITED INR"
+        };
+      }
     }
+    return {
+      debitAmount: "0",
+      debitCurrency: "",
+      debitLabel: "",
+      creditAmount: "0",
+      creditCurrency: "",
+      creditLabel: ""
+    };
+  };
 
-    // Title
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.text("CURRENCY TRADE INVOICE", pageWidth - rightMargin, 34, { align: "right" });
+  const { 
+    debitAmount, 
+    debitCurrency, 
+    debitLabel, 
+    creditAmount, 
+    creditCurrency, 
+    creditLabel 
+  } = getDebitCreditValues();
 
-    // Close button area (not rendered in PDF but keeping structure)
-    
-    // PARTY INFO - Bordered Box
-    const infoStartY = 40;
-    const infoBoxHeight = 25;
-    
-    // Draw the border
-    doc.setDrawColor(208, 208, 208);
-    doc.setLineWidth(0.5);
-    doc.rect(leftMargin, infoStartY, pageWidth - leftMargin - rightMargin, infoBoxHeight);
-    
-    // Vertical divider
-    doc.line(pageWidth / 2, infoStartY, pageWidth / 2, infoStartY + infoBoxHeight);
-    
-    // Left side content
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(0);
-    
-    doc.text(`Party Name: ${partyName}`, leftMargin + 3, infoStartY + 6);
-    doc.text(`Account Code: ${partyCode}`, leftMargin + 3, infoStartY + 11);
-    doc.text(`Branch: ${branchName}`, leftMargin + 3, infoStartY + 16);
-    
-    // Right side content
-    const rightContentX = pageWidth / 2 + 3;
-    doc.text(`Invoice No: ${orderNo}`, rightContentX, infoStartY + 6);
-    doc.text(`Date: ${createdAt}`, rightContentX, infoStartY + 11);
-    doc.text(`Time: ${time}`, rightContentX, infoStartY + 16);
+  /* ---------------- PDF GENERATION ---------------- */
+  const handleDownloadPDF = async () => {
+    try {
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const leftMargin = 14;
+      const rightMargin = 14;
 
-    // TRANSFER BOX
-    const transferStartY = infoStartY + infoBoxHeight + 20;
-    const transferBoxHeight = 25;
-    
-    // Light gray background
-    doc.setFillColor(250, 250, 250);
-    doc.rect(leftMargin, transferStartY, pageWidth - leftMargin - rightMargin, transferBoxHeight, "F");
-    
-    // Border
-    doc.setDrawColor(208, 208, 208);
-    doc.setLineWidth(0.5);
-    doc.rect(leftMargin, transferStartY, pageWidth - leftMargin - rightMargin, transferBoxHeight);
-    
-    // Content
-    doc.setFontSize(10);
-    doc.text(`WE HAVE TRANSFERRED ${rate + rateSuffix} FOR ${converted + convertedSuffix}.`, 
-             leftMargin + 5, transferStartY + 8);
-    
-    doc.setFontSize(10);
-    doc.text(`Equivalent of ${formatNumber(100000, 0)} INR`, 
-             leftMargin + 5, transferStartY + 16);
+      // HEADER
+      // Logo
+      if (branchLogo) {
+        const logoWidth = 20;
+        const logoHeight = 20;
+        const logoX = pageWidth / 2 - logoWidth / 2;
+        doc.addImage(branchLogo, "PNG", logoX, 10, logoWidth, logoHeight);
+      }
 
-    // DEBIT/CREDIT TABLE
-    const tableStartY = transferStartY + transferBoxHeight + 15;
-    const tableWidth = pageWidth - leftMargin - rightMargin;
-    const col1Width = tableWidth * 0.3;
-    const col2Width = tableWidth * 0.7;
+      // Title - Dynamic based on type
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text(invoiceType.pdfTitle, pageWidth - rightMargin, 34, { align: "right" });
 
-    const debitLabel = data.type === "BUY" ? "DEBITED AED " : "DEBITED INR ";
-    const creditLabel = data.type === "BUY" ? "CREDITED INR " : "CREDITED AED ";
-    const debitCurrency = data.type === "BUY" ? "AED" : "INR";
-    const creditCurrency = data.type === "BUY" ? "INR" : "AED";
+      // PARTY INFO - Bordered Box
+      const infoStartY = 40;
+      const infoBoxHeight = 25;
+      
+      // Draw the border
+      doc.setDrawColor(208, 208, 208);
+      doc.setLineWidth(0.5);
+      doc.rect(leftMargin, infoStartY, pageWidth - leftMargin - rightMargin, infoBoxHeight);
+      
+      // Vertical divider
+      doc.line(pageWidth / 2, infoStartY, pageWidth / 2, infoStartY + infoBoxHeight);
+      
+      // Left side content
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(0);
+      
+      doc.text(`Party Name: ${partyName}`, leftMargin + 3, infoStartY + 6);
+      doc.text(`Account Code: ${partyCode}`, leftMargin + 3, infoStartY + 11);
+      doc.text(`Branch: ${branchName}`, leftMargin + 3, infoStartY + 16);
+      
+      // Right side content
+      const rightContentX = pageWidth / 2 + 3;
+      doc.text(`Invoice No: ${orderNo}`, rightContentX, infoStartY + 6);
+      doc.text(`Date: ${createdAt}`, rightContentX, infoStartY + 11);
+      doc.text(`Time: ${time}`, rightContentX, infoStartY + 16);
 
-    // First row - DEBITED
-    doc.setDrawColor(208, 208, 208);
-    doc.setLineWidth(0.5);
-    doc.rect(leftMargin, tableStartY, tableWidth, 10);
-    doc.line(leftMargin + col1Width, tableStartY, leftMargin + col1Width, tableStartY + 10);
-    
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.text(`${debitLabel}${formatNumber(data.total)}`, leftMargin + 3, tableStartY + 6);
-    
-    doc.setFont("helvetica", "normal");
-    doc.text(numberToWords(data.total, debitCurrency), leftMargin + col1Width + 3, tableStartY + 6);
+      // TRANSFER BOX - Different content for currency vs gold
+      const transferStartY = infoStartY + infoBoxHeight + 20;
+      const transferBoxHeight = type === "gold" ? 30 : 25;
+      
+      // Light gray background
+      doc.setFillColor(250, 250, 250);
+      doc.rect(leftMargin, transferStartY, pageWidth - leftMargin - rightMargin, transferBoxHeight, "F");
+      
+      // Border
+      doc.setDrawColor(208, 208, 208);
+      doc.setLineWidth(0.5);
+      doc.rect(leftMargin, transferStartY, pageWidth - leftMargin - rightMargin, transferBoxHeight);
+      
+      // Content based on type
+      doc.setFontSize(10);
+      
+      if (type === "currency") {
+        doc.text(`WE HAVE TRANSFERRED ${amount + "INR"} FOR ${converted + "AED"}.`, 
+                leftMargin + 5, transferStartY + 8);
+        
+        doc.setFontSize(10);
+        doc.text(`Equivalent of ${formatNumber(100000, 0)} INR`, 
+                leftMargin + 5, transferStartY + 16);
+      } else if (type === "gold") {
+        // Split the gold sentence into multiple lines if needed
+        const goldSentenceLines = doc.splitTextToSize(goldTradeSentence, pageWidth - leftMargin - rightMargin - 10);
+        doc.text(goldSentenceLines, leftMargin + 5, transferStartY + 8);
+        
+        doc.setFontSize(10);
+        doc.text(goldEquivalentValue, leftMargin + 5, transferStartY + 20);
+      }
 
-    // Second row - CREDITED
-    doc.rect(leftMargin, tableStartY + 10, tableWidth, 10);
-    doc.line(leftMargin + col1Width, tableStartY + 10, leftMargin + col1Width, tableStartY + 20);
-    
-    doc.setFont("helvetica", "bold");
-    doc.text(`${creditLabel}${formatNumber(data.converted)}`, leftMargin + 3, tableStartY + 16);
-    
-    doc.setFont("helvetica", "normal");
-    doc.text(numberToWords(data.converted, creditCurrency), leftMargin + col1Width + 3, tableStartY + 16);
+      // DEBIT/CREDIT TABLE - Adjust for gold trades
+      const tableStartY = transferStartY + transferBoxHeight + 15;
+      const tableWidth = pageWidth - leftMargin - rightMargin;
+      const col1Width = tableWidth * 0.3;
+      const col2Width = tableWidth * 0.7;
 
-    // SIGNATURES
-    const sigY = tableStartY + 30;
-    doc.setFontSize(9);
-    doc.setDrawColor(208, 208, 208);
-    doc.setLineWidth(0.5);
-    
-    // Signature lines
-    const sigLineLength = 50;
-    const sigSpacing = (pageWidth - leftMargin - rightMargin - (3 * sigLineLength)) / 2;
-    
-    let currentX = leftMargin;
-    doc.line(currentX, sigY, currentX + sigLineLength, sigY);
-    doc.text("PARTY'S SIGNATURE", currentX + sigLineLength/2, sigY + 4, null, null, "center");
-    
-    currentX += sigLineLength + sigSpacing;
-    doc.line(currentX, sigY, currentX + sigLineLength, sigY);
-    doc.text("CHECKED BY", currentX + sigLineLength/2, sigY + 4, null, null, "center");
-    
-    currentX += sigLineLength + sigSpacing;
-    doc.line(currentX, sigY, currentX + sigLineLength, sigY);
-    doc.text("AUTHORIZED SIGNATORY", currentX + sigLineLength/2, sigY + 4, null, null, "center");
+      // First row - DEBITED
+      doc.setDrawColor(208, 208, 208);
+      doc.setLineWidth(0.5);
+      doc.rect(leftMargin, tableStartY, tableWidth, 10);
+      doc.line(leftMargin + col1Width, tableStartY, leftMargin + col1Width, tableStartY + 10);
+      
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.text(`${debitLabel} ${debitAmount}`, leftMargin + 3, tableStartY + 6);
+      
+      doc.setFont("helvetica", "normal");
+      const debitWords = debitCurrency === "GOLD" ? 
+        `${debitAmount} GMS PURE GOLD` : 
+        numberToWords(debitAmount, debitCurrency);
+      doc.text(debitWords, leftMargin + col1Width + 3, tableStartY + 6);
 
-    // FOOTER BUTTONS AREA (not rendered in PDF but keeping structure)
-    
-    // Save PDF
-    doc.save(`currency-invoice-${orderNo}.pdf`);
-  } catch (error) {
-    console.error("PDF generation failed:", error);
-    alert("Failed to generate PDF");
-  }
-};
+      // Second row - CREDITED
+      doc.rect(leftMargin, tableStartY + 10, tableWidth, 10);
+      doc.line(leftMargin + col1Width, tableStartY + 10, leftMargin + col1Width, tableStartY + 20);
+      
+      doc.setFont("helvetica", "bold");
+      doc.text(`${creditLabel} ${creditAmount}`, leftMargin + 3, tableStartY + 16);
+      
+      doc.setFont("helvetica", "normal");
+      const creditWords = creditCurrency === "GOLD" ? 
+        `${creditAmount} GMS PURE GOLD` : 
+        numberToWords(creditAmount, creditCurrency);
+      doc.text(creditWords, leftMargin + col1Width + 3, tableStartY + 16);
 
+      // SIGNATURES
+      const sigY = tableStartY + 30;
+      doc.setFontSize(9);
+      doc.setDrawColor(208, 208, 208);
+      doc.setLineWidth(0.5);
+      
+      // Signature lines
+      const sigLineLength = 50;
+      const sigSpacing = (pageWidth - leftMargin - rightMargin - (3 * sigLineLength)) / 2;
+      
+      let currentX = leftMargin;
+      doc.line(currentX, sigY, currentX + sigLineLength, sigY);
+      doc.text("PARTY'S SIGNATURE", currentX + sigLineLength/2, sigY + 4, null, null, "center");
+      
+      currentX += sigLineLength + sigSpacing;
+      doc.line(currentX, sigY, currentX + sigLineLength, sigY);
+      doc.text("CHECKED BY", currentX + sigLineLength/2, sigY + 4, null, null, "center");
+      
+      currentX += sigLineLength + sigSpacing;
+      doc.line(currentX, sigY, currentX + sigLineLength, sigY);
+      doc.text("AUTHORIZED SIGNATORY", currentX + sigLineLength/2, sigY + 4, null, null, "center");
+
+      // Save PDF
+      doc.save(`${invoiceType.fileName}-${orderNo}.pdf`);
+    } catch (error) {
+      console.error("PDF generation failed:", error);
+      alert("Failed to generate PDF");
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-white/40 z-50 flex items-center justify-center p-4">
@@ -266,7 +386,7 @@ const handleDownloadPDF = async () => {
             <img src={branchLogo} alt="logo" className="mx-auto w-[80px] h-[80px] object-contain" />
           )}
           <h2 className="text-[12px] font-bold text-right pr-3">
-            CURRENCY TRADE INVOICE
+            {invoiceType.heading}
           </h2>
           <button
             onClick={onClose}
@@ -290,36 +410,49 @@ const handleDownloadPDF = async () => {
           </div>
         </div>
 
-        {/* TRANSFER BOX */}
+        {/* TRANSFER BOX - Different content for currency vs gold */}
         <div className="px-3 mt-8">
           <div className="border border-[#D0D0D0] p-3 text-[10px] leading-relaxed bg-[#FAFAFA] rounded">
-            WE HAVE TRANSFERRED <strong>{rate + rateSuffix}</strong> FOR{" "}
-            <strong>{converted + convertedSuffix}</strong>.
-            <div className="mt-2 text-gray-700">
-              Equivalent of <strong>{formatNumber(100000, 0)} INR</strong>
-            </div>
+            {type === "currency" ? (
+              <>
+                WE HAVE TRANSFERRED <strong>{amount + "INR"}</strong> FOR{" "}
+                <strong>{converted + "AED"}</strong>.
+                <div className="mt-2 text-gray-700">
+                  Equivalent of <strong>{formatNumber(100000, 0)} INR</strong>
+                </div>
+              </>
+            ) : type === "gold" ? (
+              <>
+                <div className="font-semibold">{goldTradeSentence}</div>
+                <div className="mt-2 text-gray-700 font-semibold">
+                  {goldEquivalentValue}
+                </div>
+              </>
+            ) : null}
           </div>
         </div>
 
-        {/* DEBIT/CREDIT TABLE */}
+        {/* DEBIT/CREDIT TABLE - Fixed to match main box logic */}
         <div className="px-3 mt-6 text-[9px]">
           <div className="border border-[#D0D0D0] w-full">
             <div className="flex border-b border-[#D0D0D0]">
-              <div className="p-2 font-bold" style={{ width: "30%" }}>
-                {data.type === "BUY" ? "DEBITED AED " : "DEBITED INR "}
-                {formatNumber(data.total)}
+              <div className="p-2 font-bold" style={{ width: "30%"}}>
+                {debitLabel} {debitAmount}
               </div>
               <div className="p-2 border-l border-[#D0D0D0]" style={{ width: "70%" }}>
-                {numberToWords(data.total, data.type === "BUY" ? "AED" : "INR")}
+                {debitCurrency === "GOLD" ? 
+                  `${debitAmount} GMS PURE GOLD` : 
+                  numberToWords(debitAmount, debitCurrency)}
               </div>
             </div>
             <div className="flex">
               <div className="p-2 font-bold" style={{ width: "30%" }}>
-                {data.type === "BUY" ? "CREDITED INR " : "CREDITED AED "}
-                {formatNumber(data.converted)}
+                {creditLabel} {creditAmount}
               </div>
               <div className="p-2 border-l border-[#D0D0D0]" style={{ width: "70%" }}>
-                {numberToWords(data.converted, data.type === "BUY" ? "INR" : "AED")}
+                {creditCurrency === "GOLD" ? 
+                  `${creditAmount} GMS PURE GOLD` : 
+                  numberToWords(creditAmount, creditCurrency)}
               </div>
             </div>
           </div>
