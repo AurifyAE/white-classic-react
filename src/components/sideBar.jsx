@@ -156,7 +156,7 @@ const Sidebar = () => {
           },
           {
             icon: <Package strokeWidth={1.5} size={20} />,
-            text: "Commodity Master",
+            text: "Commodity Fix Master",
             to: "/commodity-master",
           },
           {

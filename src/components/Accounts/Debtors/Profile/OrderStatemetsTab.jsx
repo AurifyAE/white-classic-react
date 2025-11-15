@@ -71,6 +71,7 @@ const OrderStatementsTab = ({
             txn.type !== "VAT_AMOUNT" &&
             txn.type !== "GOLD" &&
             txn.type != "purchase-fixing" &&
+            txn.type != "MELTING_CHARGE" &&
             txn.type != "sales-fixing"
         );
 

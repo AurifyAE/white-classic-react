@@ -6,6 +6,8 @@ import TradeModalFX from './components/TradeModalFX';
 import TradeModalMetal from './components/TradeModalMetal';
 import GoldFixPage from './components/GoldFixPage';
 import useMarketData from "../../marketData";
+import axiosInstance from '../../../api/axios';
+import { toast } from 'react-toastify';
 
 const tabs = [
   { id: "currency", label: "Currency Fix" },

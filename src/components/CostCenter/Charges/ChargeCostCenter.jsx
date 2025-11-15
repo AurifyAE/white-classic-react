@@ -77,7 +77,7 @@ const MeltingChargeCenter = () => {
       const params = {
         page: currentPage,
         limit: itemsPerPage,
-        type: "MELTING_CHARGES",
+        type: "MELTING_CHARGE",
       };
 
       // Normalize dates to UTC midnight to avoid timezone issues

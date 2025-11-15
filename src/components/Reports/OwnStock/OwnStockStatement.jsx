@@ -75,12 +75,13 @@ function OwnStockStatement({
           category: item.description || item.category || "Unknown",
           goldGms,
           valueAcd,
-          average: metalValueCurrency === "GOZ"
-            ? avgGrossWeight.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-            : (avgGrossWeight / (convFactGms || 31.1035)).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-          section: ["OSB", "PF", "PR", "PRM"].includes(item.category)
+          average:String(avgGrossWeight),
+          // average: metalValueCurrency === "GOZ"
+          //   ? avgGrossWeight.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+          //   : (avgGrossWeight / (convFactGms || 31.1035)).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+          section: ["OSB", "PF", "PR", "PRM", "GFB"].includes(item.category)
             ? "Purchase"
-            : ["SF", "SR", "SAL"].includes(item.category)
+            : ["SF", "SR", "SAL","GFS"].includes(item.category)
               ? "Sales"
               : "SubTotal",
           isReturn: isReturn
@@ -152,7 +153,7 @@ const payableValue = React.useMemo(() => ({
     fullStockData.forEach((item) => {
       const gms = Number(item.goldGms) || 0;
       const val = Number(item.valueAcd.replace(/,/g, '')) || 0; // Parse formatted string back to number
-      const avg = Number(item.average.replace(/,/g, '')) || 0; // Parse formatted string back to number
+      const avg = Number(Number(item.average.replace(/,/g, '')).toFixed(3));
 
       switch (item.section) {
         case "Purchase":

@@ -659,7 +659,7 @@ const CommodityMaster = () => {
           <div className="flex items-center space-x-3">
             <Package className="w-8 h-8" />
             <div>
-              <h1 className="text-2xl font-bold">Commodity Master</h1>
+              <h1 className="text-2xl font-bold">Commodity Fix Master</h1>
               <p className="text-blue-100">Bullion Management System</p>
             </div>
           </div>

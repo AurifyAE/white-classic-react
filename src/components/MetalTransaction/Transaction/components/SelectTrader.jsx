@@ -21,11 +21,10 @@ const getDirhamColorFilter = (isNegative) => {
 };
 
 const SelectTrader = forwardRef(({ onTraderChange, value }, ref) => {
-    const [traders, setTraders] = useState([]);
+  const [traders, setTraders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currencies, setCurrencies] = useState([]);
-  const [refetchTrigger, setRefetchTrigger] = useState(0); // <-- This is key
-
+  const [refetchTrigger, setRefetchTrigger] = useState(0);
 
   const loadTraders = useCallback(async () => {
     setLoading(true);
@@ -39,28 +38,39 @@ const SelectTrader = forwardRef(({ onTraderChange, value }, ref) => {
       setCurrencies(currencyRes.data.data || []);
     } catch (err) {
       console.error("Failed to load traders", err);
-      toast.error("Failed to load traders");
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // Initial load
   useEffect(() => {
     loadTraders();
   }, [loadTraders]);
 
-  // Re-load when refetchTrigger changes
   useEffect(() => {
     if (refetchTrigger > 0) {
       loadTraders();
     }
   }, [refetchTrigger, loadTraders]);
 
-  // Expose refetch method to parent
+  // Expose direct function via ref
   useImperativeHandle(ref, () => ({
-    refetch: () => {
-      setRefetchTrigger((prev) => prev + 1);
+    refetch: async () => {
+      // Inner async: Same logic, but isolated (stable, no closure issues)
+      setLoading(true);
+      try {
+        const [traderRes, currencyRes] = await Promise.all([
+          axiosInstance.get("/account-type"),
+          axiosInstance.get("/currency-master"),
+        ]);
+        setTraders(traderRes.data.data || []);
+        setCurrencies(currencyRes.data.data || []);
+      } catch (err) {
+        console.error("Refetch failed:", err);
+        throw err; // Re-throw for caller to handle
+      } finally {
+        setLoading(false);
+      }
     },
   }), []);
 

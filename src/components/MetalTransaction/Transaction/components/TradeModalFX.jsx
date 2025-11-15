@@ -13,7 +13,8 @@ import SuccessModal from './SuccessModal';
 export default function TradeModalFX({
   selectedTrader,
   editTransaction,          // <-- NEW PROP
-  onClose,                  // optional – close after success
+  onClose,       
+  traderRefetch           // optional – close after success
 }) {
   // ---------- core form state ----------
   const [payAmount, setPayAmount] = useState('');
@@ -241,14 +242,15 @@ export default function TradeModalFX({
         });
         setShowSuccess(true);
 
-        // reset form only on create
-        if (!isEditMode.current) {
-          setPayAmount('');
-          setReceiveAmount('');
-          setRateLakh('');
-          setLastEdited(null);
-        }
-        onClose?.();
+        // ---- reset form ----
+        setPayAmount('');
+        setReceiveAmount('');
+        setRateLakh('');
+        setLastEdited(null);
+
+        // ---- **REFETCH NEW VOUCHER** ----
+        await fetchVoucherCode();
+        traderRefetch?.current && await traderRefetch.current();   // <-- re-load balances instantly
       } else {
         toast.error(isEditMode.current ? 'Update failed' : 'Create failed');
       }

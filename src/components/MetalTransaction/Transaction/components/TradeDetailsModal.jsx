@@ -82,10 +82,18 @@ useEffect(() => {
   }, [pureWeight]);
 
   const ratePerGram = useMemo(() => {
-    return initialManualRate ? (initialManualRate  / 1000).toFixed(2) : "0.00";
+    if (!initialManualRate) return "0.00";
+  
+    // Convert "10,000" or "10000" into a valid number
+    const numericRate = Number(initialManualRate.toString().replace(/,/g, ""));
+  
+    if (isNaN(numericRate)) return "0.00";
+  
+    return (numericRate / 1000).toFixed(2);
   }, [initialManualRate]);
 
   const metalAmountCalc = useMemo(() => {
+    console.log("Calculating metal amount:", { ratePerGram, pureWeight });
     if (!ratePerGram || !pureWeight) return "0.00";
     return (parseFloat(ratePerGram) * parseFloat(pureWeight)).toFixed(2);
   }, [ratePerGram, pureWeight]);
@@ -174,6 +182,7 @@ useEffect(() => {
       pureWeight: Number(pureWeight),
       weightInOz: Number(weightInOz),
       metalRate: Number(initialManualRate), // per 1000g
+      ratePerKGBAR: Number(initialManualRate.toString().replace(/,/g, "")), // per 1000g
       ratePerGram: Number(ratePerGram),
       metalAmount: Number(metalAmountCalc),
       meltingCharge: Number(parseFormattedNumber(meltingCharge) || 0),
