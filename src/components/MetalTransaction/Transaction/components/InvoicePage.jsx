@@ -1,4 +1,4 @@
-// InvoiceModal.jsx - Updated Debit/Credit Table
+// InvoiceModal.jsx - Fixed Debit/Credit Table
 import React, { useEffect, useState } from "react";
 import { X, DownloadIcon } from "lucide-react";
 import axiosInstance from "../../../../api/axios";
@@ -71,8 +71,8 @@ const numberToWords = (amount, currencyCode = "AED") => {
 
 /* ---------------- main component ---------------- */
 export default function InvoiceModal({ show, data, onClose, type = "currency" }) {
-    console.log("InvoiceModal data:", data);
-    
+  console.log("InvoiceModal data:", data);
+  
   const [branch, setBranch] = useState(null);
 
   // Determine invoice type and heading
@@ -157,37 +157,41 @@ export default function InvoiceModal({ show, data, onClose, type = "currency" })
   const orderNo = data.orderNo || "N/A";
   const createdAt = data.createdAt ? new Date(data.createdAt).toLocaleDateString() : "N/A";
   const time = data.time || "N/A";
-  const rate = formatNumber(data.rate);
-  const amount = formatNumber(data.amount * 1000);
-  const converted = formatNumber(data.converted);
-  const rateSuffix = data?.type === "BUY" ? " INR" : data?.type === "SELL" ? " AED" : "";
-  const convertedSuffix = data?.type === "BUY" ? " AED" : data?.type === "SELL" ? " INR" : "";
-  const amountInWords = numberToWords(data.total, data.type === "SELL" ? "INR" : data.targetCurrencyCode || "AED");
+
+  // Calculate amounts based on your requirements
+  const amount = data.amount ? formatNumber(data.amount * 1000) : "0.00";
+  const converted = data.converted ? formatNumber(data.converted) : "0.00";
 
   // Gold specific values
   const goldTradeSentence = getGoldTradeSentence();
   const goldEquivalentValue = getGoldEquivalentValue();
 
-  // Get debit/credit values based on type
+  // Get debit/credit values based on type - FIXED LOGIC
   const getDebitCreditValues = () => {
     if (type === "currency") {
+      // For currency trades, the logic should be:
+      // "WE HAVE TRANSFERRED X INR FOR Y AED" means:
+      // - We DEBITED the amount we transferred (INR)
+      // - We CREDITED the amount we received (AED)
       if (data.type === "BUY") {
+        // BUY: We transfer INR to get AED
         return {
-          debitAmount: data.amount ? formatNumber(data.amount * 1000) : "0",
-          debitCurrency: "AED",
-          debitLabel: "DEBITED AED",
-          creditAmount: data.converted ? formatNumber(data.converted) : "0",
-          creditCurrency: "INR",
-          creditLabel: "CREDITED INR"
-        };
-      } else { // SELL
-        return {
-          debitAmount: data.amount ? formatNumber(data.amount * 1000) : "0",
+          debitAmount: amount, // INR we transferred
           debitCurrency: "INR",
           debitLabel: "DEBITED INR",
-          creditAmount: data.converted ? formatNumber(data.converted) : "0",
-          creditCurrency: "AED",
+          creditAmount: converted, // AED we received
+          creditCurrency: "AED", 
           creditLabel: "CREDITED AED"
+        };
+      } else { // SELL
+        // SELL: We transfer AED to get INR
+        return {
+          debitAmount: amount, // AED we transferred
+          debitCurrency: "AED",
+          debitLabel: "DEBITED AED",
+          creditAmount: converted, // INR we received
+          creditCurrency: "INR",
+          creditLabel: "CREDITED INR"
         };
       }
     } else if (type === "gold") {
@@ -297,8 +301,13 @@ export default function InvoiceModal({ show, data, onClose, type = "currency" })
       doc.setFontSize(10);
       
       if (type === "currency") {
-        doc.text(`WE HAVE TRANSFERRED ${amount + "INR"} FOR ${converted + "AED"}.`, 
-                leftMargin + 5, transferStartY + 8);
+        if (data.type === "BUY") {
+          doc.text(`WE HAVE TRANSFERRED ${amount} INR FOR ${converted} AED.`, 
+                  leftMargin + 5, transferStartY + 8);
+        } else {
+          doc.text(`WE HAVE TRANSFERRED ${amount} AED FOR ${converted} INR.`, 
+                  leftMargin + 5, transferStartY + 8);
+        }
         
         doc.setFontSize(10);
         doc.text(`Equivalent of ${formatNumber(100000, 0)} INR`, 
@@ -312,7 +321,7 @@ export default function InvoiceModal({ show, data, onClose, type = "currency" })
         doc.text(goldEquivalentValue, leftMargin + 5, transferStartY + 20);
       }
 
-      // DEBIT/CREDIT TABLE - Adjust for gold trades
+      // DEBIT/CREDIT TABLE - Fixed to match main box logic
       const tableStartY = transferStartY + transferBoxHeight + 15;
       const tableWidth = pageWidth - leftMargin - rightMargin;
       const col1Width = tableWidth * 0.3;
@@ -415,8 +424,17 @@ export default function InvoiceModal({ show, data, onClose, type = "currency" })
           <div className="border border-[#D0D0D0] p-3 text-[10px] leading-relaxed bg-[#FAFAFA] rounded">
             {type === "currency" ? (
               <>
-                WE HAVE TRANSFERRED <strong>{amount + "INR"}</strong> FOR{" "}
-                <strong>{converted + "AED"}</strong>.
+                {data.type === "BUY" ? (
+                  <>
+                    WE HAVE TRANSFERRED <strong>{amount} INR</strong> FOR{" "}
+                    <strong>{converted} AED</strong>.
+                  </>
+                ) : (
+                  <>
+                    WE HAVE TRANSFERRED <strong>{amount} AED</strong> FOR{" "}
+                    <strong>{converted} INR</strong>.
+                  </>
+                )}
                 <div className="mt-2 text-gray-700">
                   Equivalent of <strong>{formatNumber(100000, 0)} INR</strong>
                 </div>
