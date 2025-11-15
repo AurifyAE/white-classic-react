@@ -9,10 +9,12 @@
 // }
 import React from 'react';
 import OwnStockCurrency from '../components/Reports/OwnStockCurrency/OwnStockCurrency';
+import CurrencyOwnStock from '../components/Reports/OwnStockCurrency/CurrencyOwnStock';
 export default function OwnStockCurrencyPage() {
     return (
         <>
-            <OwnStockCurrency />
+            {/* <OwnStockCurrency /> */}
+            <CurrencyOwnStock />
         </>
     );
 }
