@@ -410,68 +410,51 @@ export default function TradeModalGold({ selectedTrader, traderRefetch, editTran
   <div className="px-5 pb-4">
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-    {/* LEFT — Voucher Card (Centered Content) */}
-<div className="h-full">
+{/* LEFT — Voucher Card (Slim & Elegant) */}
+<div className=" mt-4">
   <div
-    className={`rounded-xl border p-6 shadow-sm h-full flex flex-col justify-center ${
+    className={`rounded-xl border p-6  flex flex-col ${
       isBuy
         ? 'bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200'
         : 'bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200'
     }`}
   >
     {/* Header */}
-    <div className="mb-15 pb-1 border-b border-gray-300/60 text-center">
+    <div className="text-center mb-6">
       <div className="flex items-center justify-center gap-2">
-        <svg
-          className="w-5 h-5 text-gray-800"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-          />
+        <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
-        <span className="text-lg font-bold text-gray-900">
-          Gold Voucher Information
-        </span>
+        <h3 className="text-lg font-bold text-gray-900">Gold Voucher</h3>
       </div>
-      <p className="text-[12px] text-gray-600 mt-1">
-        Official trade voucher details for your transaction
-      </p>
+      <p className="text-xs text-gray-600 mt-1">Official transaction details</p>
     </div>
 
-    {/* Centered fields */}
-    <div className="space-y-5">
-      <div className="bg-white/80 p-3 rounded-lg shadow-sm border border-gray-200">
-        <p className="text-[10px] font-semibold text-gray-500">
-          VOUCHER CODE
-        </p>
-        <p className="text-sm font-bold text-gray-800 tracking-wide">
+    {/* Slim & Clean Fields – vertically centered */}
+    <div className="flex-1 flex flex-col justify-center space-y-5">
+      <div className="bg-white/70 rounded-lg px-4 py-3 border border-gray-200/80">
+        <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Voucher Code</p>
+        <p className="text-base font-bold text-gray-900 mt-0.5">
           {editTransaction?.reference || voucher?.voucherNumber || '--'}
         </p>
       </div>
 
-      <div className="bg-white/80 p-3 rounded-lg shadow-sm border border-gray-200">
-        <p className="text-[10px] font-semibold text-gray-500">PREFIX</p>
-        <p className="text-sm font-bold text-gray-800">
+      <div className="bg-white/70 rounded-lg px-4 py-3 border border-gray-200/80">
+        <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Prefix</p>
+        <p className="text-base font-bold text-gray-900 mt-0.5">
           {voucher?.prefix || '--'}
         </p>
       </div>
 
-      <div className="bg-white/80 p-3 rounded-lg shadow-sm border border-gray-200">
-        <p className="text-[10px] font-semibold text-gray-500">
-          VOUCHER DATE
-        </p>
-        <p className="text-sm font-bold text-gray-800">
+      <div className="bg-white/70 rounded-lg px-4 py-3 border border-gray-200/80">
+        <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Date</p>
+        <p className="text-base font-bold text-gray-900 mt-0.5">
           {voucher?.date
             ? new Date(voucher.date).toLocaleDateString('en-GB')
             : editTransaction?.createdAt
-            ? new Date(editTransaction.createdAt).toLocaleDateString('en-GB')
-            : '--'}
+              ? new Date(editTransaction.createdAt).toLocaleDateString('en-GB')
+              : '--'}
         </p>
       </div>
     </div>
@@ -539,7 +522,7 @@ export default function TradeModalGold({ selectedTrader, traderRefetch, editTran
 
           {/* Rate per KG */}
           <div>
-            <label className="block text-sm font-semibold text-gray-800 mb-1.5">
+            <label className="block text-sm font-semibold text-gray-800 mb-1">
               Rate per KG Bar (INR) <span className="text-red-500">*</span>
             </label>
             <p className="text-xs text-gray-500 mb-2">1 = 1,000 INR | 100 = 1 Lakh INR</p>

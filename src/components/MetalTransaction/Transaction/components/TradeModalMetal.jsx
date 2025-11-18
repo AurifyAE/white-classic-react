@@ -1,5 +1,5 @@
 // Updated TradeModalMetal.jsx - With Fix/Unfix functionality
-import { Plus, Edit2, Trash2, Save } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, Edit } from 'lucide-react';
 import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import axiosInstance from "../../../../api/axios";
 import { toast } from 'react-toastify';
@@ -641,7 +641,7 @@ export default function TradeModalMetal({ type, selectedTrader, liveRate, onClos
                   <option value="">Select Stock</option>
                   {metalStocks.map((stock) => (
                     <option key={stock._id} value={stock._id}>
-                      {stock.code} - {stock.description}
+                      {stock.code}
                     </option>
                   ))}
                 </select>
@@ -730,7 +730,7 @@ export default function TradeModalMetal({ type, selectedTrader, liveRate, onClos
                     <th className="px-3 py-2">Type</th>
                     <th className="px-3 py-2">Gross Wt</th>
                     <th className="px-3 py-2">Metal Amt</th>
-                    <th className="px-3 py-2">Melt Chg</th>
+                    <th className="px-3 py-2">Melting charge</th>
                     <th className="px-3 py-2">Total Amt</th>
                     <th className="px-3 py-2 text-center">Actions</th>
                   </tr>
@@ -752,7 +752,7 @@ export default function TradeModalMetal({ type, selectedTrader, liveRate, onClos
                       <td className="px-3 py-2 font-semibold text-green-700">
                         ₹{formatNumber(t.metalAmount.toFixed(2))}
                       </td>
-                      <td className="px-3 py-2 text-orange-600">
+                      <td className="px-3 py-2 text-orange-600 ">
                         ₹{formatNumber((t.meltingCharge || 0).toFixed(2))}
                       </td>
                       <td className="px-3 py-2 font-bold text-blue-700">
@@ -764,7 +764,7 @@ export default function TradeModalMetal({ type, selectedTrader, liveRate, onClos
                           className="text-blue-600 hover:text-blue-800 mr-2"
                           title="Edit"
                         >
-                          <Edit2 className="w-4 h-4" />
+                          <Edit className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(i)}
