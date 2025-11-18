@@ -2,8 +2,8 @@
 import React, { useState, useEffect, useMemo, useCallback, useImperativeHandle, forwardRef } from "react";
 import Select from "react-select";
 import axiosInstance from "../../../../api/axios";
-import { User, X } from "lucide-react";
-import DirhamIcon from "../../../../assets/uae-dirham.svg"; // Your AED SVG
+import { User, X, Wallet, Coins } from "lucide-react";
+import DirhamIcon from "../../../../assets/uae-dirham.svg";
 
 const formatNumber = (num, fraction = 2) => {
   if (!num) return `0.${"0".repeat(fraction)}`;
@@ -13,11 +13,10 @@ const formatNumber = (num, fraction = 2) => {
   });
 };
 
-// Color filter for Dirham icon (only for AED)
 const getDirhamColorFilter = (isNegative) => {
   return isNegative
-    ? "invert(27%) sepia(94%) saturate(5500%) hue-rotate(340deg) brightness(90%) contrast(90%)" // red
-    : "invert(48%) sepia(61%) saturate(512%) hue-rotate(90deg) brightness(93%) contrast(85%)"; // green
+    ? "invert(27%) sepia(94%) saturate(5500%) hue-rotate(340deg) brightness(90%) contrast(90%)"
+    : "invert(48%) sepia(61%) saturate(512%) hue-rotate(90deg) brightness(93%) contrast(85%)";
 };
 
 const SelectTrader = forwardRef(({ onTraderChange, value }, ref) => {
@@ -53,10 +52,8 @@ const SelectTrader = forwardRef(({ onTraderChange, value }, ref) => {
     }
   }, [refetchTrigger, loadTraders]);
 
-  // Expose direct function via ref
   useImperativeHandle(ref, () => ({
     refetch: async () => {
-      // Inner async: Same logic, but isolated (stable, no closure issues)
       setLoading(true);
       try {
         const [traderRes, currencyRes] = await Promise.all([
@@ -67,21 +64,18 @@ const SelectTrader = forwardRef(({ onTraderChange, value }, ref) => {
         setCurrencies(currencyRes.data.data || []);
       } catch (err) {
         console.error("Refetch failed:", err);
-        throw err; // Re-throw for caller to handle
+        throw err;
       } finally {
         setLoading(false);
       }
     },
   }), []);
 
-
-  // Helper: get currency code from ID
   const getCurrencyCode = (currencyId) => {
     const currency = currencies.find((c) => c._id === currencyId);
     return currency ? currency.currencyCode : "AED";
   };
 
-  // Transform traders into react-select format
   const traderOptions = useMemo(() => {
     return traders.map((trader) => ({
       value: trader._id,
@@ -90,12 +84,10 @@ const SelectTrader = forwardRef(({ onTraderChange, value }, ref) => {
     }));
   }, [traders]);
 
-  // Clear selection
   const clearSelection = () => {
     onTraderChange(null);
   };
 
-  // Custom styles
   const customStyles = {
     control: (base, state) => ({
       ...base,
@@ -131,7 +123,6 @@ const SelectTrader = forwardRef(({ onTraderChange, value }, ref) => {
         Select Trader
       </label>
 
-      {/* Dropdown */}
       <div className="relative">
         <Select
           options={traderOptions}
@@ -148,13 +139,12 @@ const SelectTrader = forwardRef(({ onTraderChange, value }, ref) => {
         />
       </div>
 
-      {/* Balance Box */}
       {value && (
-        <div className="mt-4 p-4 bg-white rounded-lg border border-gray-300 shadow-sm">
+        <div className="mt-4 p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
           {/* Header */}
           <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-200">
             <div className="flex items-center gap-2">
-              <User className="w-4 h-4 text-blue-600" />
+              <User className="w-4 h-4 text-gray-600" />
               <span className="text-sm font-semibold text-gray-900">
                 {value.trader.customerName} ({value.trader.accountCode})
               </span>
@@ -168,86 +158,144 @@ const SelectTrader = forwardRef(({ onTraderChange, value }, ref) => {
           </div>
 
           {/* Balances */}
-          <div className="mt-4 pt-3 border-t border-gray-200">
-            <div className="grid grid-cols-2 gap-4">
-
+          <div className="mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              
               {/* CASH BALANCE */}
-              <div className="space-y-1">
-                <span className="text-xs font-medium text-gray-500 block">
-                  CASH BALANCE
-                </span>
+              <div className="border border-gray-200 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Wallet className="w-4 h-4 text-gray-600" />
+                  <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                    Cash Balance
+                  </span>
+                </div>
 
                 {Array.isArray(value.trader.balances?.cashBalance) &&
                 value.trader.balances.cashBalance.length > 0 ? (
-                  <div className="flex flex-wrap items-center gap-x-3 text-sm font-bold">
+                  <div className="space-y-2">
                     {value.trader.balances.cashBalance.map((cb, idx) => {
                       const amount = cb.amount || 0;
                       const isNegative = amount < 0;
                       const currencyCode = getCurrencyCode(cb.currency?._id);
                       const isINR = currencyCode === "INR";
+                      const isAED = currencyCode === "AED";
 
                       return (
-                        <React.Fragment key={idx}>
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between p-2 rounded-md bg-gray-50"
+                        >
+                          <div className="flex items-center gap-2">
+                            {isINR ? (
+                              <div className="w-6 h-6 bg-white border border-gray-300 rounded-full flex items-center justify-center">
+                                <span className="text-xs font-bold text-gray-700">₹</span>
+                              </div>
+                            ) : isAED ? (
+                              <div className="w-6 h-6 bg-white border border-gray-300 rounded-full flex items-center justify-center">
+                                <img
+                                  src={DirhamIcon}
+                                  alt="AED"
+                                  className="w-3 h-3"
+                                  style={{
+                                    filter: getDirhamColorFilter(isNegative),
+                                  }}
+                                />
+                              </div>
+                            ) : (
+                              <div className="w-6 h-6 bg-white border border-gray-300 rounded-full flex items-center justify-center">
+                                <span className="text-xs font-bold text-gray-600">{currencyCode}</span>
+                              </div>
+                            )}
+                            <span className="text-sm font-medium text-gray-700">
+                              {currencyCode}
+                            </span>
+                          </div>
                           <span
-                            className={`inline-flex items-center ${
+                            className={`text-sm font-bold ${
                               isNegative ? "text-red-600" : "text-green-600"
                             }`}
                           >
                             {isNegative && "-"}
-                            {isINR ? (
-                              <span className="text-lg font-thin  mr-1">₹</span>
-                            ) : (
-                              <img
-                                src={DirhamIcon}
-                                alt="AED"
-                                className="w-4 h-4 mr-1 "
-                                style={{
-                                  filter: getDirhamColorFilter(isNegative),
-                                }}
-                              />
-                            )}
                             {formatNumber(Math.abs(amount))}
                           </span>
-
-                          {/* Divider */}
-                          {idx < value.trader.balances.cashBalance.length - 1 && (
-                            <span className="text-gray-300 select-none">|</span>
-                          )}
-                        </React.Fragment>
+                        </div>
                       );
                     })}
                   </div>
                 ) : (
-                  <span className="text-sm text-gray-400">No cash balances</span>
+                  <div className="text-center py-3 bg-gray-50 rounded border border-gray-200">
+                    <span className="text-sm text-gray-500">No cash balances</span>
+                  </div>
                 )}
               </div>
 
-              {/* GOLD BALANCE */}
-              <div className="space-y-1">
-                <span className="text-xs font-medium text-gray-500 block">
-                  GOLD BALANCE
-                </span>
-                <span
-                  className={`text-sm font-bold inline-flex items-center ${
-                    value.trader.balances?.goldBalance?.totalGrams < 0
-                      ? "text-red-600"
-                      : "text-amber-600"
-                  }`}
-                >
-                  {value.trader.balances?.goldBalance?.totalGrams < 0 && "-"}
-                  {formatNumber(
-                    Math.abs(value.trader.balances?.goldBalance?.totalGrams || 0),
-                    3
-                  )}
-                  g
-                </span>
-              </div>
+            {/* GOLD BALANCE */}
+<div className="border border-gray-200 rounded-lg p-4">
+  <div className="flex items-center gap-2 mb-4">
+    <Coins className="w-4 h-4 text-gray-600" />
+    <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
+      Gold Balance
+    </span>
+  </div>
+  
+  {/* Main Gold Card */}
+  <div className="p-3 rounded-lg border border-gray-200 bg-gray-50">
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 bg-white border border-gray-300 rounded-full flex items-center justify-center">
+          <Coins className="w-5 h-5 text-gray-600" />
+        </div>
+        <div>
+          <span className="text-sm font-semibold text-gray-900 block">Total Gold</span>
+          <span className="text-xs text-gray-600">in grams</span>
+        </div>
+      </div>
+      <div className="text-right">
+        <span
+          className={`text-xl font-bold ${
+            (value.trader.balances?.goldBalance?.totalGrams || 0) < 0
+              ? "text-red-600"
+              : "text-gray-900"
+          }`}
+        >
+          {(value.trader.balances?.goldBalance?.totalGrams || 0) < 0 && "-"}
+          {formatNumber(
+            Math.abs(value.trader.balances?.goldBalance?.totalGrams || 0),
+            3
+          )}
+          <span className="text-sm font-medium ml-1">g</span>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  {/* Additional Gold Metrics */}
+  <div className="mt-3 grid grid-cols-2 gap-2">
+    {value.trader.balances?.goldBalance?.availableGrams && (
+      <div className="flex items-center justify-between p-2 bg-white rounded border border-gray-200">
+        <span className="text-xs text-gray-600">Available</span>
+        <span className="text-sm font-medium text-gray-700">
+          {formatNumber(value.trader.balances.goldBalance.availableGrams, 3)}g
+        </span>
+      </div>
+    )}
+    
+    {value.trader.balances?.goldBalance?.reservedGrams && (
+      <div className="flex items-center justify-between p-2 bg-white rounded border border-gray-200">
+        <span className="text-xs text-gray-600">Reserved</span>
+        <span className="text-sm font-medium text-gray-700">
+          {formatNumber(value.trader.balances.goldBalance.reservedGrams, 3)}g
+        </span>
+      </div>
+    )}
+  </div>
+</div>
             </div>
           </div>
         </div>
       )}
     </div>
   );
-})
+});
 
 export default SelectTrader;

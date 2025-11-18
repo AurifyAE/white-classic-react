@@ -243,6 +243,24 @@ const Sidebar = () => {
         ],
       },
       {
+  key: "transactionMenu",
+  icon: <HandCoins strokeWidth={1.5} size={22} />,
+  text: "Transaction",
+  children: [
+    {
+      icon: <Send strokeWidth={1.5} size={20} />,
+      text: "Trade",
+      to: "/transaction",
+    },
+    {
+      icon: <ClipboardList strokeWidth={1.5} size={20} />,
+      text: "Recent Transactions",
+      to: "/recent-orders",
+    },
+  ],
+},
+
+      {
         key: "inventoryManagement",
         icon: <Box strokeWidth={1.5} size={22} />,
         text: "Inventory Management",
@@ -481,7 +499,7 @@ const Sidebar = () => {
                   />
                 ))}
               </SidebarSection>
-              {section.key === "generalMaster" && (
+              {/* {section.key === "generalMaster" && (
                 <>
                   <Link to="/transaction" className="block">
                     <div
@@ -499,7 +517,7 @@ const Sidebar = () => {
                     </div>
                   </Link>
                 </>
-              )}
+              )} */}
             </div>
           ))}
           <div className="pt-6">

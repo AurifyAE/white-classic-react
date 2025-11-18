@@ -348,143 +348,268 @@ export default function TradeModalFX({
             </span>
           )}
         </div>
-
+<div className="px-5 pb-4 flex justify-end">
+  <div className="bg-orange-50 text-black px-4 py-2 rounded-md shadow-sm flex items-center gap-2">
+    <span className="font-semibold text-sm tracking-wide">INR / AED</span>
+  </div>
+</div>
         {/* Buy / Sell Toggle */}
-        <div className="px-5 pb-4 flex gap-2">
-          <button
-            onClick={() => setIsBuy(true)}
-            className={`flex-1 py-2 rounded-md font-medium transition-colors ${
-              isBuy ? theme.toggleActive : theme.toggleInactive
-            }`}
-            disabled={!!editTransaction}
-          >
-            Buy AED
-          </button>
-          <button
-            onClick={() => setIsBuy(false)}
-            className={`flex-1 py-2 rounded-md font-medium transition-colors ${
-              !isBuy ? theme.toggleActive : theme.toggleInactive
-            }`}
-            disabled={!!editTransaction}
-          >
-            Sell AED
-          </button>
-        </div>
+       <div className="px-5 pb-4">
+  <div
+    className={`relative flex items-center w-[560px] mx-auto bg-gray-200 rounded-xl p-1 transition-all duration-300 overflow-hidden ${
+      editTransaction ? "opacity-60 cursor-not-allowed" : ""
+    }`}
+  >
+    {/* Sliding Bar */}
+    <div
+      className={`absolute h-full w-1/2 rounded-lg transition-transform duration-300 ${
+        isBuy ? "translate-x-0 bg-blue-600" : "translate-x-[100%] bg-red-600"
+      }`}
+    />
 
-        {/* Voucher Details */}
-        <div className="px-5 pb-4">
-          <div
-            className={`rounded-lg p-3 flex justify-between text-sm ${theme.voucherBg}`}
-          >
-            <div className="flex flex-col items-center">
-              <span className="text-gray-600">Voucher Code</span>
-              <span className="font-medium">
-                {editTransaction?.reference || voucher?.voucherNumber || 'N/A'}
-              </span>
-            </div>
-            <div className="flex flex-col items-center">
-              <span className="text-gray-600">Prefix</span>
-              <span className="font-medium">
-                {voucher?.prefix ?? 'N/A'}
-              </span>
-            </div>
-            <div className="flex flex-col items-center">
-              <span className="text-gray-600">Voucher Date</span>
-              <span className="font-medium">
-                {voucher?.date
-                  ? new Date(voucher.date).toLocaleDateString('en-GB')
-                  : editTransaction?.createdAt
-                  ? new Date(editTransaction.createdAt).toLocaleDateString('en-GB')
-                  : 'N/A'}
-              </span>
-            </div>
-          </div>
-        </div>
+    {/* BUY */}
+    <button
+      onClick={() => !editTransaction && setIsBuy(true)}
+      className={`relative z-10 flex-1 py-2 text-sm font-semibold transition-colors text-center ${
+        isBuy ? "text-white" : "text-gray-800"
+      }`}
+      disabled={!!editTransaction}
+    >
+      Buy AED
+    </button>
 
-        {/* Currency Bar */}
-        <div className="px-5 pb-4">
-          <div className="bg-purple-50 rounded-lg p-3 flex items-center justify-between">
-            <span className="text-lg font-medium">INR/AED</span>
-          </div>
-        </div>
+    {/* SELL */}
+    <button
+      onClick={() => !editTransaction && setIsBuy(false)}
+      className={`relative z-10 flex-1 py-2 text-sm font-semibold transition-colors text-center ${
+        !isBuy ? "text-white" : "text-gray-800"
+      }`}
+      disabled={!!editTransaction}
+    >
+      Sell AED
+    </button>
+  </div>
+</div>
+
+
+     {/* Voucher Details */}
+<div className="px-5 pb-4">
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+    {/* LEFT SIDE — Voucher Card */}
+  {/* LEFT SIDE — Voucher Card */}
+<div className="h-full">
+  <div
+    className={`rounded-xl border ${
+      isBuy
+        ? 'bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200'
+        : 'bg-gradient-to-br from-red-50 to-red-100 border-red-200'
+    } p-6 shadow-sm h-full flex flex-col`}
+  >
+    {/* Heading Row */}
+    <div className="mb-5 pb-3 border-b border-gray-300/60">
+      <div className="flex items-center gap-2">
+        <svg className="w-5 h-5 text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        <span className="text-lg font-bold text-gray-900">Voucher Information</span>
+      </div>
+
+      {/* Sub heading for a filled-feel */}
+      <p className="text-[12px] text-gray-600 mt-1">
+        Official trade voucher details for your transaction
+      </p>
+    </div>
+
+    {/* Body Fields */}
+    <div className="space-y-5 flex-1">
+      {/* Voucher Code */}
+      <div className="bg-white/80 p-3 rounded-lg shadow-sm border border-gray-200">
+        <p className="text-[10px] font-semibold text-gray-500">VOUCHER CODE</p>
+        <p className="text-sm font-bold text-gray-800 tracking-wide">
+          {editTransaction?.reference || voucher?.voucherNumber || '--'}
+        </p>
+      </div>
+
+      {/* Prefix */}
+      <div className="bg-white/80 p-3 rounded-lg shadow-sm border border-gray-200">
+        <p className="text-[10px] font-semibold text-gray-500">PREFIX</p>
+        <p className="text-sm font-bold text-gray-800">
+          {voucher?.prefix || '--'}
+        </p>
+      </div>
+
+      {/* Voucher Date */}
+      <div className="bg-white/80 p-3 rounded-lg shadow-sm border border-gray-200">
+        <p className="text-[10px] font-semibold text-gray-500">VOUCHER DATE</p>
+        <p className="text-sm font-bold text-gray-800">
+          {voucher?.date
+            ? new Date(voucher.date).toLocaleDateString('en-GB')
+            : editTransaction?.createdAt
+            ? new Date(editTransaction.createdAt).toLocaleDateString('en-GB')
+            : '--'}
+        </p>
+      </div>
+    </div>
+
+  
+  </div>
+</div>
+
+
+    {/* RIGHT SIDE — Pay, Rate, Receive (Wrapped in Matching Card) */}
+    <div className="h-full">
+      <div className="rounded-xl border bg-white p-5 shadow-sm h-full space-y-6">
 
         {/* Pay Amount */}
-        <div className="px-5 pb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+        <div>
+          <label className="block text-sm font-semibold text-gray-800 mb-1.5">
             Pay Amount ({payCurrency})
           </label>
-          {isBuy && <p className="mt-1 text-xs text-gray-500 mb-2">{payHint}</p>}
-          <input
-            type="text"
-            placeholder={isBuy ? 'e.g. 100 = 1 Lakh' : 'Enter AED to pay'}
-            value={payAmount}
-            onChange={(e) => handlePayChange(e.target.value)}
-            className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 ${theme.inputFocus}`}
-          />
-        </div>
 
-        {/* Receive Amount */}
-        <div className="px-5 pb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Receive Amount ({receiveCurrency})
-          </label>
-          {!isBuy && <p className="mt-1 text-xs text-gray-500 mb-2">1 = 1,000 INR | 100 = 1 Lakh INR</p>}
-          <input
-            type="text"
-            placeholder={
-              isBuy ? 'Enter AED to receive' : 'Enter INR to receive'
-            }
-            value={receiveAmount}
-            onChange={(e) => handleReceiveChange(e.target.value)}
-            className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 ${theme.inputFocus}`}
-          />
+          {isBuy && (
+            <p className="text-xs text-gray-500 mb-2 flex items-center gap-1">
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+              {payHint}
+            </p>
+          )}
+
+          <div className="relative">
+            <input
+              type="text"
+              placeholder={isBuy ? 'e.g. 100 = 1 Lakh' : 'Enter AED to pay'}
+              value={payAmount}
+              onChange={(e) => handlePayChange(e.target.value)}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+            />
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-600">
+              {payCurrency}
+            </div>
+          </div>
         </div>
 
         {/* Rate of 1 Lakh */}
-        <div className="px-5 pb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+        <div>
+          <label className="block text-sm font-semibold text-gray-800 mb-1.5">
             Rate of 1 Lakh
           </label>
-          <input
-            type="text"
-            placeholder={ratePlaceholder}
-            value={rateLakh}
-            onChange={(e) => handleRateChange(e.target.value)}
-            className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 ${theme.inputFocus}`}
-          />
+
+          <div className="relative">
+            <input
+              type="text"
+              placeholder={ratePlaceholder}
+              value={rateLakh}
+              onChange={(e) => handleRateChange(e.target.value)}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+            />
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-600">
+              AED
+            </div>
+          </div>
+
+          {rateLakh && (
+            <p className="mt-2 text-xs text-gray-600 bg-gray-50 px-3 py-1.5 rounded-md inline-block shadow-sm">
+              1 Lakh INR = {parseFloat(parseNumber(rateLakh)).toFixed(2)} AED
+            </p>
+          )}
         </div>
 
-        {/* Trade Summary */}
-        <div className="px-5 pb-4">
-          <div
-            className={`rounded-lg p-4 border ${theme.summaryBorder} ${theme.summaryBg}`}
-          >
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="text-gray-600">You Pay</span>
-                <br />
-                <span className="font-semibold">
-                  {payAmount || '0'} {payCurrency}
-                </span>
-              </div>
-              <div>
-                <span className="text-gray-600">You Receive</span>
-                <br />
-                <span className="font-semibold">
-                  {receiveAmount || '0'} {receiveCurrency}
-                </span>
-              </div>
-            </div>
-            <div className="mt-3 text-sm">
-              <span className="text-gray-600">
-                Rate (AED per 1 Lakh INR){' '}
-              </span>
-              <span className="font-medium">
-                {rateLakh || '0.00'} {isBuy ? '(Buy)' : '(Sell)'}
-              </span>
+        {/* Receive Amount */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-800 mb-1.5">
+            Receive Amount ({receiveCurrency})
+          </label>
+
+          {!isBuy && (
+            <p className="text-xs text-gray-500 mb-2 flex items-center gap-1">
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+              1 = 1,000 INR | 100 = 1 Lakh INR
+            </p>
+          )}
+
+          <div className="relative">
+            <input
+              type="text"
+              placeholder={isBuy ? 'Enter AED to receive' : 'e.g. 100 = 1 Lakh'}
+              value={receiveAmount}
+              onChange={(e) => handleReceiveChange(e.target.value)}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+            />
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-600">
+              {receiveCurrency}
             </div>
           </div>
         </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+      
+
+      {/* Trade Summary */}
+<div className="px-5 pb-4">
+  <div className={`rounded-lg p-4 border ${theme.summaryBorder} ${theme.summaryBg}`}>
+    <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-200">
+      <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+      </svg>
+      <span className="text-sm font-semibold text-gray-800">Trade Summary</span>
+    </div>
+
+    <div className="grid grid-cols-2 gap-4 mb-4">
+      <div>
+        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1.5">
+          You Pay
+        </span>
+        <div className="flex items-baseline gap-2">
+          <span className="text-lg font-bold text-gray-900">
+            {payAmount || '0'}
+          </span>
+          <span className="text-sm font-semibold text-gray-600">
+            {payCurrency}
+          </span>
+        </div>
+      </div>
+
+      <div>
+        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1.5">
+          You Receive
+        </span>
+        <div className="flex items-baseline gap-2">
+          <span className="text-lg font-bold text-gray-900">
+            {receiveAmount || '0'}
+          </span>
+          <span className="text-sm font-semibold text-gray-600">
+            {receiveCurrency}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div className="pt-3 border-t border-gray-200">
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-gray-600 font-medium">Rate (AED per 1 Lakh INR)</span>
+        <div className="flex items-center gap-2">
+          <span className="font-bold text-gray-900">
+            {rateLakh || '0.00'}
+          </span>
+          <span className={`text-xs font-semibold px-2 py-1 rounded ${
+            isBuy ? 'bg-blue-600 text-white' : 'bg-red-600 text-white'
+          }`}>
+            {isBuy ? 'Buy' : 'Sell'}
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
         {/* Action Buttons */}
         <div className="px-5 pb-5 flex gap-3">
