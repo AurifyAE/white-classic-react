@@ -531,52 +531,33 @@ export default function TradeModalMetal({ type, selectedTrader, liveRate, onClos
                 Trade Type <span className="text-red-500">*</span>
               </label> */}
             <div className="mb-4">
-<div className="w-full mb-6">
-  <div className="flex justify-center">
-    <div className="isolate inline-flex rounded-2xl bg-gray-100 p-1.5 shadow-lg shadow-black/5 ring-1 ring-black/5">
-      {['Fix', 'Unfix'].map((option) => {
-        const isActive = selectedRatio === option;
-
-        return (
-          <button
-            key={option}
-            type="button"
-            onClick={() => setSelectedRatio(option)}
-            className={`
-              relative px-12 py-3.5 rounded-xl font-medium text-sm tracking-wide transition-all duration-300 ease-out
-              ${isActive 
-                ? 'text-white' 
-                : 'text-gray-600 hover:text-gray-900'
-              }
-            `}
-          >
-            {/* Blue sliding background */}
-            {isActive && (
-              <span className="absolute inset-0 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl shadow-xl" />
-            )}
-
-            {/* Text + optional dot */}
-            <span className="relative flex items-center gap-2.5">
-              <span
-                className={`w-2 h-2 rounded-full transition-all duration-300
-                  ${isActive ? 'bg-white' : 'bg-gray-400'}
-                `}
-              />
-              {option}
-            </span>
-          </button>
-        );
-      })}
-    </div>
+  <div className="flex bg-gray-100 p-1 rounded-xl shadow-inner">
+    {['Fix', 'Unfix'].map((option) => {
+      const active = selectedRatio === option;
+      return (
+        <button
+          key={option}
+          onClick={() => setSelectedRatio(option)}
+          className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all 
+            ${active 
+              ? 'bg-white shadow-sm text-indigo-700 border border-indigo-300' 
+              : 'text-gray-600 hover:text-indigo-600'
+            }`}
+        >
+          <div className="flex items-center justify-center gap-2">
+            <span
+              className={`w-3.5 h-3.5 rounded-full border
+                ${active 
+                  ? 'bg-indigo-600 border-indigo-600' 
+                  : 'border-gray-400'
+                }`}
+            ></span>
+            {option}
+          </div>
+        </button>
+      );
+    })}
   </div>
-
-  {/* Error */}
-  {showErrors && !selectedRatio && (
-    <p className="mt-4 text-center text-sm text-red-500 font-medium">
-      Please select Fix or Unfix.
-    </p>
-  )}
-</div>
 
   {showErrors && !selectedRatio && (
     <p className="text-xs text-red-500 mt-1">Please select Fix or Unfix.</p>
