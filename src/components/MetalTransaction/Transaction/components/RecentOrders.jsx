@@ -38,7 +38,8 @@ export default function RecentOrders({
   const [itemsPerPage, setItemsPerPage] = useState("20 per page");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
-
+const [showDeleteModal, setShowDeleteModal] = useState(false);
+const [orderToDelete, setOrderToDelete] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -452,36 +453,36 @@ export default function RecentOrders({
     });
   };
 
-  const handleDelete = async (order) => {
-    if (onDeleteTransaction && order._id) {
-      onDeleteTransaction(order._id);
-    } else {
-      if (window.confirm('Are you sure you want to delete this transaction?')) {
-        try {
-          let endpoint = '';
-          switch (selectedType) {
-            case TRANSACTION_TYPES.CURRENCY:
-              endpoint = `/currency-trading/trades/${order._id}`;
-              break;
-            case TRANSACTION_TYPES.GOLD:
-              endpoint = `/gold-trade/trades/${order._id}`;
-              break;
-            case TRANSACTION_TYPES.PURCHASE:
-            case TRANSACTION_TYPES.SALES:
-              endpoint = `/metal-transaction/${order._id}`;
-              break;
-          }
-          
-          await axiosInstance.delete(endpoint);
-          toast.success('Transaction deleted successfully');
-          fetchOrders(selectedType);
-        } catch (error) {
-          console.error('Error deleting transaction:', error);
-          toast.error('Failed to delete transaction');
-        }
-      }
+const handleDelete = async (order) => {
+  if (!order?._id) return;
+
+  try {
+    let endpoint = "";
+
+    switch (selectedType) {
+      case TRANSACTION_TYPES.CURRENCY:
+        endpoint = `/currency-trading/trades/${order._id}`;
+        break;
+
+      case TRANSACTION_TYPES.GOLD:
+        endpoint = `/gold-trade/trades/${order._id}`;
+        break;
+
+      case TRANSACTION_TYPES.PURCHASE:
+      case TRANSACTION_TYPES.SALES:
+        endpoint = `/metal-transaction/${order._id}`;
+        break;
     }
-  };
+
+    await axiosInstance.delete(endpoint);
+    toast.success("Transaction deleted successfully");
+
+    fetchOrders(selectedType);
+  } catch (error) {
+    console.error("Error deleting transaction:", error);
+    toast.error("Failed to delete transaction");
+  }
+};
 
   const openInvoice = (order) => {
     setSelectedOrder(order);
@@ -852,17 +853,65 @@ export default function RecentOrders({
                   <Edit size={18} />
                 </button>
 
-                <button
-                  onClick={() => handleDelete(order)}
-                  className="p-1.5 hover:bg-gray-100 rounded transition-colors text-red-500"
-                  title="Delete"
-                >
-                  <Trash2 size={18} />
-                </button>
+              <button
+  onClick={() => {
+    setOrderToDelete(order);
+    setShowDeleteModal(true);
+  }}
+  className="p-1.5 hover:bg-gray-100 rounded transition-colors text-red-500"
+  title="Delete"
+>
+  <Trash2 size={18} />
+</button>
+
               </div>
             </td>
           </tr>
+          
         ))}
+        {showDeleteModal && (
+  <div className="fixed inset-0 bg-black/30 bg-opacity-40 flex items-center justify-center z-50 ">
+    <div className="bg-white rounded-2xl shadow-xl w-[350px] p-6 animate-fadeIn">
+      
+      <h3 className="text-lg font-semibold text-gray-800 mb-3">
+        Delete Transaction?
+      </h3>
+
+      <p className="text-sm text-gray-600 mb-6 leading-relaxed">
+        This action cannot be undone.  
+        Do you want to permanently delete 
+        <span className="font-medium text-gray-800"> {orderToDelete?.orderNo}</span>?
+      </p>
+
+      <div className="flex justify-end gap-3">
+        <button
+          onClick={() => {
+            setShowDeleteModal(false);
+            setOrderToDelete(null);
+          }}
+          className="px-4 py-2 rounded-lg text-sm border border-gray-300 hover:bg-gray-100 transition"
+        >
+          Cancel
+        </button>
+
+        <button
+          onClick={() => {
+            setShowDeleteModal(false);
+            if (orderToDelete?._id) {
+              handleDelete(orderToDelete);
+            }
+            setOrderToDelete(null);
+          }}
+          className="px-4 py-2 rounded-lg text-sm bg-red-600 text-white hover:bg-red-700 transition"
+        >
+          Delete
+        </button>
+      </div>
+
+    </div>
+  </div>
+)}
+
       </tbody>
     </table>
   </div>
@@ -885,5 +934,6 @@ export default function RecentOrders({
         partyCurrency={selectedOrder?.partyCode || { currencyCode: "AED" }}
       />
     </div>
+    
   );
 }
