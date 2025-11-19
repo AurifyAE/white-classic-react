@@ -12,9 +12,9 @@ import SuccessModal from './SuccessModal';
 
 export default function TradeModalFX({
   selectedTrader,
-  editTransaction,
-  onClose,
-  traderRefetch
+  traderRefetch,
+  editTransaction,  // Add this prop
+  onClose
 }) {
   // ---------- core form state ----------
   const [payAmount, setPayAmount] = useState('');

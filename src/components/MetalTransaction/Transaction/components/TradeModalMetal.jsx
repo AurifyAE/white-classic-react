@@ -1,4 +1,3 @@
-// Updated TradeModalMetal.jsx - With Fix/Unfix functionality
 import { Plus, Edit2, Trash2, Save, Edit } from 'lucide-react';
 import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import axiosInstance from "../../../../api/axios";
@@ -112,46 +111,69 @@ export default function TradeModalMetal({ type, selectedTrader, liveRate, onClos
   }, [metalAmountCalc, meltingCharge]);
 
   // Load existing transaction data if in edit mode
-  useEffect(() => {
-    if (existingTransaction) {
-      console.log('Loading existing metal transaction for edit:', existingTransaction);
-      setVoucher({
-        voucherNumber: existingTransaction.voucherNumber || "N/A",
-        prefix: existingTransaction.voucherType || "N/A",
-        date: existingTransaction.voucherDate || new Date().toISOString(),
-      });
-      
-      // Set Fix/Unfix from existing transaction
-      setSelectedRatio(existingTransaction.fix ? "Fix" : existingTransaction.unfix ? "Unfix" : "");
-      
-      const firstItem = existingTransaction.stockItems?.[0];
-      if (firstItem?.metalRate?._id) {
-        setSelectedMetalUnit(firstItem.metalRate._id);
-      }
-      if (firstItem?.metalRateRequirements?.rate) {
-        setRate(formatNumber((firstItem.metalRateRequirements.rate * 1000).toString()));
-      }
-      
-      const existingTrades = (existingTransaction.stockItems || []).map((item) => ({
-        trader: selectedTrader?.label || selectedTrader?.name || existingTransaction.partyCode?.customerName || "Trader",
-        stockId: item.stockCode?._id || item.stockCode,
-        stockCode: item.stockCode?.code || item.stockCode?.symbol || "-",
-        description: item.description || item.stockCode?.description || "-",
-        grossWeight: item.grossWeight || 0,
-        pureWeight: item.pureWeight || 0,
-        weightInOz: item.weightInOz || 0,
-        purity: item.purity || item.stockCode?.karat?.standardPurity || 0,
-        ratePerGram: item.metalRateRequirements?.rate || 0,
-        metalAmount: item.metalRateRequirements?.amount || 0,
-        meltingCharge: item.meltingCharge?.amount || item.makingCharges?.amount || 0,
-        totalAmount: item.itemTotal?.itemTotalAmount || 0,
-        ratePerKGBAR: item.ratePerKGBAR || item.itemTotal?.ratePerKGBAR || 0,
-      }));
-      setTrades(existingTrades);
-    } else {
-      resetFormData();
+// Load existing transaction data if in edit mode
+useEffect(() => {
+  if (existingTransaction) {
+    console.log('Loading existing metal transaction for edit:', existingTransaction);
+    setVoucher({
+      voucherNumber: existingTransaction.voucherNumber || "N/A",
+      prefix: existingTransaction.voucherType || "N/A",
+      date: existingTransaction.voucherDate || new Date().toISOString(),
+    });
+    
+    // Set Fix/Unfix from existing transaction - FIXED
+    setSelectedRatio(existingTransaction.fixed ? "Fix" : existingTransaction.unfix ? "Unfix" : "");
+    
+    const firstItem = existingTransaction.stockItems?.[0];
+    if (firstItem?.metalRate?._id) {
+      setSelectedMetalUnit(firstItem.metalRate._id);
     }
-  }, [existingTransaction, selectedTrader]);
+    if (firstItem?.metalRateRequirements?.rate) {
+      setRate(formatNumber((firstItem.metalRateRequirements.rate * 1000).toString()));
+    }
+    
+    // AUTO-FILL THE FORM FIELDS FROM FIRST STOCK ITEM - ADD THIS
+    if (firstItem) {
+      // Set stock selection
+      if (firstItem.stockCode?._id) {
+        const stock = metalStocks.find(s => s._id === firstItem.stockCode._id);
+        if (stock) {
+          setSelectedStock(stock);
+        }
+      }
+      
+      // Set gross weight
+      if (firstItem.grossWeight) {
+        setGrossWeight(formatNumber(firstItem.grossWeight.toString()));
+      }
+      
+      // Set melting charge
+      if (firstItem.meltingCharge?.amount) {
+        setMeltingCharge(formatNumber(firstItem.meltingCharge.amount.toString()));
+      }
+    }
+    
+    const existingTrades = (existingTransaction.stockItems || []).map((item) => ({
+      trader: selectedTrader?.label || selectedTrader?.name || existingTransaction.partyCode?.customerName || "Trader",
+      stockId: item.stockCode?._id || item.stockCode,
+      stockCode: item.stockCode?.code || item.stockCode?.symbol || "-",
+      description: item.description || item.stockCode?.description || "-",
+      grossWeight: item.grossWeight || 0,
+      pureWeight: item.pureWeight || 0,
+      weightInOz: item.weightInOz || 0,
+      purity: item.purity || item.stockCode?.karat?.standardPurity || 0,
+      ratePerGram: item.metalRateRequirements?.rate || 0,
+      metalAmount: item.metalRateRequirements?.amount || 0,
+      meltingCharge: item.meltingCharge?.amount || item.makingCharges?.amount || 0,
+      totalAmount: item.itemTotal?.itemTotalAmount || 0,
+      ratePerKGBAR: item.ratePerKGBAR || item.itemTotal?.ratePerKGBAR || 0,
+      ratio: existingTransaction.fixed ? "Fix" : existingTransaction.unfix ? "Unfix" : "", // FIXED
+    }));
+    setTrades(existingTrades);
+  } else {
+    resetFormData();
+  }
+}, [existingTransaction, selectedTrader, metalStocks]); // ADDED metalStocks dependency
 
   // Load metal rates
   useEffect(() => {
@@ -232,17 +254,25 @@ export default function TradeModalMetal({ type, selectedTrader, liveRate, onClos
     }
   }, [isEditMode, fetchNewVoucher]);
 
-  const resetFormData = () => {
-    setTrades([]);
-    setRate('');
-    setSelectedMetalUnit('');
-    setSelectedStock(null);
-    setGrossWeight("");
-    setMeltingCharge("");
-    setSelectedRatio("");
-    setEditingIndex(null);
-    setShowErrors(false);
-  };
+const resetFormData = () => {
+  setTrades([]);
+  setRate('');
+  setSelectedMetalUnit('');
+  setSelectedStock(null);
+  setGrossWeight("");
+  setMeltingCharge("");
+  setSelectedRatio("");
+  setEditingIndex(null);
+  setShowErrors(false);
+  
+  // If in edit mode, also clear the existing transaction data
+  if (isEditMode) {
+    // This will trigger the parent component to clear the edit mode
+    if (onClose) {
+      onClose(true);
+    }
+  }
+};
 
   const validateTradeItem = () => {
     const errors = {};
@@ -298,144 +328,148 @@ export default function TradeModalMetal({ type, selectedTrader, liveRate, onClos
     setShowErrors(false);
   };
 
-  const handleEdit = (index) => {
-    const trade = trades[index];
-    setEditingIndex(index);
-    setSelectedStock(metalStocks.find(s => s._id === trade.stockId) || null);
-    setGrossWeight(formatNumber(trade.grossWeight.toString()));
-    setMeltingCharge(formatNumber((trade.meltingCharge || 0).toString()));
-    setRate(formatNumber(trade.ratePerKGBAR.toString()));
-    setSelectedRatio(trade.ratio || "");
-    
-    // Set metal unit from existing trade data
-    if (existingTransaction?.stockItems?.[index]?.metalRate?._id) {
-      setSelectedMetalUnit(existingTransaction.stockItems[index].metalRate._id);
-    }
-  };
+const handleEdit = (index) => {
+  const trade = trades[index];
+  setEditingIndex(index);
+  setSelectedStock(metalStocks.find(s => s._id === trade.stockId) || null);
+  setGrossWeight(formatNumber(trade.grossWeight.toString()));
+  setMeltingCharge(formatNumber((trade.meltingCharge || 0).toString()));
+  setRate(formatNumber(trade.ratePerKGBAR.toString()));
+  setSelectedRatio(trade.ratio || "");
+  
+  // Set metal unit from existing trade data
+  if (existingTransaction?.stockItems?.[index]?.metalRate?._id) {
+    setSelectedMetalUnit(existingTransaction.stockItems[index].metalRate._id);
+  }
+};
 
   const handleDelete = (index) => {
     setTrades(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleSaveAll = async () => {
-    if (trades.length === 0) {
-      toast.error('Please add at least one trade item');
-      return;
-    }
-    if (!selectedTrader) {
-      toast.error('Please select a trader');
-      return;
-    }
-    if (!selectedMetalUnit) {
-      toast.error('Please select a metal rate type');
-      return;
-    }
-    if (!selectedRatio) {
-      toast.error('Please select Fix or Unfix');
-      return;
-    }
+const handleSaveAll = async () => {
+  if (trades.length === 0) {
+    toast.error('Please add at least one trade item');
+    return;
+  }
+  if (!selectedTrader) {
+    toast.error('Please select a trader');
+    return;
+  }
+  if (!selectedMetalUnit) {
+    toast.error('Please select a metal rate type');
+    return;
+  }
+  if (!selectedRatio) {
+    toast.error('Please select Fix or Unfix');
+    return;
+  }
 
-    setIsSaving(true);
-    try {
-      const stockItems = trades.map(trade => ({
-        stockCode: trade.stockId,
-        description: trade.description,
-        pieces: 0,
-        grossWeight: trade.grossWeight,
-        purity: trade.purity,
-        pureWeight: trade.pureWeight,
-        purityWeight: trade.pureWeight,
-        weightInOz: trade.weightInOz,
-        ratePerKGBAR: trade.ratePerKGBAR,
-        metalRate: selectedMetalUnit,
-        metalRateRequirements: {
-          amount: trade.metalAmount,
-          rate: trade.ratePerGram
-        },
-        meltingCharge: {
-          amount: trade.meltingCharge || 0,
-          rate: 0
-        },
-        otherCharges: {
-          amount: 0,
-          description: '',
-          rate: 0
-        },
-        vat: {
-          percentage: 0,
-          amount: 0
-        },
-        premium: {
-          amount: 0,
-          rate: 0
-        },
-        itemTotal: {
-          baseAmount: trade.metalAmount,
-          meltingChargesTotal: trade.meltingCharge || 0,
-          premiumTotal: 0,
-          subTotal: trade.metalAmount + (trade.meltingCharge || 0),
-          vatAmount: 0,
-          ratePerKGBAR: trade.ratePerKGBAR,
-          itemTotalAmount: trade.totalAmount
-        },
-        itemNotes: '',
-        itemStatus: 'active'
-      }));
-
-      const totalAmountSession = {
-        totalAmountAED: trades.reduce((sum, t) => sum + parseFloat(t.totalAmount || 0), 0),
-        netAmountAED: trades.reduce((sum, t) => sum + parseFloat(t.metalAmount || 0), 0),
+  setIsSaving(true);
+  try {
+    const stockItems = trades.map(trade => ({
+      stockCode: trade.stockId,
+      description: trade.description,
+      pieces: 0,
+      grossWeight: trade.grossWeight,
+      purity: trade.purity,
+      pureWeight: trade.pureWeight,
+      purityWeight: trade.pureWeight,
+      weightInOz: trade.weightInOz,
+      ratePerKGBAR: trade.ratePerKGBAR,
+      metalRate: selectedMetalUnit,
+      metalRateRequirements: {
+        amount: trade.metalAmount,
+        rate: trade.ratePerGram
+      },
+      meltingCharge: {
+        amount: trade.meltingCharge || 0,
+        rate: 0
+      },
+      otherCharges: {
+        amount: 0,
+        description: '',
+        rate: 0
+      },
+      vat: {
+        percentage: 0,
+        amount: 0
+      },
+      premium: {
+        amount: 0,
+        rate: 0
+      },
+      itemTotal: {
+        baseAmount: trade.metalAmount,
+        meltingChargesTotal: trade.meltingCharge || 0,
+        premiumTotal: 0,
+        subTotal: trade.metalAmount + (trade.meltingCharge || 0),
         vatAmount: 0,
-        vatPercentage: 0
-      };
+        ratePerKGBAR: trade.ratePerKGBAR,
+        itemTotalAmount: trade.totalAmount
+      },
+      itemNotes: '',
+      itemStatus: 'active'
+    }));
 
-      const payload = {
-        transactionType: type === 'purchase' ? 'purchase' : 'sale',
-        voucherType: voucher?.prefix || 'N/A',
-        voucherDate: voucher?.date || new Date().toISOString(),
-        voucherNumber: voucher?.voucherNumber || 'N/A',
-        partyCode: selectedTrader.value || selectedTrader._id,
-        fix: selectedRatio === 'Fix',
-        unfix: selectedRatio === 'Unfix',
-        partyCurrency: selectedTrader.partyCurrency || '68c1c9e6ea46ae5eb3aa9f2c',
-        itemCurrency: '68c1c9e6ea46ae5eb3aa9f2c',
-        baseCurrency: '68c1c9e6ea46ae5eb3aa9f2c',
-        stockItems,
-        totalAmountSession,
-        status: 'confirmed',
-        notes: '',
-        effectivePartyCurrencyRate: 1,
-        effectiveItemCurrencyRate: 1
-      };
+    const totalAmountSession = {
+      totalAmountAED: trades.reduce((sum, t) => sum + parseFloat(t.totalAmount || 0), 0),
+      netAmountAED: trades.reduce((sum, t) => sum + parseFloat(t.metalAmount || 0), 0),
+      vatAmount: 0,
+      vatPercentage: 0
+    };
 
-      console.log('Payload being sent:', payload);
-      let response;
-      if (isEditMode) {
-        response = await axiosInstance.put(`/metal-transaction/${existingTransaction._id}`, payload);
-        toast.success(`Transaction updated successfully!`);
-      } else {
-        response = await axiosInstance.post('/metal-transaction', payload);
-        toast.success(`${trades.length} trade(s) saved successfully!`);
-      }
+    const payload = {
+      transactionType: type === 'purchase' ? 'purchase' : 'sale',
+      voucherType: voucher?.prefix || 'N/A',
+      voucherDate: voucher?.date || new Date().toISOString(),
+      voucherNumber: voucher?.voucherNumber || 'N/A',
+      partyCode: selectedTrader.value || selectedTrader._id,
+      fix: selectedRatio === 'Fix',
+      unfix: selectedRatio === 'Unfix',
+      partyCurrency: selectedTrader.partyCurrency || '68c1c9e6ea46ae5eb3aa9f2c',
+      itemCurrency: '68c1c9e6ea46ae5eb3aa9f2c',
+      baseCurrency: '68c1c9e6ea46ae5eb3aa9f2c',
+      stockItems,
+      totalAmountSession,
+      status: 'confirmed',
+      notes: '',
+      effectivePartyCurrencyRate: 1,
+      effectiveItemCurrencyRate: 1
+    };
 
+    console.log('Payload being sent:', payload);
+    let response;
+    if (isEditMode) {
+      response = await axiosInstance.put(`/metal-transaction/${existingTransaction._id}`, payload);
+      toast.success(`Transaction updated successfully!`);
+      
+      // RESET FORM AFTER SUCCESSFUL UPDATE - ADD THIS
       resetFormData();
-      if (!isEditMode) {
-        await fetchNewVoucher();
-      }
-      if (traderRefetch?.current && typeof traderRefetch.current === 'function') {
-        await traderRefetch.current();
-      }
       if (onClose) {
-        onClose(true);
+        onClose(true); // Pass true to indicate successful update
       }
-    } catch (error) {
-      console.error('Save failed:', error);
-      const errorMsg = error.response?.data?.message || 'Failed to save transaction';
-      toast.error(errorMsg);
-    } finally {
-      setIsSaving(false);
+    } else {
+      response = await axiosInstance.post('/metal-transaction', payload);
+      toast.success(`${trades.length} trade(s) saved successfully!`);
+      
+      resetFormData();
+      await fetchNewVoucher();
     }
-  };
+
+    // Refetch trader balances
+    if (traderRefetch?.current && typeof traderRefetch.current === 'function') {
+      await traderRefetch.current();
+    }
+
+  } catch (error) {
+    console.error('Save failed:', error);
+    const errorMsg = error.response?.data?.message || 'Failed to save transaction';
+    toast.error(errorMsg);
+  } finally {
+    setIsSaving(false);
+  }
+};
 
   const traderLabel = selectedTrader
     ? (selectedTrader.label || selectedTrader.name || 'Trader')

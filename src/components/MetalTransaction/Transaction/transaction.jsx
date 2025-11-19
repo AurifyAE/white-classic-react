@@ -1,6 +1,7 @@
-// Updated main component - Transaction.jsx
+// Transaction.jsx - Complete fixed version
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowUp, ArrowDown } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import SelectTrader from './components/SelectTrader';
 import TradeModalFX from './components/TradeModalFX';
 import TradeModalMetal from './components/TradeModalMetal';
@@ -21,9 +22,11 @@ const isGoldFixTab = (id) => ['gold'].includes(id);
 const isMetalTab = (id) => ['purchase', 'sales'].includes(id);
 
 export default function Transaction() {
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState('currency');
   const [selectedTrader, setSelectedTrader] = useState(null);
   const [editingTransaction, setEditingTransaction] = useState(null);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   const { marketData } = useMarketData(["GOLD"]);
   const traderRefetchRef = useRef(null);
@@ -32,6 +35,35 @@ export default function Transaction() {
   const [prevBid, setPrevBid] = useState(bidPrice);
   const [pulse, setPulse] = useState(false);
   const [priceDirection, setPriceDirection] = useState(null);
+
+  // Handle navigation state for editing
+  useEffect(() => {
+    if (location.state && !isInitialized) {
+      const { activeTab: navTab, editTransaction, traderData } = location.state;
+      
+      console.log("Navigation state received:", location.state);
+      
+      if (navTab) {
+        setActiveTab(navTab);
+      }
+      
+      // SET TRADER IF PROVIDED
+      if (traderData) {
+        console.log("Setting selected trader:", traderData);
+        setSelectedTrader(traderData);
+      }
+      
+      if (editTransaction) {
+        console.log("Setting edit transaction:", editTransaction);
+        setEditingTransaction(editTransaction);
+      }
+      
+      setIsInitialized(true);
+      
+      // Clear the navigation state to prevent re-triggering
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state, isInitialized]);
 
   useEffect(() => {
     if (bidPrice !== prevBid) {
@@ -45,12 +77,22 @@ export default function Transaction() {
     }
   }, [bidPrice, prevBid]);
 
+
+
   const handleTraderChange = (trader) => {
     setSelectedTrader(trader);
   };
 
   const handleCancelEdit = () => {
     setEditingTransaction(null);
+    setIsInitialized(false);
+  };
+
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    setEditingTransaction(null);
+    setSelectedTrader(null);
+    setIsInitialized(false);
   };
 
   return (
@@ -60,6 +102,11 @@ export default function Transaction() {
         <div className="px-3 flex justify-between items-center h-16 rounded-xl">
           <div className="text-lg font-semibold text-gray-800 ">
             Transaction Dashboard
+            {editingTransaction && (
+              <span className="ml-3 text-sm bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+                Editing Mode
+              </span>
+            )}
           </div>
 
           {isMetalTab(activeTab) && (
@@ -110,51 +157,48 @@ export default function Transaction() {
 
       {/* Main Content */}
       <div className="p-4 flex justify-center">
-        <div className="w-full  ">
+        <div className="w-full">
           {/* Tabs */}
-<div className="flex justify-center mb-6">
-  <div className="flex bg-gray-100 rounded-2xl p-1.5 shadow-inner gap-2">
-    {tabs.map((tab) => {
-      const isActive = activeTab === tab.id;
+          <div className="flex justify-center mb-6">
+            <div className="flex bg-gray-100 rounded-2xl p-1.5 shadow-inner gap-2">
+              {tabs.map((tab) => {
+                const isActive = activeTab === tab.id;
 
-      return (
-        <button
-          key={tab.id}
-          onClick={() => {
-            setActiveTab(tab.id);
-            setEditingTransaction(null);
-            setSelectedTrader(null);
-          }}
-          className={`relative px-6 py-2 text-sm font-medium rounded-xl
-            transition-all duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)]
-            ${isActive ? "text-blue-600" : "text-gray-600 hover:text-gray-800"}
-          `}
-          style={{
-            transform: isActive ? "scale(1.05) translateY(-1px)" : "scale(1) translateY(0px)",
-            opacity: isActive ? 1 : 0.8,
-          }}
-        >
-          {isActive && (
-            <span
-              className="absolute inset-0 rounded-xl bg-white shadow-md border border-blue-200 
-              transition-all duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)]"
-              style={{ zIndex: -1, opacity: 1 }}
-            ></span>
-          )}
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => handleTabChange(tab.id)}
+                    className={`relative px-6 py-2 text-sm font-medium rounded-xl
+                      transition-all duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)]
+                      ${isActive ? "text-blue-600" : "text-gray-600 hover:text-gray-800"}
+                    `}
+                    style={{
+                      transform: isActive ? "scale(1.05) translateY(-1px)" : "scale(1) translateY(0px)",
+                      opacity: isActive ? 1 : 0.8,
+                    }}
+                  >
+                    {isActive && (
+                      <span
+                        className="absolute inset-0 rounded-xl bg-white shadow-md border border-blue-200 
+                        transition-all duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)]"
+                        style={{ zIndex: -1, opacity: 1 }}
+                      ></span>
+                    )}
 
-          {tab.label}
-        </button>
-      );
-    })}
-  </div>
-</div>
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-  {/* Main Panel */}
+          {/* Main Panel */}
           <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-6">
             <SelectTrader 
               onTraderChange={handleTraderChange} 
               value={selectedTrader}
               ref={traderRefetchRef}
+              editTransaction={editingTransaction} // Pass edit transaction for auto-selection
             />
 
             {isFixTab(activeTab) && (
@@ -168,22 +212,25 @@ export default function Transaction() {
 
             {isGoldFixTab(activeTab) && (
               <GoldFixPage 
-                selectedTrader={selectedTrader}
-                traderRefetch={traderRefetchRef}
-                editTransaction={editingTransaction}
-                onClose={handleCancelEdit}
-              />
+    selectedTrader={selectedTrader}
+    traderRefetch={traderRefetchRef}
+    editTransaction={editingTransaction} 
+    onClose={handleCancelEdit}
+  />
             )}
-
-            {isMetalTab(activeTab) && (
-              <TradeModalMetal
-                type={activeTab}
-                selectedTrader={selectedTrader}
-                liveRate={bidPrice}
-                traderRefetch={traderRefetchRef}
-                existingTransaction={editingTransaction}
-                onClose={handleCancelEdit}
-              />
+{isMetalTab(activeTab) && (
+  <TradeModalMetal
+    type={activeTab}
+    selectedTrader={selectedTrader}
+    liveRate={bidPrice}
+    traderRefetch={traderRefetchRef}
+    existingTransaction={editingTransaction}
+    onClose={(success) => {
+      if (success) {
+        handleCancelEdit(); // Clear edit mode
+      }
+    }}
+  />
             )}
           </div>
         </div>

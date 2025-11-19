@@ -82,50 +82,58 @@ export default function TradeModalGold({ selectedTrader, traderRefetch, editTran
   // -----------------------------------------------------------------
   // Load existing transaction data if editing
   // -----------------------------------------------------------------
-  useEffect(() => {
-    if (!editTransaction) {
-      // Create mode - reset
-      setGrossWeight('1000');
-      setRatePerKg('');
-      setSelectedCommodity(null);
-      setIsBuy(true);
-      isEditMode.current = false;
-      return;
-    }
+ // In GoldFixPage component - Update the useEffect that handles edit data
+useEffect(() => {
+  if (!editTransaction) {
+    // Create mode - reset
+    setGrossWeight('1000');
+    setRatePerKg('');
+    setSelectedCommodity(null);
+    setIsBuy(true);
+    isEditMode.current = false;
+    return;
+  }
 
-    // Edit mode - populate fields
-    // console.log("Loading edit transaction:", editTransaction);
-    isEditMode.current = true;
+  // Edit mode - populate fields
+  console.log("Loading edit transaction:", editTransaction);
+  isEditMode.current = true;
 
-    // Set buy/sell
-    setIsBuy(editTransaction.type === 'BUY');
+  // Set buy/sell
+  setIsBuy(editTransaction.type === 'BUY');
 
-    // Set gross weight
-    setGrossWeight(formatNumber(String(editTransaction.grossWeight || 1000)));
+  // Set gross weight
+  setGrossWeight(formatNumber(String(editTransaction.grossWeight || 1000)));
 
-    // Set rate
-    setRatePerKg(formatNumber(String(editTransaction.ratePerKg || '')));
+  // Set rate - THIS IS THE FIX FOR RATE PER KG
+  // Check both rate and ratePerKg fields
+  const rateValue = editTransaction.rate || editTransaction.ratePerKg || '';
+  setRatePerKg(formatNumber(String(rateValue)));
 
-    // Set commodity
-    if (editTransaction.commodityId) {
-      const commodity = editTransaction.commodityId;
-      setSelectedCommodity({
-        value: commodity._id,
-        label: `${commodity.code} - ${commodity.description}`,
-        purity: parseFloat(commodity.standardPurity),
-        commodity: commodity,
-      });
-    }
+  // Set value per gram - THIS IS THE FIX FOR VALUE PER GRAM
+  // If valuePerGram exists in edit data, we don't need to calculate it
+  // But we should display it in the readonly field
+  console.log("Value per gram from edit data:", editTransaction.valuePerGram);
 
-    // Set voucher from transaction
-    if (editTransaction.reference) {
-      setVoucher({
-        voucherNumber: editTransaction.reference,
-        prefix: editTransaction.type === 'BUY' ? 'GFB' : 'GFS',
-        date: editTransaction.timestamp || editTransaction.createdAt,
-      });
-    }
-  }, [editTransaction]);
+  // Set commodity
+  if (editTransaction.commodityId) {
+    const commodity = editTransaction.commodityId;
+    setSelectedCommodity({
+      value: commodity._id,
+      label: `${commodity.code} - ${commodity.description}`,
+      purity: parseFloat(commodity.standardPurity),
+      commodity: commodity,
+    });
+  }
+
+  // Set voucher from transaction
+  if (editTransaction.reference) {
+    setVoucher({
+      voucherNumber: editTransaction.reference,
+      prefix: editTransaction.type === 'BUY' ? 'GFB' : 'GFS',
+      date: editTransaction.timestamp || editTransaction.createdAt,
+    });
+  }
+}, [editTransaction]);
 
   // -----------------------------------------------------------------
   // Initial load (mount) - only if not editing
@@ -181,25 +189,31 @@ export default function TradeModalGold({ selectedTrader, traderRefetch, editTran
 
   // -----------------------------------------------------------------
   // Calculations
-  // -----------------------------------------------------------------
-  const calculations = useMemo(() => {
-    const gross = parseFloat(parseNumber(grossWeight)) || 0;
-    const purity = selectedCommodity?.purity ?? 0;
-    const pureWeight = gross * purity;
+// In GoldFixPage component - Update the calculations
+const calculations = useMemo(() => {
+  const gross = parseFloat(parseNumber(grossWeight)) || 0;
+  const purity = selectedCommodity?.purity ?? 0;
+  const pureWeight = gross * purity;
 
-    const rateKg = parseFloat(parseNumber(ratePerKg)) || 0;
-    const valuePerGram = rateKg / 1000;
-    const metalAmount = pureWeight * valuePerGram;
+  const rateKg = parseFloat(parseNumber(ratePerKg)) || 0;
+  const valuePerGram = rateKg / 1000;
+  const metalAmount = pureWeight * valuePerGram;
 
-    return {
-      gross,
-      purity,
-      pureWeight,
-      rateKg,
-      valuePerGram,
-      metalAmount,
-    };
-  }, [grossWeight, selectedCommodity, ratePerKg]);
+  // If we're in edit mode and have original valuePerGram, use it for display
+  // but keep the calculated value for actual transactions
+  const displayValuePerGram = isEditMode.current && editTransaction?.valuePerGram 
+    ? editTransaction.valuePerGram 
+    : valuePerGram;
+
+  return {
+    gross,
+    purity,
+    pureWeight,
+    rateKg,
+    valuePerGram: displayValuePerGram,
+    metalAmount,
+  };
+}, [grossWeight, selectedCommodity, ratePerKg, isEditMode.current, editTransaction]);
 
   // -----------------------------------------------------------------
   // Create/Update Trade
@@ -547,30 +561,36 @@ export default function TradeModalGold({ selectedTrader, traderRefetch, editTran
           </div>
 
           {/* Value per Gram & Metal Amount */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-semibold text-gray-800 mb-1.5">
-                Value per Gram
-              </label>
-              <input
-                type="text"
-                readOnly
-                value={formatNumber(calculations.valuePerGram)}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 cursor-not-allowed text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-800 mb-1.5">
-                Total Metal Amount
-              </label>
-              <input
-                type="text"
-                readOnly
-                value={formatNumber(calculations.metalAmount)}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 cursor-not-allowed text-sm"
-              />
-            </div>
-          </div>
+       {/* Value per Gram & Metal Amount */}
+<div className="grid grid-cols-2 gap-4">
+  <div>
+    <label className="block text-sm font-semibold text-gray-800 mb-1.5">
+      Value per Gram
+    </label>
+    <input
+      type="text"
+      readOnly
+      value={formatNumber(calculations.valuePerGram)}
+      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 cursor-not-allowed text-sm"
+    />
+    {isEditMode.current && (
+      <p className="text-xs text-gray-500 mt-1">
+        From original: {editTransaction?.valuePerGram || 'N/A'}
+      </p>
+    )}
+  </div>
+  <div>
+    <label className="block text-sm font-semibold text-gray-800 mb-1.5">
+      Total Metal Amount
+    </label>
+    <input
+      type="text"
+      readOnly
+      value={formatNumber(calculations.metalAmount)}
+      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 cursor-not-allowed text-sm"
+    />
+  </div>
+</div>
 
         </div>
       </div>
