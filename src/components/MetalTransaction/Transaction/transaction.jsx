@@ -193,7 +193,7 @@ export default function Transaction() {
           </div>
 
           {/* Main Panel */}
-          <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-6">
+          <div className="bg-white border border-gray-200 rounded-lg p-3 space-y-2 -mt-3">
             <SelectTrader 
               onTraderChange={handleTraderChange} 
               value={selectedTrader}

@@ -363,7 +363,7 @@ const calculations = useMemo(() => {
 <div className="bg-white rounded-lg shadow-lg border border-gray-200 w-full">
 
   {/* Header + Edit Badge */}
-  <div className="flex items-center justify-between px-5 pt-5 pb-3">
+        <div className="flex items-center justify-between px-5 pt-3 ">
     <h2 className="text-xl font-semibold">
       {editTransaction ? 'Edit Gold Trade' : 'Create Gold Trade'}
     </h2>
@@ -375,16 +375,16 @@ const calculations = useMemo(() => {
   </div>
 
   {/* Top-right Pair Badge */}
-  <div className="px-5 pb-4 flex justify-end">
+  <div className="px-5 pb-4 flex justify-end -mt-10">
     <div className="bg-orange-50 text-black px-4 py-2 rounded-md shadow-sm flex items-center gap-2">
       <span className="font-semibold text-sm tracking-wide">INR / XAU</span>
     </div>
   </div>
 
   {/* Buy / Sell Sliding Toggle */}
- <div className="px-5 pb-4">
+ <div className="px-5 pb-4 ">
   <div
-    className={`relative flex items-center w-[560px] mx-auto bg-gray-200 rounded-2xl p-1 transition-all duration-300 overflow-hidden ${
+    className={`relative flex items-center w-[460px] mx-auto bg-gray-200 rounded-xl  transition-all duration-300 overflow-hidden ${
       editTransaction ? "opacity-60 cursor-not-allowed" : ""
     }`}
   >
@@ -477,8 +477,8 @@ const calculations = useMemo(() => {
 
 
       {/* RIGHT — Input Fields Card */}
-      <div className="h-full">
-        <div className="rounded-xl border bg-white p-5 shadow-sm h-full space-y-6">
+      <div className="">
+        <div className="rounded-xl border bg-white p-4 shadow-sm h-full space-y-2">
 
           {/* Commodity Selection */}
           <div>
@@ -499,7 +499,7 @@ const calculations = useMemo(() => {
 
           {/* Gross Weight */}
           <div>
-            <label className="block text-sm font-semibold text-gray-800 mb-1.5">
+            <label className="block text-sm font-semibold text-gray-800 ">
               Gross Weight (grams) <span className="text-red-500">*</span>
             </label>
             <div className="relative">
@@ -598,60 +598,73 @@ const calculations = useMemo(() => {
   </div>
 
   {/* Trade Summary Card */}
-  <div className="px-5 pb-4">
-    <div className={`rounded-lg p-4 border ${theme.summaryBorder} ${theme.summaryBg}`}>
-      <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-200">
-        <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-        </svg>
-        <span className="text-sm font-semibold text-gray-800">Trade Summary</span>
-      </div>
+ <div className="px-4 pb-3">
+  <div className={`rounded-md p-3 border ${theme.summaryBorder} ${theme.summaryBg}`}>
+    <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-200">
+      <svg className="w-3 h-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+      </svg>
+      <span className="text-sm font-semibold text-gray-800">Trade Summary</span>
+    </div>
 
-      <div className="grid grid-cols-2 gap-4 mb-4">
-        <div>
-          <span className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1.5">
-            You Pay
+    <div className="flex items-center justify-between gap-3">
+      {/* You Pay */}
+      <div className="flex-1 text-center">
+        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">
+          You Pay
+        </span>
+        <div className="flex flex-col items-center">
+          <span className="text-base font-bold text-gray-900">
+            {formatNumber(calculations.metalAmount) || '0'}
           </span>
-          <div className="flex items-baseline gap-2">
-            <span className="text-lg font-bold text-gray-900">
-              {formatNumber(calculations.metalAmount) || '0'}
-            </span>
-            <span className="text-sm font-semibold text-gray-600">INR</span>
-          </div>
-        </div>
-        <div>
-          <span className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1.5">
-            You Receive
-          </span>
-          <div className="flex items-baseline gap-2">
-            <span className="text-lg font-bold text-gray-900">
-              {formatNumber(calculations.pureWeight) || '0'}
-            </span>
-            <span className="text-sm font-semibold text-gray-600">XAU (grams)</span>
-          </div>
+          <span className="text-xs font-semibold text-gray-600">INR</span>
         </div>
       </div>
 
-      <div className="pt-3 border-t border-gray-200">
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-gray-600 font-medium">Rate per KG Bar</span>
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-gray-900">
+      {/* You Receive */}
+      <div className="flex-1 text-center">
+        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">
+          You Receive
+        </span>
+        <div className="flex flex-col items-center">
+          <span className="text-base font-bold text-gray-900">
+            {formatNumber(calculations.pureWeight) || '0'}
+          </span>
+          <span className="text-xs font-semibold text-gray-600">XAU (grams)</span>
+        </div>
+      </div>
+
+      {/* Rate */}
+      <div className="flex-1 text-center">
+        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">
+          Rate
+        </span>
+        <div className="flex flex-col items-center">
+          <div className="flex items-center gap-1">
+            <span className="text-base font-bold text-gray-900">
               {formatNumber(calculations.rateKg) || '0'}
             </span>
-            <span className={`text-xs font-semibold px-2 py-1 rounded ${
+            <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${
               isBuy ? 'bg-yellow-600 text-white' : 'bg-orange-600 text-white'
             }`}>
               {isBuy ? 'Buy' : 'Sell'}
             </span>
           </div>
+          <div className="text-[10px] text-gray-500 mt-0.5">
+            per KG Bar
+          </div>
         </div>
-        <p className="text-xs text-gray-500 mt-1">
-          Value per gram: {formatNumber(calculations.valuePerGram)} INR
-        </p>
       </div>
     </div>
+
+    {/* Value per gram - moved below the main row */}
+    <div className="mt-2 pt-2 border-t border-gray-200 text-center">
+      <p className="text-xs text-gray-500">
+        Value per gram: {formatNumber(calculations.valuePerGram)} INR
+      </p>
+    </div>
   </div>
+</div>
 
   {/* Action Buttons */}
   <div className="px-5 pb-5 flex gap-3">

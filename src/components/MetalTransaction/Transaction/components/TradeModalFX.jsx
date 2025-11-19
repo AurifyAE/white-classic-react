@@ -338,8 +338,8 @@ export default function TradeModalFX({
     <>
       <div className="bg-white rounded-lg shadow-lg border border-gray-200 w-full">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-5 pb-3">
-          <h2 className="text-xl font-semibold">
+        <div className="flex items-center justify-between px-5 pt-3 ">
+          <h2 className="text-xl font-semibold ">
             {editTransaction ? 'Edit Trade' : 'Create Trade'}
           </h2>
           {editTransaction && (
@@ -348,15 +348,15 @@ export default function TradeModalFX({
             </span>
           )}
         </div>
-<div className="px-5 pb-4 flex justify-end">
-  <div className="bg-orange-50 text-black px-4 py-2 rounded-md shadow-sm flex items-center gap-2">
+<div className="px-5  flex justify-end">
+  <div className="bg-orange-50 text-black px-4  rounded-md shadow-sm flex items-center gap-2">
     <span className="font-semibold text-sm tracking-wide">INR / AED</span>
   </div>
 </div>
         {/* Buy / Sell Toggle */}
        <div className="px-5 pb-4">
   <div
-    className={`relative flex items-center w-[560px] mx-auto bg-gray-200 rounded-xl p-1 transition-all duration-300 overflow-hidden ${
+    className={`relative flex items-center w-[460px] mx-auto bg-gray-200 rounded-xl  transition-all duration-300 overflow-hidden ${
       editTransaction ? "opacity-60 cursor-not-allowed" : ""
     }`}
   >
@@ -396,7 +396,6 @@ export default function TradeModalFX({
 <div className="px-5 pb-4">
   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-    {/* LEFT SIDE — Voucher Card */}
   {/* LEFT SIDE — Voucher Card */}
 <div className="h-full">
   <div
@@ -404,44 +403,42 @@ export default function TradeModalFX({
       isBuy
         ? 'bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200'
         : 'bg-gradient-to-br from-red-50 to-red-100 border-red-200'
-    } p-6 shadow-sm h-full flex flex-col`}
+    } p-4 shadow-sm h-full flex flex-col`}
   >
     {/* Heading Row */}
-    <div className="mb-5 pb-3 border-b border-gray-300/60">
+    <div className="mb-4 pb-2 border-b border-gray-300/60">
       <div className="flex items-center gap-2">
-        <svg className="w-5 h-5 text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-4 h-4 text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
-        <span className="text-lg font-bold text-gray-900">Voucher Information</span>
+        <span className="text-base font-bold text-gray-900">Voucher Information</span>
       </div>
-
-      {/* Sub heading for a filled-feel */}
-      <p className="text-[12px] text-gray-600 mt-1">
+      <p className="text-[11px] text-gray-600 mt-0.5">
         Official trade voucher details for your transaction
       </p>
     </div>
 
     {/* Body Fields */}
-    <div className="space-y-5 flex-1">
+    <div className="space-y-1.5 flex-1">
       {/* Voucher Code */}
-      <div className="bg-white/80 p-3 rounded-lg shadow-sm border border-gray-200">
-        <p className="text-[10px] font-semibold text-gray-500">VOUCHER CODE</p>
+      <div className="bg-white/80 p-1.5 rounded-lg border border-gray-200">
+        <p className="text-[10px] font-semibold text-gray-500 mb-0.5">VOUCHER CODE</p>
         <p className="text-sm font-bold text-gray-800 tracking-wide">
           {editTransaction?.reference || voucher?.voucherNumber || '--'}
         </p>
       </div>
 
       {/* Prefix */}
-      <div className="bg-white/80 p-3 rounded-lg shadow-sm border border-gray-200">
-        <p className="text-[10px] font-semibold text-gray-500">PREFIX</p>
+      <div className="bg-white/80 p-1.5 rounded-lg border border-gray-200">
+        <p className="text-[10px] font-semibold text-gray-500 mb-0.5">PREFIX</p>
         <p className="text-sm font-bold text-gray-800">
           {voucher?.prefix || '--'}
         </p>
       </div>
 
       {/* Voucher Date */}
-      <div className="bg-white/80 p-3 rounded-lg shadow-sm border border-gray-200">
-        <p className="text-[10px] font-semibold text-gray-500">VOUCHER DATE</p>
+      <div className="bg-white/80 p-1.5 rounded-lg border border-gray-200">
+        <p className="text-[10px] font-semibold text-gray-500 mb-0.5">VOUCHER DATE</p>
         <p className="text-sm font-bold text-gray-800">
           {voucher?.date
             ? new Date(voucher.date).toLocaleDateString('en-GB')
@@ -451,15 +448,13 @@ export default function TradeModalFX({
         </p>
       </div>
     </div>
-
-  
   </div>
 </div>
 
 
     {/* RIGHT SIDE — Pay, Rate, Receive (Wrapped in Matching Card) */}
     <div className="h-full">
-      <div className="rounded-xl border bg-white p-5 shadow-sm h-full space-y-6">
+      <div className="rounded-xl border bg-white p-5 shadow-sm  space-y-1">
 
         {/* Pay Amount */}
         <div>
@@ -554,22 +549,23 @@ export default function TradeModalFX({
       
 
       {/* Trade Summary */}
-<div className="px-5 pb-4">
-  <div className={`rounded-lg p-4 border ${theme.summaryBorder} ${theme.summaryBg}`}>
-    <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-200">
-      <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<div className="px-4 pb-3">
+  <div className={`rounded-md p-3 border ${theme.summaryBorder} ${theme.summaryBg}`}>
+    <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-200">
+      <svg className="w-3 h-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
       </svg>
       <span className="text-sm font-semibold text-gray-800">Trade Summary</span>
     </div>
 
-    <div className="grid grid-cols-2 gap-4 mb-4">
-      <div>
-        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1.5">
+    <div className="flex items-center justify-between gap-4">
+      {/* You Pay */}
+      <div className="flex-1 text-center">
+        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">
           You Pay
         </span>
-        <div className="flex items-baseline gap-2">
-          <span className="text-lg font-bold text-gray-900">
+        <div className="flex items-baseline justify-center gap-1">
+          <span className="text-base font-bold text-gray-900">
             {payAmount || '0'}
           </span>
           <span className="text-sm font-semibold text-gray-600">
@@ -578,12 +574,13 @@ export default function TradeModalFX({
         </div>
       </div>
 
-      <div>
-        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1.5">
+      {/* You Receive */}
+      <div className="flex-1 text-center">
+        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">
           You Receive
         </span>
-        <div className="flex items-baseline gap-2">
-          <span className="text-lg font-bold text-gray-900">
+        <div className="flex items-baseline justify-center gap-1">
+          <span className="text-base font-bold text-gray-900">
             {receiveAmount || '0'}
           </span>
           <span className="text-sm font-semibold text-gray-600">
@@ -591,20 +588,24 @@ export default function TradeModalFX({
           </span>
         </div>
       </div>
-    </div>
 
-    <div className="pt-3 border-t border-gray-200">
-      <div className="flex items-center justify-between text-sm">
-        <span className="text-gray-600 font-medium">Rate (AED per 1 Lakh INR)</span>
-        <div className="flex items-center gap-2">
-          <span className="font-bold text-gray-900">
+      {/* Rate */}
+      <div className="flex-1 text-center">
+        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">
+          Rate
+        </span>
+        <div className="flex items-center justify-center gap-1">
+          <span className="text-base font-bold text-gray-900">
             {rateLakh || '0.00'}
           </span>
-          <span className={`text-xs font-semibold px-2 py-1 rounded ${
+          <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${
             isBuy ? 'bg-blue-600 text-white' : 'bg-red-600 text-white'
           }`}>
             {isBuy ? 'Buy' : 'Sell'}
           </span>
+        </div>
+        <div className="text-[10px] text-gray-500 mt-0.5">
+          AED per 1L INR
         </div>
       </div>
     </div>
