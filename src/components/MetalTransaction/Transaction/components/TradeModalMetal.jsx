@@ -23,7 +23,8 @@ export default function TradeModalMetal({ type, selectedTrader, liveRate, onClos
   const [grossWeight, setGrossWeight] = useState("");
   const [meltingCharge, setMeltingCharge] = useState("");
   const [selectedRatio, setSelectedRatio] = useState(''); // Fix/Unfix state
-
+const [stockSearch, setStockSearch] = useState('');
+const [stockDropdownOpen, setStockDropdownOpen] = useState(false);
   const action = type === 'purchase' ? 'Buy' : 'Sell';
   const isTraderSelected = !!selectedTrader;
   const isEditMode = !!existingTransaction;
@@ -478,7 +479,7 @@ const handleSaveAll = async () => {
   return (
     <div className="bg-white rounded-xl shadow-lg border border-gray-200 max-w-6xl mx-auto">
       {/* HEADER */}
-      <div className="flex items-center justify-between px-5 pt-5 pb-3">
+      <div className="flex items-center justify-between px-5 pt-5  pb-3">
         <h2 className="text-xl font-semibold text-gray-800">
           {isEditMode ? 'Edit' : 'Create'} Metal Trade
         </h2>
@@ -487,23 +488,23 @@ const handleSaveAll = async () => {
             Editing Mode
           </span>
         )}
-        <button
+        {/* <button
           onClick={() => onClose && onClose(false)}
           className="text-gray-500 hover:text-gray-700 text-2xl leading-none"
         >
           ×
-        </button>
+        </button> */}
       </div>
 
       {/* MAIN CONTENT - TWO COLUMNS */}
-      <div className="px-5 pb-4">
+      <div className="px-5 pb-4 -mt-7">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           
           {/* LEFT COLUMN - Trader & Voucher */}
-          <div className="space-y-6">
+          <div className="space-y-2">
             {/* TRADER INFO */}
             <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-xl border border-blue-200 p-5 mt-8">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between ">
                 <div className="flex items-center">
                   <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
                   <p className="text-sm font-semibold text-blue-700 uppercase tracking-wide">Selected Trader</p>
@@ -533,7 +534,7 @@ const handleSaveAll = async () => {
                 </h3>
               </div>
               
-              <div className="space-y-10">
+              <div className="space-y-5">
                 <div className="bg-white p-3 rounded-lg border border-gray-200">
                   <p className="text-xs font-medium text-gray-500 uppercase">Voucher Code</p>
                   <p className="text-sm font-bold text-gray-800 mt-1">{voucher?.voucherNumber ?? 'N/A'}</p>
@@ -558,13 +559,13 @@ const handleSaveAll = async () => {
           </div>
 
           {/* RIGHT COLUMN - Trade Inputs */}
-          <div className="space-y-6">
+          <div className="space-y-1">
             {/* METAL RATE TYPE & RATE INPUT IN ONE LINE */}
               <div>
               {/* <label className="block text-sm font-medium text-gray-700 mb-2">
                 Trade Type <span className="text-red-500">*</span>
               </label> */}
-            <div className="mb-4">
+       <div className="mb-4">
   <div className="flex bg-gray-100 p-1 rounded-xl shadow-inner">
     {['Fix', 'Unfix'].map((option) => {
       const active = selectedRatio === option;
@@ -606,7 +607,7 @@ const handleSaveAll = async () => {
               {/* Metal Rate Type */}
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Metal Rate Type <span className="text-red-500">*</span>
                 </label>
                 {loadingRates ? (
@@ -617,7 +618,7 @@ const handleSaveAll = async () => {
                   <select
                     value={selectedMetalUnit}
                     onChange={(e) => setSelectedMetalUnit(e.target.value)}
-                    className={`w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm ${
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm ${
                       showErrors && !selectedMetalUnit ? 'border-red-400 bg-red-50' : ''
                     }`}
                   >
@@ -636,7 +637,7 @@ const handleSaveAll = async () => {
 
               {/* Rate Input */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Rate (INR) <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -644,7 +645,7 @@ const handleSaveAll = async () => {
                   value={rate}
                   onChange={(e) => HandleChange(e.target.value)}
                   placeholder="e.g. 65,000"
-                  className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm ${
+                  className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm ${
                     showErrors && !rate ? 'border-red-400 bg-red-50' : ''
                   }`}
                 />
@@ -654,40 +655,91 @@ const handleSaveAll = async () => {
               </div>
             </div>
 
-            {/* STOCK SELECTION */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Stock Selection <span className="text-red-500">*</span>
-              </label>
-              {loadingStocks ? (
-                <p className="text-sm text-gray-500">Loading stocks...</p>
-              ) : (
-                <select
-                  value={selectedStock?._id || ''}
-                  onChange={(e) => {
-                    const stock = metalStocks.find(s => s._id === e.target.value);
-                    setSelectedStock(stock);
-                  }}
-                  className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 text-sm ${
-                    showErrors && !selectedStock ? 'border-red-400 focus:ring-red-300' : 'border-gray-300 focus:ring-indigo-500'
-                  }`}
-                >
-                  <option value="">Select Stock</option>
-                  {metalStocks.map((stock) => (
-                    <option key={stock._id} value={stock._id}>
-                      {stock.code}
-                    </option>
-                  ))}
-                </select>
-              )}
-              {showErrors && !selectedStock && (
-                <p className="text-xs text-red-500 mt-1">Please select a stock.</p>
-              )}
+{/* STOCK SELECTION - Searchable */}
+<div>
+  <label className="block text-sm font-medium text-gray-700 mb-1">
+    Stock Selection <span className="text-red-500">*</span>
+  </label>
+
+  {loadingStocks ? (
+    <p className="text-sm text-gray-500">Loading stocks...</p>
+  ) : (
+    <div className="relative">
+      <input
+        type="text"
+        value={stockSearch}
+        onChange={(e) => setStockSearch(e.target.value)}
+        onFocus={() => setStockDropdownOpen(true)}
+        placeholder="Search stock by code..."
+        className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 text-sm pr-10 ${
+          showErrors && !selectedStock
+            ? 'border-red-400 focus:ring-red-300'
+            : 'border-gray-300 focus:ring-indigo-500'
+        }`}
+      />
+      {/* Clear button inside input */}
+      {stockSearch && (
+        <button
+          onClick={() => {
+            setStockSearch('');
+            setSelectedStock(null);
+          }}
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+        >
+          ✕
+        </button>
+      )}
+
+      {/* Dropdown results */}
+      {stockDropdownOpen && metalStocks.length > 0 && (
+        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto">
+          {metalStocks
+            .filter((stock) =>
+              stock.code.toLowerCase().includes(stockSearch.toLowerCase())
+            )
+            .map((stock) => (
+              <div
+                key={stock._id}
+                onClick={() => {
+                  setSelectedStock(stock);
+                  setStockSearch(stock.code);   // optional: show code in input
+                  setStockDropdownOpen(false);
+                }}
+                className="px-4 py-2.5 text-sm cursor-pointer hover:bg-indigo-50 flex justify-between items-center"
+              >
+                <span>{stock.code}</span>
+                {selectedStock?._id === stock._id && (
+                  <span className="text-indigo-600">✓</span>
+                )}
+              </div>
+            ))}
+          {metalStocks.filter((s) =>
+            s.code.toLowerCase().includes(stockSearch.toLowerCase())
+          ).length === 0 && (
+            <div className="px-4 py-3 text-sm text-gray-500">
+              No stock found
             </div>
+          )}
+        </div>
+      )}
+    </div>
+  )}
+
+  {/* Show selected stock below input (optional visual feedback) */}
+  {/* {selectedStock && (
+    <p className="mt-2 text-sm text-indigo-700">
+      Selected: <span className="font-medium">{selectedStock.code}</span>
+    </p>
+  )} */}
+
+  {showErrors && !selectedStock && (
+    <p className="text-xs text-red-500 mt-1">Please select a stock.</p>
+  )}
+</div>          
 
             {/* GROSS WEIGHT */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Gross Weight (grams) <span className="text-red-500">*</span>
               </label>
               <input
@@ -695,7 +747,7 @@ const handleSaveAll = async () => {
                 value={grossWeight}
                 onChange={(e) => handleGrossWeightChange(e.target.value)}
                 placeholder="Enter gross weight"
-                className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm ${
+                className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm ${
                   showErrors && !grossWeight ? 'border-red-400 bg-red-50' : ''
                 }`}
               />
@@ -706,15 +758,15 @@ const handleSaveAll = async () => {
 
             {/* METAL AMOUNT (Auto-calculated) */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Metal Amount</label>
-              <div className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 cursor-not-allowed">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Metal Amount</label>
+              <div className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 cursor-not-allowed">
                 ₹{formatNumber(metalAmountCalc.toFixed(2))}
               </div>
             </div>
 
             {/* MELTING CHARGES */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Melting Charges</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Melting Charges</label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">₹</span>
                 <input
@@ -722,15 +774,15 @@ const handleSaveAll = async () => {
                   value={meltingCharge}
                   onChange={(e) => handleMeltingChargeChange(e.target.value)}
                   placeholder="0.00"
-                  className="w-full pl-8 px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
+                  className="w-full pl-8 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
                 />
               </div>
             </div>
 
             {/* TOTAL AMOUNT (Auto-calculated) */}
             <div>
-              <label className="block text-sm font-bold text-gray-800 mb-2">Total Amount</label>
-              <div className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 cursor-not-allowed font-semibold">
+              <label className="block text-sm font-bold text-gray-800 mb-1">Total Amount</label>
+              <div className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 cursor-not-allowed font-semibold">
                 ₹{formatNumber(totalAmount.toFixed(2))}
               </div>
             </div>
