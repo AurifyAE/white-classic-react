@@ -1,7 +1,9 @@
 import { Plus, Edit2, Trash2, Save, Edit } from 'lucide-react';
-import React, { useCallback, useEffect, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useState, useMemo, useRef } from 'react';
 import axiosInstance from "../../../../api/axios";
 import { toast } from 'react-toastify';
+import SelectTrader from './SelectTrader';
+import SuccessModal from './SuccessModal'
 
 const OZ_PER_TROY_OZ = 31.1035;
 
@@ -17,17 +19,31 @@ export default function TradeModalMetal({ type, selectedTrader, liveRate, onClos
   const [loadingRates, setLoadingRates] = useState(true);
   const [loadingStocks, setLoadingStocks] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  
+  const [localSelectedTrader, setLocalSelectedTrader] = useState(selectedTrader);
+   const [showSuccess, setShowSuccess] = useState(false);
+  const [successData, setSuccessData] = useState(null);
   // Trade item fields
   const [selectedStock, setSelectedStock] = useState(null);
   const [grossWeight, setGrossWeight] = useState("");
   const [meltingCharge, setMeltingCharge] = useState("");
-  const [selectedRatio, setSelectedRatio] = useState(''); // Fix/Unfix state
-const [stockSearch, setStockSearch] = useState('');
-const [stockDropdownOpen, setStockDropdownOpen] = useState(false);
+  const [selectedRatio, setSelectedRatio] = useState('');
+  const [stockSearch, setStockSearch] = useState('');
+  const [stockDropdownOpen, setStockDropdownOpen] = useState(false);
+    const summaryRef = useRef(null);
+
   const action = type === 'purchase' ? 'Buy' : 'Sell';
   const isTraderSelected = !!selectedTrader;
   const isEditMode = !!existingTransaction;
+
+  // Update local selected trader when prop changes
+  useEffect(() => {
+    setLocalSelectedTrader(selectedTrader);
+  }, [selectedTrader]);
+
+  // Handle trader selection
+  const handleTraderChange = (trader) => {
+    setLocalSelectedTrader(trader);
+  };
 
   // Format number with commas
   const formatNumber = (value) => {
@@ -94,11 +110,20 @@ const [stockDropdownOpen, setStockDropdownOpen] = useState(false);
     return (pureWeight / OZ_PER_TROY_OZ);
   }, [pureWeight]);
 
-  const ratePerGram = useMemo(() => {
-    if (!rate) return 0;
-    const numericRate = Number(parseFormattedNumber(rate));
-    return isNaN(numericRate) ? 0 : (numericRate / 1000);
-  }, [rate]);
+const ratePerGram = useMemo(() => {
+  if (!rate) return 0;
+
+  // raw input like "1", "100", "150000"
+  const numericRate = Number(parseFormattedNumber(rate));
+  if (isNaN(numericRate)) return 0;
+
+  // Treat 1 => 1000 | 100 => 100000
+  const treatedRate = numericRate * 1000;
+
+  // Now convert to per gram
+  return treatedRate / 1000; 
+}, [rate]);
+
 
   const metalAmountCalc = useMemo(() => {
     if (!ratePerGram || !pureWeight) return 0;
@@ -112,69 +137,66 @@ const [stockDropdownOpen, setStockDropdownOpen] = useState(false);
   }, [metalAmountCalc, meltingCharge]);
 
   // Load existing transaction data if in edit mode
-// Load existing transaction data if in edit mode
-useEffect(() => {
-  if (existingTransaction) {
-    console.log('Loading existing metal transaction for edit:', existingTransaction);
-    setVoucher({
-      voucherNumber: existingTransaction.voucherNumber || "N/A",
-      prefix: existingTransaction.voucherType || "N/A",
-      date: existingTransaction.voucherDate || new Date().toISOString(),
-    });
-    
-    // Set Fix/Unfix from existing transaction - FIXED
-    setSelectedRatio(existingTransaction.fixed ? "Fix" : existingTransaction.unfix ? "Unfix" : "");
-    
-    const firstItem = existingTransaction.stockItems?.[0];
-    if (firstItem?.metalRate?._id) {
-      setSelectedMetalUnit(firstItem.metalRate._id);
-    }
-    if (firstItem?.metalRateRequirements?.rate) {
-      setRate(formatNumber((firstItem.metalRateRequirements.rate * 1000).toString()));
-    }
-    
-    // AUTO-FILL THE FORM FIELDS FROM FIRST STOCK ITEM - ADD THIS
-    if (firstItem) {
-      // Set stock selection
+  useEffect(() => {
+    if (existingTransaction) {
+      console.log('Loading existing metal transaction for edit:', existingTransaction);
+      setVoucher({
+        voucherNumber: existingTransaction.voucherNumber || "N/A",
+        prefix: existingTransaction.voucherType || "N/A",
+        date: existingTransaction.voucherDate || new Date().toISOString(),
+      });
+      
+      setSelectedRatio(existingTransaction.fixed ? "Fix" : existingTransaction.unfix ? "Unfix" : "");
+      
+      const firstItem = existingTransaction.stockItems?.[0];
+      if (firstItem?.metalRate?._id) {
+        setSelectedMetalUnit(firstItem.metalRate._id);
+      }
+      if (firstItem?.metalRateRequirements?.rate) {
+        setRate(formatNumber((firstItem.metalRateRequirements.rate * 1000).toString()));
+      }
+      
+      if (firstItem) {
       if (firstItem.stockCode?._id) {
-        const stock = metalStocks.find(s => s._id === firstItem.stockCode._id);
-        if (stock) {
-          setSelectedStock(stock);
+  const stock = metalStocks.find(s => s._id === firstItem.stockCode._id);
+  if (stock) {
+    setSelectedStock(stock);
+    setStockSearch(stock.code);     // <<< FIX
+    setStockDropdownOpen(false);    // (optional)
+  }
+}
+
+        
+        if (firstItem.grossWeight) {
+          setGrossWeight(formatNumber(firstItem.grossWeight.toString()));
+        }
+        
+        if (firstItem.meltingCharge?.amount) {
+          setMeltingCharge(formatNumber(firstItem.meltingCharge.amount.toString()));
         }
       }
       
-      // Set gross weight
-      if (firstItem.grossWeight) {
-        setGrossWeight(formatNumber(firstItem.grossWeight.toString()));
-      }
-      
-      // Set melting charge
-      if (firstItem.meltingCharge?.amount) {
-        setMeltingCharge(formatNumber(firstItem.meltingCharge.amount.toString()));
-      }
+      const existingTrades = (existingTransaction.stockItems || []).map((item) => ({
+        trader: selectedTrader?.label || selectedTrader?.name || existingTransaction.partyCode?.customerName || "Trader",
+        stockId: item.stockCode?._id || item.stockCode,
+        stockCode: item.stockCode?.code || item.stockCode?.symbol || "-",
+        description: item.description || item.stockCode?.description || "-",
+        grossWeight: item.grossWeight || 0,
+        pureWeight: item.pureWeight || 0,
+        weightInOz: item.weightInOz || 0,
+        purity: item.purity || item.stockCode?.karat?.standardPurity || 0,
+        ratePerGram: item.metalRateRequirements?.rate || 0,
+        metalAmount: item.metalRateRequirements?.amount || 0,
+        meltingCharge: item.meltingCharge?.amount || item.makingCharges?.amount || 0,
+        totalAmount: item.itemTotal?.itemTotalAmount || 0,
+        ratePerKGBAR: item.ratePerKGBAR || item.itemTotal?.ratePerKGBAR || 0,
+        ratio: existingTransaction.fixed ? "Fix" : existingTransaction.unfix ? "Unfix" : "",
+      }));
+      setTrades(existingTrades);
+    } else {
+      resetFormData();
     }
-    
-    const existingTrades = (existingTransaction.stockItems || []).map((item) => ({
-      trader: selectedTrader?.label || selectedTrader?.name || existingTransaction.partyCode?.customerName || "Trader",
-      stockId: item.stockCode?._id || item.stockCode,
-      stockCode: item.stockCode?.code || item.stockCode?.symbol || "-",
-      description: item.description || item.stockCode?.description || "-",
-      grossWeight: item.grossWeight || 0,
-      pureWeight: item.pureWeight || 0,
-      weightInOz: item.weightInOz || 0,
-      purity: item.purity || item.stockCode?.karat?.standardPurity || 0,
-      ratePerGram: item.metalRateRequirements?.rate || 0,
-      metalAmount: item.metalRateRequirements?.amount || 0,
-      meltingCharge: item.meltingCharge?.amount || item.makingCharges?.amount || 0,
-      totalAmount: item.itemTotal?.itemTotalAmount || 0,
-      ratePerKGBAR: item.ratePerKGBAR || item.itemTotal?.ratePerKGBAR || 0,
-      ratio: existingTransaction.fixed ? "Fix" : existingTransaction.unfix ? "Unfix" : "", // FIXED
-    }));
-    setTrades(existingTrades);
-  } else {
-    resetFormData();
-  }
-}, [existingTransaction, selectedTrader, metalStocks]); // ADDED metalStocks dependency
+  }, [existingTransaction, selectedTrader, metalStocks]);
 
   // Load metal rates
   useEffect(() => {
@@ -255,25 +277,23 @@ useEffect(() => {
     }
   }, [isEditMode, fetchNewVoucher]);
 
-const resetFormData = () => {
-  setTrades([]);
-  setRate('');
-  setSelectedMetalUnit('');
-  setSelectedStock(null);
-  setGrossWeight("");
-  setMeltingCharge("");
-  setSelectedRatio("");
-  setEditingIndex(null);
-  setShowErrors(false);
-  
-  // If in edit mode, also clear the existing transaction data
-  if (isEditMode) {
-    // This will trigger the parent component to clear the edit mode
-    if (onClose) {
-      onClose(true);
+  const resetFormData = () => {
+    setTrades([]);
+    setRate('');
+    setSelectedMetalUnit('');
+    setSelectedStock(null);
+    setGrossWeight("");
+    setMeltingCharge("");
+    setSelectedRatio("");
+    setEditingIndex(null);
+    setShowErrors(false);
+    
+    if (isEditMode) {
+      if (onClose) {
+        onClose(true);
+      }
     }
-  }
-};
+  };
 
   const validateTradeItem = () => {
     const errors = {};
@@ -285,15 +305,15 @@ const resetFormData = () => {
     return errors;
   };
 
-  const handleAddTrade = () => {
+ const handleAddTrade = () => {
     const errors = validateTradeItem();
     if (Object.keys(errors).length > 0) {
       setShowErrors(true);
       return;
     }
 
-    const traderLabel = selectedTrader
-      ? (selectedTrader.label || selectedTrader.name || 'Unknown Trader')
+    const traderLabel = localSelectedTrader || selectedTrader
+      ? (localSelectedTrader?.label || selectedTrader?.label || localSelectedTrader?.name || selectedTrader?.name || 'Unknown Trader')
       : 'No Trader';
 
     const newTrade = {
@@ -310,7 +330,7 @@ const resetFormData = () => {
       meltingCharge: parseFloat(parseFormattedNumber(meltingCharge)) || 0,
       totalAmount: totalAmount,
       ratePerKGBAR: parseFloat(parseFormattedNumber(rate)),
-      ratio: selectedRatio, // Include ratio in trade data
+      ratio: selectedRatio,
     };
 
     if (editingIndex !== null) {
@@ -322,564 +342,603 @@ const resetFormData = () => {
       setTrades(prev => [...prev, newTrade]);
     }
 
-    // Reset form for next entry
     setSelectedStock(null);
     setGrossWeight("");
     setMeltingCharge("");
     setShowErrors(false);
+    
+    // Scroll to summary section after adding trade
+    setTimeout(() => {
+      if (summaryRef.current) {
+        summaryRef.current.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start' 
+        });
+      }
+    }, 100);
   };
 
-const handleEdit = (index) => {
-  const trade = trades[index];
-  setEditingIndex(index);
-  setSelectedStock(metalStocks.find(s => s._id === trade.stockId) || null);
-  setGrossWeight(formatNumber(trade.grossWeight.toString()));
-  setMeltingCharge(formatNumber((trade.meltingCharge || 0).toString()));
-  setRate(formatNumber(trade.ratePerKGBAR.toString()));
-  setSelectedRatio(trade.ratio || "");
-  
-  // Set metal unit from existing trade data
-  if (existingTransaction?.stockItems?.[index]?.metalRate?._id) {
-    setSelectedMetalUnit(existingTransaction.stockItems[index].metalRate._id);
-  }
-};
+
+  const handleEdit = (index) => {
+    const trade = trades[index];
+    setEditingIndex(index);
+    setSelectedStock(metalStocks.find(s => s._id === trade.stockId) || null);
+    setGrossWeight(formatNumber(trade.grossWeight.toString()));
+    setMeltingCharge(formatNumber((trade.meltingCharge || 0).toString()));
+    setRate(formatNumber(trade.ratePerKGBAR.toString()));
+    setSelectedRatio(trade.ratio || "");
+    
+    if (existingTransaction?.stockItems?.[index]?.metalRate?._id) {
+      setSelectedMetalUnit(existingTransaction.stockItems[index].metalRate._id);
+    }
+  };
 
   const handleDelete = (index) => {
     setTrades(prev => prev.filter((_, i) => i !== index));
   };
 
-const handleSaveAll = async () => {
-  if (trades.length === 0) {
-    toast.error('Please add at least one trade item');
-    return;
-  }
-  if (!selectedTrader) {
-    toast.error('Please select a trader');
-    return;
-  }
-  if (!selectedMetalUnit) {
-    toast.error('Please select a metal rate type');
-    return;
-  }
-  if (!selectedRatio) {
-    toast.error('Please select Fix or Unfix');
-    return;
-  }
+  const handleSaveAll = async () => {
+    const currentTrader = localSelectedTrader || selectedTrader;
+    
+    if (trades.length === 0) {
+      toast.error('Please add at least one trade item');
+      return;
+    }
+    if (!currentTrader) {
+      toast.error('Please select a trader');
+      return;
+    }
+    if (!selectedMetalUnit) {
+      toast.error('Please select a metal rate type');
+      return;
+    }
+    if (!selectedRatio) {
+      toast.error('Please select Fix or Unfix');
+      return;
+    }
 
-  setIsSaving(true);
-  try {
-    const stockItems = trades.map(trade => ({
-      stockCode: trade.stockId,
-      description: trade.description,
-      pieces: 0,
-      grossWeight: trade.grossWeight,
-      purity: trade.purity,
-      pureWeight: trade.pureWeight,
-      purityWeight: trade.pureWeight,
-      weightInOz: trade.weightInOz,
-      ratePerKGBAR: trade.ratePerKGBAR,
-      metalRate: selectedMetalUnit,
-      metalRateRequirements: {
-        amount: trade.metalAmount,
-        rate: trade.ratePerGram
-      },
-      meltingCharge: {
-        amount: trade.meltingCharge || 0,
-        rate: 0
-      },
-      otherCharges: {
-        amount: 0,
-        description: '',
-        rate: 0
-      },
-      vat: {
-        percentage: 0,
-        amount: 0
-      },
-      premium: {
-        amount: 0,
-        rate: 0
-      },
-      itemTotal: {
-        baseAmount: trade.metalAmount,
-        meltingChargesTotal: trade.meltingCharge || 0,
-        premiumTotal: 0,
-        subTotal: trade.metalAmount + (trade.meltingCharge || 0),
-        vatAmount: 0,
+    setIsSaving(true);
+    try {
+      const stockItems = trades.map(trade => ({
+        stockCode: trade.stockId,
+        description: trade.description,
+        pieces: 0,
+        grossWeight: trade.grossWeight,
+        purity: trade.purity,
+        pureWeight: trade.pureWeight,
+        purityWeight: trade.pureWeight,
+        weightInOz: trade.weightInOz,
         ratePerKGBAR: trade.ratePerKGBAR,
-        itemTotalAmount: trade.totalAmount
-      },
-      itemNotes: '',
-      itemStatus: 'active'
-    }));
+        metalRate: selectedMetalUnit,
+        metalRateRequirements: {
+          amount: trade.metalAmount,
+          rate: trade.ratePerGram
+        },
+        meltingCharge: {
+          amount: trade.meltingCharge || 0,
+          rate: 0
+        },
+        otherCharges: {
+          amount: 0,
+          description: '',
+          rate: 0
+        },
+        vat: {
+          percentage: 0,
+          amount: 0
+        },
+        premium: {
+          amount: 0,
+          rate: 0
+        },
+        itemTotal: {
+          baseAmount: trade.metalAmount,
+          meltingChargesTotal: trade.meltingCharge || 0,
+          premiumTotal: 0,
+          subTotal: trade.metalAmount + (trade.meltingCharge || 0),
+          vatAmount: 0,
+          ratePerKGBAR: trade.ratePerKGBAR,
+          itemTotalAmount: trade.totalAmount
+        },
+        itemNotes: '',
+        itemStatus: 'active'
+      }));
 
-    const totalAmountSession = {
-      totalAmountAED: trades.reduce((sum, t) => sum + parseFloat(t.totalAmount || 0), 0),
-      netAmountAED: trades.reduce((sum, t) => sum + parseFloat(t.metalAmount || 0), 0),
-      vatAmount: 0,
-      vatPercentage: 0
-    };
+      const totalAmountSession = {
+        totalAmountAED: trades.reduce((sum, t) => sum + parseFloat(t.totalAmount || 0), 0),
+        netAmountAED: trades.reduce((sum, t) => sum + parseFloat(t.metalAmount || 0), 0),
+        vatAmount: 0,
+        vatPercentage: 0
+      };
 
-    const payload = {
-      transactionType: type === 'purchase' ? 'purchase' : 'sale',
-      voucherType: voucher?.prefix || 'N/A',
-      voucherDate: voucher?.date || new Date().toISOString(),
-      voucherNumber: voucher?.voucherNumber || 'N/A',
-      partyCode: selectedTrader.value || selectedTrader._id,
-      fix: selectedRatio === 'Fix',
-      unfix: selectedRatio === 'Unfix',
-      partyCurrency: selectedTrader.partyCurrency || '68c1c9e6ea46ae5eb3aa9f2c',
-      itemCurrency: '68c1c9e6ea46ae5eb3aa9f2c',
-      baseCurrency: '68c1c9e6ea46ae5eb3aa9f2c',
-      stockItems,
-      totalAmountSession,
-      status: 'confirmed',
-      notes: '',
-      effectivePartyCurrencyRate: 1,
-      effectiveItemCurrencyRate: 1
-    };
+      const payload = {
+        transactionType: type === 'purchase' ? 'purchase' : 'sale',
+        voucherType: voucher?.prefix || 'N/A',
+        voucherDate: voucher?.date || new Date().toISOString(),
+        voucherNumber: voucher?.voucherNumber || 'N/A',
+        partyCode: currentTrader.value || currentTrader._id,
+        fix: selectedRatio === 'Fix',
+        unfix: selectedRatio === 'Unfix',
+        partyCurrency: currentTrader.partyCurrency || '68c1c9e6ea46ae5eb3aa9f2c',
+        itemCurrency: '68c1c9e6ea46ae5eb3aa9f2c',
+        baseCurrency: '68c1c9e6ea46ae5eb3aa9f2c',
+        stockItems,
+        totalAmountSession,
+        status: 'confirmed',
+        notes: '',
+        effectivePartyCurrencyRate: 1,
+        effectiveItemCurrencyRate: 1
+      };
 
-    console.log('Payload being sent:', payload);
-    let response;
-    if (isEditMode) {
-      response = await axiosInstance.put(`/metal-transaction/${existingTransaction._id}`, payload);
-      toast.success(`Transaction updated successfully!`);
-      
-      // RESET FORM AFTER SUCCESSFUL UPDATE - ADD THIS
-      resetFormData();
-      if (onClose) {
-        onClose(true); // Pass true to indicate successful update
-      }
-    } else {
-      response = await axiosInstance.post('/metal-transaction', payload);
-      toast.success(`${trades.length} trade(s) saved successfully!`);
-      
-      resetFormData();
-      await fetchNewVoucher();
-    }
-
-    // Refetch trader balances
-    if (traderRefetch?.current && typeof traderRefetch.current === 'function') {
-      await traderRefetch.current();
-    }
-
-  } catch (error) {
-    console.error('Save failed:', error);
-    const errorMsg = error.response?.data?.message || 'Failed to save transaction';
-    toast.error(errorMsg);
-  } finally {
-    setIsSaving(false);
+      console.log('Payload being sent:', payload);
+      let response;
+   if (isEditMode) {
+  response = await axiosInstance.put(`/metal-transaction/${existingTransaction._id}`, payload);
+  
+  // SET SUCCESS DATA FOR MODAL
+  setSuccessData({
+    trader: currentTrader?.label || currentTrader?.name || 'Trader',
+    trades: trades,
+    type: type,
+    totalAmount: trades.reduce((sum, t) => sum + parseFloat(t.totalAmount || 0), 0)
+  });
+  setShowSuccess(true);
+  
+  resetFormData();
+  if (onClose) {
+    onClose(true);
   }
-};
+} else {
+  response = await axiosInstance.post('/metal-transaction', payload);
+  
+  // SET SUCCESS DATA FOR MODAL
+  setSuccessData({
+    trader: currentTrader?.label || currentTrader?.name || 'Trader',
+    trades: trades,
+    type: type,
+    totalAmount: trades.reduce((sum, t) => sum + parseFloat(t.totalAmount || 0), 0)
+  });
+  setShowSuccess(true);
+  
+  resetFormData();
+  await fetchNewVoucher();
+}
 
-  const traderLabel = selectedTrader
-    ? (selectedTrader.label || selectedTrader.name || 'Trader')
-    : 'No trader selected';
+      if (traderRefetch?.current && typeof traderRefetch.current === 'function') {
+        await traderRefetch.current();
+      }
+
+    } catch (error) {
+      console.error('Save failed:', error);
+      const errorMsg = error.response?.data?.message || 'Failed to save transaction';
+      toast.error(errorMsg);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const theme = type === 'purchase' 
+    ? {
+        toggleActive: 'bg-green-600 text-white',
+        toggleInactive: 'bg-gray-200 text-gray-700 hover:bg-gray-300',
+        summaryBg: 'bg-green-50',
+        summaryBorder: 'border-green-200',
+        buttonBg: 'bg-green-600 hover:bg-green-700',
+        voucherBg: 'bg-green-100',
+        inputFocus: 'focus:ring-green-500',
+      }
+    :{
+      toggleActive: 'bg-blue-600 text-white',
+      toggleInactive: 'bg-gray-200 text-gray-700 hover:bg-gray-300',
+      summaryBg: 'bg-blue-50',
+      summaryBorder: 'border-blue-200',
+      buttonBg: 'bg-blue-600 hover:bg-blue-700',
+      voucherBg: 'bg-blue-100',
+      inputFocus: 'focus:ring-blue-500',
+    };
 
   return (
-    <div className="bg-white rounded-xl shadow-lg border border-gray-200 max-w-6xl mx-auto">
-      {/* HEADER */}
-      <div className="flex items-center justify-between px-5 pt-5  pb-3">
-        <h2 className="text-xl font-semibold text-gray-800">
-          {isEditMode ? 'Edit' : 'Create'} Metal Trade
-        </h2>
-        {isEditMode && (
-          <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
-            Editing Mode
-          </span>
-        )}
-        {/* <button
-          onClick={() => onClose && onClose(false)}
-          className="text-gray-500 hover:text-gray-700 text-2xl leading-none"
-        >
-          ×
-        </button> */}
-      </div>
-
-      {/* MAIN CONTENT - TWO COLUMNS */}
-      <div className="px-5 pb-4 -mt-7">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          
-          {/* LEFT COLUMN - Trader & Voucher */}
-          <div className="space-y-2">
-            {/* TRADER INFO */}
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-xl border border-blue-200 p-5 mt-8">
-              <div className="flex items-center justify-between ">
-                <div className="flex items-center">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
-                  <p className="text-sm font-semibold text-blue-700 uppercase tracking-wide">Selected Trader</p>
-                </div>
-                <div className="bg-blue-500 text-white px-3 py-1 rounded-full">
-                  <span className="text-xs font-medium">
-                    {type === 'purchase' ? 'Purchase' : 'Sell'}
-                  </span>
-                </div>
-              </div>
-              <h3 className="text-lg font-bold text-gray-800 mb-2">{traderLabel}</h3>
-              <div className="flex items-center mt-4">
-                <div className="w-1.5 h-1.5 bg-green-500 rounded-full mr-2"></div>
-                <span className="text-sm text-gray-600">Ready for transaction</span>
-              </div>
-            </div>
-
-            {/* VOUCHER INFO */}
-            <div className={`rounded-xl border p-5 ${
-              type === 'purchase' 
-                ? 'bg-green-50 border-green-200' 
-                : 'bg-orange-50 border-orange-200'
-            }`}>
-              <div className="text-center mb-5">
-                <h3 className="text-lg font-semibold text-gray-800">
-                  Voucher Information
-                </h3>
-              </div>
-              
-              <div className="space-y-5">
-                <div className="bg-white p-3 rounded-lg border border-gray-200">
-                  <p className="text-xs font-medium text-gray-500 uppercase">Voucher Code</p>
-                  <p className="text-sm font-bold text-gray-800 mt-1">{voucher?.voucherNumber ?? 'N/A'}</p>
-                </div>
-                
-                <div className="bg-white p-3 rounded-lg border border-gray-200">
-                  <p className="text-xs font-medium text-gray-500 uppercase">Prefix</p>
-                  <p className="text-sm font-bold text-gray-800 mt-1">{voucher?.prefix ?? 'N/A'}</p>
-                </div>
-                
-                <div className="bg-white p-3 rounded-lg border border-gray-200">
-                  <p className="text-xs font-medium text-gray-500 uppercase">Voucher Date</p>
-                  <p className="text-sm font-bold text-gray-800 mt-1">
-                    {voucher?.date ? new Date(voucher.date).toLocaleDateString('en-GB') : 'N/A'}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* FIX/UNFIX SELECTION */}
-          
-          </div>
-
-          {/* RIGHT COLUMN - Trade Inputs */}
-          <div className="space-y-1">
-            {/* METAL RATE TYPE & RATE INPUT IN ONE LINE */}
-              <div>
-              {/* <label className="block text-sm font-medium text-gray-700 mb-2">
-                Trade Type <span className="text-red-500">*</span>
-              </label> */}
-       <div className="mb-4">
-  <div className="flex bg-gray-100 p-1 rounded-xl shadow-inner">
-    {['Fix', 'Unfix'].map((option) => {
-      const active = selectedRatio === option;
-      return (
-        <button
-          key={option}
-          onClick={() => setSelectedRatio(option)}
-          className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all 
-            ${active 
-              ? 'bg-white shadow-sm text-indigo-700 border border-indigo-300' 
-              : 'text-gray-600 hover:text-indigo-600'
-            }`}
-        >
-          <div className="flex items-center justify-center gap-2">
-            <span
-              className={`w-3.5 h-3.5 rounded-full border
-                ${active 
-                  ? 'bg-indigo-600 border-indigo-600' 
-                  : 'border-gray-400'
-                }`}
-            ></span>
-            {option}
-          </div>
-        </button>
-      );
-    })}
-  </div>
-
-  {showErrors && !selectedRatio && (
-    <p className="text-xs text-red-500 mt-1">Please select Fix or Unfix.</p>
-  )}
-</div>
-
-              {showErrors && !selectedRatio && (
-                <p className="text-xs text-red-500 mt-1">Please select Fix or Unfix.</p>
-              )}
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              {/* Metal Rate Type */}
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Metal Rate Type <span className="text-red-500">*</span>
-                </label>
-                {loadingRates ? (
-                  <p className="text-sm text-gray-500">Loading rates...</p>
-                ) : metalRates.length === 0 ? (
-                  <p className="text-sm text-red-500">No rates available</p>
-                ) : (
-                  <select
-                    value={selectedMetalUnit}
-                    onChange={(e) => setSelectedMetalUnit(e.target.value)}
-                    className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm ${
-                      showErrors && !selectedMetalUnit ? 'border-red-400 bg-red-50' : ''
-                    }`}
-                  >
-                    <option value="">Select Unit</option>
-                    {metalRates.map((rate) => (
-                      <option key={rate._id} value={rate._id}>
-                        {rate.rateType} {rate.isDefault && "(Default)"}
-                      </option>
-                    ))}
-                  </select>
-                )}
-                {showErrors && !selectedMetalUnit && (
-                  <p className="text-xs text-red-500 mt-1">Please select metal rate type.</p>
-                )}
-              </div>
-
-              {/* Rate Input */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Rate (INR) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={rate}
-                  onChange={(e) => HandleChange(e.target.value)}
-                  placeholder="e.g. 65,000"
-                  className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm ${
-                    showErrors && !rate ? 'border-red-400 bg-red-50' : ''
-                  }`}
-                />
-                {showErrors && !rate && (
-                  <p className="text-xs text-red-500 mt-1">Please enter a valid rate.</p>
-                )}
-              </div>
-            </div>
-
-{/* STOCK SELECTION - Searchable */}
-<div>
-  <label className="block text-sm font-medium text-gray-700 mb-1">
-    Stock Selection <span className="text-red-500">*</span>
-  </label>
-
-  {loadingStocks ? (
-    <p className="text-sm text-gray-500">Loading stocks...</p>
-  ) : (
-    <div className="relative">
-      <input
-        type="text"
-        value={stockSearch}
-        onChange={(e) => setStockSearch(e.target.value)}
-        onFocus={() => setStockDropdownOpen(true)}
-        placeholder="Search stock by code..."
-        className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 text-sm pr-10 ${
-          showErrors && !selectedStock
-            ? 'border-red-400 focus:ring-red-300'
-            : 'border-gray-300 focus:ring-indigo-500'
-        }`}
-      />
-      {/* Clear button inside input */}
-      {stockSearch && (
-        <button
-          onClick={() => {
-            setStockSearch('');
-            setSelectedStock(null);
-          }}
-          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-        >
-          ✕
-        </button>
-      )}
-
-      {/* Dropdown results */}
-      {stockDropdownOpen && metalStocks.length > 0 && (
-        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto">
-          {metalStocks
-            .filter((stock) =>
-              stock.code.toLowerCase().includes(stockSearch.toLowerCase())
-            )
-            .map((stock) => (
-              <div
-                key={stock._id}
-                onClick={() => {
-                  setSelectedStock(stock);
-                  setStockSearch(stock.code);   // optional: show code in input
-                  setStockDropdownOpen(false);
-                }}
-                className="px-4 py-2.5 text-sm cursor-pointer hover:bg-indigo-50 flex justify-between items-center"
-              >
-                <span>{stock.code}</span>
-                {selectedStock?._id === stock._id && (
-                  <span className="text-indigo-600">✓</span>
-                )}
-              </div>
-            ))}
-          {metalStocks.filter((s) =>
-            s.code.toLowerCase().includes(stockSearch.toLowerCase())
-          ).length === 0 && (
-            <div className="px-4 py-3 text-sm text-gray-500">
-              No stock found
-            </div>
+    <>
+      <div className="bg-white rounded-lg shadow-lg border border-gray-200 w-full">
+        
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 pt-4">
+          <h2 className="text-xl font-semibold text-gray-800">
+            {isEditMode ? 'Edit' : 'Create'} {type === 'purchase' ? 'Purchase' : 'Sales'} Metal
+          </h2>
+          {isEditMode && (
+            <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+              Editing Mode
+            </span>
           )}
         </div>
-      )}
-    </div>
-  )}
 
-  {/* Show selected stock below input (optional visual feedback) */}
-  {/* {selectedStock && (
-    <p className="mt-2 text-sm text-indigo-700">
-      Selected: <span className="font-medium">{selectedStock.code}</span>
-    </p>
-  )} */}
+        {/* Currency Pair Display */}
+        <div className="px-6 pt-2 -mt-10 flex justify-end">
+          <div className="bg-orange-50 text-black px-4 py-2 rounded-md shadow-sm inline-flex items-center gap-2">
+            <span className="font-semibold text-sm tracking-wide">INR / XAU</span>
+          </div>
+        </div>
 
-  {showErrors && !selectedStock && (
-    <p className="text-xs text-red-500 mt-1">Please select a stock.</p>
-  )}
-</div>          
+        {/* Main Content Grid */}
+        <div className="p-6 space-y-6">
+          
+          {/* VOUCHER SECTION */}
+          <div className=" rounded-lg p-4 bg-white -mt-5">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              VOUCHER
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-gray-50 p-3 rounded border border-gray-200">
+                <div className="text-xs font-semibold text-gray-500 mb-1">VOUCHER CODE</div>
+                <div className="text-sm font-bold text-gray-800">
+                  {voucher?.voucherNumber || '--'}
+                </div>
+              </div>
+              <div className="bg-gray-50 p-3 rounded border border-gray-200">
+                <div className="text-xs font-semibold text-gray-500 mb-1">PREFIX</div>
+                <div className="text-sm font-bold text-gray-800">
+                  {voucher?.prefix || '--'}
+                </div>
+              </div>
+              <div className="bg-gray-50 p-3 rounded border border-gray-200">
+                <div className="text-xs font-semibold text-gray-500 mb-1">VOUCHER DATE</div>
+                <div className="text-sm font-bold text-gray-800">
+                  {voucher?.date
+                    ? new Date(voucher.date).toLocaleDateString('en-GB')
+                    : '--'}
+                </div>
+              </div>
+            </div>
+          </div>
 
-            {/* GROSS WEIGHT */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Gross Weight (grams) <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={grossWeight}
-                onChange={(e) => handleGrossWeightChange(e.target.value)}
-                placeholder="Enter gross weight"
-                className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm ${
-                  showErrors && !grossWeight ? 'border-red-400 bg-red-50' : ''
-                }`}
-              />
-              {showErrors && !grossWeight && (
-                <p className="text-xs text-red-500 mt-1">Please enter gross weight.</p>
+          {/* PARTY SELECTION SECTION */}
+          <div className="-mt-8 rounded-lg p-4 bg-white">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">PARTY SELECTION SESSION</h3>
+            <SelectTrader 
+              onTraderChange={handleTraderChange} 
+              value={localSelectedTrader}
+              ref={traderRefetch}
+              editTransaction={existingTransaction}
+            />
+          </div>
+
+          {/* TRADE SESSION */}
+          <div className="-mt-8 rounded-lg p-4 bg-white">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">TRADE SESSION</h3>
+            
+            {/* Fix/Unfix Toggle */}
+            <div className="mb-6">
+              <div className="flex bg-gray-100 p-1 rounded-xl shadow-inner max-w-md mx-auto">
+                {['Fix', 'Unfix'].map((option) => {
+                  const active = selectedRatio === option;
+                  return (
+                    <button
+                      key={option}
+                      onClick={() => setSelectedRatio(option)}
+                      className={`flex-1 py-3 rounded-lg text-sm font-semibold transition-all ${
+                        active 
+                          ? 'bg-white shadow-sm text-indigo-700' 
+                          : 'text-gray-600 hover:text-indigo-600'
+                      }`}
+                    >
+                      {option}
+                    </button>
+                  );
+                })}
+              </div>
+              {showErrors && !selectedRatio && (
+                <p className="text-xs text-red-500 mt-1 text-center">Please select Fix or Unfix.</p>
               )}
             </div>
 
-            {/* METAL AMOUNT (Auto-calculated) */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Metal Amount</label>
-              <div className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 cursor-not-allowed">
-                ₹{formatNumber(metalAmountCalc.toFixed(2))}
-              </div>
-            </div>
-
-            {/* MELTING CHARGES */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Melting Charges</label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">₹</span>
-                <input
-                  type="text"
-                  value={meltingCharge}
-                  onChange={(e) => handleMeltingChargeChange(e.target.value)}
-                  placeholder="0.00"
-                  className="w-full pl-8 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
-                />
-              </div>
-            </div>
-
-            {/* TOTAL AMOUNT (Auto-calculated) */}
-            <div>
-              <label className="block text-sm font-bold text-gray-800 mb-1">Total Amount</label>
-              <div className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 cursor-not-allowed font-semibold">
-                ₹{formatNumber(totalAmount.toFixed(2))}
-              </div>
-            </div>
-
-            {/* ADD/UPDATE TRADE BUTTON */}
-            <button
-              onClick={handleAddTrade}
-              className={`w-full py-3 rounded-md font-medium transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                selectedStock && grossWeight && rate && selectedMetalUnit && selectedRatio
-                  ? 'bg-green-600 text-white hover:bg-green-700 focus:ring-green-500'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              }`}
-            >
-              <Plus className="w-4 h-4 inline mr-2" />
-              {editingIndex !== null ? 'Update Trade Item' : 'Add Trade Item'}
-            </button>
-          </div>
-        </div>
+            {/* Input Boxes */}
+        {/* First Row - 4 Cards */}
+<div className="grid grid-cols-4 gap-4 mb-6">
+  {/* METAL RATE TYPE CARD */}
+  <div className="h-32 rounded-xl bg-[#f8faff] shadow-sm px-3 py-3 flex flex-col gap-2 border border-gray-100">
+    <span className="text-sm font-semibold text-gray-800 text-center">METAL RATE TYPE</span>
+    <div className="flex-1 flex items-center justify-center">
+      <div className="w-full">
+        {loadingRates ? (
+          <p className="text-sm text-gray-500 text-center">Loading...</p>
+        ) : metalRates.length === 0 ? (
+          <p className="text-sm text-red-500 text-center">No rates</p>
+        ) : (
+          <select
+            value={selectedMetalUnit}
+            onChange={(e) => setSelectedMetalUnit(e.target.value)}
+            className={`w-full bg-transparent outline-none text-gray-900 text-base text-center ${
+              showErrors && !selectedMetalUnit ? 'border-red-400 bg-red-50' : ''
+            }`}
+          >
+            <option value="">Select Unit</option>
+            {metalRates.map((rate) => (
+              <option key={rate._id} value={rate._id}>
+                {rate.rateType} {rate.isDefault && "(Default)"}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
+    </div>
+    {showErrors && !selectedMetalUnit && (
+      <p className="text-xs text-red-500 text-center">Select type</p>
+    )}
+  </div>
 
-      {/* TRADE SUMMARY TABLE */}
-      {trades.length > 0 && (
-        <div className="px-5 pb-5">
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-5 border border-blue-200">
-            <h3 className="text-lg font-semibold text-indigo-800 mb-4">Trade Summary</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
-                <thead className="text-xs text-gray-700 uppercase bg-gray-100">
-                  <tr>
-                    <th className="px-3 py-2">Stock</th>
-                    <th className="px-3 py-2">Type</th>
-                    <th className="px-3 py-2">Gross Wt</th>
-                    <th className="px-3 py-2">Metal Amt</th>
-                    <th className="px-3 py-2">Melting charge</th>
-                    <th className="px-3 py-2">Total Amt</th>
-                    <th className="px-3 py-2 text-center">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {trades.map((t, i) => (
-                    <tr key={i} className="hover:bg-gray-50">
-                      <td className="px-3 py-2 font-medium">{t.stockCode}</td>
-                      <td className="px-3 py-2">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          t.ratio === 'Fix' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-blue-100 text-blue-800'
-                        }`}>
-                          {t.ratio}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2">{formatNumber(t.grossWeight.toFixed(3))}</td>
-                      <td className="px-3 py-2 font-semibold text-green-700">
-                        ₹{formatNumber(t.metalAmount.toFixed(2))}
-                      </td>
-                      <td className="px-3 py-2 text-orange-600 ">
-                        ₹{formatNumber((t.meltingCharge || 0).toFixed(2))}
-                      </td>
-                      <td className="px-3 py-2 font-bold text-blue-700">
-                        ₹{formatNumber(t.totalAmount.toFixed(2))}
-                      </td>
-                      <td className="px-3 py-2 text-center">
-                        <button
-                          onClick={() => handleEdit(i)}
-                          className="text-blue-600 hover:text-blue-800 mr-2"
-                          title="Edit"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(i)}
-                          className="text-red-600 hover:text-red-800"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            
-            {/* SAVE ALL */}
-            <div className="mt-5 flex justify-end">
+  {/* RATE PER KG BAR CARD */}
+  <div className="h-32 rounded-xl bg-[#fffef0] shadow-sm px-3 py-3 flex flex-col gap-2 border border-gray-100">
+    <span className="text-sm font-semibold text-gray-800 text-center">RATE PER KG</span>
+    <div className="flex-1 flex items-center justify-center">
+      <div className="w-full flex items-center justify-center relative">
+        <input
+          type="text"
+          value={rate}
+          onChange={(e) => HandleChange(e.target.value)}
+          placeholder="Rate"
+          className={`w-full bg-transparent outline-none text-gray-900 text-base text-center placeholder-gray-600 ${
+            showErrors && !rate ? 'border-red-400 bg-red-50' : ''
+          }`}
+        />
+        <span className="text-base font-bold absolute right-2">₹</span>
+      </div>
+    </div>
+    <p className="text-xs text-gray-600 text-center">1=1000 | 100=1 Lakh</p>
+    {showErrors && !rate && (
+      <p className="text-xs text-red-500 text-center">Enter rate</p>
+    )}
+  </div>
+
+  {/* STOCK SELECTION CARD */}
+  <div className="h-32 rounded-xl bg-[#f8fff8] shadow-sm px-3 py-3 flex flex-col gap-2 border border-gray-100 relative">
+    <span className="text-sm font-semibold text-gray-800 text-center">STOCK SELECTION</span>
+    <div className="flex-1 flex items-center justify-center">
+      <div className="w-full relative">
+        {loadingStocks ? (
+          <p className="text-sm text-gray-500 text-center">Loading...</p>
+        ) : (
+          <>
+            <input
+              type="text"
+              value={stockSearch}
+              onChange={(e) => {
+                setStockSearch(e.target.value);
+                setStockDropdownOpen(true);
+              }}
+              onFocus={() => setStockDropdownOpen(true)}
+              onBlur={() => setTimeout(() => setStockDropdownOpen(false), 200)}
+              placeholder="Search stock"
+              className={`w-full bg-transparent outline-none text-gray-900 text-base text-center placeholder-gray-600 ${
+                showErrors && !selectedStock ? 'border-red-400 bg-red-50' : ''
+              }`}
+            />
+            {stockSearch && (
               <button
-                onClick={handleSaveAll}
-                disabled={isSaving}
-                className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setStockSearch('');
+                  setSelectedStock(null);
+                  setStockDropdownOpen(false);
+                }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm"
               >
-                <Save className="w-4 h-4" />
-                {isSaving ? 'Saving...' : isEditMode ? 'Update Transaction' : 'Save All Trades'}
+                ✕
+              </button>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+    
+    {/* DROPDOWN MENU */}
+    {stockDropdownOpen && metalStocks.length > 0 && (
+      <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-auto">
+        {metalStocks
+          .filter((stock) =>
+            stock.code.toLowerCase().includes(stockSearch.toLowerCase())
+          )
+          .map((stock) => (
+            <div
+              key={stock._id}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                setSelectedStock(stock);
+                setStockSearch(stock.code);
+                setStockDropdownOpen(false);
+              }}
+              className="px-3 py-2 text-sm cursor-pointer hover:bg-indigo-50 flex justify-between items-center border-b border-gray-100 last:border-b-0"
+            >
+              <span className="font-medium">{stock.code}</span>
+              {selectedStock?._id === stock._id && (
+                <span className="text-indigo-600 text-sm">✓</span>
+              )}
+            </div>
+          ))}
+      </div>
+    )}
+    
+    {showErrors && !selectedStock && (
+      <p className="text-xs text-red-500 text-center">Select stock</p>
+    )}
+  </div>
+
+  {/* GROSS WEIGHT CARD */}
+  <div className="h-32 rounded-xl bg-[#faf8ff] shadow-sm px-3 py-3 flex flex-col gap-2 border border-gray-100">
+    <span className="text-sm font-semibold text-gray-800 text-center">GROSS WEIGHT</span>
+    <div className="flex-1 flex items-center justify-center">
+      <div className="w-full flex items-center justify-center relative">
+        <input
+          type="text"
+          value={grossWeight}
+          onChange={(e) => handleGrossWeightChange(e.target.value)}
+          placeholder="Weight"
+          className={`w-full bg-transparent outline-none text-gray-900 text-base text-center placeholder-gray-600 ${
+            showErrors && !grossWeight ? 'border-red-400 bg-red-50' : ''
+          }`}
+        />
+        <div className="absolute right-2 text-sm font-semibold text-gray-600">grams</div>
+      </div>
+    </div>
+    {showErrors && !grossWeight && (
+      <p className="text-xs text-red-500 text-center">Enter weight</p>
+    )}
+  </div>
+</div>
+
+{/* Second Row - 3 Cards */}
+<div className="grid grid-cols-3 gap-4">
+  {/* METAL AMOUNT CARD */}
+  <div className="h-32 rounded-xl bg-[#fff8fb] shadow-sm px-3 py-3 flex flex-col gap-2 border border-gray-100">
+    <span className="text-sm font-semibold text-gray-800 text-center">METAL AMOUNT</span>
+    <div className="flex-1 flex items-center justify-center">
+      <div className="w-full text-center">
+        <input
+          type="text"
+          readOnly
+          value={`₹${formatNumber(metalAmountCalc.toFixed(2))}`}
+          className="w-full bg-transparent outline-none text-gray-900 text-base text-center cursor-not-allowed"
+        />
+      </div>
+    </div>
+  </div>
+
+  {/* MELTING CHARGES CARD */}
+  <div className="h-32 rounded-xl bg-[#f8ffff] shadow-sm px-3 py-3 flex flex-col gap-2 border border-gray-100">
+    <span className="text-sm font-semibold text-gray-800 text-center">MELTING CHARGES</span>
+    <div className="flex-1 flex items-center justify-center">
+      <div className="w-full flex items-center justify-center relative">
+        <input
+          type="text"
+          value={meltingCharge}
+          onChange={(e) => handleMeltingChargeChange(e.target.value)}
+          placeholder="0.00"
+          className="w-full bg-transparent outline-none text-gray-900 text-base text-center placeholder-gray-600"
+        />
+        <span className="text-base font-bold absolute right-2">₹</span>
+      </div>
+    </div>
+  </div>
+
+  {/* TOTAL AMOUNT CARD */}
+  <div className="h-32 rounded-xl bg-[#f8f8f8] shadow-sm px-3 py-3 flex flex-col gap-2 border border-gray-100">
+    <span className="text-sm font-semibold text-gray-800 text-center">TOTAL AMOUNT</span>
+    <div className="flex-1 flex items-center justify-center">
+      <div className="w-full text-center">
+        <span className="text-base font-bold text-gray-900">
+          ₹{formatNumber(totalAmount.toFixed(2))}
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
+
+            {/* Add/Update Button */}
+            <div className="mt-6">
+              <button
+                onClick={handleAddTrade}
+                className={`w-full py-3 rounded-lg font-semibold text-white transition-colors ${
+                  selectedStock && grossWeight && rate && selectedMetalUnit && selectedRatio
+                    ? `${theme.buttonBg} hover:opacity-90`
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                <Plus className="w-4 h-4 inline mr-2" />
+                {editingIndex !== null ? 'UPDATE TRADE ITEM' : 'ADD TRADE ITEM'}
               </button>
             </div>
           </div>
+
+          {/* TRADE SUMMARY */}
+          {trades.length > 0 && (
+            <div             ref={summaryRef}  className="border border-gray-200 rounded-lg p-4 bg-white">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">SUMMARY SESSION</h3>
+              <div className={`rounded-lg p-4 border ${theme.summaryBorder} ${theme.summaryBg}`}>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left">
+                    <thead className="text-xs text-gray-700 uppercase bg-gray-100">
+                      <tr>
+                        <th className="px-3 py-2">Stock</th>
+                        <th className="px-3 py-2">Type</th>
+                        <th className="px-3 py-2">Gross Wt</th>
+                        <th className="px-3 py-2">Metal Amt</th>
+                        <th className="px-3 py-2">Melting charge</th>
+                        <th className="px-3 py-2">Total Amt</th>
+                        <th className="px-3 py-2 text-center">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {trades.map((t, i) => (
+                        <tr key={i} className="hover:bg-gray-50">
+                          <td className="px-3 py-2 font-medium">{t.stockCode}</td>
+                          <td className="px-3 py-2">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              t.ratio === 'Fix' 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-blue-100 text-blue-800'
+                            }`}>
+                              {t.ratio}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2">{formatNumber(t.grossWeight.toFixed(3))}</td>
+                          <td className="px-3 py-2 font-semibold text-green-700">
+                            ₹{formatNumber(t.metalAmount.toFixed(2))}
+                          </td>
+                          <td className="px-3 py-2 text-orange-600">
+                            ₹{formatNumber((t.meltingCharge || 0).toFixed(2))}
+                          </td>
+                          <td className="px-3 py-2 font-bold text-blue-700">
+                            ₹{formatNumber(t.totalAmount.toFixed(2))}
+                          </td>
+                          <td className="px-3 py-2 text-center">
+                            <button
+                              onClick={() => handleEdit(i)}
+                              className="text-blue-600 hover:text-blue-800 mr-2"
+                              title="Edit"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(i)}
+                              className="text-red-600 hover:text-red-800"
+                              title="Delete"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                
+                {/* Save All Button */}
+                <div className="mt-4 flex justify-end">
+                  <button
+                    onClick={handleSaveAll}
+                    disabled={isSaving}
+                    className={`px-6 py-2.5 ${theme.buttonBg} text-white font-medium rounded-lg hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    <Save className="w-4 h-4 inline mr-2" />
+                    {isSaving ? 'SAVING...' : isEditMode ? 'UPDATE TRANSACTION' : 'SAVE ALL TRADES'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-      )}
-    </div>
+      </div>
+       <SuccessModal
+        isOpen={showSuccess}
+        onClose={() => setShowSuccess(false)}
+        data={successData}
+        isMetal={true} // Add this prop to indicate it's a metal trade
+      />
+    </>
   );
 }

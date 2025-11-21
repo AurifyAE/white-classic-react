@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useImperativeHandle, forwardRef } from "react";
 import Select from "react-select";
 import axiosInstance from "../../../../api/axios";
-import { User, X, Wallet, Coins } from "lucide-react";
+import { Coins, X } from "lucide-react";
 import DirhamIcon from "../../../../assets/uae-dirham.svg";
 
 const formatNumber = (num, fraction = 2) => {
@@ -19,22 +19,15 @@ const getDirhamColorFilter = (isNegative) => {
     : "invert(48%) sepia(61%) saturate(512%) hue-rotate(90deg) brightness(93%) contrast(85%)";
 };
 
-const SelectTrader = forwardRef(({ onTraderChange, value }, ref) => {
+const SelectTrader = forwardRef(({ onTraderChange, value, editTransaction }, ref) => {
   const [traders, setTraders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [currencies, setCurrencies] = useState([]);
-  const [refetchTrigger, setRefetchTrigger] = useState(0);
 
   const loadTraders = useCallback(async () => {
     setLoading(true);
     try {
-      const [traderRes, currencyRes] = await Promise.all([
-        axiosInstance.get("/account-type"),
-        axiosInstance.get("/currency-master"),
-      ]);
-
-      setTraders(traderRes.data.data || []);
-      setCurrencies(currencyRes.data.data || []);
+      const res = await axiosInstance.get("/account-type");
+      setTraders(res.data.data || []);
     } catch (err) {
       console.error("Failed to load traders", err);
     } finally {
@@ -42,88 +35,105 @@ const SelectTrader = forwardRef(({ onTraderChange, value }, ref) => {
     }
   }, []);
 
+  // Real-time balance updates when trader is selected
+  const refreshTraderBalances = useCallback(async (traderId) => {
+    if (!traderId) return;
+    
+    try {
+      const res = await axiosInstance.get(`/account-type/${traderId}`);
+      const updatedTrader = res.data.data;
+      
+      if (updatedTrader && value?.value === traderId) {
+        // Update the current trader with latest balances
+        const updatedOption = {
+          ...value,
+          trader: updatedTrader
+        };
+        onTraderChange(updatedOption);
+      }
+      
+      // Also update the traders list
+      setTraders(prev => prev.map(t => 
+        t._id === traderId ? updatedTrader : t
+      ));
+    } catch (err) {
+      console.error("Failed to refresh balances", err);
+    }
+  }, [value, onTraderChange]);
+
   useEffect(() => {
     loadTraders();
   }, [loadTraders]);
 
+  // Auto-refresh balances when trader is selected
   useEffect(() => {
-    if (refetchTrigger > 0) {
-      loadTraders();
+    if (value?.trader?._id) {
+      refreshTraderBalances(value.trader._id);
     }
-  }, [refetchTrigger, loadTraders]);
+  }, [value?.trader?._id, refreshTraderBalances]);
 
   useImperativeHandle(ref, () => ({
-    refetch: async () => {
-      setLoading(true);
-      try {
-        const [traderRes, currencyRes] = await Promise.all([
-          axiosInstance.get("/account-type"),
-          axiosInstance.get("/currency-master"),
-        ]);
-        setTraders(traderRes.data.data || []);
-        setCurrencies(currencyRes.data.data || []);
-      } catch (err) {
-        console.error("Refetch failed:", err);
-        throw err;
-      } finally {
-        setLoading(false);
+    refetch: loadTraders,
+    refreshBalances: refreshTraderBalances,
+  }), [loadTraders, refreshTraderBalances]);
+
+  // UNIVERSAL AUTO-SELECT — WORKS FOR ALL TABS INCLUDING PURCHASE/SALES METAL
+  useEffect(() => {
+    if (!value && editTransaction) {
+      let traderObj = null;
+      if (editTransaction.partyCode?._id && editTransaction.partyCode?.customerName) {
+        traderObj = editTransaction.partyCode;
       }
-    },
-  }), []);
+      else if (editTransaction.partyData?._id) {
+        traderObj = editTransaction.partyData;
+      }
+      if (traderObj) {
+        const option = {
+          value: traderObj._id,
+          label: `${traderObj.customerName} (${traderObj.accountCode || "N/A"})`,
+          trader: traderObj,
+        };
+        onTraderChange(option);
+      }
+    }
+  }, [editTransaction, value, onTraderChange]);
 
-  const getCurrencyCode = (currencyId) => {
-    const currency = currencies.find((c) => c._id === currencyId);
-    return currency ? currency.currencyCode : "AED";
-  };
-
-  const traderOptions = useMemo(() => {
-    return traders.map((trader) => ({
-      value: trader._id,
-      label: `${trader.customerName} (${trader.accountCode})`,
-      trader,
-    }));
-  }, [traders]);
-
-  const clearSelection = () => {
+  const handleClearSelection = () => {
     onTraderChange(null);
   };
 
+  const traderOptions = useMemo(() => {
+    return traders.map((t) => ({
+      value: t._id,
+      label: `${t.customerName} (${t.accountCode || "N/A"})`,
+      trader: t,
+    }));
+  }, [traders]);
+
   const customStyles = {
-    control: (base, state) => ({
+    control: (base) => ({
       ...base,
-      minHeight: "42px",
-      borderRadius: "6px",
-      border: "1px solid #e5e7eb",
+      minHeight: "48px",
+      borderRadius: "8px",
+      border: "2px solid #e5e7eb",
       boxShadow: "none",
       "&:hover": { borderColor: "#d1d5db" },
       backgroundColor: "white",
+      fontSize: "14px",
     }),
     menu: (base) => ({
       ...base,
-      borderRadius: "6px",
-      marginTop: "2px",
-      boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+      borderRadius: "8px",
+      marginTop: "4px",
+      boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
       zIndex: 9999,
-    }),
-    option: (base, state) => ({
-      ...base,
-      backgroundColor: state.isSelected ? "#3b82f6" : "white",
-      color: state.isSelected ? "white" : "#1f2937",
-      padding: "6px 10px",
-      cursor: "pointer",
-      "&:hover": {
-        backgroundColor: state.isSelected ? "#3b82f6" : "#f3f4f6",
-      },
     }),
   };
 
   return (
     <div className="w-full">
-      <label className="block text-sm font-medium text-gray-700 mb-1">
-        Select Trader
-      </label>
-
-      <div className="relative">
+      {/* Dropdown only when no trader selected */}
+      {!value && (
         <Select
           options={traderOptions}
           value={value}
@@ -131,162 +141,134 @@ const SelectTrader = forwardRef(({ onTraderChange, value }, ref) => {
           isLoading={loading}
           isSearchable
           placeholder={loading ? "Loading traders..." : "Select trader..."}
-          noOptionsMessage={() => "No traders found"}
           styles={customStyles}
-          className="text-sm"
           menuPortalTarget={document.body}
           menuPosition="fixed"
         />
-      </div>
-
+      )}
+      
+      {/* Selected trader with balances */}
       {value && (
-        <div className="  bg-white rounded-md shadow-xs">
-          {/* Header */}
-          {/* <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200">
-            <div className="flex items-center gap-2">
-              <User className="w-3 h-3 text-gray-600" />
-              <span className="text-sm font-semibold text-gray-900">
-                {value.trader.customerName} ({value.trader.accountCode})
-              </span>
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          {/* Trader Header */}
+          <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800">
+                {value.trader.customerName}
+              </h3>
+              <p className="text-sm text-gray-600">
+                Account Code: {value.trader.accountCode || "N/A"}
+              </p>
             </div>
-            <button
-              onClick={clearSelection}
-              className="p-1 hover:bg-gray-100 rounded-full transition-colors"
-            >
-              <X className="w-3 h-3 text-gray-500" />
-            </button>
-          </div> */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => refreshTraderBalances(value.trader._id)}
+                className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Refresh
+              </button>
+              <button
+                onClick={handleClearSelection}
+                className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                <X size={16} />
+                Change Trader
+              </button>
+            </div>
+          </div>
 
-         {/* Balances */}
-<div className="mt-3">
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-    
-    {/* CASH BALANCE */}
-   {/* CASH BALANCE */}
-<div className="border border-gray-200 rounded-md p-3">
-  <div className="flex items-center gap-2 mb-2">
-    <Wallet className="w-3 h-3 text-gray-600" />
-    <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
-      Cash Balance
-    </span>
-  </div>
+          {/* Balance Cards */}
+          <div className="p-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* CASH BALANCE AED */}
+              <div className="border border-gray-200 rounded-lg p-4 bg-white">
+                <div className="text-center mb-3">
+                  <span className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                    CASH BALANCE AED
+                  </span>
+                </div>
+                {(() => {
+                  const aedItem = value.trader.balances?.cashBalance?.find(item => item.isDefault === false);
+                  const amount = aedItem ? aedItem.amount || 0 : 0;
+                  const isNegative = amount < 0;
+                  return (
+                    <div className="flex items-center justify-center p-3 rounded-lg bg-gray-50 border border-gray-200">
+                      <div className="text-center">
+                        <div className="flex items-center justify-center mb-1">
+                          <img
+                            src={DirhamIcon}
+                            alt="AED"
+                            className="w-4 h-4"
+                            style={{ filter: getDirhamColorFilter(isNegative) }}
+                          />
+                        </div>
+                        <div className={`font-bold ${isNegative ? "text-red-600" : "text-green-600"}`}>
+                          {isNegative && "-"}
+                          {formatNumber(Math.abs(amount))}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
 
-  {Array.isArray(value.trader.balances?.cashBalance) &&
-  value.trader.balances.cashBalance.length > 0 ? (
-    <div className="flex gap-1">
-      {value.trader.balances.cashBalance.map((cb, idx) => {
-        const amount = cb.amount || 0;
-        const isNegative = amount < 0;
-        const currencyCode = getCurrencyCode(cb.currency?._id);
-        const isINR = currencyCode === "INR";
-        const isAED = currencyCode === "AED";
+              {/* CASH BALANCE INR */}
+              <div className="border border-gray-200 rounded-lg p-4 bg-white">
+                <div className="text-center mb-3">
+                  <span className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                    CASH BALANCE INR
+                  </span>
+                </div>
+                {(() => {
+                  const inrItem = value.trader.balances?.cashBalance?.find(item => item.isDefault === true);
+                  const amount = inrItem ? inrItem.amount || 0 : 0;
+                  const isNegative = amount < 0;
+                  return (
+                    <div className="flex items-center justify-center p-3 rounded-lg bg-gray-50 border border-gray-200">
+                      <div className="text-center">
+                        <div className="flex items-center justify-center mb-1">
+                          <span className="font-bold text-green-600">₹</span>
+                        </div>
+                        <div className={`font-bold ${isNegative ? "text-red-600" : "text-green-600"}`}>
+                          {isNegative && "-"}
+                          {formatNumber(Math.abs(amount))}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
 
-        return (
-          <div
-            key={idx}
-            className="flex-1 flex items-center gap-2 p-1.5 rounded bg-gray-50 border border-gray-200 min-w-0"
-          >
-            {isINR ? (
-              <div className="w-5 h-5 bg-white border border-gray-300 rounded-full flex items-center justify-center shrink-0">
-                <span className="text-xs font-bold text-gray-700">₹</span>
-              </div>
-            ) : isAED ? (
-              <div className="w-5 h-5 bg-white border border-gray-300 rounded-full flex items-center justify-center shrink-0">
-                <img
-                  src={DirhamIcon}
-                  alt="AED"
-                  className="w-2.5 h-2.5"
-                  style={{
-                    filter: getDirhamColorFilter(isNegative),
-                  }}
-                />
-              </div>
-            ) : (
-              <div className="w-5 h-5 bg-white border border-gray-300 rounded-full flex items-center justify-center shrink-0">
-                <span className="text-xs font-bold text-gray-600">{currencyCode}</span>
-              </div>
-            )}
-            <div className="min-w-0 flex-1">
-              <div className="text-xs font-medium text-gray-700 truncate">{currencyCode}</div>
-              <div className={`text-xs font-bold ${isNegative ? "text-red-600" : "text-green-600"} truncate`}>
-                {isNegative && "-"}
-                {formatNumber(Math.abs(amount))}
+              {/* GOLD BALANCE */}
+              <div className="border border-gray-200 rounded-lg p-4 bg-white">
+                <div className="text-center mb-3">
+                  <span className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                    GOLD BALANCE
+                  </span>
+                </div>
+                <div className="flex flex-col items-center justify-center p-4 rounded-lg bg-gray-50 border border-gray-200">
+                  <div className="text-center">
+                    <div className="flex items-center justify-center mb-2">
+                      <Coins className="w-4 h-4 text-yellow-600" />
+                    </div>
+                    <span className={`font-bold ${(value.trader.balances?.goldBalance?.totalGrams || 0) < 0 ? "text-red-600" : "text-gray-900"}`}>
+                      {(value.trader.balances?.goldBalance?.totalGrams || 0) < 0 && "-"}
+                      {formatNumber(Math.abs(value.trader.balances?.goldBalance?.totalGrams || 0), 3)}
+                      <span className="text-lg font-medium ml-1">g</span>
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-        );
-      })}
-    </div>
-  ) : (
-    <div className="text-center py-2 bg-gray-50 rounded border border-gray-200">
-      <span className="text-xs text-gray-500">No cash balances</span>
-    </div>
-  )}
-</div>
-
-    {/* GOLD BALANCE */}
-    <div className="border border-gray-200 rounded-md p-3">
-  <div className="flex items-center gap-2 mb-2">
-    <Coins className="w-3 h-3 text-gray-600" />
-    <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
-      Gold Balance
-    </span>
-  </div>
-  
-  {/* Main Gold Card */}
-  <div className="flex items-center gap-2 p-1.5 rounded bg-gray-50 border border-gray-200">
-    <div className="w-6 h-6 bg-white border border-gray-300 rounded-full flex items-center justify-center shrink-0">
-      <Coins className="w-3 h-3 text-gray-600" />
-    </div>
-    <div className="flex-1 min-w-0">
-      <div className="text-xs font-medium text-gray-700">Total Gold</div>
-      <div className="text-xs text-gray-500">in grams</div>
-    </div>
-    <div className="text-right">
-      <span
-        className={`text-sm font-bold ${
-          (value.trader.balances?.goldBalance?.totalGrams || 0) < 0
-            ? "text-red-600"
-            : "text-gray-900"
-        }`}
-      >
-        {(value.trader.balances?.goldBalance?.totalGrams || 0) < 0 && "-"}
-        {formatNumber(
-          Math.abs(value.trader.balances?.goldBalance?.totalGrams || 0),
-          3
-        )}
-        <span className="text-xs font-medium ml-0.5">g</span>
-      </span>
-    </div>
-  </div>
-
-  {/* Additional Gold Metrics */}
-  <div className="flex gap-1 mt-2">
-    {value.trader.balances?.goldBalance?.availableGrams && (
-      <div className="flex-1 flex items-center justify-between p-1.5 bg-white rounded border border-gray-200 min-w-0">
-        <span className="text-xs text-gray-600">Available</span>
-        <span className="text-xs font-medium text-gray-700">
-          {formatNumber(value.trader.balances.goldBalance.availableGrams, 3)}g
-        </span>
-      </div>
-    )}
-    
-    {value.trader.balances?.goldBalance?.reservedGrams && (
-      <div className="flex-1 flex items-center justify-between p-1.5 bg-white rounded border border-gray-200 min-w-0">
-        <span className="text-xs text-gray-600">Reserved</span>
-        <span className="text-xs font-medium text-gray-700">
-          {formatNumber(value.trader.balances.goldBalance.reservedGrams, 3)}g
-        </span>
-      </div>
-    )}
-  </div>
-</div>
-  </div>
-</div>
         </div>
       )}
     </div>
   );
 });
 
+SelectTrader.displayName = "SelectTrader";
 export default SelectTrader;

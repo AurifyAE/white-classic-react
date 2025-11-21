@@ -10,6 +10,7 @@ import { toast } from 'react-toastify';
 import axiosInstance from '../../../../api/axios';
 import SuccessModal from './SuccessModal';
 import AsyncSelect from 'react-select/async';
+import SelectTrader from './SelectTrader';
 
 // -------------------------------------------------------------------
 // Helper utils
@@ -44,9 +45,15 @@ export default function TradeModalGold({ selectedTrader, traderRefetch, editTran
   const [successData, setSuccessData] = useState(null);
   const [currencies, setCurrencies] = useState([]);
   const [baseCurrencyId, setBaseCurrencyId] = useState('');
+  const [localSelectedTrader, setLocalSelectedTrader] = useState(selectedTrader);
   
   // Track if we're in edit mode
   const isEditMode = useRef(false);
+
+  // Update local selected trader when prop changes
+  useEffect(() => {
+    setLocalSelectedTrader(selectedTrader);
+  }, [selectedTrader]);
 
   // -----------------------------------------------------------------
   // Voucher fetcher
@@ -82,58 +89,51 @@ export default function TradeModalGold({ selectedTrader, traderRefetch, editTran
   // -----------------------------------------------------------------
   // Load existing transaction data if editing
   // -----------------------------------------------------------------
- // In GoldFixPage component - Update the useEffect that handles edit data
-useEffect(() => {
-  if (!editTransaction) {
-    // Create mode - reset
-    setGrossWeight('1000');
-    setRatePerKg('');
-    setSelectedCommodity(null);
-    setIsBuy(true);
-    isEditMode.current = false;
-    return;
-  }
+  useEffect(() => {
+    if (!editTransaction) {
+      // Create mode - reset
+      setGrossWeight('1000');
+      setRatePerKg('');
+      setSelectedCommodity(null);
+      setIsBuy(true);
+      isEditMode.current = false;
+      return;
+    }
 
-  // Edit mode - populate fields
-  console.log("Loading edit transaction:", editTransaction);
-  isEditMode.current = true;
+    // Edit mode - populate fields
+    console.log("Loading edit transaction:", editTransaction);
+    isEditMode.current = true;
 
-  // Set buy/sell
-  setIsBuy(editTransaction.type === 'BUY');
+    // Set buy/sell
+    setIsBuy(editTransaction.type === 'BUY');
 
-  // Set gross weight
-  setGrossWeight(formatNumber(String(editTransaction.grossWeight || 1000)));
+    // Set gross weight
+    setGrossWeight(formatNumber(String(editTransaction.grossWeight || 1000)));
 
-  // Set rate - THIS IS THE FIX FOR RATE PER KG
-  // Check both rate and ratePerKg fields
-  const rateValue = editTransaction.rate || editTransaction.ratePerKg || '';
-  setRatePerKg(formatNumber(String(rateValue)));
+    // Set rate
+    const rateValue = editTransaction.rate || editTransaction.ratePerKg || '';
+    setRatePerKg(formatNumber(String(rateValue)));
 
-  // Set value per gram - THIS IS THE FIX FOR VALUE PER GRAM
-  // If valuePerGram exists in edit data, we don't need to calculate it
-  // But we should display it in the readonly field
-  console.log("Value per gram from edit data:", editTransaction.valuePerGram);
+    // Set commodity
+    if (editTransaction.commodityId) {
+      const commodity = editTransaction.commodityId;
+      setSelectedCommodity({
+        value: commodity._id,
+        label: `${commodity.code} - ${commodity.description}`,
+        purity: parseFloat(commodity.standardPurity),
+        commodity: commodity,
+      });
+    }
 
-  // Set commodity
-  if (editTransaction.commodityId) {
-    const commodity = editTransaction.commodityId;
-    setSelectedCommodity({
-      value: commodity._id,
-      label: `${commodity.code} - ${commodity.description}`,
-      purity: parseFloat(commodity.standardPurity),
-      commodity: commodity,
-    });
-  }
-
-  // Set voucher from transaction
-  if (editTransaction.reference) {
-    setVoucher({
-      voucherNumber: editTransaction.reference,
-      prefix: editTransaction.type === 'BUY' ? 'GFB' : 'GFS',
-      date: editTransaction.timestamp || editTransaction.createdAt,
-    });
-  }
-}, [editTransaction]);
+    // Set voucher from transaction
+    if (editTransaction.reference) {
+      setVoucher({
+        voucherNumber: editTransaction.reference,
+        prefix: editTransaction.type === 'BUY' ? 'GFB' : 'GFS',
+        date: editTransaction.timestamp || editTransaction.createdAt,
+      });
+    }
+  }, [editTransaction]);
 
   // -----------------------------------------------------------------
   // Initial load (mount) - only if not editing
@@ -187,40 +187,49 @@ useEffect(() => {
     }
   };
 
+  const allowDecimal = (value) => {
+  return /^(\d+(\.\d*)?|\.\d*)?$/.test(value);
+};
+
+
   // -----------------------------------------------------------------
   // Calculations
-// In GoldFixPage component - Update the calculations
-const calculations = useMemo(() => {
-  const gross = parseFloat(parseNumber(grossWeight)) || 0;
-  const purity = selectedCommodity?.purity ?? 0;
-  const pureWeight = gross * purity;
+  const calculations = useMemo(() => {
+    const gross = parseFloat(parseNumber(grossWeight)) || 0;
+    const purity = selectedCommodity?.purity ?? 0;
+    const pureWeight = gross * purity;
 
-  const rateKg = parseFloat(parseNumber(ratePerKg)) || 0;
-  const valuePerGram = rateKg / 1000;
-  const metalAmount = pureWeight * valuePerGram;
+    const rateKg = parseFloat(parseNumber(ratePerKg)) || 0;
+    const valuePerGram = rateKg / 1000;
+    const metalAmount = pureWeight * valuePerGram;
 
-  // If we're in edit mode and have original valuePerGram, use it for display
-  // but keep the calculated value for actual transactions
-  const displayValuePerGram = isEditMode.current && editTransaction?.valuePerGram 
-    ? editTransaction.valuePerGram 
-    : valuePerGram;
+    const displayValuePerGram = isEditMode.current && editTransaction?.valuePerGram 
+      ? editTransaction.valuePerGram 
+      : valuePerGram;
 
-  return {
-    gross,
-    purity,
-    pureWeight,
-    rateKg,
-    valuePerGram: displayValuePerGram,
-    metalAmount,
+    return {
+      gross,
+      purity,
+      pureWeight,
+      rateKg,
+      valuePerGram: displayValuePerGram,
+      metalAmount,
+    };
+  }, [grossWeight, selectedCommodity, ratePerKg, isEditMode.current, editTransaction]);
+
+  // Handle trader selection
+  const handleTraderChange = (trader) => {
+    setLocalSelectedTrader(trader);
   };
-}, [grossWeight, selectedCommodity, ratePerKg, isEditMode.current, editTransaction]);
 
   // -----------------------------------------------------------------
   // Create/Update Trade
   // -----------------------------------------------------------------
   const handleCreateTrade = useCallback(async () => {
+    const currentTrader = localSelectedTrader || selectedTrader;
+    
     // Validation
-    if (!selectedTrader) return toast.error('No trader selected');
+    if (!currentTrader) return toast.error('No trader selected');
     if (!selectedCommodity) return toast.error('Please select a commodity');
     if (!calculations.gross) return toast.error('Enter gross weight');
     if (!calculations.rateKg) return toast.error('Enter rate per KG');
@@ -230,7 +239,7 @@ const calculations = useMemo(() => {
     const quote = isBuyTrade ? 'XAU' : 'INR';
 
     const payload = {
-      partyId: selectedTrader.value,
+      partyId: currentTrader.value,
       type: isBuyTrade ? 'BUY' : 'SELL',
       amount: calculations.metalAmount,
       currency: base,
@@ -245,7 +254,7 @@ const calculations = useMemo(() => {
       sellRate: !isBuyTrade ? calculations.rateKg : null,
       baseCurrencyCode: base,
       targetCurrencyCode: quote,
-      reference: editTransaction?.reference || voucher?.voucherNumber || `GOLD-${isBuyTrade ? 'BUY' : 'SELL'}-${selectedTrader.trader.accountCode}`,
+      reference: editTransaction?.reference || voucher?.voucherNumber || `GOLD-${isBuyTrade ? 'BUY' : 'SELL'}-${currentTrader.trader.accountCode}`,
       isGoldTrade: true,
       metalType: 'Kilo',
       grossWeight: calculations.gross,
@@ -263,17 +272,17 @@ const calculations = useMemo(() => {
       if (editTransaction?._id) {
         // Update existing
         response = await axiosInstance.put(`/gold-trade/trades/${editTransaction._id}`, payload);
-        toast.success('Gold trade updated successfully');
+        // toast.success('Gold trade updated successfully');
       } else {
         // Create new
         response = await axiosInstance.post('/gold-trade/trades', payload);
-        toast.success('Gold trade created successfully');
+        // toast.success('Gold trade created successfully');
       }
 
       if (response.data.success) {
         // Success modal
         setSuccessData({
-          trader: selectedTrader.trader,
+          trader: currentTrader.trader,
           pay: { amount: formatNumber(calculations.metalAmount), currency: base },
           receive: { amount: formatNumber(calculations.pureWeight), currency: quote },
           ratePerKg: formatNumber(calculations.rateKg),
@@ -312,6 +321,7 @@ const calculations = useMemo(() => {
       toast.error(err.response?.data?.message || 'Error creating trade');
     }
   }, [
+    localSelectedTrader,
     selectedTrader,
     selectedCommodity,
     calculations,
@@ -359,340 +369,319 @@ const calculations = useMemo(() => {
 
   return (
     <>
-{/* ====================== GOLD TRADE MODAL – UI ONLY (FX-STYLE) ====================== */}
-<div className="bg-white rounded-lg shadow-lg border border-gray-200 w-full">
-
-  {/* Header + Edit Badge */}
-        <div className="flex items-center justify-between px-5 pt-3 ">
-    <h2 className="text-xl font-semibold">
-      {editTransaction ? 'Edit Gold Trade' : 'Create Gold Trade'}
-    </h2>
-    {editTransaction && (
-      <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
-        Editing Mode
-      </span>
-    )}
-  </div>
-
-  {/* Top-right Pair Badge */}
-  <div className="px-5 pb-4 flex justify-end -mt-10">
-    <div className="bg-orange-50 text-black px-4 py-2 rounded-md shadow-sm flex items-center gap-2">
-      <span className="font-semibold text-sm tracking-wide">INR / XAU</span>
-    </div>
-  </div>
-
-  {/* Buy / Sell Sliding Toggle */}
- <div className="px-5 pb-4 ">
-  <div
-    className={`relative flex items-center w-[460px] mx-auto bg-gray-200 rounded-xl  transition-all duration-300 overflow-hidden ${
-      editTransaction ? "opacity-60 cursor-not-allowed" : ""
-    }`}
-  >
-    {/* Sliding background */}
-    <div
-      className={`absolute h-full w-1/2 rounded-xl transition-transform duration-300 ${
-        isBuy ? "translate-x-0 bg-yellow-600" : "translate-x-full bg-orange-600"
-      }`}
-    ></div>
-
-    {/* Buy Button */}
-    <button
-      onClick={() => !editTransaction && setIsBuy(true)}
-      className={`relative z-10 flex-1 py-2 text-sm font-semibold transition-colors text-center ${
-        isBuy ? "text-white" : "text-gray-800"
-      }`}
-      disabled={!!editTransaction}
-    >
-      Buy Gold
-    </button>
-
-    {/* Sell button */}
-    <button
-      onClick={() => !editTransaction && setIsBuy(false)}
-      className={`relative z-10 flex-1 py-2 text-sm font-semibold transition-colors text-center ${
-        !isBuy ? "text-white" : "text-gray-800"
-      }`}
-      disabled={!!editTransaction}
-    >
-      Sell Gold
-    </button>
-  </div>
-</div>
-
-
-  {/* Main Two-Column Section */}
-  <div className="px-5 pb-4">
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-{/* LEFT — Voucher Card (Slim & Elegant) */}
-<div className=" mt-4">
-  <div
-    className={`rounded-xl border p-6  flex flex-col ${
-      isBuy
-        ? 'bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200'
-        : 'bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200'
-    }`}
-  >
-    {/* Header */}
-    <div className="text-center mb-6">
-      <div className="flex items-center justify-center gap-2">
-        <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-        </svg>
-        <h3 className="text-lg font-bold text-gray-900">Gold Voucher</h3>
-      </div>
-      <p className="text-xs text-gray-600 mt-1">Official transaction details</p>
-    </div>
-
-    {/* Slim & Clean Fields – vertically centered */}
-    <div className="flex-1 flex flex-col justify-center space-y-5">
-      <div className="bg-white/70 rounded-lg px-4 py-3 border border-gray-200/80">
-        <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Voucher Code</p>
-        <p className="text-base font-bold text-gray-900 mt-0.5">
-          {editTransaction?.reference || voucher?.voucherNumber || '--'}
-        </p>
-      </div>
-
-      <div className="bg-white/70 rounded-lg px-4 py-3 border border-gray-200/80">
-        <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Prefix</p>
-        <p className="text-base font-bold text-gray-900 mt-0.5">
-          {voucher?.prefix || '--'}
-        </p>
-      </div>
-
-      <div className="bg-white/70 rounded-lg px-4 py-3 border border-gray-200/80">
-        <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Date</p>
-        <p className="text-base font-bold text-gray-900 mt-0.5">
-          {voucher?.date
-            ? new Date(voucher.date).toLocaleDateString('en-GB')
-            : editTransaction?.createdAt
-              ? new Date(editTransaction.createdAt).toLocaleDateString('en-GB')
-              : '--'}
-        </p>
-      </div>
-    </div>
-  </div>
-</div>
-
-
-      {/* RIGHT — Input Fields Card */}
-      <div className="">
-        <div className="rounded-xl border bg-white p-4 shadow-sm h-full space-y-2">
-
-          {/* Commodity Selection */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-800 mb-1.5">
-              Commodity Fix Master <span className="text-red-500">*</span>
-            </label>
-            <AsyncSelect
-              cacheOptions
-              loadOptions={loadCommodities}
-              defaultOptions
-              placeholder="Search commodity..."
-              value={selectedCommodity}
-              onChange={setSelectedCommodity}
-              styles={customSelectStyles}
-              isClearable
-            />
-          </div>
-
-          {/* Gross Weight */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-800 ">
-              Gross Weight (grams) <span className="text-red-500">*</span>
-            </label>
-            <div className="relative">
-              <input
-                type="text"
-                value={grossWeight}
-                onChange={(e) => {
-                  const raw = parseNumber(e.target.value);
-                  if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
-                    setGrossWeight(formatNumber(raw));
-                    isEditMode.current = false;
-                  }
-                }}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 shadow-sm"
-              />
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-600">
-                grams
-              </div>
-            </div>
-          </div>
-
-          {/* Pure Weight (Read-only) */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-800 mb-1.5">
-              Pure Weight (grams)
-            </label>
-            <input
-              type="text"
-              readOnly
-              value={formatNumber(calculations.pureWeight)}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 cursor-not-allowed"
-            />
-          </div>
-
-          {/* Rate per KG */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-800 mb-1">
-              Rate per KG Bar (INR) <span className="text-red-500">*</span>
-            </label>
-            <p className="text-xs text-gray-500 mb-2">1 = 1,000 INR | 100 = 1 Lakh INR</p>
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Enter rate per KG"
-                value={ratePerKg}
-                onChange={(e) => {
-                  const raw = parseNumber(e.target.value);
-                  if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
-                    setRatePerKg(formatNumber(raw));
-                    isEditMode.current = false;
-                  }
-                }}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 shadow-sm"
-              />
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-600">
-                INR
-              </div>
-            </div>
-          </div>
-
-          {/* Value per Gram & Metal Amount */}
-       {/* Value per Gram & Metal Amount */}
-<div className="grid grid-cols-2 gap-4">
-  <div>
-    <label className="block text-sm font-semibold text-gray-800 mb-1.5">
-      Value per Gram
-    </label>
-    <input
-      type="text"
-      readOnly
-      value={formatNumber(calculations.valuePerGram)}
-      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 cursor-not-allowed text-sm"
-    />
-    {isEditMode.current && (
-      <p className="text-xs text-gray-500 mt-1">
-        From original: {editTransaction?.valuePerGram || 'N/A'}
-      </p>
-    )}
-  </div>
-  <div>
-    <label className="block text-sm font-semibold text-gray-800 mb-1.5">
-      Total Metal Amount
-    </label>
-    <input
-      type="text"
-      readOnly
-      value={formatNumber(calculations.metalAmount)}
-      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 cursor-not-allowed text-sm"
-    />
-  </div>
-</div>
-
+      <div className="bg-white rounded-lg shadow-lg border border-gray-200 w-full">
+        
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 pt-4">
+          <h2 className="text-xl font-semibold text-gray-800">
+            {editTransaction ? 'Edit Gold Trade' : 'Create Gold Trade'}
+          </h2>
+          {editTransaction && (
+            <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+              Editing Mode
+            </span>
+          )}
         </div>
+
+        {/* Currency Pair Display */}
+        <div className="px-6 -mt-6 flex justify-end">
+          <div className="bg-orange-50 text-black px-4 py-2 rounded-md shadow-sm inline-flex items-center gap-2">
+            <span className="font-semibold text-sm tracking-wide">INR / XAU</span>
+          </div>
+        </div>
+
+        {/* Main Content Grid */}
+        <div className="p-6 space-y-6">
+          
+          {/* VOUCHER SECTION */}
+          <div className=" rounded-lg p-4 -mt-5 bg-white">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              VOUCHER
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-gray-50 p-3 rounded border border-gray-200">
+                <div className="text-xs font-semibold text-gray-500 mb-1">VOUCHER CODE</div>
+                <div className="text-sm font-bold text-gray-800">
+                  {editTransaction?.reference || voucher?.voucherNumber || '--'}
+                </div>
+              </div>
+              <div className="bg-gray-50 p-3 rounded border border-gray-200">
+                <div className="text-xs font-semibold text-gray-500 mb-1">PREFIX</div>
+                <div className="text-sm font-bold text-gray-800">
+                  {voucher?.prefix || '--'}
+                </div>
+              </div>
+              <div className="bg-gray-50 p-3 rounded border border-gray-200">
+                <div className="text-xs font-semibold text-gray-500 mb-1">VOUCHER DATE</div>
+                <div className="text-sm font-bold text-gray-800">
+                  {voucher?.date
+                    ? new Date(voucher.date).toLocaleDateString('en-GB')
+                    : editTransaction?.createdAt
+                    ? new Date(editTransaction.createdAt).toLocaleDateString('en-GB')
+                    : '--'}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* PARTY SELECTION SECTION */}
+          <div className=" rounded-lg p-4 -mt-8 bg-white">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">PARTY SELECTION SESSION</h3>
+            <SelectTrader 
+              onTraderChange={handleTraderChange} 
+              value={localSelectedTrader}
+              ref={traderRefetch}
+              editTransaction={editTransaction}
+            />
+          </div>
+
+          {/* TRADE SESSION */}
+      <div className="rounded-lg p-4 -mt-10 bg-white">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">TRADE SESSION</h3>
+            
+            {/* Buy/Sell Toggle */}
+            <div className="mb-6">
+              <div className={`relative flex items-center w-full max-w-md mx-auto bg-gray-200 rounded-xl transition-all duration-300 overflow-hidden ${
+                editTransaction ? "opacity-60 cursor-not-allowed" : ""
+              }`}>
+                <div
+                  className={`absolute h-full w-1/2 rounded-lg transition-transform duration-300 ${
+                    isBuy ? "translate-x-0 bg-yellow-600" : "translate-x-full bg-orange-600"
+                  }`}
+                />
+                <button
+                  onClick={() => !editTransaction && setIsBuy(true)}
+                  className={`relative z-10 flex-1 py-3 text-sm font-semibold transition-colors text-center ${
+                    isBuy ? "text-white" : "text-gray-800"
+                  }`}
+                  disabled={!!editTransaction}
+                >
+                  BUY GOLD
+                </button>
+                <button
+                  onClick={() => !editTransaction && setIsBuy(false)}
+                  className={`relative z-10 flex-1 py-3 text-sm font-semibold transition-colors text-center ${
+                    !isBuy ? "text-white" : "text-gray-800"
+                  }`}
+                  disabled={!!editTransaction}
+                >
+                  SELL GOLD
+                </button>
+              </div>
+            </div>
+
+            {/* Input Boxes */}
+      <div className="grid grid-cols-6 gap-4">
+  {/* COMMODITY SELECTION CARD */}
+  <div className="h-32 rounded-xl bg-[#f8faff] shadow-sm px-3 w-fit py-3 flex flex-col gap-2 border border-gray-100">
+    <span className="text-xs font-semibold text-gray-800">COMMODITY FIX MASTER</span>
+    <div className="flex-1 flex items-center justify-center">
+      <div className="w-full">
+        <AsyncSelect
+          cacheOptions
+          loadOptions={loadCommodities}
+          defaultOptions
+          placeholder="Search..."
+          value={selectedCommodity}
+          onChange={setSelectedCommodity}
+          styles={{
+            ...customSelectStyles,
+            control: (base) => ({
+              ...base,
+              border: 'none',
+              backgroundColor: 'transparent',
+              boxShadow: 'none',
+            })
+          }}
+          isClearable
+        />
       </div>
     </div>
   </div>
 
-  {/* Trade Summary Card */}
- <div className="px-4 pb-3">
-  <div className={`rounded-md p-3 border ${theme.summaryBorder} ${theme.summaryBg}`}>
-    <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-200">
-      <svg className="w-3 h-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-      </svg>
-      <span className="text-sm font-semibold text-gray-800">Trade Summary</span>
+  {/* GROSS WEIGHT CARD */}
+  <div className="h-32 rounded-xl bg-[#f8fff8] shadow-sm px-3 py-3 flex flex-col gap-2 border border-gray-100">
+    <span className="text-sm font-semibold text-gray-800">GROSS WEIGHT</span>
+    <div className="flex-1 flex items-center justify-center">
+      <div className="w-full flex items-center justify-center relative">
+        <input
+          type="text"
+          placeholder="Gross weight"
+          value={grossWeight}
+          onChange={(e) => {
+            const value = e.target.value.replace(/,/g, '');
+            if (!allowDecimal(value)) return;
+            setGrossWeight(value);
+            isEditMode.current = false;
+          }}
+          onBlur={() => {
+            const num = parseFloat(grossWeight.replace(/,/g, ''));
+            if (!isNaN(num)) setGrossWeight(num.toLocaleString('en-IN'));
+          }}
+          className="w-full bg-transparent outline-none text-gray-900 text-lg mx-5 placeholder-gray-600 "
+        />
+        <div className="absolute right-1 text-sm font-semibold text-gray-600">grams</div>
+      </div>
     </div>
+  </div>
 
-    <div className="flex items-center justify-between gap-3">
-      {/* You Pay */}
-      <div className="flex-1 text-center">
-        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">
+  {/* RATE PER KG CARD */}
+  <div className="h-32 rounded-xl bg-[#fffef0] shadow-sm px-3 py-3 flex flex-col gap-2 border border-gray-100">
+    <span className="text-sm font-semibold text-gray-800">RATE PER KG BAR</span>
+    <div className="flex-1 flex items-center justify-center">
+      <div className="w-full flex items-center justify-center relative">
+        <input
+          type="text"
+          placeholder="Rate per KG"
+          value={ratePerKg}
+          onChange={(e) => {
+            const value = e.target.value.replace(/,/g, '');
+            if (!allowDecimal(value)) return;
+            setRatePerKg(value);
+            isEditMode.current = false;
+          }}
+          onBlur={() => {
+            const num = parseFloat(ratePerKg.replace(/,/g, ''));
+            if (!isNaN(num)) setRatePerKg(num.toLocaleString('en-IN', { maximumFractionDigits: 6 }));
+          }}
+          className="w-full bg-transparent outline-none mx-5 text-gray-900 text-lg placeholder-gray-600 "
+        />
+        <span className="text-lg font-bold absolute right-1">₹</span>
+      </div>
+    </div>
+    <p className="text-xs text-gray-600 text-center">1=1000 | 100=1L</p>
+  </div>
+
+  {/* PURE WEIGHT CARD */}
+  <div className="h-32 rounded-xl bg-[#faf8ff] shadow-sm px-3 py-3 flex flex-col gap-2 border border-gray-100">
+    <span className="text-sm font-semibold text-gray-800">PURE WEIGHT</span>
+    <div className="flex-1 flex items-center justify-center">
+      <div className="w-full text-center">
+        <input
+          type="text"
+          readOnly
+          value={formatNumber(calculations.pureWeight)}
+          className="w-full bg-transparent outline-none text-gray-900 text-lg mx-5 cursor-not-allowed"
+        />
+      </div>
+    </div>
+  </div>
+
+  {/* VALUE PER GRAM CARD */}
+  <div className="h-32 rounded-xl bg-[#fff8fb] shadow-sm px-3 py-3 flex flex-col gap-2 border border-gray-100">
+    <span className="text-sm font-semibold text-gray-800">VALUE PER GRAM</span>
+    <div className="flex-1 flex items-center justify-center">
+      <div className="w-full text-center">
+        <input
+          type="text"
+          readOnly
+          value={formatNumber(calculations.valuePerGram)}
+          className="w-full bg-transparent outline-none text-gray-900 text-lg mx-5 cursor-not-allowed"
+        />
+      </div>
+    </div>
+  </div>
+
+  {/* TOTAL METAL AMOUNT CARD */}
+  <div className="h-32 rounded-xl bg-[#f8ffff] shadow-sm px-3 py-3 flex flex-col gap-2 border border-gray-100">
+    <span className="text-sm font-semibold text-gray-800">TOTAL METAL AMOUNT</span>
+    <div className="flex-1 flex items-center justify-center">
+      <div className="w-full text-center">
+        <input
+          type="text"
+          readOnly
+          value={formatNumber(calculations.metalAmount)}
+          className="w-full bg-transparent outline-none text-gray-900 text-lg mx-5 cursor-not-allowed"
+        />
+      </div>
+    </div>
+  </div>
+</div>
+          </div>
+
+          {/* SUMMARY SESSION */}
+       <div className="border border-gray-200 rounded-lg p-4 bg-white">
+  <h3 className="text-lg font-semibold text-gray-800 mb-4">SUMMARY SESSION</h3>
+  <div className={`rounded-lg p-4 border ${theme.summaryBorder} ${theme.summaryBg}`}>
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+      <div>
+        <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
           You Pay
-        </span>
-        <div className="flex flex-col items-center">
-          <span className="text-base font-bold text-gray-900">
+        </div>
+        <div className="flex items-center justify-center gap-2">
+          <span className="text-xl font-bold text-gray-900">
             {formatNumber(calculations.metalAmount) || '0'}
           </span>
-          <span className="text-xs font-semibold text-gray-600">INR</span>
+          <span className="text-lg font-semibold text-gray-600">
+            <span className="font-bold">₹</span>
+          </span>
         </div>
       </div>
-
-      {/* You Receive */}
-      <div className="flex-1 text-center">
-        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">
+      <div>
+        <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
           You Receive
-        </span>
-        <div className="flex flex-col items-center">
-          <span className="text-base font-bold text-gray-900">
+        </div>
+        <div className="flex items-center justify-center gap-2">
+          <span className="text-xl font-bold text-gray-900">
             {formatNumber(calculations.pureWeight) || '0'}
           </span>
-          <span className="text-xs font-semibold text-gray-600">XAU (grams)</span>
+          <span className="text-lg font-semibold text-gray-600">
+            XAU
+          </span>
         </div>
       </div>
-
-      {/* Rate */}
-      <div className="flex-1 text-center">
-        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">
+      <div>
+        <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
           Rate
-        </span>
-        <div className="flex flex-col items-center">
-          <div className="flex items-center gap-1">
-            <span className="text-base font-bold text-gray-900">
-              {formatNumber(calculations.rateKg) || '0'}
-            </span>
-            <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${
-              isBuy ? 'bg-yellow-600 text-white' : 'bg-orange-600 text-white'
-            }`}>
-              {isBuy ? 'Buy' : 'Sell'}
-            </span>
-          </div>
-          <div className="text-[10px] text-gray-500 mt-0.5">
-            per KG Bar
-          </div>
+        </div>
+        <div className="flex items-center justify-center gap-2">
+          <span className="text-xl font-bold text-gray-900">
+            {formatNumber(calculations.rateKg) || '0.00'}
+          </span>
+          <span className="text-lg font-semibold text-gray-600">
+            <span className="font-bold">₹</span>
+          </span>
+          <span className={`text-xs font-semibold px-2 py-1 rounded ${
+            isBuy ? 'bg-yellow-600 text-white' : 'bg-orange-600 text-white'
+          }`}>
+            {isBuy ? 'Buy' : 'Sell'}
+          </span>
+        </div>
+        <div className="text-xs text-gray-500 mt-1">
+          INR per KG Bar
         </div>
       </div>
     </div>
-
-    {/* Value per gram - moved below the main row */}
-    <div className="mt-2 pt-2 border-t border-gray-200 text-center">
-      <p className="text-xs text-gray-500">
-        Value per gram: {formatNumber(calculations.valuePerGram)} INR
-      </p>
-    </div>
   </div>
 </div>
 
-  {/* Action Buttons */}
-  <div className="px-5 pb-5 flex gap-3">
-    {editTransaction && (
-      <button
-        onClick={handleCancelEdit}
-        className="flex-1 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md font-medium transition-colors"
-      >
-        Cancel Edit
-      </button>
-    )}
-    <button
-      onClick={handleCreateTrade}
-      disabled={
-        !selectedTrader ||
-        !selectedCommodity ||
-        !calculations.gross ||
-        !calculations.rateKg
-      }
-      className={`${editTransaction ? 'flex-1' : 'w-full'} py-3 ${theme.buttonBg} text-white rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
-    >
-      {editTransaction ? 'Update Gold Trade' : 'Create Gold Trade'}
-    </button>
-  </div>
-</div>
+          {/* CREATE TRADE BUTTON */}
+          <div className="flex justify-center">
+            <button
+              onClick={handleCreateTrade}
+              className={`w-full max-w-md py-4 ${theme.buttonBg} text-white rounded-lg font-semibold text-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
+              disabled={
+                !localSelectedTrader && !selectedTrader ||
+                !selectedCommodity ||
+                !calculations.gross ||
+                !calculations.rateKg
+              }
+            >
+              {editTransaction ? 'UPDATE GOLD TRADE' : 'CREATE GOLD TRADE'}
+            </button>
+          </div>
+        </div>
+      </div>
 
-{/* Success Modal */}
-<SuccessModal isOpen={showSuccess} onClose={() => setShowSuccess(false)} data={successData} />
+      {/* Success Modal */}
+      <SuccessModal
+        isOpen={showSuccess}
+        onClose={() => setShowSuccess(false)}
+        data={successData}
+      />
     </>
   );
 }

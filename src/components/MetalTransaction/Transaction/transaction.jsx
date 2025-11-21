@@ -1,4 +1,4 @@
-// Transaction.jsx - Complete fixed version
+// Transaction.jsx - Redesigned version
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowUp, ArrowDown } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
@@ -65,6 +65,23 @@ export default function Transaction() {
     }
   }, [location.state, isInitialized]);
 
+//   useEffect(() => {
+//   if (editingTransaction && selectedTrader && !selectedTrader.trader?.balances) {
+//     axiosInstance
+//       .get(`/account-type/${selectedTrader.value}`)
+//       .then(res => {
+//         const fullTrader = {
+//           value: res.data.data._id,
+//           trader: res.data.data,
+//           label: `${res.data.data.customerName} (${res.data.data.accountCode})`,
+//         };
+//         setSelectedTrader(fullTrader);
+//       })
+//       .catch(err => console.error("Failed to load full trader:", err));
+//   }
+// }, [editingTransaction, selectedTrader]);
+
+
   useEffect(() => {
     if (bidPrice !== prevBid) {
       setPulse(true);
@@ -76,8 +93,6 @@ export default function Transaction() {
       return () => clearTimeout(timer);
     }
   }, [bidPrice, prevBid]);
-
-
 
   const handleTraderChange = (trader) => {
     setSelectedTrader(trader);
@@ -157,7 +172,7 @@ export default function Transaction() {
 
       {/* Main Content */}
       <div className="p-4 flex justify-center">
-        <div className="w-full">
+        <div className="w-full max-w-7xl">
           {/* Tabs */}
           <div className="flex justify-center mb-6">
             <div className="flex bg-gray-100 rounded-2xl p-1.5 shadow-inner gap-2">
@@ -192,15 +207,9 @@ export default function Transaction() {
             </div>
           </div>
 
-          {/* Main Panel */}
-          <div className="bg-white border border-gray-200 rounded-lg p-3 space-y-2 -mt-3">
-            <SelectTrader 
-              onTraderChange={handleTraderChange} 
-              value={selectedTrader}
-              ref={traderRefetchRef}
-              editTransaction={editingTransaction} // Pass edit transaction for auto-selection
-            />
-
+          {/* Main Panel - New Structure */}
+          <div className="space-y-4">
+            {/* Voucher Section */}
             {isFixTab(activeTab) && (
               <TradeModalFX 
                 selectedTrader={selectedTrader}
@@ -212,25 +221,26 @@ export default function Transaction() {
 
             {isGoldFixTab(activeTab) && (
               <GoldFixPage 
-    selectedTrader={selectedTrader}
-    traderRefetch={traderRefetchRef}
-    editTransaction={editingTransaction} 
-    onClose={handleCancelEdit}
-  />
+                selectedTrader={selectedTrader}
+                traderRefetch={traderRefetchRef}
+                editTransaction={editingTransaction} 
+                onClose={handleCancelEdit}
+              />
             )}
-{isMetalTab(activeTab) && (
-  <TradeModalMetal
-    type={activeTab}
-    selectedTrader={selectedTrader}
-    liveRate={bidPrice}
-    traderRefetch={traderRefetchRef}
-    existingTransaction={editingTransaction}
-    onClose={(success) => {
-      if (success) {
-        handleCancelEdit(); // Clear edit mode
-      }
-    }}
-  />
+
+            {isMetalTab(activeTab) && (
+              <TradeModalMetal
+                type={activeTab}
+                selectedTrader={selectedTrader}
+                liveRate={bidPrice}
+                traderRefetch={traderRefetchRef}
+                existingTransaction={editingTransaction}
+                onClose={(success) => {
+                  if (success) {
+                    handleCancelEdit();
+                  }
+                }}
+              />
             )}
           </div>
         </div>
