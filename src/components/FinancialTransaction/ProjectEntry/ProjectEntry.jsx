@@ -14,6 +14,10 @@ import {
   Filter,
   X,
   Calendar,
+  Plus,
+  Minus,
+  TrendingUp,
+  TrendingDown
 } from "lucide-react";
 import DirhamIcon from "../../../assets/uae-dirham.svg";
 import axiosInstance from "../../../api/axios";
@@ -42,9 +46,9 @@ const NegativeBalanceModal = ({ isOpen, onClose, onConfirm, senderBalance, trans
         <div className="text-gray-600 mb-6">
           <p>This transfer will result in a negative balance for the sender's account.</p>
           <div className="mt-4 space-y-2">
-            <p><span className="font-medium">Current Balance:</span> {transferType === "gold" ? `${senderBalance}g` : transferType === "cash" ? formatIndianCurrency(senderBalance) : `₹${formatIndianNumber(senderBalance)}`}</p>
-            <p><span className="font-medium">Transfer Amount:</span> {transferType === "gold" ? `${transferAmount}g` : transferType === "cash" ? formatIndianCurrency(transferAmount) : `₹${formatIndianNumber(transferAmount)}`}</p>
-            <p><span className="font-medium">New Balance:</span> {transferType === "gold" ? `${newBalance}g` : transferType === "cash" ? formatIndianCurrency(newBalance) : `₹${formatIndianNumber(newBalance)}`}</p>
+            <p><span className="font-medium">Current Balance:</span> {formatIndianCurrency(senderBalance)}</p>
+            <p><span className="font-medium">Transfer Amount:</span> {formatIndianCurrency(transferAmount)}</p>
+            <p><span className="font-medium">New Balance:</span> {formatIndianCurrency(newBalance)}</p>
           </div>
         </div>
         <div className="flex justify-end space-x-3">
@@ -57,10 +61,11 @@ const NegativeBalanceModal = ({ isOpen, onClose, onConfirm, senderBalance, trans
 };
 
 const Transfer = () => {
-  const [transferType, setTransferType] = useState("");
-  const [sender, setSender] = useState("");
-  const [receiver, setReceiver] = useState("");
-  const [amount, setAmount] = useState("");
+  const [transferType, setTransferType] = useState("cash"); // Default to cash
+  const [debitParty, setDebitParty] = useState("");
+  const [creditParty, setCreditParty] = useState("");
+  const [debitAmount, setDebitAmount] = useState("");
+  const [creditAmount, setCreditAmount] = useState("");
   const [description, setDescription] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [customers, setCustomers] = useState([]);
@@ -97,9 +102,7 @@ const Transfer = () => {
         amount: item.value,
         discription: item.description,
         currentBalance: {
-          gold: `${item.balances?.goldBalance?.totalGrams ?? 0}g`,
           cash: new Intl.NumberFormat("en-AE", { style: "currency", currency: "AED" }).format(item.balances?.cashBalance?.amount ?? 0),
-          inr: new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(item.balances?.inrBalance?.amount ?? 0),
         },
       }));
       setTransactionHistory(transformed);
@@ -117,12 +120,8 @@ const Transfer = () => {
         name: item.customerName || "N/A",
         account: item.accountCode || "N/A",
         balance: {
-          gold: `${item.balances?.goldBalance?.totalGrams ?? 0}g`,
           cash: new Intl.NumberFormat("en-AE", { style: "currency", currency: "AED" }).format(item.balances?.cashBalance?.amount ?? 0),
-          inr: new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(item.balances?.inrBalance?.amount ?? 0),
-          rawGold: item.balances?.goldBalance?.totalGrams ?? 0,
           rawCash: item.balances?.cashBalance?.amount ?? 0,
-          rawInr: item.balances?.inrBalance?.amount ?? 0,
         },
       }));
       setCustomers(transformed);
@@ -163,26 +162,37 @@ const Transfer = () => {
     init();
   }, []);
 
+  // Calculate profit/loss
+  const calculateProfitLoss = () => {
+    const debit = parseFloat(debitAmount) || 0;
+    const credit = parseFloat(creditAmount) || 0;
+    const difference = debit - credit;
+    
+    return {
+      difference: Math.abs(difference),
+      isProfit: difference > 0,
+      isLoss: difference < 0,
+      isBalanced: difference === 0
+    };
+  };
+
   const handleTransfer = async () => {
-    if (!sender || !receiver || !transferType || !amount || sender === receiver || isNaN(Number(amount))) {
-      toast.error("Please fill all fields correctly and ensure sender and receiver are different", { position: "top-right", autoClose: 1500 });
+    if (!debitParty || !creditParty || !debitAmount || !creditAmount || debitParty === creditParty || isNaN(Number(debitAmount)) || isNaN(Number(creditAmount))) {
+      toast.error("Please fill all fields correctly and ensure debit and credit parties are different", { position: "top-right", autoClose: 1500 });
+      return;
+    }
+
+    const { isBalanced } = calculateProfitLoss();
+    if (!isBalanced) {
+      toast.error("Debit and Credit amounts must be equal for transfer", { position: "top-right", autoClose: 1500 });
       return;
     }
 
     setIsProcessing(true);
     try {
-      const senderData = customers.find((c) => c.id === sender);
-      const transferAmount = Number(amount);
-      
-      // Get sender balance based on transfer type
-      let senderBalance;
-      if (transferType === "gold") {
-        senderBalance = senderData.balance.rawGold;
-      } else if (transferType === "cash") {
-        senderBalance = senderData.balance.rawCash;
-      } else if (transferType === "inr") {
-        senderBalance = senderData.balance.rawInr;
-      }
+      const debitPartyData = customers.find((c) => c.id === debitParty);
+      const transferAmount = Number(debitAmount);
+      const senderBalance = debitPartyData.balance.rawCash;
 
       // Check if transfer would result in negative balance
       if (senderBalance - transferAmount < 0) {
@@ -203,26 +213,24 @@ const Transfer = () => {
 
   const executeTransfer = async () => {
     const payload = {
-      senderId: sender,
-      receiverId: receiver,
-      value: Number(amount),
-      assetType: transferType.toUpperCase(),
+      senderId: debitParty,
+      receiverId: creditParty,
+      value: Number(debitAmount), // Using debit amount as both should be equal
+      assetType: "CASH",
       voucher: { voucherCode, voucherType, prefix },
     };
 
     try {
-      // console.log("Sending payload:", payload);
       const res = await axiosInstance.post("/fund-transfer", payload);
-      // console.log("API Response:", res);
 
       toast.success(res.data?.message || "Transfer successful", { position: "top-right", autoClose: 1500 });
       await Promise.all([fetchHistory(), fetchParties()]);
 
       // Reset form
-      setSender("");
-      setReceiver("");
-      setTransferType("");
-      setAmount("");
+      setDebitParty("");
+      setCreditParty("");
+      setDebitAmount("");
+      setCreditAmount("");
       setDescription("");
       const { voucherCode, voucherType, prefix } = await generateVoucherNumber();
       setVoucherCode(voucherCode);
@@ -239,8 +247,10 @@ const Transfer = () => {
   };
 
   const swapParties = () => {
-    setSender(receiver);
-    setReceiver(sender);
+    setDebitParty(creditParty);
+    setCreditParty(debitParty);
+    setDebitAmount(creditAmount);
+    setCreditAmount(debitAmount);
   };
 
   const today = new Date().toISOString().split("T")[0];
@@ -271,10 +281,7 @@ const Transfer = () => {
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
   const formatAmount = (amount, type) => {
-    if (type === "GOLD") return `${formatIndianNumber(amount)} g`;
-    if (type === "CASH") return `${formatIndianNumber(amount)} AED`;
-    if (type === "INR") return `₹${formatIndianNumber(amount)}`;
-    return `${formatIndianNumber(amount)}`;
+    return `${formatIndianNumber(amount)} AED`;
   };
 
   const clearFilters = () => {
@@ -286,24 +293,14 @@ const Transfer = () => {
     setCurrentPage(1);
   };
 
-  const getTypeIcon = (type) => {
-    if (type === "gold") return <Coins className="w-4 h-4 text-yellow-600" />;
-    if (type === "cash") return <img src={DirhamIcon} alt="Dirham Icon" className="w-4 h-4" />;
-    if (type === "inr") return <span className="text-green-600 font-bold text-lg">₹</span>;
-    return null;
-  };
-
   const getBalanceDisplay = (customerId) => {
     const customer = customers.find((c) => c.id === customerId);
     if (!customer) return "";
-    
-    if (transferType === "gold") return customer.balance.gold;
-    if (transferType === "cash") return customer.balance.cash;
-    if (transferType === "inr") return customer.balance.inr;
-    return "";
+    return customer.balance.cash;
   };
 
-  const isFormValid = sender && receiver && transferType && amount && sender !== receiver && !isNaN(Number(amount));
+  const profitLoss = calculateProfitLoss();
+  const isFormValid = debitParty && creditParty && debitAmount && creditAmount && debitParty !== creditParty && !isNaN(Number(debitAmount)) && !isNaN(Number(creditAmount)) && profitLoss.isBalanced;
 
   const activeFiltersCount = [searchTerm, filterType !== "all" ? filterType : "", filterStatus !== "all" ? filterStatus : "", dateFrom, dateTo].filter(Boolean).length;
 
@@ -315,7 +312,7 @@ const Transfer = () => {
             <div className="flex items-center space-x-3">
               <Package className="w-8 h-8" />
               <div>
-                <h1 className="text-2xl font-bold">Transfer Management</h1>
+                <h1 className="text-2xl font-bold">Project Entry Management</h1>
                 <p className="text-blue-100">Bullion Management System</p>
               </div>
             </div>
@@ -331,39 +328,17 @@ const Transfer = () => {
             <div className="mb-8">
               <h3 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
                 <Coins className="w-5 h-5 mr-2 text-indigo-600" />
-                Select Transfer Type
+                 Transfer Type
               </h3>
-              <div className="grid grid-cols-3 gap-4">
-                <button
-                  onClick={() => setTransferType("gold")}
-                  className={`p-6 rounded-2xl border-2 transition-all duration-300 ${
-                    transferType === "gold" ? "border-yellow-400 bg-yellow-50 text-yellow-700" : "border-gray-200 bg-gray-50 text-gray-700 hover:border-yellow-400 hover:bg-yellow-50"
-                  }`}
-                >
-                  <Coins className="w-8 h-8 mx-auto mb-3" />
-                  <div className="font-semibold text-lg">Gold Transfer</div>
-                  <div className="text-sm opacity-80">Transfer gold between accounts</div>
-                </button>
-                <button
-                  onClick={() => setTransferType("cash")}
-                  className={`p-6 rounded-2xl border-2 transition-all duration-300 ${
-                    transferType === "cash" ? "border-green-500 bg-green-50 text-green-700" : "border-gray-200 bg-gray-50 text-gray-700 hover:border-green-500 hover:bg-green-50"
-                  }`}
-                >
-                  <img src={DirhamIcon} alt="Dirham Icon" className="w-10 h-10 mx-auto mb-3" />
-                  <div className="font-semibold text-lg">Cash Transfer</div>
-                  <div className="text-sm opacity-80">Transfer AED between accounts</div>
-                </button>
-                <button
-                  onClick={() => setTransferType("inr")}
-                  className={`p-6 rounded-2xl border-2 transition-all duration-300 ${
-                    transferType === "inr" ? "border-blue-500 bg-blue-50 text-blue-700" : "border-gray-200 bg-gray-50 text-gray-700 hover:border-blue-500 hover:bg-blue-50"
-                  }`}
-                >
-                  <span className="text-3xl mx-auto mb-3 block">₹</span>
-                  <div className="font-semibold text-lg">INR Transfer</div>
-                  <div className="text-sm opacity-80">Transfer INR between accounts</div>
-                </button>
+              <div className="flex justify-center">
+                <div className="w-full max-w-md">
+                  <div className="p-6 rounded-2xl border-2 border-green-500 bg-green-50 text-green-700 shadow-lg">
+                    <div className="font-semibold text-lg text-center">Cash Balance</div>
+                    <div className="text-sm opacity-80 text-center mt-1">
+                      Transfer cash between accounts
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -374,105 +349,203 @@ const Transfer = () => {
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
                 <div className="space-y-2">
-                  <label className="text-gray-700 font-medium">From (Sender)</label>
+                  <label className="text-gray-700 font-medium flex items-center">
+                    Debit Party
+                  </label>
                   <select
-                    value={sender}
-                    onChange={(e) => setSender(e.target.value)}
+                    value={debitParty}
+                    onChange={(e) => setDebitParty(e.target.value)}
                     className="w-full p-4 bg-white border border-gray-300 rounded-xl text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   >
-                    <option value="">Select sender</option>
+                    <option value="">Select debit party</option>
                     {customers.map((customer) => (
                       <option key={customer.id} value={customer.id}>
                         {customer.name} ({customer.account})
                       </option>
                     ))}
                   </select>
-                  {sender && (
+                  {debitParty && (
                     <div className="text-sm text-gray-600 bg-gray-100 p-2 rounded-lg">
-                      Balance: {getBalanceDisplay(sender)}
+                      Balance: {getBalanceDisplay(debitParty)}
                     </div>
                   )}
                 </div>
                 <div className="flex justify-center">
-                  <button
+                  {/* <button
                     onClick={swapParties}
                     className="p-3 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-full transition-all hover:scale-110"
-                    disabled={!sender || !receiver}
+                    disabled={!debitParty || !creditParty}
                   >
                     <ArrowUpDown className="w-5 h-5 text-gray-600" />
-                  </button>
+                  </button> */}
                 </div>
                 <div className="space-y-2">
-                  <label className="text-gray-700 font-medium">To (Receiver)</label>
+                  <label className="text-gray-700 font-medium flex items-center">
+                    Credit Party
+                  </label>
                   <select
-                    value={receiver}
-                    onChange={(e) => setReceiver(e.target.value)}
+                    value={creditParty}
+                    onChange={(e) => setCreditParty(e.target.value)}
                     className="w-full p-4 bg-white border border-gray-300 rounded-xl text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   >
-                    <option value="">Select receiver</option>
-                    {customers.filter((c) => c.id !== sender).map((customer) => (
+                    <option value="">Select credit party</option>
+                    {customers.filter((c) => c.id !== debitParty).map((customer) => (
                       <option key={customer.id} value={customer.id}>
                         {customer.name} ({customer.account})
                       </option>
                     ))}
                   </select>
-                  {receiver && (
+                  {creditParty && (
                     <div className="text-sm text-gray-600 bg-gray-100 p-2 rounded-lg">
-                      Balance: {getBalanceDisplay(receiver)}
+                      Balance: {getBalanceDisplay(creditParty)}
                     </div>
                   )}
                 </div>
               </div>
             </div>
 
-            {transferType && (
-              <div className="mb-8 space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-gray-700 font-medium">Amount {transferType === "gold" ? "(grams)" : transferType === "cash" ? "(AED)" : "(INR)"}</label>
+            <div className="mb-8 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-gray-700 font-medium flex items-center">
+                    Debit Amount (AED)
+                  </label>
+                  <div className="relative">
                     <input
                       type="number"
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      placeholder={transferType === "gold" ? "Enter grams" : transferType === "cash" ? "Enter AED" : "Enter INR"}
-                      className="w-full p-4 bg-white border border-gray-300 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      value={debitAmount}
+                      onChange={(e) => setDebitAmount(e.target.value)}
+                      placeholder="Enter debit AED"
+                      className="w-full p-4 pl-12 bg-white border border-gray-300 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <img
+                      src={DirhamIcon}
+                      alt="Dirham Icon"
+                      className="w-5 h-5 absolute left-4 top-1/2 transform -translate-y-1/2"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-gray-700 font-medium">Description (Optional)</label>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-gray-700 font-medium flex items-center">
+                    Credit Amount (AED)
+                  </label>
+                  <div className="relative">
                     <input
-                      type="text"
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      placeholder="Transfer description"
-                      className="w-full p-4 bg-white border border-gray-300 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      type="number"
+                      value={creditAmount}
+                      onChange={(e) => setCreditAmount(e.target.value)}
+                      placeholder="Enter credit AED"
+                      className="w-full p-4 pl-12 bg-white border border-gray-300 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <img
+                      src={DirhamIcon}
+                      alt="Dirham Icon"
+                      className="w-5 h-5 absolute left-4 top-1/2 transform -translate-y-1/2"
                     />
                   </div>
                 </div>
               </div>
-            )}
+              
+              {/* Profit/Loss Calculation */}
+              {(debitAmount || creditAmount) && (
+              <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl">
+  <h4 className="text-lg font-semibold text-gray-800 mb-3">Balance Summary</h4>
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+    <div>
+      <div className="text-gray-500 flex items-center">
+        Total Debit
+      </div>
+      <div className="text-red-600 font-semibold text-lg flex items-center">
+        <img src={DirhamIcon} alt="Dirham Icon" className="w-4 h-4 mr-1 filter-red" style={{ filter: "invert(27%) sepia(85%) saturate(2878%) hue-rotate(346deg) brightness(104%) contrast(97%)" }} />
+        {debitAmount || 0}
+      </div>
+    </div>
+    <div>
+      <div className="text-gray-500 flex items-center">
+        Total Credit
+      </div>
+      <div className="text-green-600 font-semibold text-lg flex items-center">
+        <img src={DirhamIcon} alt="Dirham Icon" className="w-4 h-4 mr-1" style={{ filter: "invert(38%) sepia(74%) saturate(1195%) hue-rotate(91deg) brightness(94%) contrast(101%)" }} />
+        {creditAmount || 0}
+      </div>
+    </div>
+    <div>
+      <div className="text-gray-500">Difference</div>
+      <div className={`font-semibold text-lg flex items-center ${
+        profitLoss.isProfit ? 'text-green-600' : 
+        profitLoss.isLoss ? 'text-red-600' : 'text-gray-600'
+      }`}>
+        {profitLoss.isProfit && <TrendingUp className="w-4 h-4 mr-1" />}
+        {profitLoss.isLoss && <TrendingDown className="w-4 h-4 mr-1" />}
+        <img 
+          src={DirhamIcon} 
+          alt="Dirham Icon" 
+          className="w-4 h-4 mr-1" 
+          style={{ 
+            filter: profitLoss.isProfit 
+              ? "invert(38%) sepia(74%) saturate(1195%) hue-rotate(91deg) brightness(94%) contrast(101%)" 
+              : profitLoss.isLoss 
+              ? "invert(27%) sepia(85%) saturate(2878%) hue-rotate(346deg) brightness(104%) contrast(97%)" 
+              : "invert(45%) sepia(9%) saturate(669%) hue-rotate(169deg) brightness(93%) contrast(86%)"
+          }} 
+        />
+        {profitLoss.difference}
+        {profitLoss.isProfit && " (Profit)"}
+        {profitLoss.isLoss && " (Loss)"}
+        {profitLoss.isBalanced && " (Balanced)"}
+      </div>
+    </div>
+  </div>
+  {!profitLoss.isBalanced && (
+    <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+      <p className="text-yellow-700 text-sm">
+        <strong>Note:</strong> Debit and Credit amounts must be equal to proceed with the transfer.
+      </p>
+    </div>
+  )}
+</div>
+              )}
+
+              <div className="space-y-2">
+                <label className="text-gray-700 font-medium">Description (Optional)</label>
+                <input
+                  type="text"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Transfer description"
+                  className="w-full p-4 bg-white border border-gray-300 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
 
             {isFormValid && (
               <div className="mb-8 p-6 bg-gray-50 border border-gray-200 rounded-2xl">
                 <h4 className="text-lg font-semibold text-gray-800 mb-4">Transfer Summary</h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                   <div>
-                    <div className="text-gray-500">From</div>
-                    <div className="text-gray-800 font-medium">{customers.find((c) => c.id === sender)?.name}</div>
+                    <div className="text-gray-500">Debit Party</div>
+                    <div className="text-gray-800 font-medium flex items-center">
+                      <Minus className="w-4 h-4 mr-2 text-red-500" />
+                      {customers.find((c) => c.id === debitParty)?.name}
+                    </div>
                   </div>
                   <div className="flex justify-center">
                     <ArrowRight className="w-5 h-5 text-gray-500" />
                   </div>
                   <div>
-                    <div className="text-gray-500">To</div>
-                    <div className="text-gray-800 font-medium">{customers.find((c) => c.id === receiver)?.name}</div>
+                    <div className="text-gray-500">Credit Party</div>
+                    <div className="text-gray-800 font-medium flex items-center">
+                      <Plus className="w-4 h-4 mr-2 text-green-500" />
+                      {customers.find((c) => c.id === creditParty)?.name}
+                    </div>
                   </div>
                 </div>
                 <div className="mt-4 pt-4 border-t border-gray-200">
                   <div className="flex justify-between items-center">
                     <span className="text-gray-500">Transfer Amount</span>
-                    <span className="text-gray-800 font-semibold text-lg">
-                      {amount} {transferType === "gold" ? "grams" : transferType === "cash" ? "AED" : "INR"}
+                    <span className="text-gray-800 font-semibold text-lg flex items-center">
+                      <img src={DirhamIcon} alt="Dirham Icon" className="w-5 h-5 mr-2" />
+                      {debitAmount} AED
                     </span>
                   </div>
                 </div>
@@ -588,9 +661,7 @@ const Transfer = () => {
                         className="w-full p-3 bg-white border border-gray-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       >
                         <option value="all">All Types</option>
-                        <option value="gold">Gold</option>
                         <option value="cash">Cash</option>
-                        <option value="inr">INR</option>
                       </select>
                     </div>
                     <div className="space-y-2">
@@ -674,7 +745,8 @@ const Transfer = () => {
                   <p className="text-gray-500 mb-4">Try adjusting your search terms or filters</p>
                   <button onClick={clearFilters} className="bg-indigo-500 text-white px-4 py-2 rounded-lg hover:bg-indigo-600">Clear Filters</button>
                 </div>
-            )}
+              )}
+            </div>
 
             {filteredTransactions.length > 0 && (
               <>
@@ -696,12 +768,8 @@ const Transfer = () => {
                         <tr key={transaction.id} className="border-b border-gray-100 hover:bg-gray-50">
                           <td className="py-4 px-2"><span className="font-mono text-sm text-gray-800">{transaction.transactionId}</span></td>
                           <td className="py-4">
-                            <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                              transaction.type === "GOLD" ? "bg-yellow-100 text-yellow-800" : 
-                              transaction.type === "CASH" ? "bg-green-100 text-green-800" : 
-                              "bg-blue-100 text-blue-800"
-                            }`}>
-                              {transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1).toLowerCase()}
+                            <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800`}>
+                              Cash
                             </span>
                           </td>
                           <td className="py-4 px-2"><div className="text-sm"><div className="text-gray-800 font-medium">{transaction.from}</div></div></td>
@@ -762,8 +830,7 @@ const Transfer = () => {
       />
       <ToastContainer />
     </div>
-    </div>
   );
-}
+};
 
 export default Transfer;

@@ -40,47 +40,15 @@ export default function Transaction() {
   useEffect(() => {
     if (location.state && !isInitialized) {
       const { activeTab: navTab, editTransaction, traderData } = location.state;
-      
-      console.log("Navigation state received:", location.state);
-      
-      if (navTab) {
-        setActiveTab(navTab);
-      }
-      
-      // SET TRADER IF PROVIDED
-      if (traderData) {
-        console.log("Setting selected trader:", traderData);
-        setSelectedTrader(traderData);
-      }
-      
-      if (editTransaction) {
-        console.log("Setting edit transaction:", editTransaction);
-        setEditingTransaction(editTransaction);
-      }
-      
+
+      if (navTab) setActiveTab(navTab);
+      if (traderData) setSelectedTrader(traderData);
+      if (editTransaction) setEditingTransaction(editTransaction);
+
       setIsInitialized(true);
-      
-      // Clear the navigation state to prevent re-triggering
       window.history.replaceState({}, document.title);
     }
   }, [location.state, isInitialized]);
-
-//   useEffect(() => {
-//   if (editingTransaction && selectedTrader && !selectedTrader.trader?.balances) {
-//     axiosInstance
-//       .get(`/account-type/${selectedTrader.value}`)
-//       .then(res => {
-//         const fullTrader = {
-//           value: res.data.data._id,
-//           trader: res.data.data,
-//           label: `${res.data.data.customerName} (${res.data.data.accountCode})`,
-//         };
-//         setSelectedTrader(fullTrader);
-//       })
-//       .catch(err => console.error("Failed to load full trader:", err));
-//   }
-// }, [editingTransaction, selectedTrader]);
-
 
   useEffect(() => {
     if (bidPrice !== prevBid) {
@@ -109,6 +77,31 @@ export default function Transaction() {
     setSelectedTrader(null);
     setIsInitialized(false);
   };
+
+  /* ---------------------------------------------------------
+      Keyboard Shortcuts
+      c → Currency Fix
+      g → Gold Fix
+      p → Purchase Metal
+      s → Sales Metal
+  --------------------------------------------------------- */
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      const key = e.key.toLowerCase();
+
+      // Avoid shortcuts when typing in input boxes
+      const targetTag = e.target.tagName.toLowerCase();
+      if (targetTag === "input" || targetTag === "textarea") return;
+
+      if (key === 'c') setActiveTab('currency');
+      if (key === 'g') setActiveTab('gold');
+      if (key === 'p') setActiveTab('purchase');
+      if (key === 's') setActiveTab('sales');
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -184,22 +177,20 @@ export default function Transaction() {
                     key={tab.id}
                     onClick={() => handleTabChange(tab.id)}
                     className={`relative px-6 py-2 text-sm font-medium rounded-xl
-                      transition-all duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)]
+                      transition-all duration-300
                       ${isActive ? "text-blue-600" : "text-gray-600 hover:text-gray-800"}
                     `}
                     style={{
-                      transform: isActive ? "scale(1.05) translateY(-1px)" : "scale(1) translateY(0px)",
+                      transform: isActive ? "scale(1.05) translateY(-1px)" : "scale(1)",
                       opacity: isActive ? 1 : 0.8,
                     }}
                   >
                     {isActive && (
                       <span
-                        className="absolute inset-0 rounded-xl bg-white shadow-md border border-blue-200 
-                        transition-all duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)]"
-                        style={{ zIndex: -1, opacity: 1 }}
+                        className="absolute inset-0 rounded-xl bg-white shadow-md border border-blue-200 transition-all duration-300"
+                        style={{ zIndex: -1 }}
                       ></span>
                     )}
-
                     {tab.label}
                   </button>
                 );
@@ -207,11 +198,10 @@ export default function Transaction() {
             </div>
           </div>
 
-          {/* Main Panel - New Structure */}
+          {/* Main Panel */}
           <div className="space-y-4">
-            {/* Voucher Section */}
             {isFixTab(activeTab) && (
-              <TradeModalFX 
+              <TradeModalFX
                 selectedTrader={selectedTrader}
                 editTransaction={editingTransaction}
                 onClose={handleCancelEdit}
@@ -220,10 +210,10 @@ export default function Transaction() {
             )}
 
             {isGoldFixTab(activeTab) && (
-              <GoldFixPage 
+              <GoldFixPage
                 selectedTrader={selectedTrader}
                 traderRefetch={traderRefetchRef}
-                editTransaction={editingTransaction} 
+                editTransaction={editingTransaction}
                 onClose={handleCancelEdit}
               />
             )}
@@ -236,9 +226,7 @@ export default function Transaction() {
                 traderRefetch={traderRefetchRef}
                 existingTransaction={editingTransaction}
                 onClose={(success) => {
-                  if (success) {
-                    handleCancelEdit();
-                  }
+                  if (success) handleCancelEdit();
                 }}
               />
             )}

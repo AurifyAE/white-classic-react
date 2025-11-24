@@ -16,9 +16,25 @@ import SelectTrader from './SelectTrader';
 // Helper utils
 // -------------------------------------------------------------------
 const formatNumber = (val) => {
-  if (!val) return '';
-  const num = typeof val === 'string' ? parseFloat(val.replace(/,/g, '')) : val;
-  return isNaN(num) ? '' : num.toLocaleString('en-IN', { maximumFractionDigits: 6 });
+  if (!val && val !== 0) return '';
+  
+  // Convert to string and remove existing commas
+  const numStr = String(val).replace(/,/g, '');
+  
+  // Check if it's a valid number format (allows decimals)
+  if (!/^\d*\.?\d*$/.test(numStr)) return String(val).replace(/[^\d.,]/g, '');
+  
+  // Split integer and decimal parts
+  const parts = numStr.split('.');
+  let integerPart = parts[0];
+  const decimalPart = parts[1] ? `.${parts[1]}` : '';
+  
+  // Format integer part with commas
+  if (integerPart) {
+    integerPart = parseInt(integerPart, 10).toLocaleString('en-IN');
+  }
+  
+  return integerPart + decimalPart;
 };
 
 const parseNumber = (val) => val.replace(/,/g, '');
@@ -188,9 +204,23 @@ export default function TradeModalGold({ selectedTrader, traderRefetch, editTran
   };
 
   const allowDecimal = (value) => {
-  return /^(\d+(\.\d*)?|\.\d*)?$/.test(value);
-};
+    return /^\d*\.?\d*$/.test(value);
+  };
 
+  // Handle input changes with formatting
+  const handleGrossWeightChange = (value) => {
+    const raw = value.replace(/,/g, '');
+    if (!allowDecimal(raw)) return;
+    setGrossWeight(formatNumber(value));
+    isEditMode.current = false;
+  };
+
+  const handleRatePerKgChange = (value) => {
+    const raw = value.replace(/,/g, '');
+    if (!allowDecimal(raw)) return;
+    setRatePerKg(formatNumber(value));
+    isEditMode.current = false;
+  };
 
   // -----------------------------------------------------------------
   // Calculations
@@ -383,12 +413,7 @@ export default function TradeModalGold({ selectedTrader, traderRefetch, editTran
           )}
         </div>
 
-        {/* Currency Pair Display */}
-        <div className="px-6 -mt-6 flex justify-end">
-          <div className="bg-orange-50 text-black px-4 py-2 rounded-md shadow-sm inline-flex items-center gap-2">
-            <span className="font-semibold text-sm tracking-wide">INR / XAU</span>
-          </div>
-        </div>
+    
 
         {/* Main Content Grid */}
         <div className="p-6 space-y-6">
@@ -471,135 +496,178 @@ export default function TradeModalGold({ selectedTrader, traderRefetch, editTran
                   SELL GOLD
                 </button>
               </div>
+                  {/* Currency Pair Display */}
+        <div className="px-6 -mt-6 flex justify-end">
+          <div className="bg-orange-50 text-black px-4 py-2 rounded-md shadow-sm inline-flex items-center gap-2 ">
+            <span className="font-semibold text-sm tracking-wide">INR / XAU</span>
+          </div>
+        </div>
             </div>
 
             {/* Input Boxes */}
-      <div className="grid grid-cols-6 gap-4">
+    <div className="grid grid-cols-6 gap-4">
+
   {/* COMMODITY SELECTION CARD */}
-  <div className="h-32 rounded-xl bg-[#f8faff] shadow-sm px-3 w-fit py-3 flex flex-col gap-2 border border-gray-100">
-    <span className="text-xs font-semibold text-gray-800">COMMODITY FIX MASTER</span>
-    <div className="flex-1 flex items-center justify-center">
-      <div className="w-full">
-        <AsyncSelect
-          cacheOptions
-          loadOptions={loadCommodities}
-          defaultOptions
-          placeholder="Search..."
-          value={selectedCommodity}
-          onChange={setSelectedCommodity}
-          styles={{
-            ...customSelectStyles,
-            control: (base) => ({
-              ...base,
-              border: 'none',
-              backgroundColor: 'transparent',
-              boxShadow: 'none',
-            })
-          }}
-          isClearable
-        />
+  <div className="flex flex-col gap-1 w-full">
+
+    <span className="text-xs font-semibold text-gray-800 ml-1">
+      COMMODITY FIX MASTER
+    </span>
+
+    <div className="h-28 rounded-xl bg-[#f8faff] shadow-sm px-3 py-3 flex flex-col gap-2 border border-gray-100">
+      <div className="flex-1 flex items-center justify-center">
+        <div className="w-full">
+          <AsyncSelect
+            cacheOptions
+            loadOptions={loadCommodities}
+            defaultOptions
+            placeholder="Search..."
+            value={selectedCommodity}
+            onChange={setSelectedCommodity}
+            styles={{
+              ...customSelectStyles,
+              control: (base) => ({
+                ...base,
+                border: 'none',
+                backgroundColor: 'transparent',
+                boxShadow: 'none',
+              })
+            }}
+            isClearable
+          />
+        </div>
       </div>
     </div>
+
   </div>
+
+
 
   {/* GROSS WEIGHT CARD */}
-  <div className="h-32 rounded-xl bg-[#f8fff8] shadow-sm px-3 py-3 flex flex-col gap-2 border border-gray-100">
-    <span className="text-sm font-semibold text-gray-800">GROSS WEIGHT</span>
-    <div className="flex-1 flex items-center justify-center">
-      <div className="w-full flex items-center justify-center relative">
-        <input
-          type="text"
-          placeholder="Gross weight"
-          value={grossWeight}
-          onChange={(e) => {
-            const value = e.target.value.replace(/,/g, '');
-            if (!allowDecimal(value)) return;
-            setGrossWeight(value);
-            isEditMode.current = false;
-          }}
-          onBlur={() => {
-            const num = parseFloat(grossWeight.replace(/,/g, ''));
-            if (!isNaN(num)) setGrossWeight(num.toLocaleString('en-IN'));
-          }}
-          className="w-full bg-transparent outline-none text-gray-900 text-lg mx-5 placeholder-gray-600 "
-        />
-        <div className="absolute right-1 text-sm font-semibold text-gray-600">grams</div>
+  <div className="flex flex-col gap-1 w-full">
+
+    <span className="text-xs font-semibold text-gray-800 ml-1">
+      GROSS WEIGHT
+    </span>
+
+    <div className="h-28 rounded-xl bg-[#f8fff8] shadow-sm px-3 py-3 flex flex-col gap-2 border border-gray-100">
+      <div className="flex-1 flex items-center justify-center">
+        <div className="w-full flex items-center justify-center relative">
+          <input
+            type="text"
+            placeholder="Enter grams"
+            value={grossWeight}
+            onChange={(e) => handleGrossWeightChange(e.target.value)}
+            className="w-full bg-transparent outline-none text-gray-900 text-lg text-center placeholder-gray-600"
+          />
+          <div className="absolute right-1 text-sm font-semibold text-gray-600">g</div>
+        </div>
       </div>
     </div>
+
   </div>
+
+
 
   {/* RATE PER KG CARD */}
-  <div className="h-32 rounded-xl bg-[#fffef0] shadow-sm px-3 py-3 flex flex-col gap-2 border border-gray-100">
-    <span className="text-sm font-semibold text-gray-800">RATE PER KG BAR</span>
-    <div className="flex-1 flex items-center justify-center">
-      <div className="w-full flex items-center justify-center relative">
-        <input
-          type="text"
-          placeholder="Rate per KG"
-          value={ratePerKg}
-          onChange={(e) => {
-            const value = e.target.value.replace(/,/g, '');
-            if (!allowDecimal(value)) return;
-            setRatePerKg(value);
-            isEditMode.current = false;
-          }}
-          onBlur={() => {
-            const num = parseFloat(ratePerKg.replace(/,/g, ''));
-            if (!isNaN(num)) setRatePerKg(num.toLocaleString('en-IN', { maximumFractionDigits: 6 }));
-          }}
-          className="w-full bg-transparent outline-none mx-5 text-gray-900 text-lg placeholder-gray-600 "
-        />
-        <span className="text-lg font-bold absolute right-1">₹</span>
+  <div className="flex flex-col gap-1 w-full">
+
+    <span className="text-xs font-semibold text-gray-800 ml-1">
+      RATE PER KG BAR
+    </span>
+
+    <div className="h-28 rounded-xl bg-[#fffef0] shadow-sm px-3 py-3 flex flex-col gap-2 border border-gray-100">
+      <div className="flex-1 flex items-center justify-center">
+        <div className="w-full flex items-center justify-center relative">
+          <input
+            type="text"
+            placeholder="Enter rate"
+            value={ratePerKg}
+            onChange={(e) => handleRatePerKgChange(e.target.value)}
+            className="w-full bg-transparent outline-none text-gray-900 text-lg text-center placeholder-gray-600"
+          />
+          <span className="text-lg font-bold absolute right-1">₹</span>
+        </div>
       </div>
+      <p className="text-xs text-gray-600 text-center">1 = 1000 | 100 = 1 Lakh</p>
     </div>
-    <p className="text-xs text-gray-600 text-center">1=1000 | 100=1L</p>
+
   </div>
+
+
 
   {/* PURE WEIGHT CARD */}
-  <div className="h-32 rounded-xl bg-[#faf8ff] shadow-sm px-3 py-3 flex flex-col gap-2 border border-gray-100">
-    <span className="text-sm font-semibold text-gray-800">PURE WEIGHT</span>
-    <div className="flex-1 flex items-center justify-center">
-      <div className="w-full text-center">
+  <div className="flex flex-col gap-1 w-full">
+
+    <span className="text-xs font-semibold text-gray-800 ml-1">
+      PURE WEIGHT
+    </span>
+
+    <div className="h-28 rounded-xl bg-[#faf8ff] shadow-sm px-3 py-3 flex flex-col gap-2 border border-gray-100">
+      <div className="flex-1 flex items-center justify-center">
         <input
           type="text"
           readOnly
+          placeholder="Calculated"
           value={formatNumber(calculations.pureWeight)}
-          className="w-full bg-transparent outline-none text-gray-900 text-lg mx-5 cursor-not-allowed"
+          className="w-full bg-transparent outline-none text-gray-900 text-lg text-center cursor-not-allowed placeholder-gray-400"
         />
       </div>
+      <div className="text-xs text-gray-600 text-center">g</div>
     </div>
+
   </div>
+
+
 
   {/* VALUE PER GRAM CARD */}
-  <div className="h-32 rounded-xl bg-[#fff8fb] shadow-sm px-3 py-3 flex flex-col gap-2 border border-gray-100">
-    <span className="text-sm font-semibold text-gray-800">VALUE PER GRAM</span>
-    <div className="flex-1 flex items-center justify-center">
-      <div className="w-full text-center">
+  <div className="flex flex-col gap-1 w-full">
+
+    <span className="text-xs font-semibold text-gray-800 ml-1">
+      VALUE PER GRAM
+    </span>
+
+    <div className="h-28 rounded-xl bg-[#fff8fb] shadow-sm px-3 py-3 flex flex-col gap-2 border border-gray-100">
+      <div className="flex-1 flex items-center justify-center">
         <input
           type="text"
           readOnly
+          placeholder="Per gram value"
           value={formatNumber(calculations.valuePerGram)}
-          className="w-full bg-transparent outline-none text-gray-900 text-lg mx-5 cursor-not-allowed"
+          className="w-full bg-transparent outline-none text-gray-900 text-lg text-center cursor-not-allowed placeholder-gray-400"
         />
       </div>
+      <div className="text-xs text-gray-600 text-center">₹</div>
     </div>
+
   </div>
 
+
+
   {/* TOTAL METAL AMOUNT CARD */}
-  <div className="h-32 rounded-xl bg-[#f8ffff] shadow-sm px-3 py-3 flex flex-col gap-2 border border-gray-100">
-    <span className="text-sm font-semibold text-gray-800">TOTAL METAL AMOUNT</span>
-    <div className="flex-1 flex items-center justify-center">
-      <div className="w-full text-center">
+  <div className="flex flex-col gap-1 w-full">
+
+    <span className="text-xs font-semibold text-gray-800 ml-1">
+      TOTAL METAL AMOUNT
+    </span>
+
+    <div className="h-28 rounded-xl bg-[#f8ffff] shadow-sm px-3 py-3 flex flex-col gap-2 border border-gray-100">
+      <div className="flex-1 flex items-center justify-center">
         <input
           type="text"
           readOnly
+          placeholder="Total amount"
           value={formatNumber(calculations.metalAmount)}
-          className="w-full bg-transparent outline-none text-gray-900 text-lg mx-5 cursor-not-allowed"
+          className="w-full bg-transparent outline-none text-gray-900 text-lg text-center cursor-not-allowed placeholder-gray-400"
         />
       </div>
+      <div className="text-xs text-gray-600 text-center">₹</div>
     </div>
+
   </div>
+
 </div>
+
           </div>
 
           {/* SUMMARY SESSION */}

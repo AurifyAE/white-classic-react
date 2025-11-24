@@ -553,12 +553,7 @@ const ratePerGram = useMemo(() => {
           )}
         </div>
 
-        {/* Currency Pair Display */}
-        <div className="px-6 pt-2 -mt-10 flex justify-end">
-          <div className="bg-orange-50 text-black px-4 py-2 rounded-md shadow-sm inline-flex items-center gap-2">
-            <span className="font-semibold text-sm tracking-wide">INR / XAU</span>
-          </div>
-        </div>
+      
 
         {/* Main Content Grid */}
         <div className="p-6 space-y-6">
@@ -633,171 +628,226 @@ const ratePerGram = useMemo(() => {
               {showErrors && !selectedRatio && (
                 <p className="text-xs text-red-500 mt-1 text-center">Please select Fix or Unfix.</p>
               )}
+                {/* Currency Pair Display */}
+        <div className="px-6 pt-2 -mt-10 flex justify-end">
+          <div className="bg-orange-50 text-black px-4 py-2 rounded-md shadow-sm inline-flex items-center gap-2">
+            <span className="font-semibold text-sm tracking-wide">INR / XAU</span>
+          </div>
+        </div>
             </div>
 
             {/* Input Boxes */}
         {/* First Row - 4 Cards */}
 <div className="grid grid-cols-4 gap-4 mb-6">
+
   {/* METAL RATE TYPE CARD */}
-  <div className="h-32 rounded-xl bg-[#f8faff] shadow-sm px-3 py-3 flex flex-col gap-2 border border-gray-100">
-    <span className="text-sm font-semibold text-gray-800 text-center">METAL RATE TYPE</span>
-    <div className="flex-1 flex items-center justify-center">
-      <div className="w-full">
-        {loadingRates ? (
-          <p className="text-sm text-gray-500 text-center">Loading...</p>
-        ) : metalRates.length === 0 ? (
-          <p className="text-sm text-red-500 text-center">No rates</p>
-        ) : (
-          <select
-            value={selectedMetalUnit}
-            onChange={(e) => setSelectedMetalUnit(e.target.value)}
-            className={`w-full bg-transparent outline-none text-gray-900 text-base text-center ${
-              showErrors && !selectedMetalUnit ? 'border-red-400 bg-red-50' : ''
-            }`}
-          >
-            <option value="">Select Unit</option>
-            {metalRates.map((rate) => (
-              <option key={rate._id} value={rate._id}>
-                {rate.rateType} {rate.isDefault && "(Default)"}
-              </option>
-            ))}
-          </select>
-        )}
+  <div className="flex flex-col gap-1 w-full">
+
+    {/* LABEL OUTSIDE */}
+    <span className="text-sm font-semibold text-gray-800 ml-1">
+      METAL RATE TYPE
+    </span>
+
+    {/* CARD BOX */}
+    <div className="h-28 rounded-xl bg-[#f8faff] shadow-sm px-3 py-3 flex flex-col gap-2 border border-gray-100">
+
+      <div className="flex-1 flex items-center justify-center">
+        <div className="w-full">
+          {loadingRates ? (
+            <p className="text-sm text-gray-500 text-center">Loading...</p>
+          ) : metalRates.length === 0 ? (
+            <p className="text-sm text-red-500 text-center">No rates</p>
+          ) : (
+            <select
+              value={selectedMetalUnit}
+              onChange={(e) => setSelectedMetalUnit(e.target.value)}
+              className={`w-full bg-transparent outline-none text-gray-900 text-base text-center ${
+                showErrors && !selectedMetalUnit ? 'bg-red-50' : ''
+              }`}
+            >
+              <option value="">Select Unit</option>
+              {metalRates.map((rate) => (
+                <option key={rate._id} value={rate._id}>
+                  {rate.rateType} {rate.isDefault && '(Default)'}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
       </div>
+
+      {showErrors && !selectedMetalUnit && (
+        <p className="text-xs text-red-500 text-center">Select type</p>
+      )}
     </div>
-    {showErrors && !selectedMetalUnit && (
-      <p className="text-xs text-red-500 text-center">Select type</p>
-    )}
+
   </div>
 
-  {/* RATE PER KG BAR CARD */}
-  <div className="h-32 rounded-xl bg-[#fffef0] shadow-sm px-3 py-3 flex flex-col gap-2 border border-gray-100">
-    <span className="text-sm font-semibold text-gray-800 text-center">RATE PER KG</span>
-    <div className="flex-1 flex items-center justify-center">
-      <div className="w-full flex items-center justify-center relative">
-        <input
-          type="text"
-          value={rate}
-          onChange={(e) => HandleChange(e.target.value)}
-          placeholder="Rate"
-          className={`w-full bg-transparent outline-none text-gray-900 text-base text-center placeholder-gray-600 ${
-            showErrors && !rate ? 'border-red-400 bg-red-50' : ''
-          }`}
-        />
-        <span className="text-base font-bold absolute right-2">₹</span>
+  {/* RATE PER KG CARD */}
+  <div className="flex flex-col gap-1 w-full">
+
+    <span className="text-sm font-semibold text-gray-800 ml-1">
+      RATE PER KG
+    </span>
+
+    <div className="h-28 rounded-xl bg-[#fffef0] shadow-sm px-3 py-3 flex flex-col gap-2 border border-gray-100">
+
+      <div className="flex-1 flex items-center justify-center">
+        <div className="w-full flex items-center justify-center relative">
+          <input
+            type="text"
+            value={rate}
+            onChange={(e) => HandleChange(e.target.value)}
+            placeholder="Rate per KG"
+            className={`w-full bg-transparent outline-none text-gray-900 text-base text-center placeholder-gray-600 ${
+              showErrors && !rate ? 'bg-red-50' : ''
+            }`}
+          />
+          <span className="text-base font-bold absolute right-2">₹</span>
+        </div>
       </div>
+
+      <p className="text-xs text-gray-600 text-center">1 = 1000 | 100 = 1 Lakh</p>
+
+      {showErrors && !rate && (
+        <p className="text-xs text-red-500 text-center">Enter rate</p>
+      )}
     </div>
-    <p className="text-xs text-gray-600 text-center">1=1000 | 100=1 Lakh</p>
-    {showErrors && !rate && (
-      <p className="text-xs text-red-500 text-center">Enter rate</p>
-    )}
+
   </div>
 
   {/* STOCK SELECTION CARD */}
-  <div className="h-32 rounded-xl bg-[#f8fff8] shadow-sm px-3 py-3 flex flex-col gap-2 border border-gray-100 relative">
-    <span className="text-sm font-semibold text-gray-800 text-center">STOCK SELECTION</span>
-    <div className="flex-1 flex items-center justify-center">
-      <div className="w-full relative">
-        {loadingStocks ? (
-          <p className="text-sm text-gray-500 text-center">Loading...</p>
-        ) : (
-          <>
-            <input
-              type="text"
-              value={stockSearch}
-              onChange={(e) => {
-                setStockSearch(e.target.value);
-                setStockDropdownOpen(true);
-              }}
-              onFocus={() => setStockDropdownOpen(true)}
-              onBlur={() => setTimeout(() => setStockDropdownOpen(false), 200)}
-              placeholder="Search stock"
-              className={`w-full bg-transparent outline-none text-gray-900 text-base text-center placeholder-gray-600 ${
-                showErrors && !selectedStock ? 'border-red-400 bg-red-50' : ''
-              }`}
-            />
-            {stockSearch && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setStockSearch('');
-                  setSelectedStock(null);
+  <div className="flex flex-col gap-1 w-full">
+
+    <span className="text-sm font-semibold text-gray-800 ml-1">
+      STOCK SELECTION
+    </span>
+
+    <div className="h-28 rounded-xl bg-[#f8fff8] shadow-sm px-3 py-3 flex flex-col gap-2 border border-gray-100 relative">
+      
+      <div className="flex-1 flex items-center justify-center">
+        <div className="w-full relative">
+
+          {loadingStocks ? (
+            <p className="text-sm text-gray-500 text-center">Loading...</p>
+          ) : (
+            <>
+              <input
+                type="text"
+                value={stockSearch}
+                onChange={(e) => {
+                  setStockSearch(e.target.value);
+                  setStockDropdownOpen(true);
+                }}
+                onFocus={() => setStockDropdownOpen(true)}
+                onBlur={() => setTimeout(() => setStockDropdownOpen(false), 200)}
+                placeholder="Search stock"
+                className={`w-full bg-transparent outline-none text-gray-900 text-base text-center placeholder-gray-600 ${
+                  showErrors && !selectedStock ? 'bg-red-50' : ''
+                }`}
+              />
+
+              {stockSearch && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setStockSearch('');
+                    setSelectedStock(null);
+                    setStockDropdownOpen(false);
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm"
+                >
+                  ✕
+                </button>
+              )}
+            </>
+          )}
+
+        </div>
+      </div>
+
+      {/* DROPDOWN MENU */}
+      {stockDropdownOpen && metalStocks.length > 0 && (
+        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-auto">
+          {metalStocks
+            .filter((stock) =>
+              stock.code.toLowerCase().includes(stockSearch.toLowerCase())
+            )
+            .map((stock) => (
+              <div
+                key={stock._id}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  setSelectedStock(stock);
+                  setStockSearch(stock.code);
                   setStockDropdownOpen(false);
                 }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm"
+                className="px-3 py-2 text-sm cursor-pointer hover:bg-indigo-50 flex justify-between items-center border-b border-gray-100 last:border-b-0"
               >
-                ✕
-              </button>
-            )}
-          </>
-        )}
-      </div>
+                <span className="font-medium">{stock.code}</span>
+                {selectedStock?._id === stock._id && (
+                  <span className="text-indigo-600 text-sm">✓</span>
+                )}
+              </div>
+            ))}
+        </div>
+      )}
+
+      {showErrors && !selectedStock && (
+        <p className="text-xs text-red-500 text-center">Select stock</p>
+      )}
     </div>
-    
-    {/* DROPDOWN MENU */}
-    {stockDropdownOpen && metalStocks.length > 0 && (
-      <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-auto">
-        {metalStocks
-          .filter((stock) =>
-            stock.code.toLowerCase().includes(stockSearch.toLowerCase())
-          )
-          .map((stock) => (
-            <div
-              key={stock._id}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => {
-                setSelectedStock(stock);
-                setStockSearch(stock.code);
-                setStockDropdownOpen(false);
-              }}
-              className="px-3 py-2 text-sm cursor-pointer hover:bg-indigo-50 flex justify-between items-center border-b border-gray-100 last:border-b-0"
-            >
-              <span className="font-medium">{stock.code}</span>
-              {selectedStock?._id === stock._id && (
-                <span className="text-indigo-600 text-sm">✓</span>
-              )}
-            </div>
-          ))}
-      </div>
-    )}
-    
-    {showErrors && !selectedStock && (
-      <p className="text-xs text-red-500 text-center">Select stock</p>
-    )}
+
   </div>
 
   {/* GROSS WEIGHT CARD */}
-  <div className="h-32 rounded-xl bg-[#faf8ff] shadow-sm px-3 py-3 flex flex-col gap-2 border border-gray-100">
-    <span className="text-sm font-semibold text-gray-800 text-center">GROSS WEIGHT</span>
-    <div className="flex-1 flex items-center justify-center">
-      <div className="w-full flex items-center justify-center relative">
-        <input
-          type="text"
-          value={grossWeight}
-          onChange={(e) => handleGrossWeightChange(e.target.value)}
-          placeholder="Weight"
-          className={`w-full bg-transparent outline-none text-gray-900 text-base text-center placeholder-gray-600 ${
-            showErrors && !grossWeight ? 'border-red-400 bg-red-50' : ''
-          }`}
-        />
-        <div className="absolute right-2 text-sm font-semibold text-gray-600">grams</div>
-      </div>
-    </div>
-    {showErrors && !grossWeight && (
-      <p className="text-xs text-red-500 text-center">Enter weight</p>
-    )}
-  </div>
-</div>
+  <div className="flex flex-col gap-1 w-full">
 
-{/* Second Row - 3 Cards */}
+    <span className="text-sm font-semibold text-gray-800 ml-1">
+      GROSS WEIGHT
+    </span>
+
+    <div className="h-28 rounded-xl bg-[#faf8ff] shadow-sm px-3 py-3 flex flex-col gap-2 border border-gray-100">
+      
+      <div className="flex-1 flex items-center justify-center">
+        <div className="w-full flex items-center justify-center relative">
+          <input
+            type="text"
+            value={grossWeight}
+            onChange={(e) => handleGrossWeightChange(e.target.value)}
+            placeholder="Weight"
+            className={`w-full bg-transparent outline-none text-gray-900 text-base text-center placeholder-gray-600 ${
+              showErrors && !grossWeight ? 'bg-red-50' : ''
+            }`}
+          />
+          <div className="absolute right-2 text-sm font-semibold text-gray-600">
+            g
+          </div>
+        </div>
+      </div>
+
+      {showErrors && !grossWeight && (
+        <p className="text-xs text-red-500 text-center">Enter weight</p>
+      )}
+    </div>
+
+  </div>
+
+</div>
 <div className="grid grid-cols-3 gap-4">
-  {/* METAL AMOUNT CARD */}
-  <div className="h-32 rounded-xl bg-[#fff8fb] shadow-sm px-3 py-3 flex flex-col gap-2 border border-gray-100">
-    <span className="text-sm font-semibold text-gray-800 text-center">METAL AMOUNT</span>
-    <div className="flex-1 flex items-center justify-center">
-      <div className="w-full text-center">
+
+  {/* METAL AMOUNT */}
+  <div className="flex flex-col gap-1 w-full">
+
+    <span className="text-sm font-semibold text-gray-800 ml-1">
+      METAL AMOUNT
+    </span>
+
+    <div className="h-28 rounded-xl bg-[#fff8fb] shadow-sm px-3 py-3 flex flex-col gap-2 border border-gray-100">
+
+      <div className="flex-1 flex items-center justify-center">
         <input
           type="text"
           readOnly
@@ -805,38 +855,58 @@ const ratePerGram = useMemo(() => {
           className="w-full bg-transparent outline-none text-gray-900 text-base text-center cursor-not-allowed"
         />
       </div>
+
     </div>
+
   </div>
 
-  {/* MELTING CHARGES CARD */}
-  <div className="h-32 rounded-xl bg-[#f8ffff] shadow-sm px-3 py-3 flex flex-col gap-2 border border-gray-100">
-    <span className="text-sm font-semibold text-gray-800 text-center">MELTING CHARGES</span>
-    <div className="flex-1 flex items-center justify-center">
-      <div className="w-full flex items-center justify-center relative">
-        <input
-          type="text"
-          value={meltingCharge}
-          onChange={(e) => handleMeltingChargeChange(e.target.value)}
-          placeholder="0.00"
-          className="w-full bg-transparent outline-none text-gray-900 text-base text-center placeholder-gray-600"
-        />
-        <span className="text-base font-bold absolute right-2">₹</span>
+  {/* MELTING CHARGES */}
+  <div className="flex flex-col gap-1 w-full">
+
+    <span className="text-sm font-semibold text-gray-800 ml-1">
+      MELTING CHARGES
+    </span>
+
+    <div className="h-28 rounded-xl bg-[#f8ffff] shadow-sm px-3 py-3 flex flex-col gap-2 border border-gray-100">
+
+      <div className="flex-1 flex items-center justify-center">
+        <div className="w-full flex items-center justify-center relative">
+          <input
+            type="text"
+            value={meltingCharge}
+            onChange={(e) => handleMeltingChargeChange(e.target.value)}
+            placeholder="0.00"
+            className="w-full bg-transparent outline-none text-gray-900 text-base text-center placeholder-gray-600"
+          />
+          <span className="absolute right-2 text-base font-semibold">₹</span>
+        </div>
       </div>
+
     </div>
+
   </div>
 
-  {/* TOTAL AMOUNT CARD */}
-  <div className="h-32 rounded-xl bg-[#f8f8f8] shadow-sm px-3 py-3 flex flex-col gap-2 border border-gray-100">
-    <span className="text-sm font-semibold text-gray-800 text-center">TOTAL AMOUNT</span>
-    <div className="flex-1 flex items-center justify-center">
-      <div className="w-full text-center">
+  {/* TOTAL AMOUNT */}
+  <div className="flex flex-col gap-1 w-full">
+
+    <span className="text-sm font-semibold text-gray-800 ml-1">
+      TOTAL AMOUNT
+    </span>
+
+    <div className="h-28 rounded-xl bg-[#f8f8f8] shadow-sm px-3 py-3 flex flex-col gap-2 border border-gray-100">
+
+      <div className="flex-1 flex items-center justify-center">
         <span className="text-base font-bold text-gray-900">
           ₹{formatNumber(totalAmount.toFixed(2))}
         </span>
       </div>
+
     </div>
+
   </div>
+
 </div>
+
 
             {/* Add/Update Button */}
             <div className="mt-6">

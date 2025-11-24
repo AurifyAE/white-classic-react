@@ -313,6 +313,12 @@ const Sidebar = () => {
             text: "Opening Balance",
             to: "/opening-balance",
           },
+          {
+  icon: <ClipboardList strokeWidth={1.5} size={20} />, 
+  text: "Project Entry",
+  to: "/project-entry",
+},
+
         ],
       },
       {

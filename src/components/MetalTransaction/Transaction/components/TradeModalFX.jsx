@@ -40,13 +40,35 @@ export default function TradeModalFX({
     setLocalSelectedTrader(selectedTrader);
   }, [selectedTrader]);
 
-  // ---------- helpers ----------
+  // ---------- number formatting helpers ----------
   const formatNumber = (value) => {
     if (!value) return '';
-    const num = parseFloat(value.replace(/,/g, ''));
-    return isNaN(num) ? '' : num.toLocaleString('en-IN');
+    
+    // Remove all commas for processing
+    const numStr = value.replace(/,/g, '');
+    
+    // Check if it's a valid number format (allows decimals)
+    if (!/^\d*\.?\d*$/.test(numStr)) return value.replace(/[^\d.,]/g, '');
+    
+    // Split integer and decimal parts
+    const parts = numStr.split('.');
+    let integerPart = parts[0];
+    const decimalPart = parts[1] ? `.${parts[1]}` : '';
+    
+    // Format integer part with commas
+    if (integerPart) {
+      integerPart = parseInt(integerPart, 10).toLocaleString('en-IN');
+    }
+    
+    return integerPart + decimalPart;
   };
+
   const parseNumber = (value) => value.replace(/,/g, '');
+
+  // Validate decimal input
+  const allowDecimal = (value) => {
+    return /^\d*\.?\d*$/.test(value.replace(/,/g, ''));
+  };
 
   // ---------- rates ----------
   const ratePerINR = useMemo(() => {
@@ -121,11 +143,11 @@ export default function TradeModalFX({
     const buy = type === 'BUY';
     setIsBuy(buy);
 
-    // 2. Set amounts
+    // 2. Set amounts (with formatting)
     setPayAmount(formatNumber(String(amount || '')));
     setReceiveAmount(formatNumber(String(converted || '')));
 
-    // 3. Set rate
+    // 3. Set rate (with formatting)
     setRateLakh(formatNumber(String(rate || '')));
 
     setLastEdited(null);
@@ -162,40 +184,35 @@ export default function TradeModalFX({
     isBuy,
   ]);
 
-  // When user edits fields, allow calculations again
- const allowDecimal = (value) => {
-  return /^(\d+(\.\d*)?|\.\d*)?$/.test(value);
-};
+  // Handle input changes with formatting
+  const handlePayChange = (value) => {
+    const raw = value.replace(/,/g, '');
 
-const handlePayChange = (value) => {
-  const raw = value.replace(/,/g, '');
+    if (!allowDecimal(raw)) return;
 
-  if (!allowDecimal(raw)) return;
+    setPayAmount(formatNumber(value)); 
+    setLastEdited('pay');
+    isEditMode.current = false;
+  };
 
-  setPayAmount(value); 
-  setLastEdited('pay');
-  isEditMode.current = false;
-};
+  const handleReceiveChange = (value) => {
+    const raw = value.replace(/,/g, '');
 
-const handleReceiveChange = (value) => {
-  const raw = value.replace(/,/g, '');
+    if (!allowDecimal(raw)) return;
 
-  if (!allowDecimal(raw)) return;
+    setReceiveAmount(formatNumber(value));
+    setLastEdited('receive');
+    isEditMode.current = false;
+  };
 
-  setReceiveAmount(value);
-  setLastEdited('receive');
-  isEditMode.current = false;
-};
+  const handleRateChange = (value) => {
+    const raw = value.replace(/,/g, '');
 
-const handleRateChange = (value) => {
-  const raw = value.replace(/,/g, '');
+    if (!allowDecimal(raw)) return;
 
-  if (!allowDecimal(raw)) return;
-
-  setRateLakh(value);
-  isEditMode.current = false;
-};
-
+    setRateLakh(formatNumber(value));
+    isEditMode.current = false;
+  };
 
   // Handle trader selection
   const handleTraderChange = (trader) => {
@@ -263,8 +280,6 @@ const handleRateChange = (value) => {
       }
 
       if (res.data.success) {
-        // toast.success(editTransaction?._id ? 'Trade updated!' : 'Trade created!');
-
         setSuccessData({
           trader: currentTrader.trader,
           pay: { amount: payAmount, currency: base },
@@ -370,19 +385,11 @@ const handleRateChange = (value) => {
             </span>
           )}
         </div>
-
-        {/* Currency Pair Display */}
-      <div className="px-6 pt-2 flex justify-end">
-  <div className="bg-orange-50 text-black px-4 py-2 rounded-md shadow-sm inline-flex items-center gap-2">
-    <span className="font-semibold text-sm tracking-wide">INR / AED</span>
-  </div>
-</div>
-
         {/* Main Content Grid */}
         <div className="p-6 space-y-6">
           
           {/* VOUCHER SECTION */}
-          <div className=" rounded-lg p-4 -mt-14 bg-white">
+          <div className=" rounded-lg p-4 -mt-5 bg-white">
             <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
               <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -458,23 +465,30 @@ const handleRateChange = (value) => {
         SELL
       </button>
     </div>
+      {/* Currency Pair Display */}
+      <div className="px-6 pt-2 flex justify-end -mt-10">
+  <div className="bg-orange-50 text-black px-4 py-2 rounded-md shadow-sm inline-flex items-center gap-2">
+    <span className="font-semibold text-sm tracking-wide">INR / AED</span>
+  </div>
+</div>
   </div>
 
 {/* Input Boxes – Boxed Layout */}
-<div className="border border-gray-300 rounded-lg p-6 bg-gray-50 shadow-sm">
+<div className=" rounded-lg p-6  shadow-sm">
 {/* INPUT BOXES – CENTERED INPUT BOX */}
 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
   {/* RATE BOX */}
+<div className="flex flex-col gap-1">
+
+  <span className="text-sm font-semibold text-gray-800 ml-1">
+    RATE IN 1 LAKH
+  </span>
+
   <div className="
       h-32 rounded-xl bg-[#e6f2ff] shadow-sm px-5 py-3 
-      flex flex-col gap-2
+      flex flex-col gap-2 relative
   ">
-    <span className="text-sm font-semibold text-gray-800">
-      RATE IN 1 LAKH
-    </span>
-
-    {/* Center the input box */}
     <div className="flex-1 flex items-center justify-center">
       <div className="w-full flex items-center justify-center relative">
         <input
@@ -482,27 +496,31 @@ const handleRateChange = (value) => {
           placeholder="Enter AED for 1 Lakh"
           value={rateLakh}
           onChange={(e) => handleRateChange(e.target.value)}
-          className="w-full bg-transparent outline-none text-gray-900 text-lg  placeholder-gray-600"
+          className="w-full bg-transparent outline-none text-gray-900 text-lg  placeholder-gray-600 text-center"
         />
         <img src={Dirham} className="w-5 opacity-70 absolute right-1" />
       </div>
     </div>
   </div>
+</div>
 
 
 
-  {/* PAY BOX */}
+
+{/* PAY BOX */}
+<div className="flex flex-col gap-1">
+
+  <span className="text-sm font-semibold text-gray-800 ml-1">
+    PAY AMOUNT (
+      {isBuy ? "₹" : <img src={Dirham} className="inline w-4" />}
+    )
+  </span>
+
   <div className="
       h-32 rounded-xl bg-[#e6ffe6] shadow-sm px-5 py-3
-      flex flex-col gap-2
+      flex flex-col gap-2 relative
   ">
-    <span className="text-sm font-semibold text-gray-800">
-      PAY AMOUNT (
-        {isBuy ? "₹" : <img src={Dirham} className="inline w-4" />}
-      )
-    </span>
 
-    {/* Center input horizontally AND vertically */}
     <div className="flex-1 flex items-center justify-center">
       <div className="w-full flex items-center justify-center relative">
         <input
@@ -510,7 +528,7 @@ const handleRateChange = (value) => {
           placeholder={isBuy ? "100 = 1 Lakh" : "Enter AED"}
           value={payAmount}
           onChange={(e) => handlePayChange(e.target.value)}
-          className="w-full bg-transparent outline-none text-gray-900 text-lg  placeholder-gray-600"
+          className="w-full bg-transparent outline-none text-gray-900 text-lg  placeholder-gray-600 text-center"
         />
 
         {isBuy ? (
@@ -521,33 +539,43 @@ const handleRateChange = (value) => {
       </div>
     </div>
 
+    {/* Helper text inside bottom-left */}
     {isBuy && (
-      <p className="text-xs text-gray-600">1 = 1000 | 100 = 1 Lakh</p>
+      <span className="absolute bottom-2 left-4 text-xs text-gray-600">
+        1 = 1000 | 100 = 1 Lakh
+      </span>
     )}
+
   </div>
+</div>
 
 
 
-  {/* RECEIVE BOX */}
+
+{/* RECEIVE BOX */}
+<div className="flex flex-col gap-1">
+
+  <span className="text-sm font-semibold text-gray-800 ml-1">
+    RECEIVE AMOUNT (
+      {isBuy ? <img src={Dirham} className="inline w-4" /> : "₹"}
+    )
+  </span>
+
   <div className="
       h-32 rounded-xl bg-[#fff4cc] shadow-sm px-5 py-3
-      flex flex-col gap-2
+      flex flex-col gap-2 relative
   ">
-    <span className="text-sm font-semibold text-gray-800">
-      RECEIVE AMOUNT (
-        {isBuy ? <img src={Dirham} className="inline w-4" /> : "₹"}
-      )
-    </span>
 
-    {/* Center input area */}
     <div className="flex-1 flex items-center justify-center">
       <div className="w-full flex items-center justify-center relative">
         <input
           type="text"
-          placeholder={isBuy ? "Enter AED" : "100 = 1 Lakh"}
+          placeholder={
+            isBuy ? "Enter AED you will receive" : "100 = 1 Lakh"
+          }
           value={receiveAmount}
           onChange={(e) => handleReceiveChange(e.target.value)}
-          className="w-full bg-transparent outline-none text-gray-900 text-lg  placeholder-gray-600"
+          className="w-full bg-transparent outline-none text-gray-900 text-lg  placeholder-gray-600 text-center"
         />
 
         {isBuy ? (
@@ -558,14 +586,18 @@ const handleRateChange = (value) => {
       </div>
     </div>
 
+    {/* Helper text inside bottom-left */}
     {!isBuy && (
-      <p className="text-xs text-gray-600">1 = 1000 | 100 = 1 Lakh</p>
+      <span className="absolute bottom-2 left-4 text-xs text-gray-600">
+        1 = 1000 | 100 = 1 Lakh
+      </span>
     )}
-  </div>
 
+  </div>
 </div>
 
 
+</div>
 
 </div>
 

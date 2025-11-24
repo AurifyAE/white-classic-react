@@ -35,11 +35,17 @@ export default function RecentOrders({
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedParty, setSelectedParty] = useState("All Parties");
   const [transactionType, setTransactionType] = useState("All Transactions");
-  const [itemsPerPage, setItemsPerPage] = useState("20 per page");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
-const [showDeleteModal, setShowDeleteModal] = useState(false);
-const [orderToDelete, setOrderToDelete] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [orderToDelete, setOrderToDelete] = useState(null);
+
+  // Pagination States
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -53,6 +59,7 @@ const [orderToDelete, setOrderToDelete] = useState(null);
     setTransactionType("All Transactions");
     setFromDate("");
     setToDate("");
+    setCurrentPage(1); // Reset to first page when type changes
   }, [selectedType]);
 
   // Apply filters whenever any filter state changes
@@ -123,18 +130,22 @@ const [orderToDelete, setOrderToDelete] = useState(null);
     setFilteredOrders(filtered);
   };
 
-  const fetchOrders = useCallback(async (tradeType) => {
+  const fetchOrders = useCallback(async (tradeType, page = currentPage, limit = itemsPerPage) => {
     setLoading(true);
     try {
       let response;
       let formatted = [];
+      let paginationData = {};
 
       switch (tradeType) {
         case TRANSACTION_TYPES.CURRENCY:
-          response = await axiosInstance.get("/currency-trading/trades");
+          response = await axiosInstance.get("/currency-trading/trades", {
+            params: { page, limit }
+          });
           console.log("Currency API Response:", response.data);
           
           const currencyTrades = response.data?.data || response.data || [];
+          paginationData = response.data?.pagination || {};
           
           formatted = currencyTrades.map((item) => {
             // Extract trader name from partyId object for Currency Fix
@@ -177,10 +188,13 @@ const [orderToDelete, setOrderToDelete] = useState(null);
           break;
 
         case TRANSACTION_TYPES.GOLD:
-          response = await axiosInstance.get("/gold-trade/trades");
+          response = await axiosInstance.get("/gold-trade/trades", {
+            params: { page, limit }
+          });
           console.log("Gold Fix API Response:", response.data);
           
           const goldTrades = response.data?.data || response.data || [];
+          paginationData = response.data?.pagination || {};
           
           formatted = goldTrades.map((item) => {
             // Extract trader name from partyId object for Gold Fix
@@ -234,11 +248,13 @@ const [orderToDelete, setOrderToDelete] = useState(null);
           response = await axiosInstance.get("/metal-transaction", {
             params: {
               transactionType: tradeType === TRANSACTION_TYPES.PURCHASE ? "purchase" : "sale",
-              page: 1,
-              limit: 20,
+              page: page,
+              limit: limit,
             },
           });
           const metalData = response.data?.data || response.data || [];
+          paginationData = response.data?.pagination || {};
+          
           formatted = metalData.map((item) => {
             // Extract trader name from party object for Purchase/Sales
             let traderName = "Unknown Trader";
@@ -308,18 +324,26 @@ const [orderToDelete, setOrderToDelete] = useState(null);
       console.log("Formatted orders:", formatted);
       setOrders(formatted);
       setFilteredOrders(formatted);
+      
+      // Set pagination data
+      setTotalPages(paginationData.totalPages || 1);
+      setTotalItems(paginationData.totalItems || formatted.length);
+      setCurrentPage(paginationData.currentPage || page);
+      
     } catch (error) {
       console.error(`Error fetching ${tradeType} trades:`, error);
       setOrders([]);
       setFilteredOrders([]);
+      setTotalPages(1);
+      setTotalItems(0);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentPage, itemsPerPage]);
 
   useEffect(() => {
-    if (selectedType) fetchOrders(selectedType);
-  }, [selectedType, fetchOrders]);
+    if (selectedType) fetchOrders(selectedType, currentPage, itemsPerPage);
+  }, [selectedType, fetchOrders, currentPage, itemsPerPage]);
 
   // Get unique parties for filter dropdown
   const getUniqueParties = () => {
@@ -453,36 +477,36 @@ const [orderToDelete, setOrderToDelete] = useState(null);
     });
   };
 
-const handleDelete = async (order) => {
-  if (!order?._id) return;
+  const handleDelete = async (order) => {
+    if (!order?._id) return;
 
-  try {
-    let endpoint = "";
+    try {
+      let endpoint = "";
 
-    switch (selectedType) {
-      case TRANSACTION_TYPES.CURRENCY:
-        endpoint = `/currency-trading/trades/${order._id}`;
-        break;
+      switch (selectedType) {
+        case TRANSACTION_TYPES.CURRENCY:
+          endpoint = `/currency-trading/trades/${order._id}`;
+          break;
 
-      case TRANSACTION_TYPES.GOLD:
-        endpoint = `/gold-trade/trades/${order._id}`;
-        break;
+        case TRANSACTION_TYPES.GOLD:
+          endpoint = `/gold-trade/trades/${order._id}`;
+          break;
 
-      case TRANSACTION_TYPES.PURCHASE:
-      case TRANSACTION_TYPES.SALES:
-        endpoint = `/metal-transaction/${order._id}`;
-        break;
+        case TRANSACTION_TYPES.PURCHASE:
+        case TRANSACTION_TYPES.SALES:
+          endpoint = `/metal-transaction/${order._id}`;
+          break;
+      }
+
+      await axiosInstance.delete(endpoint);
+      toast.success("Transaction deleted successfully");
+
+      fetchOrders(selectedType, currentPage, itemsPerPage);
+    } catch (error) {
+      console.error("Error deleting transaction:", error);
+      toast.error("Failed to delete transaction");
     }
-
-    await axiosInstance.delete(endpoint);
-    toast.success("Transaction deleted successfully");
-
-    fetchOrders(selectedType);
-  } catch (error) {
-    console.error("Error deleting transaction:", error);
-    toast.error("Failed to delete transaction");
-  }
-};
+  };
 
   const openInvoice = (order) => {
     setSelectedOrder(order);
@@ -513,6 +537,11 @@ const handleDelete = async (order) => {
     setTransactionType("All Transactions");
     setFromDate("");
     setToDate("");
+    setCurrentPage(1); // Reset to first page when clearing filters
+  };
+
+  const handlePageChange = (newPage) => {
+    setCurrentPage(newPage);
   };
 
   const isCurrency = selectedType === TRANSACTION_TYPES.CURRENCY;
@@ -522,161 +551,162 @@ const handleDelete = async (order) => {
   return (
     <div className="h-full flex flex-col bg-white rounded-lg shadow-sm">
       {/* Header with Type Selector */}
-    <div className="flex items-center justify-between mb-6 px-6 pt-6 border-b border-gray-200">
-  {/* Title */}
-  <h2 className="text-xl font-semibold text-gray-800">Recent Transactions</h2>
+      <div className="flex items-center justify-between mb-6 px-6 pt-6 border-b border-gray-200">
+        {/* Title */}
+        <h2 className="text-xl font-semibold text-gray-800">Recent Transactions</h2>
 
-
-
-  {/* Right side count */}
-  <div className="text-sm text-gray-500">
-    {filteredOrders.length} order{filteredOrders.length !== 1 ? "s" : ""}
-  </div>
-</div>
-
-      {/* Search and Filter Section - Matching the image design */}
-{/* ====== FILTERS CARD (With Clear Button on Top Right) ====== */}
-<div className="px-6 mb-6">
-  <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-    
-    {/* Top Header: Title + Clear Button */}
-    <div className="flex justify-between items-center mb-6">
-      <h2 className="text-xl font-bold text-gray-800">Recent Transactions</h2>
-      
-      <button
-        onClick={clearFilters}
-        className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-xl shadow-sm transition-all duration-200 flex items-center gap-2"
-      >
-        Clear Filters
-      </button>
-    </div>
-
-    {/* Filters Grid */}
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
-      
-      {/* Search */}
-      <div className="relative lg:col-span-1">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-        <input
-          type="text"
-          placeholder="Search transactions..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm"
-        />
+        {/* Right side count */}
+        <div className="text-sm text-gray-500">
+          {filteredOrders.length} order{filteredOrders.length !== 1 ? "s" : ""}
+        </div>
       </div>
 
-      {/* Party */}
-      <div className="relative">
-        <select
-          value={selectedParty}
-          onChange={(e) => setSelectedParty(e.target.value)}
-          className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none text-sm cursor-pointer"
-        >
-          {getUniqueParties().map(party => (
-            <option key={party} value={party}>{party}</option>
-          ))}
-        </select>
-        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={18} />
+      {/* Search and Filter Section */}
+      <div className="px-6 mb-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+          
+          {/* Top Header: Title + Clear Button */}
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-bold text-gray-800">Recent Transactions</h2>
+            
+            <button
+              onClick={clearFilters}
+              className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-xl shadow-sm transition-all duration-200 flex items-center gap-2"
+            >
+              Clear Filters
+            </button>
+          </div>
+
+          {/* Filters Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+            
+            {/* Search */}
+            <div className="relative lg:col-span-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+              <input
+                type="text"
+                placeholder="Search transactions..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm"
+              />
+            </div>
+
+            {/* Party */}
+            <div className="relative">
+              <select
+                value={selectedParty}
+                onChange={(e) => setSelectedParty(e.target.value)}
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none text-sm cursor-pointer"
+              >
+                {getUniqueParties().map(party => (
+                  <option key={party} value={party}>{party}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={18} />
+            </div>
+
+            {/* Transaction Type */}
+            <div className="relative">
+              <select
+                value={transactionType}
+                onChange={(e) => setTransactionType(e.target.value)}
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none text-sm cursor-pointer"
+              >
+                {getUniqueTransactionTypes().map(type => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={18} />
+            </div>
+
+            {/* Items Per Page */}
+            <div className="relative">
+              <select
+                value={itemsPerPage}
+                onChange={(e) => {
+                  const newLimit = parseInt(e.target.value);
+                  setItemsPerPage(newLimit);
+                  setCurrentPage(1); // Reset to first page when changing items per page
+                }}
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none text-sm cursor-pointer"
+              >
+                <option value={10}>10 per page</option>
+                <option value={20}>20 per page</option>
+                <option value={50}>50 per page</option>
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={18} />
+            </div>
+
+            {/* From Date */}
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+            />
+
+            {/* To Date */}
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+            />
+          </div>
+
+          {/* Result Count */}
+          <div className="mt-5 text-sm text-gray-500 text-right">
+            Showing {((currentPage - 1) * itemsPerPage) + 1}-{Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} transaction{totalItems !== 1 ? "s" : ""} found
+          </div>
+        </div>
       </div>
 
-      {/* Transaction Type */}
-      <div className="relative">
-        <select
-          value={transactionType}
-          onChange={(e) => setTransactionType(e.target.value)}
-          className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none text-sm cursor-pointer"
-        >
-          {getUniqueTransactionTypes().map(type => (
-            <option key={type} value={type}>{type}</option>
-          ))}
-        </select>
-        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={18} />
+      {/* Tabs Section */}
+      <div className="px-6 mb-10">
+        <div className="flex justify-center">
+          <div className="relative inline-flex bg-white rounded-xl p-1.5 shadow-lg border border-gray-200 overflow-hidden">
+            
+            {/* Sliding Blue Pill */}
+            <div
+              className="absolute top-1.5 left-1.5 h-[calc(100%-12px)] w-[170px] bg-blue-600 rounded-xl shadow-md transition-all duration-500 ease-out"
+              style={{
+                transform: `translateX(${
+                  [
+                    TRANSACTION_TYPES.CURRENCY,
+                    TRANSACTION_TYPES.GOLD,
+                    TRANSACTION_TYPES.PURCHASE,
+                    TRANSACTION_TYPES.SALES
+                  ].indexOf(selectedType) * 182.5
+                }px)`
+              }}
+            />
+
+            {/* Tab Buttons */}
+            {[
+              { value: TRANSACTION_TYPES.CURRENCY, label: "Currency Fix" },
+              { value: TRANSACTION_TYPES.GOLD,      label: "Gold Fix" },
+              { value: TRANSACTION_TYPES.PURCHASE, label: "Purchase Metal" },
+              { value: TRANSACTION_TYPES.SALES,    label: "Sales Metal" },
+            ].map((tab, index) => (
+              <button
+                key={tab.value}
+                onClick={() => handleTypeChange(tab.value)}
+                className={`
+                  relative z-10 w-[180px] px-6 py-2 text-sm font-medium rounded-full
+                  transition-all duration-500 ease-out whitespace-nowrap
+                  ${selectedType === tab.value
+                    ? "text-white font-semibold"
+                    : "text-gray-700 hover:text-gray-900"
+                  }
+                `}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
-
-      {/* Items Per Page */}
-      <div className="relative">
-        <select
-          value={itemsPerPage}
-          onChange={(e) => setItemsPerPage(e.target.value)}
-          className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none text-sm cursor-pointer"
-        >
-          <option>20 per page</option>
-          <option>50 per page</option>
-          <option>100 per page</option>
-        </select>
-        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={18} />
-      </div>
-
-      {/* From Date */}
-      <input
-        type="date"
-        value={fromDate}
-        onChange={(e) => setFromDate(e.target.value)}
-        className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-      />
-
-      {/* To Date */}
-      <input
-        type="date"
-        value={toDate}
-        onChange={(e) => setToDate(e.target.value)}
-        className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-      />
-    </div>
-
-    {/* Result Count */}
-    <div className="mt-5 text-sm text-gray-500 text-right">
-      {filteredOrders.length} transaction{filteredOrders.length !== 1 ? "s" : ""} found
-    </div>
-  </div>
-</div>
-
-{/* ====== TABS SECTION - OUTSIDE & CENTERED (Beautiful!) ====== */}
-<div className="px-6 mb-10">
-  <div className="flex justify-center">
-    <div className="relative inline-flex bg-white rounded-xl p-1.5 shadow-lg border border-gray-200 overflow-hidden">
-      
-      {/* Sliding Blue Pill – Perfectly Contained */}
-      <div
-        className="absolute top-1.5 left-1.5 h-[calc(100%-12px)] w-[170px] bg-blue-600 rounded-xl shadow-md transition-all duration-500 ease-out"
-        style={{
-          transform: `translateX(${
-            [
-              TRANSACTION_TYPES.CURRENCY,
-              TRANSACTION_TYPES.GOLD,
-              TRANSACTION_TYPES.PURCHASE,
-              TRANSACTION_TYPES.SALES
-            ].indexOf(selectedType) * 182.5 // Adjusted for padding + gap
-          }px)`
-        }}
-      />
-
-      {/* Tab Buttons */}
-      {[
-        { value: TRANSACTION_TYPES.CURRENCY, label: "Currency Fix" },
-        { value: TRANSACTION_TYPES.GOLD,      label: "Gold Fix" },
-        { value: TRANSACTION_TYPES.PURCHASE, label: "Purchase Metal" },
-        { value: TRANSACTION_TYPES.SALES,    label: "Sales Metal" },
-      ].map((tab, index) => (
-        <button
-          key={tab.value}
-          onClick={() => handleTypeChange(tab.value)}
-          className={`
-            relative z-10 w-[180px] px-6 py-2 text-sm font-medium rounded-full
-            transition-all duration-500 ease-out whitespace-nowrap
-            ${selectedType === tab.value
-              ? "text-white font-semibold"
-              : "text-gray-700 hover:text-gray-900"
-            }
-          `}
-        >
-          {tab.label}
-        </button>
-      ))}
-    </div>
-  </div>
-</div>
 
       {loading ? (
         <div className="flex-1 flex items-center justify-center text-gray-400 py-20">
@@ -689,235 +719,285 @@ const handleDelete = async (order) => {
           </p>
         </div>
       ) : (
-     <div className="overflow-x-auto p-5">
-  <div className="border border-gray-200 rounded-xl overflow-hidden">
-    <table className="w-full">
-      <thead>
-        <tr className="bg-gray-50 border-b border-gray-200">
-          <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
-            ORDER NO
-          </th>
+        <div className="overflow-x-auto p-5">
+          <div className="border border-gray-200 rounded-xl overflow-hidden">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    ORDER NO
+                  </th>
 
-          <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
-            TYPE
-          </th>
+                  <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    TYPE
+                  </th>
 
-          <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
-            {isGoldFix ? "RATE PER KG" : "RATE"}
-          </th>
+                  <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    {isGoldFix ? "RATE PER KG" : "RATE"}
+                  </th>
 
-          {!isGoldFix && (
-            <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
-              AMOUNT
-            </th>
-          )}
+                  {!isGoldFix && (
+                    <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      AMOUNT
+                    </th>
+                  )}
 
-          {isCurrency && (
-            <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
-              CURRENCY PAIR
-            </th>
-          )}
+                  {isCurrency && (
+                    <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      CURRENCY PAIR
+                    </th>
+                  )}
 
-          {isGoldFix && (
-            <>
-              <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                COMMODITY
-              </th>
-              <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                GROSS WT (g)
-              </th>
-              <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                PURE WT (g)
-              </th>
-              <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                VALUE PER GRAM
-              </th>
-            </>
-          )}
+                  {isGoldFix && (
+                    <>
+                      <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        COMMODITY
+                      </th>
+                      <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        GROSS WT (g)
+                      </th>
+                      <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        PURE WT (g)
+                      </th>
+                      <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        VALUE PER GRAM
+                      </th>
+                    </>
+                  )}
 
-          {isMetal && (
-            <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
-              CURRENCY
-            </th>
-          )}
+                  {isMetal && (
+                    <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      CURRENCY
+                    </th>
+                  )}
 
-          {(isCurrency || isGoldFix) && (
-            <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
-              TRADER
-            </th>
-          )}
+                  {(isCurrency || isGoldFix) && (
+                    <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      TRADER
+                    </th>
+                  )}
 
-          <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
-            TIME
-          </th>
+                  <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    TIME
+                  </th>
 
-          <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
-            ACTIONS
-          </th>
-        </tr>
-      </thead>
+                  <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    ACTIONS
+                  </th>
+                </tr>
+              </thead>
 
-      <tbody className="bg-white">
-        {filteredOrders.map((order, idx) => (
-          <tr
-            key={order._id || idx}
-            className="border-t border-gray-200 hover:bg-gray-50 transition"
-          >
-            <td className="py-5 px-6 text-sm text-gray-700">{order.orderNo}</td>
-
-            <td className="py-5 px-6 text-sm">
-              <span
-                className={`font-medium ${
-                  isMetal
-                    ? order.type === "FIX"
-                      ? "text-green-600"
-                      : "text-blue-600"
-                    : order.type.includes("BUY") || order.type.includes("PURCHASE")
-                    ? "text-green-600"
-                    : "text-red-600"
-                }`}
-              >
-                {order.type}
-              </span>
-            </td>
-
-            <td className="py-5 px-6 text-sm text-gray-900 font-semibold">
-              {order.rate?.toLocaleString() || "N/A"}
-            </td>
-
-            {!isGoldFix && (
-              <td className="py-5 px-6 text-sm text-gray-500 font-medium">
-                {order.amount?.toLocaleString() || "0"}
-              </td>
-            )}
-
-            {isCurrency && (
-              <td className="py-5 px-6 text-sm text-gray-700 font-medium">
-                {order.currencyPair}
-              </td>
-            )}
-
-            {isGoldFix && (
-              <>
-                <td className="py-5 px-6 text-sm text-gray-700 font-medium">
-                  {order.commodity}
-                </td>
-
-                <td className="py-5 px-6 text-sm text-gray-600">
-                  {order.grossWeight?.toLocaleString() || "0"}g
-                </td>
-
-                <td className="py-5 px-6 text-sm text-gray-600">
-                  {order.pureWeight?.toLocaleString() || "0"}g
-                </td>
-
-                <td className="py-5 px-6 text-sm text-gray-600">
-                  {order.valuePerGram?.toLocaleString() || "0"}
-                </td>
-              </>
-            )}
-
-            {isMetal && (
-              <td className="py-5 px-6 text-sm text-gray-700 font-medium">
-                {order.currencyCode}
-              </td>
-            )}
-
-            {(isCurrency || isGoldFix) && (
-              <td className="py-5 px-6 text-sm text-gray-700">
-                {order.traderName}
-              </td>
-            )}
-
-            <td className="py-5 px-6 text-sm text-gray-500">
-              {order.time}
-            </td>
-
-            <td className="py-5 px-6">
-              <div className="flex items-center gap-2">
-                {(isCurrency || isMetal || isGoldFix) && (
-                  <button
-                    onClick={() => openInvoice(order)}
-                    className="p-1.5 hover:bg-gray-100 rounded transition-colors text-purple-500"
-                    title="Invoice"
+              <tbody className="bg-white">
+                {filteredOrders.map((order, idx) => (
+                  <tr
+                    key={order._id || idx}
+                    className="border-t border-gray-200 hover:bg-gray-50 transition"
                   >
-                    <FileText size={18} />
-                  </button>
-                )}
+                    <td className="py-5 px-6 text-sm text-gray-700">{order.orderNo}</td>
 
-                <button
-                  onClick={() => handleEdit(order)}
-                  className="p-1.5 hover:bg-gray-100 rounded transition-colors text-blue-500"
-                  title="Edit"
-                >
-                  <Edit size={18} />
-                </button>
+                    <td className="py-5 px-6 text-sm">
+                      <span
+                        className={`font-medium ${
+                          isMetal
+                            ? order.type === "FIX"
+                              ? "text-green-600"
+                              : "text-blue-600"
+                            : order.type.includes("BUY") || order.type.includes("PURCHASE")
+                            ? "text-green-600"
+                            : "text-red-600"
+                        }`}
+                      >
+                        {order.type}
+                      </span>
+                    </td>
+
+                    <td className="py-5 px-6 text-sm text-gray-900 font-semibold">
+                      {order.rate?.toLocaleString() || "N/A"}
+                    </td>
+
+                    {!isGoldFix && (
+                      <td className="py-5 px-6 text-sm text-gray-500 font-medium">
+                        {order.amount?.toLocaleString() || "0"}
+                      </td>
+                    )}
+
+                    {isCurrency && (
+                      <td className="py-5 px-6 text-sm text-gray-700 font-medium">
+                        {order.currencyPair}
+                      </td>
+                    )}
+
+                    {isGoldFix && (
+                      <>
+                        <td className="py-5 px-6 text-sm text-gray-700 font-medium">
+                          {order.commodity}
+                        </td>
+
+                        <td className="py-5 px-6 text-sm text-gray-600">
+                          {order.grossWeight?.toLocaleString() || "0"}g
+                        </td>
+
+                        <td className="py-5 px-6 text-sm text-gray-600">
+                          {order.pureWeight?.toLocaleString() || "0"}g
+                        </td>
+
+                        <td className="py-5 px-6 text-sm text-gray-600">
+                          {order.valuePerGram?.toLocaleString() || "0"}
+                        </td>
+                      </>
+                    )}
+
+                    {isMetal && (
+                      <td className="py-5 px-6 text-sm text-gray-700 font-medium">
+                        {order.currencyCode}
+                      </td>
+                    )}
+
+                    {(isCurrency || isGoldFix) && (
+                      <td className="py-5 px-6 text-sm text-gray-700">
+                        {order.traderName}
+                      </td>
+                    )}
+
+                    <td className="py-5 px-6 text-sm text-gray-500">
+                      {order.time}
+                    </td>
+
+                    <td className="py-5 px-6">
+                      <div className="flex items-center gap-2">
+                        {(isCurrency || isMetal || isGoldFix) && (
+                          <button
+                            onClick={() => openInvoice(order)}
+                            className="p-1.5 hover:bg-gray-100 rounded transition-colors text-purple-500"
+                            title="Invoice"
+                          >
+                            <FileText size={18} />
+                          </button>
+                        )}
+
+                        <button
+                          onClick={() => handleEdit(order)}
+                          className="p-1.5 hover:bg-gray-100 rounded transition-colors text-blue-500"
+                          title="Edit"
+                        >
+                          <Edit size={18} />
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setOrderToDelete(order);
+                            setShowDeleteModal(true);
+                          }}
+                          className="p-1.5 hover:bg-gray-100 rounded transition-colors text-red-500"
+                          title="Delete"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {/* Pagination Component */}
+            {totalPages > 1 && (
+              <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+                <div className="text-sm text-gray-700">
+                  Showing {((currentPage - 1) * itemsPerPage) + 1} to{" "}
+                  {Math.min(currentPage * itemsPerPage, totalItems)} of{" "}
+                  {totalItems} results
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 text-sm border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                  >
+                    Previous
+                  </button>
+                  <div className="flex items-center space-x-1">
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let page;
+                      if (totalPages <= 5) {
+                        page = i + 1;
+                      } else if (currentPage <= 3) {
+                        page = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        page = totalPages - 4 + i;
+                      } else {
+                        page = currentPage - 2 + i;
+                      }
+                      return (
+                        <button
+                          key={page}
+                          onClick={() => handlePageChange(page)}
+                          className={`px-3 py-1 text-sm rounded-md ${
+                            currentPage === page
+                              ? "bg-blue-600 text-white"
+                              : "border border-gray-300 hover:bg-gray-50"
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <button
+                    onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1 text-sm border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/30 bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-xl w-[350px] p-6 animate-fadeIn">
+            
+            <h3 className="text-lg font-semibold text-gray-800 mb-3">
+              Delete Transaction?
+            </h3>
+
+            <p className="text-sm text-gray-600 mb-6 leading-relaxed">
+              This action cannot be undone.  
+              Do you want to permanently delete 
+              <span className="font-medium text-gray-800"> {orderToDelete?.orderNo}</span>?
+            </p>
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setOrderToDelete(null);
+                }}
+                className="px-4 py-2 rounded-lg text-sm border border-gray-300 hover:bg-gray-100 transition"
+              >
+                Cancel
+              </button>
 
               <button
-  onClick={() => {
-    setOrderToDelete(order);
-    setShowDeleteModal(true);
-  }}
-  className="p-1.5 hover:bg-gray-100 rounded transition-colors text-red-500"
-  title="Delete"
->
-  <Trash2 size={18} />
-</button>
-
-              </div>
-            </td>
-          </tr>
-          
-        ))}
-        {showDeleteModal && (
-  <div className="fixed inset-0 bg-black/30 bg-opacity-40 flex items-center justify-center z-50 ">
-    <div className="bg-white rounded-2xl shadow-xl w-[350px] p-6 animate-fadeIn">
-      
-      <h3 className="text-lg font-semibold text-gray-800 mb-3">
-        Delete Transaction?
-      </h3>
-
-      <p className="text-sm text-gray-600 mb-6 leading-relaxed">
-        This action cannot be undone.  
-        Do you want to permanently delete 
-        <span className="font-medium text-gray-800"> {orderToDelete?.orderNo}</span>?
-      </p>
-
-      <div className="flex justify-end gap-3">
-        <button
-          onClick={() => {
-            setShowDeleteModal(false);
-            setOrderToDelete(null);
-          }}
-          className="px-4 py-2 rounded-lg text-sm border border-gray-300 hover:bg-gray-100 transition"
-        >
-          Cancel
-        </button>
-
-        <button
-          onClick={() => {
-            setShowDeleteModal(false);
-            if (orderToDelete?._id) {
-              handleDelete(orderToDelete);
-            }
-            setOrderToDelete(null);
-          }}
-          className="px-4 py-2 rounded-lg text-sm bg-red-600 text-white hover:bg-red-700 transition"
-        >
-          Delete
-        </button>
-      </div>
-
-    </div>
-  </div>
-)}
-
-      </tbody>
-    </table>
-  </div>
-</div>
-
-
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  if (orderToDelete?._id) {
+                    handleDelete(orderToDelete);
+                  }
+                  setOrderToDelete(null);
+                }}
+                className="px-4 py-2 rounded-lg text-sm bg-red-600 text-white hover:bg-red-700 transition"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <InvoiceModal
@@ -934,6 +1014,5 @@ const handleDelete = async (order) => {
         partyCurrency={selectedOrder?.partyCode || { currencyCode: "AED" }}
       />
     </div>
-    
   );
 }
