@@ -260,11 +260,11 @@ const Sidebar = () => {
         icon: <Wallet2 strokeWidth={1.5} size={22} />,
         text: "Financial Transaction",
         children: [
-          {
-            icon: <CreditCard strokeWidth={1.5} size={20} />,
-            text: "Currency Fix ",
-            to: "/currency-fix",
-          },
+          // {
+          //   icon: <CreditCard strokeWidth={1.5} size={20} />,
+          //   text: "Currency Fix ",
+          //   to: "/currency-fix",
+          // },
           {
             icon: <ReceiptText strokeWidth={1.5} size={20} />,
             text: "Currency Receipt",
