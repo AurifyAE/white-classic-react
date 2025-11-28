@@ -357,196 +357,217 @@ const StockBalanceCenter = () => {
               <span className="text-red-700 font-medium">{error}</span>
             </div>
           )}
+{/* Summary Cards */}
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 px-6">
 
-          {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 px-6">
-            {/* Cash Credit */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              <div className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center mb-2">
-                      <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                      <p className="text-sm font-medium text-gray-600 uppercase tracking-wide">
-                        Cash Credit
-                      </p>
-                    </div>
-                    <p className="text-3xl font-bold text-gray-900 mb-1 flex items-center">
-                      <img
-                        src={DirhamIcon}
-                        alt="AED"
-                        className="w-8 h-8 mr-1"
-                      />
-                      {parseFloat(summaryTotals.totalCashCredits || 0) < 0 ? "-" : ""}
-                      {Math.abs(
-                        parseFloat(summaryTotals.totalCashCredits || 0)
-                      ).toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}{" "}
-                      {parseFloat(summaryTotals.totalCashCredits || 0) >= 0 ? "CR" : "DR"}
-                    </p>
-                    <p className="text-sm text-gray-500">Total Cash Credits</p>
-                  </div>
-                  <div className="bg-green-50 p-3 rounded-lg">
-                    <TrendingUp className="w-6 h-6 text-green-600" />
-                  </div>
-                </div>
-              </div>
-            </div>
+  {/* CASH CREDIT */}
+  <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+    <div className="p-6">
+      <div className="flex items-center justify-between">
+        <div className="flex-1">
 
-            {/* Cash Debit */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              <div className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center mb-2">
-                      <div className="w-2 h-2 bg-red-500 rounded-full mr-2"></div>
-                      <p className="text-sm font-medium text-gray-600 uppercase tracking-wide">
-                        Cash Debit
-                      </p>
-                    </div>
-                    <p className="text-3xl font-bold text-gray-900 mb-1 flex items-center">
-                      <img
-                        src={DirhamIcon}
-                        alt="AED"
-                        className="w-8 h-8 mr-1"
-                      />
-                      {Math.abs(parseFloat(summaryTotals.totalCashDebits || 0)).toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}{" "}
-                      DR
-
-                    </p>
-                    <p className="text-sm text-gray-500">Total Cash Debits</p>
-                  </div>
-                  <div className="bg-red-50 p-3 rounded-lg">
-                    <TrendingDown className="w-6 h-6 text-red-600" />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Cash Balance */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              <div className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center mb-2">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
-                      <p className="text-sm font-medium text-gray-600 uppercase tracking-wide">
-                        Cash Balance
-                      </p>
-                    </div>
-                    <p className="text-3xl font-bold text-gray-900 mb-1 flex items-center">
-                      <img
-                        src={DirhamIcon}
-                        alt="AED"
-                        className="w-8 h-8 mr-1"
-                      />
-                      {summaryTotals.cashNetBalance < 0 ? "-" : ""}
-                      {Math.abs(summaryTotals.cashNetBalance).toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })} {summaryTotals.cashNetBalance >= 0 ? "CR" : "DR"}
-
-                    </p>
-                    <p className="text-sm text-gray-500">Available Cash Balance</p>
-                  </div>
-                  <div className="bg-blue-50 p-3 rounded-lg">
-                    <Settings2 className="w-6 h-6 text-blue-600" />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Gold Credit */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              <div className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center mb-2">
-                      <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                      <p className="text-sm font-medium text-gray-600 uppercase tracking-wide">
-                        Gold Credit
-                      </p>
-                    </div>
-                    <p className="text-3xl font-bold text-gray-900 mb-1 flex items-center">
-                      {parseFloat(summaryTotals.totalGoldCredits || 0) < 0 ? "-" : ""}
-                      {Math.abs(
-                        parseFloat(summaryTotals.totalGoldCredits || 0)
-                      ).toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}{" "}
-                      CR
-                    </p>
-                    <p className="text-sm text-gray-500">Total Gold Credits</p>
-                  </div>
-                  <div className="bg-green-50 p-3 rounded-lg">
-                    <TrendingUp className="w-6 h-6 text-green-600" />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Gold Debit */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              <div className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center mb-2">
-                      <div className="w-2 h-2 bg-red-500 rounded-full mr-2"></div>
-                      <p className="text-sm font-medium text-gray-600 uppercase tracking-wide">
-                        Gold Debit
-                      </p>
-                    </div>
-                    <p className="text-3xl font-bold text-gray-900 mb-1 flex items-center">
-                      {Math.abs(parseFloat(summaryTotals.totalGoldDebits || 0)).toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}{" "}
-                      DR
-
-                    </p>
-                    <p className="text-sm text-gray-500">Total Gold Debits</p>
-                  </div>
-                  <div className="bg-red-50 p-3 rounded-lg">
-                    <TrendingDown className="w-6 h-6 text-red-600" />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Gold Balance */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              <div className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center mb-2">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
-                      <p className="text-sm font-medium text-gray-600 uppercase tracking-wide">
-                        Gold Balance
-                      </p>
-                    </div>
-                    <p className="text-3xl font-bold text-gray-900 mb-1 flex items-center">
-                      {summaryTotals.goldNetBalance < 0 ? "-" : ""}
-                      {Math.abs(summaryTotals.goldNetBalance).toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })} {summaryTotals.goldNetBalance >= 0 ? "CR" : "DR"}
-
-                    </p>
-                    <p className="text-sm text-gray-500">Available Gold Balance</p>
-                  </div>
-                  <div className="bg-blue-50 p-3 rounded-lg">
-                    <Settings2 className="w-6 h-6 text-blue-600" />
-                  </div>
-                </div>
-              </div>
-            </div>
+          <div className="flex items-center mb-2">
+            <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+            <p className="text-sm font-medium text-gray-700 uppercase tracking-wide">
+              CASH CREDIT
+            </p>
           </div>
+
+          <p className="mt-1 text-xs text-gray-500 mb-2">
+            1 = 1,000 INR | 100 = 1 Lakh INR
+          </p>
+
+          <p className="text-3xl font-bold text-green-700 mb-1 flex items-center">
+            <span className="mr-1 text-3xl">₹</span>
+            {Math.abs(summaryTotals.totalCashCredits).toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}{" "}
+            {summaryTotals.totalCashCredits >= 0 ? "CR" : "DR"}
+          </p>
+
+          <p className="text-sm text-gray-500">Total Cash Credits</p>
+        </div>
+
+        <div className="bg-green-50 p-3 rounded-lg">
+          <TrendingUp className="w-6 h-6 text-green-600" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {/* CASH DEBIT */}
+  <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+    <div className="p-6">
+      <div className="flex items-center justify-between">
+        <div className="flex-1">
+
+          <div className="flex items-center mb-2">
+            <div className="w-2 h-2 bg-red-500 rounded-full mr-2"></div>
+            <p className="text-sm font-medium text-gray-700 uppercase tracking-wide">
+              CASH DEBIT
+            </p>
+          </div>
+
+          <p className="mt-1 text-xs text-gray-500 mb-2">
+            1 = 1,000 INR | 100 = 1 Lakh INR
+          </p>
+
+          <p className="text-3xl font-bold text-red-700 mb-1 flex items-center">
+            <span className="mr-1 text-3xl">₹</span>
+            {Math.abs(summaryTotals.totalCashDebits).toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}{" "}
+            DR
+          </p>
+
+          <p className="text-sm text-gray-500">Total Cash Debits</p>
+        </div>
+
+        <div className="bg-red-50 p-3 rounded-lg">
+          <TrendingDown className="w-6 h-6 text-red-600" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {/* CASH BALANCE */}
+  <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+    <div className="p-6">
+      <div className="flex items-center justify-between">
+        <div className="flex-1">
+
+          <div className="flex items-center mb-2">
+            <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+            <p className="text-sm font-medium text-gray-700 uppercase tracking-wide">
+              CASH BALANCE
+            </p>
+          </div>
+
+          <p className="mt-1 text-xs text-gray-500 mb-2">
+            1 = 1,000 INR | 100 = 1 Lakh INR
+          </p>
+
+          <p className="text-3xl font-bold text-blue-900 mb-1 flex items-center">
+            <span className="mr-1 text-3xl">₹</span>
+            {Math.abs(summaryTotals.cashNetBalance).toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}{" "}
+            {summaryTotals.cashNetBalance >= 0 ? "CR" : "DR"}
+          </p>
+
+          <p className="text-sm text-gray-500">Available Cash Balance</p>
+        </div>
+
+        <div className="bg-blue-50 p-3 rounded-lg">
+          <Settings2 className="w-6 h-6 text-blue-600" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {/* GOLD CREDIT */}
+  <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+    <div className="p-6">
+      <div className="flex items-center justify-between">
+        <div className="flex-1">
+
+          <div className="flex items-center mb-2">
+            <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+            <p className="text-sm font-medium text-gray-700 uppercase tracking-wide">
+              GOLD CREDIT
+            </p>
+          </div>
+
+
+
+          <p className="text-3xl font-bold text-green-700 mb-1 flex items-center">
+            {Math.abs(summaryTotals.totalGoldCredits).toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}{" "}
+            g CR
+          </p>
+
+          <p className="text-sm text-gray-500">Total Gold Credits</p>
+        </div>
+
+        <div className="bg-green-50 p-3 rounded-lg">
+          <TrendingUp className="w-6 h-6 text-green-600" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {/* GOLD DEBIT */}
+  <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+    <div className="p-6">
+      <div className="flex items-center justify-between">
+        <div className="flex-1">
+
+          <div className="flex items-center mb-2">
+            <div className="w-2 h-2 bg-red-500 rounded-full mr-2"></div>
+            <p className="text-sm font-medium text-gray-700 uppercase tracking-wide">
+              GOLD DEBIT
+            </p>
+          </div>
+
+
+          <p className="text-3xl font-bold text-red-700 mb-1 flex items-center">
+            {Math.abs(summaryTotals.totalGoldDebits).toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}{" "}
+            g DR
+          </p>
+
+          <p className="text-sm text-gray-500">Total Gold Debits</p>
+        </div>
+
+        <div className="bg-red-50 p-3 rounded-lg">
+          <TrendingDown className="w-6 h-6 text-red-600" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {/* GOLD BALANCE */}
+  <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+    <div className="p-6">
+      <div className="flex items-center justify-between">
+        <div className="flex-1">
+
+          <div className="flex items-center mb-2">
+            <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+            <p className="text-sm font-medium text-gray-700 uppercase tracking-wide">
+              GOLD BALANCE
+            </p>
+          </div>
+
+        
+
+          <p className="text-3xl font-bold text-blue-900 mb-1 flex items-center">
+            {Math.abs(summaryTotals.goldNetBalance).toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}{" "}
+            g {summaryTotals.goldNetBalance >= 0 ? "CR" : "DR"}
+          </p>
+
+          <p className="text-sm text-gray-500">Available Gold Balance</p>
+        </div>
+
+        <div className="bg-blue-50 p-3 rounded-lg">
+          <Settings2 className="w-6 h-6 text-blue-600" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
 
           {/* Transaction Registry */}
           <div className="bg-white rounded-2xl shadow-xl overflow-hidden">

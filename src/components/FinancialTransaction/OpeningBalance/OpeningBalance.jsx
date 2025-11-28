@@ -758,7 +758,7 @@ const OpeningBalance = () => {
                   </div>
                   <div className="space-y-2">
                     <label className="text-gray-700 font-medium">
-                      Description (Optional)
+                      Remarks (Optional)
                     </label>
                     <input
                       type="text"
@@ -889,7 +889,7 @@ const OpeningBalance = () => {
                     Amount
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Description
+                    Remarks
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     Date

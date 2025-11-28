@@ -365,15 +365,13 @@ export default function RecentOrders({
     }
   };
 
-  const handleEdit = (order) => {
-    console.log("Edit clicked with order:", order);
-    
-    if (onEditTransaction) {
-      onEditTransaction(order);
-    } else {
-      navigateToEditPage(order);
-    }
-  };
+const handleEdit = (order) => {
+  if (onEditTransaction) {
+    onEditTransaction(order);  // ← This is clean, no navigation state issues
+  } else {
+    navigateToEditPage(order); // fallback only
+  }
+};
 
   const navigateToEditPage = (order) => {
     // Prepare the edit data based on transaction type
@@ -468,13 +466,15 @@ export default function RecentOrders({
     console.log("Trader data being passed:", traderData);
 
     // Navigate to transaction page with state
-    navigate('/transaction', { 
-      state: { 
-        activeTab: selectedType,
-        editTransaction: editData,
-        traderData: traderData
-      } 
-    });
+  navigate('/transaction', { 
+  state: { 
+    activeTab: selectedType,
+    editTransaction: editData,
+    traderData: traderData,
+    initiatedFromRecentOrders: true      
+  } 
+});
+
   };
 
   const handleDelete = async (order) => {

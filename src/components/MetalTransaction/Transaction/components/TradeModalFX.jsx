@@ -116,42 +116,38 @@ export default function TradeModalFX({
     fetchCurrencies();
   }, []);
 
-  // ---------- AUTO-FILL WHEN EDITING ----------
-  useEffect(() => {
-    if (!editTransaction) {
-      // create mode – reset everything
-      setPayAmount('');
-      setReceiveAmount('');
-      setRateLakh('');
-      setIsBuy(true);
-      setLastEdited(null);
-      isEditMode.current = false;
-      return;
-    }
-
-    // ---- EDIT MODE ----
-    isEditMode.current = true;
-
-    const {
-      type,
-      amount,      // amount paid
-      converted,   // amount received
-      rate,        // rate per lakh
-    } = editTransaction;
-
-    // 1. BUY vs SELL
-    const buy = type === 'BUY';
-    setIsBuy(buy);
-
-    // 2. Set amounts (with formatting)
-    setPayAmount(formatNumber(String(amount || '')));
-    setReceiveAmount(formatNumber(String(converted || '')));
-
-    // 3. Set rate (with formatting)
-    setRateLakh(formatNumber(String(rate || '')));
-
+// ---------- AUTO-FILL + FULL RESET WHEN EDIT ENDS ----------
+useEffect(() => {
+  if (!editTransaction) {
+    // This runs when edit is done/cancelled → FULL CLEAN STATE
+    setPayAmount('');
+    setReceiveAmount('');
+    setRateLakh('');
+    setIsBuy(true);
     setLastEdited(null);
-  }, [editTransaction]);
+    setLocalSelectedTrader(null);     // ← CLEAR TRADER!
+    isEditMode.current = false;
+
+    // Generate BRAND NEW voucher for next trade
+    fetchVoucherCode();
+
+    return;
+  }
+
+  // EDIT MODE: Fill with existing data
+  isEditMode.current = true;
+
+  const { type, amount, converted, rate } = editTransaction;
+
+  setIsBuy(type === 'BUY');
+  setPayAmount(formatNumber(String(amount || '')));
+  setReceiveAmount(formatNumber(String(converted || '')));
+  setRateLakh(formatNumber(String(rate || '')));
+  setLastEdited(null);
+
+  // Keep old voucher & trader during edit (correct)
+  // Do NOT call fetchVoucherCode() here
+}, [editTransaction, fetchVoucherCode]);
 
   // ---------- calculations ----------
   useEffect(() => {
@@ -220,117 +216,110 @@ export default function TradeModalFX({
   };
 
   // ---------- submit ----------
-  const handleSubmit = useCallback(async () => {
-    const currentTrader = localSelectedTrader || selectedTrader;
-    
-    if (!currentTrader) {
-      toast.error('Please select a trader first');
-      return;
+const handleSubmit = useCallback(async () => {
+  const currentTrader = localSelectedTrader || selectedTrader;
+
+  if (!currentTrader) {
+    toast.error('Please select a trader first');
+    return;
+  }
+
+  const pay = parseFloat(parseNumber(payAmount)) || 0;
+  const recv = parseFloat(parseNumber(receiveAmount)) || 0;
+  const rate = parseFloat(parseNumber(rateLakh)) || 0;
+
+  if (!pay || !recv || !rate) {
+    toast.error('Please fill all fields with valid numbers');
+    return;
+  }
+
+  const base = isBuy ? 'INR' : 'AED';
+  const quote = isBuy ? 'AED' : 'INR';
+
+  const baseCurrency = currencies.find((c) => c.currencyCode === base);
+  const targetCurrency = currencies.find((c) => c.currencyCode === quote);
+
+  const payload = {
+    partyId: currentTrader.value,
+    type: isBuy ? 'BUY' : 'SELL',
+    amount: pay,
+    currency: base,
+    rate: rate,
+    converted: recv,
+    orderId: editTransaction?.orderId || `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    timestamp: new Date().toISOString(),
+    currentRate: rate,
+    bidSpread: 0,
+    askSpread: 0,
+    buyRate: rate,
+    sellRate: rate,
+    baseCurrencyId: baseCurrency?._id,
+    targetCurrencyId: targetCurrency?._id,
+    conversionRate: null,
+    baseCurrencyCode: base,
+    targetCurrencyCode: quote,
+    reference: editTransaction?.reference || voucher?.voucherNumber || '',
+    isGoldTrade: false,
+  };
+
+  try {
+    let res;
+    if (editTransaction?._id) {
+      // UPDATE EXISTING TRADE
+      res = await axiosInstance.put(
+        `/currency-trading/trades/${editTransaction._id}`,
+        payload
+      );
+    } else {
+      // CREATE NEW TRADE
+      res = await axiosInstance.post('/currency-trading/trades', payload);
     }
 
-    const pay = parseFloat(parseNumber(payAmount)) || 0;
-    const recv = parseFloat(parseNumber(receiveAmount)) || 0;
-    const rate = parseFloat(parseNumber(rateLakh)) || 0;
+    if (res.data.success) {
+      // Show success modal
+      setSuccessData({
+        trader: currentTrader.trader,
+        pay: { amount: payAmount, currency: base },
+        receive: { amount: receiveAmount, currency: quote },
+        rateLakh,
+        isBuy,
+      });
+      setShowSuccess(true);
 
-    if (!pay || !recv || !rate) {
-      toast.error('Please fill all fields with valid numbers');
-      return;
-    }
-
-    const base = isBuy ? 'INR' : 'AED';
-    const quote = isBuy ? 'AED' : 'INR';
-
-    const baseCurrency = currencies.find((c) => c.currencyCode === base);
-    const targetCurrency = currencies.find((c) => c.currencyCode === quote);
-
-    const payload = {
-      partyId: currentTrader.value,
-      type: isBuy ? 'BUY' : 'SELL',
-      amount: pay,
-      currency: base,
-      rate: rate,
-      converted: recv,
-      orderId: editTransaction?.orderId || `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      timestamp: new Date().toISOString(),
-      currentRate: rate,
-      bidSpread: 0,
-      askSpread: 0,
-      buyRate: rate,
-      sellRate: rate,
-      baseCurrencyId: baseCurrency?._id,
-      targetCurrencyId: targetCurrency?._id,
-      conversionRate: null,
-      baseCurrencyCode: base,
-      targetCurrencyCode: quote,
-      reference: voucher?.voucherNumber || editTransaction?.reference || '',
-      isGoldTrade: false,
-    };
-
-    try {
-      let res;
-      if (editTransaction?._id) {
-        // ---- UPDATE ----
-        res = await axiosInstance.put(
-          `/currency-trading/trades/${editTransaction._id}`,
-          payload
-        );
-      } else {
-        // ---- CREATE ----
-        res = await axiosInstance.post('/currency-trading/trades', payload);
+      // REFETCH TRADER BALANCES
+      if (traderRefetch?.current && typeof traderRefetch.current === 'function') {
+        await traderRefetch.current();
       }
 
-      if (res.data.success) {
-        setSuccessData({
-          trader: currentTrader.trader,
-          pay: { amount: payAmount, currency: base },
-          receive: { amount: receiveAmount, currency: quote },
-          rateLakh,
-          isBuy,
-        });
-        setShowSuccess(true);
+      // DO NOT RESET ANYTHING HERE!
+      // Let the parent clear editTransaction → triggers useEffect → FULL CLEAN RESET
 
-        // ---- reset form ----
-        setPayAmount('');
-        setReceiveAmount('');
-        setRateLakh('');
-        setLastEdited(null);
-        isEditMode.current = false;
-
-        // ---- **REFETCH NEW VOUCHER** ----
-        if (!editTransaction?._id) {
-          await fetchVoucherCode();
-        }
-        
-        // Refetch trader balances
-        if (traderRefetch?.current && typeof traderRefetch.current === 'function') {
-          await traderRefetch.current();
-        }
-
-        // Call parent's onClose to clear edit mode
-        if (onClose && editTransaction?._id) {
-          onClose();
-        }
-      } else {
-        toast.error(editTransaction?._id ? 'Update failed' : 'Create failed');
+      // Tell parent: "We are done editing"
+      if (onClose) {
+        onClose(true); // This makes editTransaction = null → form becomes fresh
       }
-    } catch (err) {
-      console.error('Trade error:', err);
-      toast.error('Error processing trade');
+    } else {
+      toast.error(editTransaction?._id ? 'Update failed' : 'Create failed');
     }
-  }, [
-    localSelectedTrader,
-    selectedTrader,
-    payAmount,
-    receiveAmount,
-    rateLakh,
-    isBuy,
-    currencies,
-    voucher,
-    editTransaction,
-    onClose,
-    fetchVoucherCode,
-    traderRefetch
-  ]);
+  } catch (err) {
+    console.error('Trade error:', err);
+    toast.error(err.response?.data?.message || 'Error processing trade');
+  }
+}, [
+  localSelectedTrader,
+  selectedTrader,
+  payAmount,
+  receiveAmount,
+  rateLakh,
+  isBuy,
+  currencies,
+  voucher,
+  editTransaction,
+  onClose,
+  traderRefetch,
+  setShowSuccess,
+  setSuccessData,
+]);
 
   // Handle cancel
   const handleCancel = () => {
