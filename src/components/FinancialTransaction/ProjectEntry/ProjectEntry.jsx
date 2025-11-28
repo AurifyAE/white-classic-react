@@ -25,6 +25,8 @@ import { toast, ToastContainer } from "react-toastify";
 import { formatIndianCurrency, formatIndianNumber } from "../../../utils/formatters";
 import { useLocation } from "react-router-dom";
 
+
+
 // Custom Modal Component
 const NegativeBalanceModal = ({ isOpen, onClose, onConfirm, senderBalance, transferAmount, transferType }) => {
   if (!isOpen) return null;
@@ -59,6 +61,57 @@ const NegativeBalanceModal = ({ isOpen, onClose, onConfirm, senderBalance, trans
     </div>
   );
 };
+
+const SearchablePartySelect = ({ label, value, onChange, customers, excludeId }) => {
+  const [query, setQuery] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+
+  const filtered = customers.filter(c =>
+    (excludeId ? c.id !== excludeId : true) &&
+    c.name.toLowerCase().includes(query.toLowerCase())
+  );
+
+  return (
+    <div className="space-y-2 relative">
+      <label className="text-gray-700 font-medium">{label}</label>
+
+      <input
+        type="text"
+        value={value ? customers.find(c => c.id === value)?.name : query}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setIsOpen(true);
+          onChange(""); // reset selected
+        }}
+        placeholder={`Select ${label}`}
+        className="w-full p-4 bg-white border border-gray-300 rounded-xl text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+      />
+
+      {isOpen && (
+        <div className="absolute z-50 w-full bg-white border border-gray-200 rounded-xl max-h-60 overflow-y-auto shadow-lg">
+          {filtered.length === 0 && (
+            <div className="p-3 text-gray-500 text-sm">No results found</div>
+          )}
+
+          {filtered.map(c => (
+            <div
+              key={c.id}
+              onClick={() => {
+                onChange(c.id);
+                setQuery(c.name);
+                setIsOpen(false);
+              }}
+              className="p-3 cursor-pointer hover:bg-indigo-50 text-gray-700"
+            >
+              {c.name} ({c.account})
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 
 const Transfer = () => {
   const [transferType, setTransferType] = useState("cash"); // Default to cash
@@ -112,24 +165,45 @@ const Transfer = () => {
     }
   };
 
-  const fetchParties = async () => {
-    try {
-      const response = await axiosInstance.get("/account-type/");
-      const transformed = response.data.data.map((item) => ({
+const fetchParties = async () => {
+  try {
+    const response = await axiosInstance.get("/account-type/");
+    
+    const transformed = response.data.data.map((item) => {
+      const cashList = item.balances?.cashBalance || [];
+
+      const AED = cashList.find(b => b.currency?.currencyCode === "AED");
+      const INR = cashList.find(b => b.currency?.currencyCode === "INR");
+
+      const gold = item.balances?.goldBalance || {};
+
+      return {
         id: item._id,
         name: item.customerName || "N/A",
         account: item.accountCode || "N/A",
+
         balance: {
-          cash: new Intl.NumberFormat("en-AE", { style: "currency", currency: "AED" }).format(item.balances?.cashBalance?.amount ?? 0),
-          rawCash: item.balances?.cashBalance?.amount ?? 0,
+          aed: AED?.amount ?? 0,
+          inr: INR?.amount ?? 0,
+          gold: gold.totalGrams ?? 0,
+
+          // Raw AED for negative balance checking
+          rawAed: AED?.amount ?? 0,
         },
-      }));
-      setCustomers(transformed);
-    } catch (error) {
-      console.error("Error fetching parties:", error);
-      toast.error("Failed to fetch parties", { position: "top-right", autoClose: 1500 });
-    }
-  };
+      };
+    });
+
+    setCustomers(transformed);
+
+  } catch (error) {
+    console.error("Error fetching parties:", error);
+    toast.error("Failed to fetch parties", {
+      position: "top-right",
+      autoClose: 1500,
+    });
+  }
+};
+
 
   const generateVoucherNumber = async () => {
     try {
@@ -192,7 +266,7 @@ const Transfer = () => {
     try {
       const debitPartyData = customers.find((c) => c.id === debitParty);
       const transferAmount = Number(debitAmount);
-      const senderBalance = debitPartyData.balance.rawCash;
+const senderBalance = debitPartyData.balance.rawAed;
 
       // Check if transfer would result in negative balance
       if (senderBalance - transferAmount < 0) {
@@ -293,11 +367,33 @@ const Transfer = () => {
     setCurrentPage(1);
   };
 
-  const getBalanceDisplay = (customerId) => {
-    const customer = customers.find((c) => c.id === customerId);
-    if (!customer) return "";
-    return customer.balance.cash;
-  };
+const getBalanceDisplay = (customerId) => {
+  const customer = customers.find((c) => c.id === customerId);
+  if (!customer) return null;
+
+  return (
+    <div className="mt-2 text-sm text-gray-700 bg-gray-50 p-3 rounded-xl space-y-1 border border-gray-200">
+      <div className="flex items-center justify-between">
+        <span className="font-medium">Cash (AED)</span>
+        <div className="flex items-center">
+          <img src={DirhamIcon} className="w-4 h-4 mr-1" />
+          {formatIndianNumber(customer.balance.aed)}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <span className="font-medium">Cash (INR)</span>
+        <span>₹ {formatIndianNumber(customer.balance.inr)}</span>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <span className="font-medium">Gold</span>
+        <span>🪙 {formatIndianNumber(customer.balance.gold)} g</span>
+      </div>
+    </div>
+  );
+};
+
 
   const profitLoss = calculateProfitLoss();
   const isFormValid = debitParty && creditParty && debitAmount && creditAmount && debitParty !== creditParty && !isNaN(Number(debitAmount)) && !isNaN(Number(creditAmount)) && profitLoss.isBalanced;
@@ -330,16 +426,29 @@ const Transfer = () => {
                 <Coins className="w-5 h-5 mr-2 text-indigo-600" />
                  Transfer Type
               </h3>
-              <div className="flex justify-center">
-                <div className="w-full max-w-md">
-                  <div className="p-6 rounded-2xl border-2 border-green-500 bg-green-50 text-green-700 shadow-lg">
-                    <div className="font-semibold text-lg text-center">Cash Balance</div>
-                    <div className="text-sm opacity-80 text-center mt-1">
-                      Transfer cash between accounts
-                    </div>
-                  </div>
-                </div>
-              </div>
+         <div className="w-full">
+  <div className="relative bg-white border border-gray-200 p-6 rounded-2xl shadow-sm hover:shadow-md transition-all">
+    <div className="flex items-center">
+      <div className="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center mr-4 shadow-sm">
+        <Coins className="w-6 h-6" />
+      </div>
+
+      <div className="flex-grow">
+        <div className="text-gray-800 font-semibold text-lg">
+          Internal Transfer
+        </div>
+        <div className="text-gray-500 text-sm">
+          Move AED balance between accounts
+        </div>
+      </div>
+
+      <div className="bg-indigo-50 text-indigo-600 text-xs font-medium px-3 py-1 rounded-full border border-indigo-100">
+        Active
+      </div>
+    </div>
+  </div>
+</div>
+
             </div>
 
             <div className="mb-8">
@@ -349,26 +458,18 @@ const Transfer = () => {
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
                 <div className="space-y-2">
-                  <label className="text-gray-700 font-medium flex items-center">
+                  {/* <label className="text-gray-700 font-medium flex items-center">
                     Debit Party
-                  </label>
-                  <select
-                    value={debitParty}
-                    onChange={(e) => setDebitParty(e.target.value)}
-                    className="w-full p-4 bg-white border border-gray-300 rounded-xl text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  >
-                    <option value="">Select debit party</option>
-                    {customers.map((customer) => (
-                      <option key={customer.id} value={customer.id}>
-                        {customer.name} ({customer.account})
-                      </option>
-                    ))}
-                  </select>
-                  {debitParty && (
-                    <div className="text-sm text-gray-600 bg-gray-100 p-2 rounded-lg">
-                      Balance: {getBalanceDisplay(debitParty)}
-                    </div>
-                  )}
+                  </label> */}
+               <SearchablePartySelect
+  label="Debit Party"
+  value={debitParty}
+  onChange={setDebitParty}
+  customers={customers}
+  excludeId={creditParty}
+/>
+{debitParty && getBalanceDisplay(debitParty)}
+
                 </div>
                 <div className="flex justify-center">
                   {/* <button
@@ -380,26 +481,18 @@ const Transfer = () => {
                   </button> */}
                 </div>
                 <div className="space-y-2">
-                  <label className="text-gray-700 font-medium flex items-center">
+                  {/* <label className="text-gray-700 font-medium flex items-center">
                     Credit Party
-                  </label>
-                  <select
-                    value={creditParty}
-                    onChange={(e) => setCreditParty(e.target.value)}
-                    className="w-full p-4 bg-white border border-gray-300 rounded-xl text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  >
-                    <option value="">Select credit party</option>
-                    {customers.filter((c) => c.id !== debitParty).map((customer) => (
-                      <option key={customer.id} value={customer.id}>
-                        {customer.name} ({customer.account})
-                      </option>
-                    ))}
-                  </select>
-                  {creditParty && (
-                    <div className="text-sm text-gray-600 bg-gray-100 p-2 rounded-lg">
-                      Balance: {getBalanceDisplay(creditParty)}
-                    </div>
-                  )}
+                  </label> */}
+                <SearchablePartySelect
+  label="Credit Party"
+  value={creditParty}
+  onChange={setCreditParty}
+  customers={customers}
+  excludeId={debitParty}
+/>
+{debitParty && getBalanceDisplay(creditParty)}
+
                 </div>
               </div>
             </div>
@@ -408,7 +501,7 @@ const Transfer = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label className="text-gray-700 font-medium flex items-center">
-                    Debit Amount (AED)
+                    Debit Account
                   </label>
                   <div className="relative">
                     <input
@@ -427,7 +520,7 @@ const Transfer = () => {
                 </div>
                 <div className="space-y-2">
                   <label className="text-gray-700 font-medium flex items-center">
-                    Credit Amount (AED)
+                    Credit Account
                   </label>
                   <div className="relative">
                     <input
@@ -507,7 +600,7 @@ const Transfer = () => {
               )}
 
               <div className="space-y-2">
-                <label className="text-gray-700 font-medium">Description (Optional)</label>
+                <label className="text-gray-700 font-medium">Remarks (Optional)</label>
                 <input
                   type="text"
                   value={description}
@@ -598,7 +691,7 @@ const Transfer = () => {
               ) : (
                 <div className="flex items-center justify-center">
                   <Send className="w-6 h-6 mr-3" />
-                  Execute Transfer
+                  Execute Project Entry
                 </div>
               )}
             </button>
@@ -760,7 +853,7 @@ const Transfer = () => {
                         <th className="text-left py-4 px-2 text-gray-600 font-medium">To</th>
                         <th className="text-left py-4 px-2 text-gray-600 font-medium">Amount</th>
                         <th className="text-left py-4 px-2 text-gray-600 font-medium">Date & Time</th>
-                        <th className="text-left py-4 px-2 text-gray-600 font-medium">Description</th>
+                        <th className="text-left py-4 px-2 text-gray-600 font-medium">Remarks</th>
                       </tr>
                     </thead>
                     <tbody>

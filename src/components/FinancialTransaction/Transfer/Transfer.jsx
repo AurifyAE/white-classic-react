@@ -109,28 +109,45 @@ const Transfer = () => {
     }
   };
 
-  const fetchParties = async () => {
-    try {
-      const response = await axiosInstance.get("/account-type/");
-      const transformed = response.data.data.map((item) => ({
+const fetchParties = async () => {
+  try {
+    const response = await axiosInstance.get("/account-type/");
+    const transformed = response.data.data.map((item) => {
+      const cashList = item.balances?.cashBalance || [];
+
+      const AED = cashList.find(b => b.currency?.currencyCode === "AED");
+      const INR = cashList.find(b => b.currency?.currencyCode === "INR");
+
+      const gold = item.balances?.goldBalance || {};
+
+      return {
         id: item._id,
         name: item.customerName || "N/A",
         account: item.accountCode || "N/A",
+
         balance: {
-          gold: `${item.balances?.goldBalance?.totalGrams ?? 0}g`,
-          cash: new Intl.NumberFormat("en-AE", { style: "currency", currency: "AED" }).format(item.balances?.cashBalance?.amount ?? 0),
-          inr: new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(item.balances?.inrBalance?.amount ?? 0),
-          rawGold: item.balances?.goldBalance?.totalGrams ?? 0,
-          rawCash: item.balances?.cashBalance?.amount ?? 0,
-          rawInr: item.balances?.inrBalance?.amount ?? 0,
+          aed: AED?.amount ?? 0,
+          inr: INR?.amount ?? 0,
+          gold: gold.totalGrams ?? 0,
+
+          rawAed: AED?.amount ?? 0,
+          rawInr: INR?.amount ?? 0,
+          rawGold: gold.totalGrams ?? 0,
         },
-      }));
-      setCustomers(transformed);
-    } catch (error) {
-      console.error("Error fetching parties:", error);
-      toast.error("Failed to fetch parties", { position: "top-right", autoClose: 1500 });
-    }
-  };
+      };
+    });
+
+    setCustomers(transformed);
+
+  } catch (error) {
+    console.error("Error fetching parties:", error);
+    toast.error("Failed to fetch parties", {
+      position: "top-right",
+      autoClose: 1500,
+    });
+  }
+};
+
 
   const generateVoucherNumber = async () => {
     try {
@@ -175,14 +192,12 @@ const Transfer = () => {
       const transferAmount = Number(amount);
       
       // Get sender balance based on transfer type
-      let senderBalance;
-      if (transferType === "gold") {
-        senderBalance = senderData.balance.rawGold;
-      } else if (transferType === "cash") {
-        senderBalance = senderData.balance.rawCash;
-      } else if (transferType === "inr") {
-        senderBalance = senderData.balance.rawInr;
-      }
+ let senderBalance = 0;
+
+if (transferType === "gold") senderBalance = senderData.balance.rawGold;
+if (transferType === "cash") senderBalance = senderData.balance.rawAed;
+if (transferType === "inr") senderBalance = senderData.balance.rawInr;
+
 
       // Check if transfer would result in negative balance
       if (senderBalance - transferAmount < 0) {
@@ -293,15 +308,35 @@ const Transfer = () => {
     return null;
   };
 
-  const getBalanceDisplay = (customerId) => {
-    const customer = customers.find((c) => c.id === customerId);
-    if (!customer) return "";
-    
-    if (transferType === "gold") return customer.balance.gold;
-    if (transferType === "cash") return customer.balance.cash;
-    if (transferType === "inr") return customer.balance.inr;
-    return "";
-  };
+const getBalanceDisplay = (customerId) => {
+  const c = customers.find((x) => x.id === customerId);
+  if (!c) return null;
+
+  return (
+    <div className="mt-2 text-sm  p-3 rounded-xl border text-gray-700 space-y-1">
+      
+      <div className="flex justify-between items-center">
+        <span className="font-medium">AED Balance</span>
+        <span className="flex items-center">
+          <img src={DirhamIcon} className="w-4 h-4 mr-1" />
+          {formatIndianNumber(c.balance.aed)}
+        </span>
+      </div>
+
+      <div className="flex justify-between items-center">
+        <span className="font-medium">INR Balance</span>
+        <span>₹ {formatIndianNumber(c.balance.inr)}</span>
+      </div>
+
+      <div className="flex justify-between items-center">
+        <span className="font-medium">Gold Balance</span>
+        <span>🪙 {formatIndianNumber(c.balance.gold)} g</span>
+      </div>
+
+    </div>
+  );
+};
+
 
   const isFormValid = sender && receiver && transferType && amount && sender !== receiver && !isNaN(Number(amount));
 
@@ -388,8 +423,8 @@ const Transfer = () => {
                     ))}
                   </select>
                   {sender && (
-                    <div className="text-sm text-gray-600 bg-gray-100 p-2 rounded-lg">
-                      Balance: {getBalanceDisplay(sender)}
+                    <div className="text-sm text-gray-600 p-2 rounded-lg">
+                    {getBalanceDisplay(sender)}
                     </div>
                   )}
                 </div>
@@ -417,8 +452,8 @@ const Transfer = () => {
                     ))}
                   </select>
                   {receiver && (
-                    <div className="text-sm text-gray-600 bg-gray-100 p-2 rounded-lg">
-                      Balance: {getBalanceDisplay(receiver)}
+                    <div className="text-sm text-gray-600  p-2 rounded-lg">
+                      {getBalanceDisplay(receiver)}
                     </div>
                   )}
                 </div>
@@ -688,7 +723,7 @@ const Transfer = () => {
                         <th className="text-left py-4 px-2 text-gray-600 font-medium">To</th>
                         <th className="text-left py-4 px-2 text-gray-600 font-medium">Amount</th>
                         <th className="text-left py-4 px-2 text-gray-600 font-medium">Date & Time</th>
-                        <th className="text-left py-4 px-2 text-gray-600 font-medium">Description</th>
+                        <th className="text-left py-4 px-2 text-gray-600 font-medium">Remarks</th>
                       </tr>
                     </thead>
                     <tbody>

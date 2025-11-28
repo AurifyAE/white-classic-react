@@ -37,18 +37,28 @@ export default function Transaction() {
   const [priceDirection, setPriceDirection] = useState(null);
 
   // Handle navigation state for editing
-  useEffect(() => {
-    if (location.state && !isInitialized) {
-      const { activeTab: navTab, editTransaction, traderData } = location.state;
+useEffect(() => {
+  if (location.state) {
+    const { activeTab: navTab, editTransaction, traderData } = location.state;
 
-      if (navTab) setActiveTab(navTab);
-      if (traderData) setSelectedTrader(traderData);
-      if (editTransaction) setEditingTransaction(editTransaction);
+    if (navTab) setActiveTab(navTab);
+    if (traderData) setSelectedTrader(traderData);
+if (editTransaction) {
+  setEditingTransaction({
+    ...editTransaction,
+    _fromRecentOrders: true   // ⭐ mark it clearly
+  });
+}
 
-      setIsInitialized(true);
+    // Always reset initialized when coming from navigation
+    setIsInitialized(false);
+
+    // Clear the state so back button doesn't re-trigger
+    setTimeout(() => {
       window.history.replaceState({}, document.title);
-    }
-  }, [location.state, isInitialized]);
+    }, 100);
+  }
+}, [location.state]);
 
   useEffect(() => {
     if (bidPrice !== prevBid) {
@@ -66,18 +76,20 @@ export default function Transaction() {
     setSelectedTrader(trader);
   };
 
-  const handleCancelEdit = () => {
-    setEditingTransaction(null);
-    setIsInitialized(false);
-  };
+const handleCancelEdit = () => {
+  setEditingTransaction(null);
+  setSelectedTrader(null);        // ← Must clear trader
+  setIsInitialized(false);
+};
 
-  const handleTabChange = (tabId) => {
-    setActiveTab(tabId);
-    setEditingTransaction(null);
-    setSelectedTrader(null);
-    setIsInitialized(false);
-  };
 
+
+const handleTabChange = (tabId) => {
+  setActiveTab(tabId);
+  setEditingTransaction(null);
+  setSelectedTrader(null);
+  setIsInitialized(false);  // ← Also reset here!
+};
   /* ---------------------------------------------------------
       Keyboard Shortcuts
       c → Currency Fix
@@ -200,14 +212,18 @@ export default function Transaction() {
 
           {/* Main Panel */}
           <div className="space-y-4">
-            {isFixTab(activeTab) && (
-              <TradeModalFX
-                selectedTrader={selectedTrader}
-                editTransaction={editingTransaction}
-                onClose={handleCancelEdit}
-                traderRefetch={traderRefetchRef}
-              />
-            )}
+          {isFixTab(activeTab) && (
+<TradeModalFX
+  selectedTrader={selectedTrader}
+  editTransaction={editingTransaction}
+  onClose={(success) => {
+    if (success) {
+      handleCancelEdit();
+    }
+  }}
+  traderRefetch={traderRefetchRef}
+/>
+)}
 
             {isGoldFixTab(activeTab) && (
               <GoldFixPage
@@ -218,18 +234,21 @@ export default function Transaction() {
               />
             )}
 
-            {isMetalTab(activeTab) && (
-              <TradeModalMetal
-                type={activeTab}
-                selectedTrader={selectedTrader}
-                liveRate={bidPrice}
-                traderRefetch={traderRefetchRef}
-                existingTransaction={editingTransaction}
-                onClose={(success) => {
-                  if (success) handleCancelEdit();
-                }}
-              />
-            )}
+           {isMetalTab(activeTab) && (
+  <TradeModalMetal
+    type={activeTab}
+    selectedTrader={selectedTrader}
+    liveRate={bidPrice}
+    traderRefetch={traderRefetchRef}
+    existingTransaction={editingTransaction}
+    initiatedFromRecentOrders={location.state?.initiatedFromRecentOrders || false}   // ⭐ ADD THIS
+    onClose={(success) => {
+      if (success) handleCancelEdit();
+    }}
+  />
+)}
+
+            
           </div>
         </div>
       </div>

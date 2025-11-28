@@ -321,70 +321,151 @@ const MeltingChargeCenter = () => {
           )}
 
           {/* Summary Cards - INR Only */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-            {/* INR Credit */}
-            <div className="bg-white rounded-lg shadow border border-gray-200 p-5">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-gray-700 uppercase">INR Credit</h3>
-                <TrendingUp className="w-5 h-5 text-green-600" />
-              </div>
-              <div className="text-2xl font-bold text-gray-900 mb-1">
-                {formatCurrency(summaryINR.totalCredits || 0, "text-gray-900", "large")}
-              </div>
-              <p className="text-xs text-gray-500">Total Credits</p>
-            </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
 
-            {/* INR Debit */}
-            <div className="bg-white rounded-lg shadow border border-gray-200 p-5">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-gray-700 uppercase">INR Debit</h3>
-                <TrendingDown className="w-5 h-5 text-red-600" />
-              </div>
-              <div className="text-2xl font-bold text-gray-900 mb-1">
-                {formatCurrency(summaryINR.totalDebits || 0, "text-gray-900", "large")}
-              </div>
-              <p className="text-xs text-gray-500">Total Debits</p>
-            </div>
+  {/* INR Credit */}
+  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+    <div className="flex items-center justify-between">
 
-            {/* INR Balance */}
-            <div className="bg-white rounded-lg shadow border border-gray-200 p-5">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-gray-700 uppercase">INR Balance</h3>
-                <Scale className="w-5 h-5 text-blue-600" />
-              </div>
-              <div className="text-2xl font-bold mb-1">
-                {(() => {
-                  const balanceColor = summaryINR.netBalance >= 0 ? "text-green-700" : "text-red-700";
-                  return formatCurrency(summaryINR.netBalance || 0, balanceColor, "large");
-                })()}
-              </div>
-              <p className="text-xs text-gray-500">Net Balance</p>
-            </div>
+      {/* Left Side */}
+      <div>
+        <div className="flex items-center mb-2">
+          <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+          <h3 className="text-sm font-medium text-gray-700 uppercase tracking-wide">INR CREDIT</h3>
+        </div>
 
-            {/* Net Amount */}
-            <div className="bg-white rounded-lg shadow border border-gray-200 p-5">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-gray-700 uppercase">Net Amount</h3>
-                <DollarSign className="w-5 h-5 text-purple-600" />
-              </div>
-              <div className="text-2xl font-bold text-gray-900 mb-1">
-                {formatCurrency(summaryINR.netAmount || 0, "text-gray-900", "large")}
-              </div>
-              <p className="text-xs text-gray-500">Total Transaction Value</p>
-            </div>
+        <p className="mt-1 text-xs text-gray-500 mb-2">
+          1 = 1,000 INR | 100 = 1 Lakh INR
+        </p>
 
-            {/* Total Records */}
-            <div className="bg-white rounded-lg shadow border border-gray-200 p-5">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-gray-700 uppercase">Total Records</h3>
-                <BarChart3 className="w-5 h-5 text-gray-600" />
-              </div>
-              <div className="text-2xl font-bold text-gray-900 mb-1">
-                {totalItems.toLocaleString()}
-              </div>
-              <p className="text-xs text-gray-500">Transactions</p>
-            </div>
-          </div>
+        <div className="text-3xl font-bold text-green-700 mb-1">
+          {formatCurrency(summaryINR.totalCredits || 0, "text-green-700", "large")}
+        </div>
+
+        <p className="text-xs text-gray-500">Total Credits</p>
+      </div>
+
+      {/* Right Icon */}
+      <div className="bg-green-50 p-3 rounded-lg">
+        <TrendingUp className="w-6 h-6 text-green-600" />
+      </div>
+
+    </div>
+  </div>
+
+  {/* INR Debit */}
+  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+    <div className="flex items-center justify-between">
+
+      <div>
+        <div className="flex items-center mb-2">
+          <div className="w-2 h-2 bg-red-500 rounded-full mr-2"></div>
+          <h3 className="text-sm font-medium text-gray-700 uppercase tracking-wide">INR DEBIT</h3>
+        </div>
+
+        <p className="mt-1 text-xs text-gray-500 mb-2">
+          1 = 1,000 INR | 100 = 1 Lakh INR
+        </p>
+
+        <div className="text-3xl font-bold text-red-700 mb-1">
+          {formatCurrency(summaryINR.totalDebits || 0, "text-red-700", "large")}
+        </div>
+
+        <p className="text-xs text-gray-500">Total Debits</p>
+      </div>
+
+      <div className="bg-red-50 p-3 rounded-lg">
+        <TrendingDown className="w-6 h-6 text-red-600" />
+      </div>
+
+    </div>
+  </div>
+
+  {/* INR Balance */}
+  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+    <div className="flex items-center justify-between">
+
+      <div>
+        <div className="flex items-center mb-2">
+          <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+          <h3 className="text-sm font-medium text-gray-700 uppercase tracking-wide">INR BALANCE</h3>
+        </div>
+
+        <p className="mt-1 text-xs text-gray-500 mb-2">
+          1 = 1,000 INR | 100 = 1 Lakh INR
+        </p>
+
+        <div className="text-3xl font-bold mb-1">
+          {(() => {
+            const balanceColor = summaryINR.netBalance >= 0 ? "text-green-700" : "text-red-700";
+            return formatCurrency(summaryINR.netBalance || 0, balanceColor, "large");
+          })()}
+        </div>
+
+        <p className="text-xs text-gray-500">Net Balance</p>
+      </div>
+
+      <div className="bg-blue-50 p-3 rounded-lg">
+        <Scale className="w-6 h-6 text-blue-600" />
+      </div>
+
+    </div>
+  </div>
+
+  {/* Net Amount */}
+  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+    <div className="flex items-center justify-between">
+
+      <div>
+        <div className="flex items-center mb-2">
+          <div className="w-2 h-2 bg-purple-500 rounded-full mr-2"></div>
+          <h3 className="text-sm font-medium text-gray-700 uppercase tracking-wide">NET AMOUNT</h3>
+        </div>
+
+     
+
+        <div className="text-3xl font-bold text-gray-900 mb-1">
+          {formatCurrency(summaryINR.netAmount || 0, "text-gray-900", "large")}
+        </div>
+
+        <p className="text-xs text-gray-500">Total Transaction Value</p>
+      </div>
+
+      <div className="bg-purple-50 p-3 rounded-lg">
+        <DollarSign className="w-6 h-6 text-purple-600" />
+      </div>
+
+    </div>
+  </div>
+
+  {/* Total Records */}
+  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+    <div className="flex items-center justify-between">
+
+      <div>
+        <div className="flex items-center mb-2">
+          <div className="w-2 h-2 bg-gray-500 rounded-full mr-2"></div>
+          <h3 className="text-sm font-medium text-gray-700 uppercase tracking-wide">TOTAL RECORDS</h3>
+        </div>
+
+     
+
+        <div className="text-3xl font-bold text-gray-900 mb-1">
+          {totalItems.toLocaleString()}
+        </div>
+
+        <p className="text-xs text-gray-500">Transactions</p>
+      </div>
+
+      <div className="bg-gray-100 p-3 rounded-lg">
+        <BarChart3 className="w-6 h-6 text-gray-600" />
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
 
           {/* Transaction Registry */}
           <div className="bg-white rounded-xl shadow-2xl">

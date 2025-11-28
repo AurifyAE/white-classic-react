@@ -7,7 +7,8 @@ import SuccessModal from './SuccessModal'
 
 const OZ_PER_TROY_OZ = 31.1035;
 
-export default function TradeModalMetal({ type, selectedTrader, liveRate, onClose, traderRefetch, existingTransaction = null }) {
+export default function TradeModalMetal({ type, selectedTrader, liveRate, onClose, traderRefetch, existingTransaction = null,  initiatedFromRecentOrders = false  
+ }) {
   const [showErrors, setShowErrors] = useState(false);
   const [trades, setTrades] = useState([]);
   const [editingIndex, setEditingIndex] = useState(null);
@@ -137,66 +138,90 @@ const ratePerGram = useMemo(() => {
   }, [metalAmountCalc, meltingCharge]);
 
   // Load existing transaction data if in edit mode
+  // Load existing transaction data if in edit mode
   useEffect(() => {
-    if (existingTransaction) {
-      console.log('Loading existing metal transaction for edit:', existingTransaction);
-      setVoucher({
-        voucherNumber: existingTransaction.voucherNumber || "N/A",
-        prefix: existingTransaction.voucherType || "N/A",
-        date: existingTransaction.voucherDate || new Date().toISOString(),
-      });
-      
-      setSelectedRatio(existingTransaction.fixed ? "Fix" : existingTransaction.unfix ? "Unfix" : "");
-      
-      const firstItem = existingTransaction.stockItems?.[0];
-      if (firstItem?.metalRate?._id) {
-        setSelectedMetalUnit(firstItem.metalRate._id);
-      }
-      if (firstItem?.metalRateRequirements?.rate) {
-        setRate(formatNumber((firstItem.metalRateRequirements.rate * 1000).toString()));
-      }
-      
-      if (firstItem) {
-      if (firstItem.stockCode?._id) {
-  const stock = metalStocks.find(s => s._id === firstItem.stockCode._id);
-  if (stock) {
-    setSelectedStock(stock);
-    setStockSearch(stock.code);     // <<< FIX
-    setStockDropdownOpen(false);    // (optional)
-  }
-}
-
-        
-        if (firstItem.grossWeight) {
-          setGrossWeight(formatNumber(firstItem.grossWeight.toString()));
-        }
-        
-        if (firstItem.meltingCharge?.amount) {
-          setMeltingCharge(formatNumber(firstItem.meltingCharge.amount.toString()));
-        }
-      }
-      
-      const existingTrades = (existingTransaction.stockItems || []).map((item) => ({
-        trader: selectedTrader?.label || selectedTrader?.name || existingTransaction.partyCode?.customerName || "Trader",
-        stockId: item.stockCode?._id || item.stockCode,
-        stockCode: item.stockCode?.code || item.stockCode?.symbol || "-",
-        description: item.description || item.stockCode?.description || "-",
-        grossWeight: item.grossWeight || 0,
-        pureWeight: item.pureWeight || 0,
-        weightInOz: item.weightInOz || 0,
-        purity: item.purity || item.stockCode?.karat?.standardPurity || 0,
-        ratePerGram: item.metalRateRequirements?.rate || 0,
-        metalAmount: item.metalRateRequirements?.amount || 0,
-        meltingCharge: item.meltingCharge?.amount || item.makingCharges?.amount || 0,
-        totalAmount: item.itemTotal?.itemTotalAmount || 0,
-        ratePerKGBAR: item.ratePerKGBAR || item.itemTotal?.ratePerKGBAR || 0,
-        ratio: existingTransaction.fixed ? "Fix" : existingTransaction.unfix ? "Unfix" : "",
-      }));
-      setTrades(existingTrades);
-    } else {
+    if (!existingTransaction) {
       resetFormData();
+      return;
     }
-  }, [existingTransaction, selectedTrader, metalStocks]);
+
+    console.log('Loading existing metal transaction for edit:', existingTransaction);
+
+    // Voucher + Fix/Unfix
+    setVoucher({
+      voucherNumber: existingTransaction.voucherNumber || "N/A",
+      prefix: existingTransaction.voucherType || "N/A",
+      date: existingTransaction.voucherDate || new Date().toISOString(),
+    });
+
+    setSelectedRatio(
+      existingTransaction.fixed ? "Fix" : existingTransaction.unfix ? "Unfix" : ""
+    );
+
+    // Build trades from stockItems – this is what drives the SUMMARY table
+   const existingTrades = (existingTransaction.stockItems || [])
+  .filter((item) => item && item.stockCode)  // ⭐ prevents crash
+  .map((item) => {
+    const metalAmount = item.metalRateRequirements?.amount || 0;
+    const meltingAmt =
+      item.meltingCharge?.amount ??
+      item.makingCharges?.amount ??
+      0;
+
+    const ratio =
+      existingTransaction.fixed === true
+        ? "Fix"
+        : existingTransaction.unfix === true
+        ? "Unfix"
+        : "";
+
+    return {
+      trader:
+        selectedTrader?.label ||
+        selectedTrader?.name ||
+        existingTransaction.partyCode?.customerName ||
+        "Trader",
+
+      stockId: item.stockCode?._id || item.stockCode || "",
+      stockCode: item.stockCode?.code || item.stockCode?.symbol || "-",
+      description: item.description || item.stockCode?.description || "-",
+
+      grossWeight: item.grossWeight || 0,
+      pureWeight: item.pureWeight || 0,
+      weightInOz: item.weightInOz || 0,
+      purity: item.purity || item.stockCode?.karat?.standardPurity || 0,
+
+      ratePerGram: item.metalRateRequirements?.rate || 0,
+      metalAmount,
+
+      meltingCharge: meltingAmt,
+
+      totalAmount: metalAmount + meltingAmt,
+
+      ratePerKGBAR:
+        item.ratePerKGBAR ||
+        item.itemTotal?.ratePerKGBAR ||
+        (item.metalRateRequirements?.rate || 0) * 1000,
+
+      ratio, // ⭐ Fix/Unfix
+
+      metalRateType: item.metalRate?._id || "",
+    };
+  });
+
+
+    setTrades(existingTrades);
+
+    // IMPORTANT:
+    // Do NOT autofill the input form when loading an edit.
+    // We always start with an empty form and let the user click a row in SUMMARY to edit.
+    setSelectedStock(null);
+    setStockSearch("");
+    setGrossWeight("");
+    setMeltingCharge("");
+    setRate("");
+  }, [existingTransaction, selectedTrader]);
+
 
   // Load metal rates
   useEffect(() => {
@@ -305,7 +330,7 @@ const ratePerGram = useMemo(() => {
     return errors;
   };
 
- const handleAddTrade = () => {
+  const handleAddTrade = () => {
     const errors = validateTradeItem();
     if (Object.keys(errors).length > 0) {
       setShowErrors(true);
@@ -313,25 +338,31 @@ const ratePerGram = useMemo(() => {
     }
 
     const traderLabel = localSelectedTrader || selectedTrader
-      ? (localSelectedTrader?.label || selectedTrader?.label || localSelectedTrader?.name || selectedTrader?.name || 'Unknown Trader')
+      ? (localSelectedTrader?.label ||
+         selectedTrader?.label ||
+         localSelectedTrader?.name ||
+         selectedTrader?.name ||
+         'Unknown Trader')
       : 'No Trader';
 
-    const newTrade = {
-      trader: traderLabel,
-      stockId: selectedStock._id,
-      stockCode: selectedStock.code,
-      description: selectedStock.description,
-      grossWeight: parseFloat(parseFormattedNumber(grossWeight)),
-      pureWeight: pureWeight,
-      weightInOz: weightInOz,
-      purity: selectedStock.karat?.standardPurity || 0,
-      ratePerGram: ratePerGram,
-      metalAmount: metalAmountCalc,
-      meltingCharge: parseFloat(parseFormattedNumber(meltingCharge)) || 0,
-      totalAmount: totalAmount,
-      ratePerKGBAR: parseFloat(parseFormattedNumber(rate)),
-      ratio: selectedRatio,
-    };
+const newTrade = {
+  trader: traderLabel,
+  stockId: selectedStock._id,
+  stockCode: selectedStock.code,
+  description: selectedStock.description,
+  grossWeight: parseFloat(parseFormattedNumber(grossWeight)),
+  pureWeight: pureWeight,
+  weightInOz: weightInOz,
+  purity: selectedStock.karat?.standardPurity || 0,
+  ratePerGram: ratePerGram,
+  metalAmount: metalAmountCalc,
+  meltingCharge: parseFloat(parseFormattedNumber(meltingCharge)) || 0,
+  totalAmount: totalAmount,
+  ratePerKGBAR: parseFloat(parseFormattedNumber(rate)),
+  ratio: selectedRatio,          // ⭐ VERY IMPORTANT
+  metalRateType: selectedMetalUnit,
+};
+
 
     if (editingIndex !== null) {
       const updated = [...trades];
@@ -339,39 +370,55 @@ const ratePerGram = useMemo(() => {
       setTrades(updated);
       setEditingIndex(null);
     } else {
-      setTrades(prev => [...prev, newTrade]);
+      setTrades((prev) => [...prev, newTrade]);
     }
 
+    // Reset form
     setSelectedStock(null);
+    setStockSearch("");
     setGrossWeight("");
     setMeltingCharge("");
+    setRate("");
     setShowErrors(false);
-    
+
     // Scroll to summary section after adding trade
     setTimeout(() => {
       if (summaryRef.current) {
-        summaryRef.current.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'start' 
+        summaryRef.current.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start'
         });
       }
     }, 100);
   };
 
 
+
   const handleEdit = (index) => {
     const trade = trades[index];
     setEditingIndex(index);
-    setSelectedStock(metalStocks.find(s => s._id === trade.stockId) || null);
+
+    // Restore stock selection
+    const stockObj = metalStocks.find((s) => s._id === trade.stockId);
+    setSelectedStock(stockObj || null);
+    setStockSearch(stockObj?.code || trade.stockCode || "");
+
+    // Restore metal rate type (METAL RATE TYPE dropdown)
+    if (trade.metalRateType) {
+      setSelectedMetalUnit(trade.metalRateType);
+    }
+
+    // Restore numeric fields
     setGrossWeight(formatNumber(trade.grossWeight.toString()));
     setMeltingCharge(formatNumber((trade.meltingCharge || 0).toString()));
     setRate(formatNumber(trade.ratePerKGBAR.toString()));
     setSelectedRatio(trade.ratio || "");
-    
-    if (existingTransaction?.stockItems?.[index]?.metalRate?._id) {
-      setSelectedMetalUnit(existingTransaction.stockItems[index].metalRate._id);
-    }
   };
+
+
+
+
+
 
   const handleDelete = (index) => {
     setTrades(prev => prev.filter((_, i) => i !== index));
@@ -946,15 +993,22 @@ const ratePerGram = useMemo(() => {
                       {trades.map((t, i) => (
                         <tr key={i} className="hover:bg-gray-50">
                           <td className="px-3 py-2 font-medium">{t.stockCode}</td>
-                          <td className="px-3 py-2">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              t.ratio === 'Fix' 
-                                ? 'bg-green-100 text-green-800' 
-                                : 'bg-blue-100 text-blue-800'
-                            }`}>
-                              {t.ratio}
-                            </span>
-                          </td>
+                       <td className="px-3 py-2">
+  {t.ratio ? (
+    <span
+      className={`px-2 py-1 rounded-full text-xs font-medium ${
+        t.ratio === 'Fix'
+          ? 'bg-green-100 text-green-800'
+          : 'bg-blue-100 text-blue-800'
+      }`}
+    >
+      {t.ratio}
+    </span>
+  ) : (
+    <span className="text-xs text-gray-400">-</span>
+  )}
+</td>
+
                           <td className="px-3 py-2">{formatNumber(t.grossWeight.toFixed(3))}</td>
                           <td className="px-3 py-2 font-semibold text-green-700">
                             ₹{formatNumber(t.metalAmount.toFixed(2))}
