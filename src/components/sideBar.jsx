@@ -243,6 +243,24 @@ const Sidebar = () => {
         ],
       },
       {
+  key: "transactionMenu",
+  icon: <HandCoins strokeWidth={1.5} size={22} />,
+  text: "Transaction",
+  children: [
+    {
+      icon: <Send strokeWidth={1.5} size={20} />,
+      text: "Trade",
+      to: "/transaction",
+    },
+    {
+      icon: <ClipboardList strokeWidth={1.5} size={20} />,
+      text: "Recent Transactions",
+      to: "/recent-orders",
+    },
+  ],
+},
+
+      {
         key: "inventoryManagement",
         icon: <Box strokeWidth={1.5} size={22} />,
         text: "Inventory Management",
@@ -260,11 +278,11 @@ const Sidebar = () => {
         icon: <Wallet2 strokeWidth={1.5} size={22} />,
         text: "Financial Transaction",
         children: [
-          {
-            icon: <CreditCard strokeWidth={1.5} size={20} />,
-            text: "Currency Fix ",
-            to: "/currency-fix",
-          },
+          // {
+          //   icon: <CreditCard strokeWidth={1.5} size={20} />,
+          //   text: "Currency Fix ",
+          //   to: "/currency-fix",
+          // },
           {
             icon: <ReceiptText strokeWidth={1.5} size={20} />,
             text: "Currency Receipt",
@@ -295,6 +313,12 @@ const Sidebar = () => {
             text: "Opening Balance",
             to: "/opening-balance",
           },
+          {
+  icon: <ClipboardList strokeWidth={1.5} size={20} />, 
+  text: "Project Entry",
+  to: "/project-entry",
+},
+
         ],
       },
       {
@@ -481,7 +505,7 @@ const Sidebar = () => {
                   />
                 ))}
               </SidebarSection>
-              {section.key === "generalMaster" && (
+              {/* {section.key === "generalMaster" && (
                 <>
                   <Link to="/transaction" className="block">
                     <div
@@ -499,7 +523,7 @@ const Sidebar = () => {
                     </div>
                   </Link>
                 </>
-              )}
+              )} */}
             </div>
           ))}
           <div className="pt-6">

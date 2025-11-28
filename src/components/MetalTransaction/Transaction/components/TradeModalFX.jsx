@@ -1,4 +1,3 @@
-'use client';
 import React, {
   useState,
   useEffect,
@@ -9,12 +8,14 @@ import React, {
 import { toast } from 'react-toastify';
 import axiosInstance from '../../../../api/axios';
 import SuccessModal from './SuccessModal';
+import SelectTrader from './SelectTrader';
+import Dirham from '../../../../assets/uae-dirham.svg';
 
 export default function TradeModalFX({
   selectedTrader,
+  traderRefetch,
   editTransaction,
-  onClose,
-  traderRefetch
+  onClose
 }) {
   // ---------- core form state ----------
   const [payAmount, setPayAmount] = useState('');
@@ -26,6 +27,7 @@ export default function TradeModalFX({
   const [successData, setSuccessData] = useState(null);
   const [currencies, setCurrencies] = useState([]);
   const [voucher, setVoucher] = useState(null);
+  const [localSelectedTrader, setLocalSelectedTrader] = useState(selectedTrader);
 
   // keep a ref so we know if we are in "edit" mode
   const isEditMode = useRef(false);
@@ -33,13 +35,40 @@ export default function TradeModalFX({
   const LAKH = 100_000;
   const MULT = 1_000; // 1 (compact) = 1 000 INR
 
-  // ---------- helpers ----------
+  // Update local selected trader when prop changes
+  useEffect(() => {
+    setLocalSelectedTrader(selectedTrader);
+  }, [selectedTrader]);
+
+  // ---------- number formatting helpers ----------
   const formatNumber = (value) => {
     if (!value) return '';
-    const num = parseFloat(value.replace(/,/g, ''));
-    return isNaN(num) ? '' : num.toLocaleString('en-IN');
+    
+    // Remove all commas for processing
+    const numStr = value.replace(/,/g, '');
+    
+    // Check if it's a valid number format (allows decimals)
+    if (!/^\d*\.?\d*$/.test(numStr)) return value.replace(/[^\d.,]/g, '');
+    
+    // Split integer and decimal parts
+    const parts = numStr.split('.');
+    let integerPart = parts[0];
+    const decimalPart = parts[1] ? `.${parts[1]}` : '';
+    
+    // Format integer part with commas
+    if (integerPart) {
+      integerPart = parseInt(integerPart, 10).toLocaleString('en-IN');
+    }
+    
+    return integerPart + decimalPart;
   };
+
   const parseNumber = (value) => value.replace(/,/g, '');
+
+  // Validate decimal input
+  const allowDecimal = (value) => {
+    return /^\d*\.?\d*$/.test(value.replace(/,/g, ''));
+  };
 
   // ---------- rates ----------
   const ratePerINR = useMemo(() => {
@@ -87,43 +116,38 @@ export default function TradeModalFX({
     fetchCurrencies();
   }, []);
 
-  // ---------- AUTO-FILL WHEN EDITING ----------
-  useEffect(() => {
-    if (!editTransaction) {
-      // create mode – reset everything
-      setPayAmount('');
-      setReceiveAmount('');
-      setRateLakh('');
-      setIsBuy(true);
-      setLastEdited(null);
-      isEditMode.current = false;
-      return;
-    }
-
-    // ---- EDIT MODE ----
-    // console.log("Loading edit transaction:", editTransaction);
-    isEditMode.current = true;
-
-    const {
-      type,
-      amount,      // amount paid
-      converted,   // amount received
-      rate,        // rate per lakh
-    } = editTransaction;
-
-    // 1. BUY vs SELL
-    const buy = type === 'BUY';
-    setIsBuy(buy);
-
-    // 2. Set amounts
-    setPayAmount(formatNumber(String(amount || '')));
-    setReceiveAmount(formatNumber(String(converted || '')));
-
-    // 3. Set rate
-    setRateLakh(formatNumber(String(rate || '')));
-
+// ---------- AUTO-FILL + FULL RESET WHEN EDIT ENDS ----------
+useEffect(() => {
+  if (!editTransaction) {
+    // This runs when edit is done/cancelled → FULL CLEAN STATE
+    setPayAmount('');
+    setReceiveAmount('');
+    setRateLakh('');
+    setIsBuy(true);
     setLastEdited(null);
-  }, [editTransaction]);
+    setLocalSelectedTrader(null);     // ← CLEAR TRADER!
+    isEditMode.current = false;
+
+    // Generate BRAND NEW voucher for next trade
+    fetchVoucherCode();
+
+    return;
+  }
+
+  // EDIT MODE: Fill with existing data
+  isEditMode.current = true;
+
+  const { type, amount, converted, rate } = editTransaction;
+
+  setIsBuy(type === 'BUY');
+  setPayAmount(formatNumber(String(amount || '')));
+  setReceiveAmount(formatNumber(String(converted || '')));
+  setRateLakh(formatNumber(String(rate || '')));
+  setLastEdited(null);
+
+  // Keep old voucher & trader during edit (correct)
+  // Do NOT call fetchVoucherCode() here
+}, [editTransaction, fetchVoucherCode]);
 
   // ---------- calculations ----------
   useEffect(() => {
@@ -156,145 +180,146 @@ export default function TradeModalFX({
     isBuy,
   ]);
 
-  // When user edits fields, allow calculations again
+  // Handle input changes with formatting
   const handlePayChange = (value) => {
-    const raw = parseNumber(value);
-    if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
-      setPayAmount(formatNumber(raw));
-      setLastEdited('pay');
-      isEditMode.current = false; // Allow calculations
-    }
+    const raw = value.replace(/,/g, '');
+
+    if (!allowDecimal(raw)) return;
+
+    setPayAmount(formatNumber(value)); 
+    setLastEdited('pay');
+    isEditMode.current = false;
   };
 
   const handleReceiveChange = (value) => {
-    const raw = parseNumber(value);
-    if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
-      setReceiveAmount(formatNumber(raw));
-      setLastEdited('receive');
-      isEditMode.current = false; // Allow calculations
-    }
+    const raw = value.replace(/,/g, '');
+
+    if (!allowDecimal(raw)) return;
+
+    setReceiveAmount(formatNumber(value));
+    setLastEdited('receive');
+    isEditMode.current = false;
   };
 
   const handleRateChange = (value) => {
-    const raw = parseNumber(value);
-    if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
-      setRateLakh(formatNumber(raw));
-      isEditMode.current = false; // Allow calculations
-    }
+    const raw = value.replace(/,/g, '');
+
+    if (!allowDecimal(raw)) return;
+
+    setRateLakh(formatNumber(value));
+    isEditMode.current = false;
+  };
+
+  // Handle trader selection
+  const handleTraderChange = (trader) => {
+    setLocalSelectedTrader(trader);
   };
 
   // ---------- submit ----------
-  const handleSubmit = useCallback(async () => {
-    if (!selectedTrader) {
-      toast.error('Please select a trader first');
-      return;
+const handleSubmit = useCallback(async () => {
+  const currentTrader = localSelectedTrader || selectedTrader;
+
+  if (!currentTrader) {
+    toast.error('Please select a trader first');
+    return;
+  }
+
+  const pay = parseFloat(parseNumber(payAmount)) || 0;
+  const recv = parseFloat(parseNumber(receiveAmount)) || 0;
+  const rate = parseFloat(parseNumber(rateLakh)) || 0;
+
+  if (!pay || !recv || !rate) {
+    toast.error('Please fill all fields with valid numbers');
+    return;
+  }
+
+  const base = isBuy ? 'INR' : 'AED';
+  const quote = isBuy ? 'AED' : 'INR';
+
+  const baseCurrency = currencies.find((c) => c.currencyCode === base);
+  const targetCurrency = currencies.find((c) => c.currencyCode === quote);
+
+  const payload = {
+    partyId: currentTrader.value,
+    type: isBuy ? 'BUY' : 'SELL',
+    amount: pay,
+    currency: base,
+    rate: rate,
+    converted: recv,
+    orderId: editTransaction?.orderId || `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    timestamp: new Date().toISOString(),
+    currentRate: rate,
+    bidSpread: 0,
+    askSpread: 0,
+    buyRate: rate,
+    sellRate: rate,
+    baseCurrencyId: baseCurrency?._id,
+    targetCurrencyId: targetCurrency?._id,
+    conversionRate: null,
+    baseCurrencyCode: base,
+    targetCurrencyCode: quote,
+    reference: editTransaction?.reference || voucher?.voucherNumber || '',
+    isGoldTrade: false,
+  };
+
+  try {
+    let res;
+    if (editTransaction?._id) {
+      // UPDATE EXISTING TRADE
+      res = await axiosInstance.put(
+        `/currency-trading/trades/${editTransaction._id}`,
+        payload
+      );
+    } else {
+      // CREATE NEW TRADE
+      res = await axiosInstance.post('/currency-trading/trades', payload);
     }
 
-    const pay = parseFloat(parseNumber(payAmount)) || 0;
-    const recv = parseFloat(parseNumber(receiveAmount)) || 0;
-    const rate = parseFloat(parseNumber(rateLakh)) || 0;
+    if (res.data.success) {
+      // Show success modal
+      setSuccessData({
+        trader: currentTrader.trader,
+        pay: { amount: payAmount, currency: base },
+        receive: { amount: receiveAmount, currency: quote },
+        rateLakh,
+        isBuy,
+      });
+      setShowSuccess(true);
 
-    if (!pay || !recv || !rate) {
-      toast.error('Please fill all fields with valid numbers');
-      return;
-    }
-
-    const base = isBuy ? 'INR' : 'AED';
-    const quote = isBuy ? 'AED' : 'INR';
-
-    const baseCurrency = currencies.find((c) => c.currencyCode === base);
-    const targetCurrency = currencies.find((c) => c.currencyCode === quote);
-
-    const payload = {
-      partyId: selectedTrader.value,
-      type: isBuy ? 'BUY' : 'SELL',
-      amount: pay,
-      currency: base,
-      rate: rate,
-      converted: recv,
-      orderId: editTransaction?.orderId || `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      timestamp: new Date().toISOString(),
-      currentRate: rate,
-      bidSpread: 0,
-      askSpread: 0,
-      buyRate: rate,
-      sellRate: rate,
-      baseCurrencyId: baseCurrency?._id,
-      targetCurrencyId: targetCurrency?._id,
-      conversionRate: null,
-      baseCurrencyCode: base,
-      targetCurrencyCode: quote,
-      reference: voucher?.voucherNumber || editTransaction?.reference || '',
-      isGoldTrade: false,
-    };
-
-    try {
-      let res;
-      if (editTransaction?._id) {
-        // ---- UPDATE ----
-        // console.log("Updating transaction:", editTransaction._id);
-        res = await axiosInstance.put(
-          `/currency-trading/trades/${editTransaction._id}`,
-          payload
-        );
-      } else {
-        // ---- CREATE ----
-        res = await axiosInstance.post('/currency-trading/trades', payload);
+      // REFETCH TRADER BALANCES
+      if (traderRefetch?.current && typeof traderRefetch.current === 'function') {
+        await traderRefetch.current();
       }
 
-      if (res.data.success) {
-        toast.success(editTransaction?._id ? 'Trade updated!' : 'Trade created!');
+      // DO NOT RESET ANYTHING HERE!
+      // Let the parent clear editTransaction → triggers useEffect → FULL CLEAN RESET
 
-        setSuccessData({
-          trader: selectedTrader.trader,
-          pay: { amount: payAmount, currency: base },
-          receive: { amount: receiveAmount, currency: quote },
-          rateLakh,
-          isBuy,
-        });
-        setShowSuccess(true);
-
-        // ---- reset form ----
-        setPayAmount('');
-        setReceiveAmount('');
-        setRateLakh('');
-        setLastEdited(null);
-        isEditMode.current = false;
-
-        // ---- **REFETCH NEW VOUCHER** ----
-        if (!editTransaction?._id) {
-          await fetchVoucherCode();
-        }
-        
-        // Refetch trader balances
-        if (traderRefetch?.current && typeof traderRefetch.current === 'function') {
-          await traderRefetch.current();
-        }
-
-        // Call parent's onClose to clear edit mode
-        if (onClose && editTransaction?._id) {
-          onClose();
-        }
-      } else {
-        toast.error(editTransaction?._id ? 'Update failed' : 'Create failed');
+      // Tell parent: "We are done editing"
+      if (onClose) {
+        onClose(true); // This makes editTransaction = null → form becomes fresh
       }
-    } catch (err) {
-      console.error('Trade error:', err);
-      toast.error('Error processing trade');
+    } else {
+      toast.error(editTransaction?._id ? 'Update failed' : 'Create failed');
     }
-  }, [
-    selectedTrader,
-    payAmount,
-    receiveAmount,
-    rateLakh,
-    isBuy,
-    currencies,
-    voucher,
-    editTransaction,
-    onClose,
-    fetchVoucherCode,
-    traderRefetch
-  ]);
+  } catch (err) {
+    console.error('Trade error:', err);
+    toast.error(err.response?.data?.message || 'Error processing trade');
+  }
+}, [
+  localSelectedTrader,
+  selectedTrader,
+  payAmount,
+  receiveAmount,
+  rateLakh,
+  isBuy,
+  currencies,
+  voucher,
+  editTransaction,
+  onClose,
+  traderRefetch,
+  setShowSuccess,
+  setSuccessData,
+]);
 
   // Handle cancel
   const handleCancel = () => {
@@ -337,9 +362,10 @@ export default function TradeModalFX({
   return (
     <>
       <div className="bg-white rounded-lg shadow-lg border border-gray-200 w-full">
+        
         {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-5 pb-3">
-          <h2 className="text-xl font-semibold">
+        <div className="flex items-center justify-between px-6 pt-4">
+          <h2 className="text-xl font-semibold text-gray-800">
             {editTransaction ? 'Edit Trade' : 'Create Trade'}
           </h2>
           {editTransaction && (
@@ -348,165 +374,299 @@ export default function TradeModalFX({
             </span>
           )}
         </div>
-
-        {/* Buy / Sell Toggle */}
-        <div className="px-5 pb-4 flex gap-2">
-          <button
-            onClick={() => setIsBuy(true)}
-            className={`flex-1 py-2 rounded-md font-medium transition-colors ${
-              isBuy ? theme.toggleActive : theme.toggleInactive
-            }`}
-            disabled={!!editTransaction}
-          >
-            Buy AED
-          </button>
-          <button
-            onClick={() => setIsBuy(false)}
-            className={`flex-1 py-2 rounded-md font-medium transition-colors ${
-              !isBuy ? theme.toggleActive : theme.toggleInactive
-            }`}
-            disabled={!!editTransaction}
-          >
-            Sell AED
-          </button>
-        </div>
-
-        {/* Voucher Details */}
-        <div className="px-5 pb-4">
-          <div
-            className={`rounded-lg p-3 flex justify-between text-sm ${theme.voucherBg}`}
-          >
-            <div className="flex flex-col items-center">
-              <span className="text-gray-600">Voucher Code</span>
-              <span className="font-medium">
-                {editTransaction?.reference || voucher?.voucherNumber || 'N/A'}
-              </span>
-            </div>
-            <div className="flex flex-col items-center">
-              <span className="text-gray-600">Prefix</span>
-              <span className="font-medium">
-                {voucher?.prefix ?? 'N/A'}
-              </span>
-            </div>
-            <div className="flex flex-col items-center">
-              <span className="text-gray-600">Voucher Date</span>
-              <span className="font-medium">
-                {voucher?.date
-                  ? new Date(voucher.date).toLocaleDateString('en-GB')
-                  : editTransaction?.createdAt
-                  ? new Date(editTransaction.createdAt).toLocaleDateString('en-GB')
-                  : 'N/A'}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Currency Bar */}
-        <div className="px-5 pb-4">
-          <div className="bg-purple-50 rounded-lg p-3 flex items-center justify-between">
-            <span className="text-lg font-medium">INR/AED</span>
-          </div>
-        </div>
-
-        {/* Pay Amount */}
-        <div className="px-5 pb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Pay Amount ({payCurrency})
-          </label>
-          {isBuy && <p className="mt-1 text-xs text-gray-500 mb-2">{payHint}</p>}
-          <input
-            type="text"
-            placeholder={isBuy ? 'e.g. 100 = 1 Lakh' : 'Enter AED to pay'}
-            value={payAmount}
-            onChange={(e) => handlePayChange(e.target.value)}
-            className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 ${theme.inputFocus}`}
-          />
-        </div>
-
-        {/* Receive Amount */}
-        <div className="px-5 pb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Receive Amount ({receiveCurrency})
-          </label>
-          {!isBuy && <p className="mt-1 text-xs text-gray-500 mb-2">1 = 1,000 INR | 100 = 1 Lakh INR</p>}
-          <input
-            type="text"
-            placeholder={
-              isBuy ? 'Enter AED to receive' : 'Enter INR to receive'
-            }
-            value={receiveAmount}
-            onChange={(e) => handleReceiveChange(e.target.value)}
-            className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 ${theme.inputFocus}`}
-          />
-        </div>
-
-        {/* Rate of 1 Lakh */}
-        <div className="px-5 pb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Rate of 1 Lakh
-          </label>
-          <input
-            type="text"
-            placeholder={ratePlaceholder}
-            value={rateLakh}
-            onChange={(e) => handleRateChange(e.target.value)}
-            className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 ${theme.inputFocus}`}
-          />
-        </div>
-
-        {/* Trade Summary */}
-        <div className="px-5 pb-4">
-          <div
-            className={`rounded-lg p-4 border ${theme.summaryBorder} ${theme.summaryBg}`}
-          >
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="text-gray-600">You Pay</span>
-                <br />
-                <span className="font-semibold">
-                  {payAmount || '0'} {payCurrency}
-                </span>
+        {/* Main Content Grid */}
+        <div className="p-6 space-y-6">
+          
+          {/* VOUCHER SECTION */}
+          <div className=" rounded-lg p-4 -mt-5 bg-white">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              VOUCHER
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-gray-50 p-3 rounded border border-gray-200">
+                <div className="text-xs font-semibold text-gray-500 mb-1">VOUCHER CODE</div>
+                <div className="text-sm font-bold text-gray-800">
+                  {editTransaction?.reference || voucher?.voucherNumber || '--'}
+                </div>
               </div>
-              <div>
-                <span className="text-gray-600">You Receive</span>
-                <br />
-                <span className="font-semibold">
-                  {receiveAmount || '0'} {receiveCurrency}
-                </span>
+              <div className="bg-gray-50 p-3 rounded border border-gray-200">
+                <div className="text-xs font-semibold text-gray-500 mb-1">PREFIX</div>
+                <div className="text-sm font-bold text-gray-800">
+                  {voucher?.prefix || '--'}
+                </div>
+              </div>
+              <div className="bg-gray-50 p-3 rounded border border-gray-200">
+                <div className="text-xs font-semibold text-gray-500 mb-1">VOUCHER DATE</div>
+                <div className="text-sm font-bold text-gray-800">
+                  {voucher?.date
+                    ? new Date(voucher.date).toLocaleDateString('en-GB')
+                    : editTransaction?.createdAt
+                    ? new Date(editTransaction.createdAt).toLocaleDateString('en-GB')
+                    : '--'}
+                </div>
               </div>
             </div>
-            <div className="mt-3 text-sm">
-              <span className="text-gray-600">
-                Rate (AED per 1 Lakh INR){' '}
-              </span>
-              <span className="font-medium">
-                {rateLakh || '0.00'} {isBuy ? '(Buy)' : '(Sell)'}
-              </span>
-            </div>
           </div>
-        </div>
 
-        {/* Action Buttons */}
-        <div className="px-5 pb-5 flex gap-3">
-          {editTransaction && (
+          {/* PARTY SELECTION SECTION */}
+          <div className=" rounded-lg p-4 -mt-8 bg-white">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">PARTY SELECTION SESSION</h3>
+            <SelectTrader 
+              onTraderChange={handleTraderChange} 
+              value={localSelectedTrader}
+              ref={traderRefetch}
+            />
+          </div>
+
+          {/* TRADE SESSION */}
+      <div className="rounded-lg p-4 -mt-10 bg-white">
+  <h3 className="text-lg font-semibold text-gray-800 mb-4">TRADE SESSION</h3>
+  
+  {/* Buy/Sell Toggle */}
+  <div className="mb-6">
+    <div className={`relative flex items-center w-full max-w-md mx-auto bg-gray-200 rounded-xl transition-all duration-300 overflow-hidden ${
+      editTransaction ? "opacity-60 cursor-not-allowed" : ""
+    }`}>
+      <div
+        className={`absolute h-full w-1/2 rounded-lg transition-transform duration-300 ${
+          isBuy ? "translate-x-0 bg-blue-600" : "translate-x-full bg-red-600"
+        }`}
+      />
+      <button
+        onClick={() => !editTransaction && setIsBuy(true)}
+        className={`relative z-10 flex-1 py-3 text-sm font-semibold transition-colors text-center ${
+          isBuy ? "text-white" : "text-gray-800"
+        }`}
+        disabled={!!editTransaction}
+      >
+        BUY
+      </button>
+      <button
+        onClick={() => !editTransaction && setIsBuy(false)}
+        className={`relative z-10 flex-1 py-3 text-sm font-semibold transition-colors text-center ${
+          !isBuy ? "text-white" : "text-gray-800"
+        }`}
+        disabled={!!editTransaction}
+      >
+        SELL
+      </button>
+    </div>
+      {/* Currency Pair Display */}
+      <div className="px-6 pt-2 flex justify-end -mt-10">
+  <div className="bg-orange-50 text-black px-4 py-2 rounded-md shadow-sm inline-flex items-center gap-2">
+    <span className="font-semibold text-sm tracking-wide">INR / AED</span>
+  </div>
+</div>
+  </div>
+
+{/* Input Boxes – Boxed Layout */}
+<div className=" rounded-lg p-6  shadow-sm">
+{/* INPUT BOXES – CENTERED INPUT BOX */}
+<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+  {/* RATE BOX */}
+<div className="flex flex-col gap-1">
+
+  <span className="text-sm font-semibold text-gray-800 ml-1">
+    RATE IN 1 LAKH
+  </span>
+
+  <div className="
+      h-32 rounded-xl bg-[#e6f2ff] shadow-sm px-5 py-3 
+      flex flex-col gap-2 relative
+  ">
+    <div className="flex-1 flex items-center justify-center">
+      <div className="w-full flex items-center justify-center relative">
+        <input
+          type="text"
+          placeholder="Enter AED for 1 Lakh"
+          value={rateLakh}
+          onChange={(e) => handleRateChange(e.target.value)}
+          className="w-full bg-transparent outline-none text-gray-900 text-lg  placeholder-gray-600 text-center"
+        />
+        <img src={Dirham} className="w-5 opacity-70 absolute right-1" />
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+
+{/* PAY BOX */}
+<div className="flex flex-col gap-1">
+
+  <span className="text-sm font-semibold text-gray-800 ml-1">
+    PAY AMOUNT (
+      {isBuy ? "₹" : <img src={Dirham} className="inline w-4" />}
+    )
+  </span>
+
+  <div className="
+      h-32 rounded-xl bg-[#e6ffe6] shadow-sm px-5 py-3
+      flex flex-col gap-2 relative
+  ">
+
+    <div className="flex-1 flex items-center justify-center">
+      <div className="w-full flex items-center justify-center relative">
+        <input
+          type="text"
+          placeholder={isBuy ? "100 = 1 Lakh" : "Enter AED"}
+          value={payAmount}
+          onChange={(e) => handlePayChange(e.target.value)}
+          className="w-full bg-transparent outline-none text-gray-900 text-lg  placeholder-gray-600 text-center"
+        />
+
+        {isBuy ? (
+          <span className="text-lg font-bold absolute right-1">₹</span>
+        ) : (
+          <img src={Dirham} className="w-5 opacity-70 absolute right-1" />
+        )}
+      </div>
+    </div>
+
+    {/* Helper text inside bottom-left */}
+    {isBuy && (
+      <span className="absolute bottom-2 left-4 text-xs text-gray-600">
+        1 = 1000 | 100 = 1 Lakh
+      </span>
+    )}
+
+  </div>
+</div>
+
+
+
+
+{/* RECEIVE BOX */}
+<div className="flex flex-col gap-1">
+
+  <span className="text-sm font-semibold text-gray-800 ml-1">
+    RECEIVE AMOUNT (
+      {isBuy ? <img src={Dirham} className="inline w-4" /> : "₹"}
+    )
+  </span>
+
+  <div className="
+      h-32 rounded-xl bg-[#fff4cc] shadow-sm px-5 py-3
+      flex flex-col gap-2 relative
+  ">
+
+    <div className="flex-1 flex items-center justify-center">
+      <div className="w-full flex items-center justify-center relative">
+        <input
+          type="text"
+          placeholder={
+            isBuy ? "Enter AED you will receive" : "100 = 1 Lakh"
+          }
+          value={receiveAmount}
+          onChange={(e) => handleReceiveChange(e.target.value)}
+          className="w-full bg-transparent outline-none text-gray-900 text-lg  placeholder-gray-600 text-center"
+        />
+
+        {isBuy ? (
+          <img src={Dirham} className="w-5 opacity-70 absolute right-1" />
+        ) : (
+          <span className="text-lg font-bold absolute right-1">₹</span>
+        )}
+      </div>
+    </div>
+
+    {/* Helper text inside bottom-left */}
+    {!isBuy && (
+      <span className="absolute bottom-2 left-4 text-xs text-gray-600">
+        1 = 1000 | 100 = 1 Lakh
+      </span>
+    )}
+
+  </div>
+</div>
+
+
+</div>
+
+</div>
+
+</div>
+
+          {/* SUMMARY SESSION */}
+     <div className="border border-gray-200 rounded-lg p-4 bg-white">
+  <h3 className="text-lg font-semibold text-gray-800 mb-3">SUMMARY SESSION</h3>
+  <div className={`rounded-lg p-3 border ${theme.summaryBorder} ${theme.summaryBg}`}>
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-center">
+      <div>
+        <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+          You Pay
+        </div>
+        <div className="flex items-center justify-center gap-1">
+          <span className="text-lg font-bold text-gray-900">
+            {payAmount || '0'}
+          </span>
+          <span className="text-sm font-semibold text-gray-600">
+            {isBuy ? (
+              <span className="font-bold">₹</span>
+            ) : (
+              <img src={Dirham} alt="AED" className="w-4 h-4" />
+            )}
+          </span>
+        </div>
+      </div>
+      <div>
+        <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+          You Receive
+        </div>
+        <div className="flex items-center justify-center gap-1">
+          <span className="text-lg font-bold text-gray-900">
+            {receiveAmount || '0'}
+          </span>
+          <span className="text-sm font-semibold text-gray-600">
+            {isBuy ? (
+              <img src={Dirham} alt="AED" className="w-4 h-4" />
+            ) : (
+              <span className="font-bold">₹</span>
+            )}
+          </span>
+        </div>
+      </div>
+      <div>
+        <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+          Rate
+        </div>
+        <div className="flex items-center justify-center gap-1">
+          <span className="text-lg font-bold text-gray-900">
+            {rateLakh || '0.00'}
+          </span>
+          <span className="text-sm font-semibold text-gray-600">
+            <img src={Dirham} alt="AED" className="w-4 h-4" />
+          </span>
+          <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${
+            isBuy ? 'bg-blue-600 text-white' : 'bg-red-600 text-white'
+          }`}>
+            {isBuy ? 'Buy' : 'Sell'}
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+          {/* CREATE TRADE BUTTON */}
+          <div className="flex justify-center">
             <button
-              onClick={handleCancel}
-              className="flex-1 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md font-medium transition-colors"
+              onClick={handleSubmit}
+              className={`w-full max-w-md py-4 ${theme.buttonBg} text-white rounded-lg font-semibold text-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
+              disabled={
+                !localSelectedTrader && !selectedTrader ||
+                (!payAmount && !receiveAmount) ||
+                !rateLakh
+              }
             >
-              Cancel Edit
+              {editTransaction ? 'UPDATE TRADE' : 'CREATE TRADE'}
             </button>
-          )}
-          <button
-            onClick={handleSubmit}
-            className={`${editTransaction ? 'flex-1' : 'w-full'} py-3 ${theme.buttonBg} text-white rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
-            disabled={
-              !selectedTrader ||
-              (!payAmount && !receiveAmount) ||
-              !rateLakh
-            }
-          >
-            {editTransaction ? 'Update Trade' : 'Create Trade'}
-          </button>
+          </div>
         </div>
       </div>
 
@@ -517,5 +677,5 @@ export default function TradeModalFX({
         data={successData}
       />
     </>
-  );
+  );  
 }

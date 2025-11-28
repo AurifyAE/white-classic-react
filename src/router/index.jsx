@@ -80,6 +80,8 @@ import CommodityPage from "../pages/commodityPage.jsx";
 import FinancialYearsMaster from "../pages/FinancialMaster.jsx";
 import Transaction from "../pages/Transaction.jsx";
 import InvoicePage from "../components/MetalTransaction/Transaction/components/InvoicePage.jsx";
+import RecentOrders from '../components/MetalTransaction/Transaction/components/RecentOrders.jsx';
+import Projectentry from "../pages/projectentry.jsx";
 export default function UserRouter() {
   return (
     <Routes>
@@ -170,7 +172,8 @@ export default function UserRouter() {
 
         <Route path="/currency-receipt" element={<ModeOfReceipt />} />
         <Route path="/currency-receipt/:module" element={<ModeOfReceipt />} />
-
+        <Route path="/project-entry" element={<Projectentry/>} />
+        
         {/* Fixings */}
         <Route path="/purchase-fixing" element={<Purchasefixing />} />
         <Route path="/sales-fixing" element={<Salesfixing />} />
@@ -204,6 +207,7 @@ export default function UserRouter() {
           path="/inventory/metals/:id"
           element={<MetalinventoryDetailPage />}
         />
+        <Route path="/recent-orders" element={<RecentOrders />} />
         <Route path="/invoice/:id" element={<InvoicePage />} />
         <Route
           path="/reports/metal-stock-ledger"
@@ -235,7 +239,7 @@ export default function UserRouter() {
           element={<StatementofAccountsPage />}
         />
 
-        <Route path="/currency-fix" element={<CurrencyFixing />} />
+        {/* <Route path="/currency-fix" element={<CurrencyFixing />} /> */}
       </Route>
       </Route>
 

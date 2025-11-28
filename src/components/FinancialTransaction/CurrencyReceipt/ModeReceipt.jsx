@@ -2628,55 +2628,55 @@ const numberToWords = (amount, currencyCode) => {
                     </p>
                   )}
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Amount
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full px-4 py-3 border-0 rounded-xl bg-gray-50"
-                    value={amount}
-                    onChange={(e) => {
-                      let value = e.target.value.replace(/[^0-9.]/g, "");
-                      if (value) {
-                        const parts = value.split(".");
-                        if (parts.length > 1) {
-                          value = `${parts[0]}.${parts[1].slice(0, 2)}`;
-                        }
-                        const formattedValue = Number(value).toLocaleString(
-                          "en-US",
-                          {
-                            minimumFractionDigits: value.includes(".")
-                              ? parts[1].length
-                              : 0,
-                            maximumFractionDigits: 2,
-                          }
-                        );
-                        setAmount(formattedValue);
-                      } else {
-                        setAmount("");
-                      }
-                    }}
-                    onBlur={() => {
-                      if (amount) {
-                        const numericValue =
-                          parseFloat(amount.replace(/,/g, "")) || 0;
-                        setAmount(
-                          numericValue.toLocaleString("en-US", {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })
-                        );
-                      }
-                    }}
-                    placeholder="Enter amount"
-                  />
-                  {arrayError.amount && (
-                    <p className="text-red-500 text-sm mt-1">
-                      {arrayError.amount}
-                    </p>
-                  )}
-                </div>
+              <div className="col-span-1 md:col-span-2 mt-6">
+  <label className="block text-sm font-medium text-gray-700 mb-1">
+    Amount
+  </label>
+
+  {/* Helper text you wanted */}
+  <p className="text-xs text-gray-500 mb-2">
+    1 = 1000 | 100 = 1 Lakh
+  </p>
+
+  <input
+    type="text"
+    className="w-full px-4 py-3 bg-gray-100/80 border-0 rounded-xl text-gray-500 font-medium shadow-inner transition-all duration-200 cursor-not-allowed"
+    value={amount}
+    onChange={(e) => {
+      let value = e.target.value.replace(/[^0-9.]/g, "");
+      if (value) {
+        const parts = value.split(".");
+        if (parts.length > 1) {
+          value = `${parts[0]}.${parts[1].slice(0, 2)}`;
+        }
+        const formattedValue = Number(value).toLocaleString("en-US", {
+          minimumFractionDigits: value.includes(".") ? parts[1].length : 0,
+          maximumFractionDigits: 2,
+        });
+        setAmount(formattedValue);
+      } else {
+        setAmount("");
+      }
+    }}
+    onBlur={() => {
+      if (amount) {
+        const numericValue = parseFloat(amount.replace(/,/g, "")) || 0;
+        setAmount(
+          numericValue.toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })
+        );
+      }
+    }}
+    placeholder="Enter amount"
+  />
+
+  {arrayError.amount && (
+    <p className="text-red-500 text-sm mt-1">{arrayError.amount}</p>
+  )}
+</div>
+
 
                 {/* <div>
   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -2722,7 +2722,7 @@ const numberToWords = (amount, currencyCode) => {
     </p>
   )}
 </div> */}
-                <div className="mt-4 flex items-center w-full bg-gray-50 p-3 rounded-xl shadow-inner">
+                {/* <div className="mt-4 flex items-center w-full bg-gray-50 p-3 rounded-xl shadow-inner">
                   <input
                     type="checkbox"
                     id="includeVat"
@@ -2872,7 +2872,7 @@ const numberToWords = (amount, currencyCode) => {
                       />
                     </div>
                   </div>
-                )}
+                )} */}
 
               <div className="col-span-1 md:col-span-2 mt-6">
   <label className="block text-sm font-semibold text-gray-800 mb-2 tracking-wide">

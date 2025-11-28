@@ -249,11 +249,16 @@ const CurrencyTradingRegistry = () => {
               <div className="p-6">
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
-                    <div className="flex items-center mb-2">
+                    <div >
+                      <div className="flex items-center mb-2">
+
                       <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+
                       <p className="text-sm font-medium text-gray-600 uppercase tracking-wide">
                         Total Buy (INR)
                       </p>
+                      </div>
+                        <p className="mt-1 text-xs text-gray-500 mb-2">1 = 1,000 INR | 100 = 1 Lakh INR</p>
                     </div>
                     <p className="text-3xl font-bold text-gray-900 mb-1 flex items-center">
                       <span className="mr-1 text-3xl">₹</span>
@@ -305,11 +310,16 @@ const CurrencyTradingRegistry = () => {
               <div className="p-6">
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
-                    <div className="flex items-center mb-2">
+                    <div >
+                      <div className="flex items-center mb-2">
+
                       <div className="w-2 h-2 bg-red-500 rounded-full mr-2"></div>
                       <p className="text-sm font-medium text-gray-600 uppercase tracking-wide">
                         Total Sell (INR)
+
                       </p>
+                      </div>
+                                  <p className="mt-1 text-xs text-gray-500 mb-2">1 = 1,000 INR | 100 = 1 Lakh INR</p>
                     </div>
                     <p className="text-3xl font-bold text-gray-900 mb-1 flex items-center">
                       <span className="mr-1 text-3xl">₹</span>

@@ -83,6 +83,10 @@ const ProfileTab = ({ userData, formatDate }) => {
           </span>
         )}
         <div className="text-sm text-gray-500">{label}</div>
+        {label === "Cash Balance (INR)" && (
+          <p className="mt-1 text-xs text-gray-500 mb-2">1 = 1,000 INR | 100 = 1 Lakh INR</p>
+
+        )}
         <div className="flex items-center gap-2">
           <span
             className={`text-xl font-semibold ${color} flex items-center gap-1`}

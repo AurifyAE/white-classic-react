@@ -43,6 +43,27 @@ const OrderStatementsTab = ({
     creditGold: "Credit (Gold)",
   };
 
+function Truncate({ text, limit = 10 }) {
+  const [open, setOpen] = React.useState(false);
+
+  if (text.length <= limit) return <span>{text}</span>;
+
+  return (
+    <span>
+      {open ? text : text.substring(0, limit)}
+      {!open && <span className="text-gray-500"></span>}
+      <span
+        onClick={() => setOpen(!open)}
+        className="text-blue-600 hover:underline cursor-pointer ml-1"
+      >
+        {open ? "less" : "....."}
+      </span>
+    </span>
+  );
+}
+
+
+
   const formatDate = (date) => {
     if (!date) return "";
     const d = new Date(date);
@@ -488,11 +509,43 @@ const OrderStatementsTab = ({
     doc.save("StatementOfAccount.pdf");
   };
 
-  // Pagination logic
-  const totalPages = Math.ceil(filteredRegistries.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentStatements = filteredRegistries.slice(startIndex, endIndex);
+  const groupedFull = filteredRegistries.reduce((acc, txn) => {
+  if (!acc[txn.docRef]) acc[txn.docRef] = [];
+  acc[txn.docRef].push(txn);
+  return acc;
+}, {});
+
+const groupedArray = Object.keys(groupedFull).map(docRef => ({
+  docRef,
+  items: groupedFull[docRef]
+}));
+
+// MAX number of rows per page (adjust for your UI)
+const maxRowsPerPage = 15;
+
+let pages = [];
+let tempPage = [];
+let rowCount = 0;
+
+groupedArray.forEach(group => {
+  const groupSize = group.items.length + 1; // +1 = group header row
+
+  if (rowCount + groupSize > maxRowsPerPage) {
+    pages.push(tempPage);
+    tempPage = [];
+    rowCount = 0;
+  }
+
+  tempPage.push(group);
+  rowCount += groupSize;
+});
+
+if (tempPage.length > 0) pages.push(tempPage);
+
+const totalPages = pages.length;
+const currentGroups = pages[currentPage - 1] || [];
+
+
 
   const goToPage = (page) => setCurrentPage(page);
   const goToPrevious = () => currentPage > 1 && setCurrentPage(currentPage - 1);
@@ -501,141 +554,129 @@ const OrderStatementsTab = ({
 
   return (
     <div className="p-6">
-      <div className="flex flex-wrap gap-4 mb-6">
-        {/* AED Credit Card */}
-        <div className="flex flex-col justify-between p-5 bg-gradient-to-br from-green-50 to-green-100 border border-green-300 rounded-2xl w-full sm:w-[calc(25%-1rem)] shadow hover:shadow-md transition-shadow duration-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-green-800 font-semibold text-lg">
-                Credit (AED)
-              </h2>
-              <p className="text-3xl font-bold text-green-800 flex items-center gap-1">
-                {/* AED SVG Icon */}
-                {summary.AED.credit.toLocaleString("en-US", {
-                  minimumFractionDigits: 3,
-                  maximumFractionDigits: 3,
-                })}
-              </p>
-            </div>
-            <ArrowDownCircle className="w-8 h-8 text-green-600" />
-          </div>
-          <p className="mt-3 text-sm text-green-700 bg-green-200/40 px-3 py-1 rounded-md w-fit">
-            Total received
+     {/* =============== SUMMARY CARDS – TEMPORARILY DISABLED =============== */}
+{false && (
+  <div className="flex flex-wrap gap-4 mb-6">
+    {/* AED Credit Card */}
+    <div className="flex flex-col justify-between p-5 bg-gradient-to-br from-green-50 to-green-100 border border-green-300 rounded-2xl w-full sm:w-[calc(25%-1rem)] shadow hover:shadow-md transition-shadow duration-200">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-green-800 font-semibold text-lg">Credit (AED)</h2>
+          <p className="text-3xl font-bold text-green-800 flex items-center gap-1">
+            {summary.AED.credit.toLocaleString("en-US", {
+              minimumFractionDigits: 3,
+              maximumFractionDigits: 3,
+            })}
           </p>
         </div>
-
-        {/* AED Debit Card */}
-        <div className="flex flex-col justify-between p-5 bg-gradient-to-br from-red-50 to-red-100 border border-red-300 rounded-2xl w-full sm:w-[calc(25%-1rem)] shadow hover:shadow-md transition-shadow duration-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-red-800 font-semibold text-lg">
-                Debit (AED)
-              </h2>
-              <p className="text-3xl font-bold text-red-800 flex items-center gap-1">
-                {/* AED SVG Icon */}
-                {summary.AED.debit.toLocaleString("en-US", {
-                  minimumFractionDigits: 3,
-                  maximumFractionDigits: 3,
-                })}
-              </p>
-            </div>
-            <ArrowUpCircle className="w-8 h-8 text-red-600" />
-          </div>
-          <p className="mt-3 text-sm text-red-700 bg-red-200/40 px-3 py-1 rounded-md w-fit">
-            Total spent
-          </p>
-        </div>
-
-        {/* INR Credit Card */}
-        <div className="flex flex-col justify-between p-5 bg-gradient-to-br from-green-50 to-green-100 border border-green-300 rounded-2xl w-full sm:w-[calc(25%-1rem)] shadow hover:shadow-md transition-shadow duration-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-green-800 font-semibold text-lg">
-                Credit (INR)
-              </h2>
-              <p className="text-3xl font-bold text-green-800 flex items-center gap-1">
-                <span>₹</span>
-                {summary.INR.credit.toLocaleString("en-US", {
-                  minimumFractionDigits: 3,
-                  maximumFractionDigits: 3,
-                })}
-              </p>
-            </div>
-            <ArrowDownCircle className="w-8 h-8 text-green-600" />
-          </div>
-          <p className="mt-3 text-sm text-green-700 bg-green-200/40 px-3 py-1 rounded-md w-fit">
-            Total received
-          </p>
-        </div>
-
-        {/* INR Debit Card */}
-        <div className="flex flex-col justify-between p-5 bg-gradient-to-br from-red-50 to-red-100 border border-red-300 rounded-2xl w-full sm:w-[calc(25%-1rem)] shadow hover:shadow-md transition-shadow duration-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-red-800 font-semibold text-lg">
-                Debit (INR)
-              </h2>
-              <p className="text-3xl font-bold text-red-800 flex items-center gap-1">
-                <span>₹</span>
-                {summary.INR.debit.toLocaleString("en-US", {
-                  minimumFractionDigits: 3,
-                  maximumFractionDigits: 3,
-                })}
-              </p>
-            </div>
-            <ArrowUpCircle className="w-8 h-8 text-red-600" />
-          </div>
-          <p className="mt-3 text-sm text-red-700 bg-red-200/40 px-3 py-1 rounded-md w-fit">
-            Total spent
-          </p>
-        </div>
-
-        {/* NEW: Gold Credit Card */}
-        <div className="flex flex-col justify-between p-5 bg-gradient-to-br from-amber-50 to-amber-100 border border-amber-300 rounded-2xl w-full sm:w-[calc(25%-1rem)] shadow hover:shadow-md transition-shadow duration-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-amber-800 font-semibold text-lg">
-                Credit (Gold)
-              </h2>
-              <p className="text-3xl font-bold text-amber-800 flex items-center gap-1">
-                {/* <span>🥇</span> */}
-                {summary.gold.credit.toLocaleString("en-US", {
-                  minimumFractionDigits: 3,
-                  maximumFractionDigits: 3,
-                })}
-                <span className="text-lg">g</span>
-              </p>
-            </div>
-            <ArrowDownCircle className="w-8 h-8 text-amber-600" />
-          </div>
-          <p className="mt-3 text-sm text-amber-700 bg-amber-200/40 px-3 py-1 rounded-md w-fit">
-            Total received
-          </p>
-        </div>
-
-        {/* NEW: Gold Debit Card */}
-        <div className="flex flex-col justify-between p-5 bg-gradient-to-br from-orange-50 to-orange-100 border border-orange-300 rounded-2xl w-full sm:w-[calc(25%-1rem)] shadow hover:shadow-md transition-shadow duration-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-orange-800 font-semibold text-lg">
-                Debit (Gold)
-              </h2>
-              <p className="text-3xl font-bold text-orange-800 flex items-center gap-1">
-                {/* <span>🥇</span> */}
-                {summary.gold.debit.toLocaleString("en-US", {
-                  minimumFractionDigits: 3,
-                  maximumFractionDigits: 3,
-                })}
-                <span className="text-lg">g</span>
-              </p>
-            </div>
-            <ArrowUpCircle className="w-8 h-8 text-orange-600" />
-          </div>
-          <p className="mt-3 text-sm text-orange-700 bg-orange-200/40 px-3 py-1 rounded-md w-fit">
-            Total spent
-          </p>
-        </div>
+        <ArrowDownCircle className="w-8 h-8 text-green-600" />
       </div>
+      <p className="mt-3 text-sm text-green-700 bg-green-200/40 px-3 py-1 rounded-md w-fit">
+        Total received
+      </p>
+    </div>
+
+    {/* AED Debit Card */}
+    <div className="flex flex-col justify-between p-5 bg-gradient-to-br from-red-50 to-red-100 border border-red-300 rounded-2xl w-full sm:w-[calc(25%-1rem)] shadow hover:shadow-md transition-shadow duration-200">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-red-800 font-semibold text-lg">Debit (AED)</h2>
+          <p className="text-3xl font-bold text-red-800 flex items-center gap-1">
+            {summary.AED.debit.toLocaleString("en-US", {
+              minimumFractionDigits: 3,
+              maximumFractionDigits: 3,
+            })}
+          </p>
+        </div>
+        <ArrowUpCircle className="w-8 h-8 text-red-600" />
+      </div>
+      <p className="mt-3 text-sm text-red-700 bg-red-200/40 px-3 py-1 rounded-md w-fit">
+        Total spent
+      </p>
+    </div>
+
+    {/* INR Credit Card */}
+    <div className="flex flex-col justify-between p-5 bg-gradient-to-br from-green-50 to-green-100 border border-green-300 rounded-2xl w-full sm:w-[calc(25%-1rem)] shadow hover:shadow-md transition-shadow duration-200">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-green-800 font-semibold text-lg">Credit (INR)</h2>
+          <p className="text-3xl font-bold text-green-800 flex items-center gap-1">
+            <span>₹</span>
+            {summary.INR.credit.toLocaleString("en-US", {
+              minimumFractionDigits: 3,
+              maximumFractionDigits: 3,
+            })}
+          </p>
+        </div>
+        <ArrowDownCircle className="w-8 h-8 text-green-600" />
+      </div>
+      <p className="mt-3 text-sm text-green-700 bg-green-200/40 px-3 py-1 rounded-md w-fit">
+        Total received
+      </p>
+    </div>
+
+    {/* INR Debit Card */}
+    <div className="flex flex-col justify-between p-5 bg-gradient-to-br from-red-50 to-red-100 border border-red-300 rounded-2xl w-full sm:w-[calc(25%-1rem)] shadow hover:shadow-md transition-shadow duration-200">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-red-800 font-semibold text-lg">Debit (INR)</h2>
+          <p className="text-3xl font-bold text-red-800 flex items-center gap-1">
+            <span>₹</span>
+            {summary.INR.debit.toLocaleString("en-US", {
+              minimumFractionDigits: 3,
+              maximumFractionDigits: 3,
+            })}
+          </p>
+        </div>
+        <ArrowUpCircle className="w-8 h-8 text-red-600" />
+      </div>
+      <p className="mt-3 text-sm text-red-700 bg-red-200/40 px-3 py-1 rounded-md w-fit">
+        Total spent
+      </p>
+    </div>
+
+    {/* Gold Credit Card */}
+    <div className="flex flex-col justify-between p-5 bg-gradient-to-br from-amber-50 to-amber-100 border border-amber-300 rounded-2xl w-full sm:w-[calc(25%-1rem)] shadow hover:shadow-md transition-shadow duration-200">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-amber-800 font-semibold text-lg">Credit (Gold)</h2>
+          <p className="text-3xl font-bold text-amber-800 flex items-center gap-1">
+            {summary.gold.credit.toLocaleString("en-US", {
+              minimumFractionDigits: 3,
+              maximumFractionDigits: 3,
+            })}
+            <span className="text-lg">g</span>
+          </p>
+        </div>
+        <ArrowDownCircle className="w-8 h-8 text-amber-600" />
+      </div>
+      <p className="mt-3 text-sm text-amber-700 bg-amber-200/40 px-3 py-1 rounded-md w-fit">
+        Total received
+      </p>
+    </div>
+
+    {/* Gold Debit Card */}
+    <div className="flex flex-col justify-between p-5 bg-gradient-to-br from-orange-50 to-orange-100 border border-orange-300 rounded-2xl w-full sm:w-[calc(25%-1rem)] shadow hover:shadow-md transition-shadow duration-200">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-orange-800 font-semibold text-lg">Debit (Gold)</h2>
+          <p className="text-3xl font-bold text-orange-800 flex items-center gap-1">
+            {summary.gold.debit.toLocaleString("en-US", {
+              minimumFractionDigits: 3,
+              maximumFractionDigits: 3,
+            })}
+            <span className="text-lg">g</span>
+          </p>
+        </div>
+        <ArrowUpCircle className="w-8 h-8 text-orange-600" />
+      </div>
+      <p className="mt-3 text-sm text-orange-700 bg-orange-200/40 px-3 py-1 rounded-md w-fit">
+        Total spent
+      </p>
+    </div>
+  </div>
+)}
+{/* ================================================================== */}
 
       <div className="flex flex-col sm:flex-row justify-between gap-4 mb-6">
         <div className="flex-1 flex items-center gap-2">
@@ -695,7 +736,7 @@ const OrderStatementsTab = ({
       </div>
 
       <h2 className="text-3xl font-bold text-gray-900 mb-6 tracking-tight">
-        Statement of Account
+        Transaction History
       </h2>
 
       {loading ? (
@@ -720,6 +761,8 @@ const OrderStatementsTab = ({
                     colSpan="3"
                   >
                     Amount in INR
+                    {/* <p className="mt-1 text-xs text-gray-500 mb-2">1 = 1,000 INR | 100 = 1 Lakh INR</p> */}
+
                   </th>
                   <th
                     className="px-6 py-4 text-center border-l border-gray-200"
@@ -828,146 +871,192 @@ const OrderStatementsTab = ({
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-gray-100 text-sm">
-                {currentStatements.map((txn, i) => (
-                  <tr
-                    key={i}
-                    className="hover:bg-gray-50 transition-all duration-200"
-                  >
-                    <td className="px-6 py-4 text-gray-700">{txn.docDate}</td>
-                    <td
-                      onClick={() => navigateToVoucher(txn.docRef)}
-                      className="px-6 py-4 text-blue-700 font-semibold hover:underline cursor-pointer"
-                    >
-                      {txn.docRef}
-                    </td>
-                    <td className="px-6 py-4 text-gray-700">
-                      {txn.particulars}
-                    </td>
-                    <td className="px-6 py-4 text-center border-l border-gray-200">
-                      {txn.aed.debit > 0 ? (
-                        <span className="text-red-600 font-semibold">
-                          {formatIndianAmount(txn.aed.debit)}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400">--</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      {txn.aed.credit > 0 ? (
-                        <span className="text-green-600 font-semibold">
-                          {formatIndianAmount(txn.aed.credit)}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400">--</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-center text-blue-700 font-bold">
-                      {txn.aed.balance !== 0 ? (
-                        <span>{formatWithCRDR(txn.aed.balance, "AED")}</span>
-                      ) : (
-                        <span className="text-gray-400">--</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-center border-l border-gray-200">
-                      {txn.inr.debit > 0 ? (
-                        <span className="text-red-600 font-semibold">
-                          {formatIndianAmount(txn.inr.debit)}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400">--</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      {txn.inr.credit > 0 ? (
-                        <span className="text-green-600 font-semibold">
-                          {formatIndianAmount(txn.inr.credit)}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400">--</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-center font-bold text-blue-700">
-                      {txn.inr.balance !== 0 ? (
-                        <span>{formatWithCRDR(txn.inr.balance, "INR")}</span>
-                      ) : (
-                        <span className="text-gray-400">--</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-center border-l border-gray-200">
-                      {txn.goldInGMS.debit > 0 ? (
-                        <span className="text-red-600 font-semibold">
-                          {formatIndianAmount(txn.goldInGMS.debit)}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400">--</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      {txn.goldInGMS.credit > 0 ? (
-                        <span className="text-green-600 font-semibold">
-                          {formatIndianAmount(txn.goldInGMS.credit)}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400">--</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-center font-bold text-blue-700">
-                      {txn.goldInGMS.balance !== 0 ? (
-                        <span>
-                          {formatWithCRDR(txn.goldInGMS.balance, "GMS")}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400">--</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+            <tbody className="divide-y divide-gray-100 text-sm">
 
-                <tr className="bg-gradient-to-r from-gray-50 to-gray-100 font-semibold border-t-2 border-gray-300">
-                  <td colSpan="3" className="px-6 py-4 text-gray-800">
-                    Balance Carried Forward
-                  </td>
-                  <td className="px-6 py-4 text-center text-red-600 border-l border-gray-200">
-                    {formatIndianAmount(summary.AED.debit)}
-                  </td>
-                  <td className="px-6 py-4 text-center text-green-600">
-                    {formatIndianAmount(summary.AED.credit)}
-                  </td>
-                  <td className="px-6 py-4 text-center text-blue-700 font-bold">
-                    {formatWithCRDR(summary.AED.balance, "AED")}
-                  </td>
-                  <td className="px-6 py-4 text-center text-red-600 border-l border-gray-200">
-                    {formatIndianAmount(summary.INR.debit)}
-                  </td>
-                  <td className="px-6 py-4 text-center text-green-600">
-                    {formatIndianAmount(summary.INR.credit)}
-                  </td>
-                  <td className="px-6 py-4 text-center text-blue-700 font-bold">
-                    {formatWithCRDR(summary.INR.balance, "INR")}
-                  </td>
-                  <td className="px-6 py-4 text-center text-red-600 border-l border-gray-200">
-                    {formatIndianAmount(summary.gold.debit)}
-                  </td>
-                  <td className="px-6 py-4 text-center text-green-600">
-                    {formatIndianAmount(summary.gold.credit)}
-                  </td>
-                  <td className="px-6 py-4 text-center text-blue-700 font-bold">
-                    {formatWithCRDR(summary.gold.balance, "GMS")}
-                  </td>
-                </tr>
-              </tbody>
+  {currentGroups.map((group, idx) => (
+    <React.Fragment key={idx}>
+
+      {/* GROUP HEADER */}
+      <tr className="bg-gray-100">
+        <td colSpan={12} className="px-6 py-2 font-semibold text-gray-700">
+          {group.docRef}
+        </td>
+      </tr>
+
+      {/* GROUP ITEMS */}
+      {group.items.map((txn, i) => (
+        <tr key={i} className="hover:bg-gray-50 transition-all duration-200">
+
+          {/* DOC DATE */}
+          <td className="px-6 py-4 text-gray-700">{txn.docDate}</td>
+
+          {/* DOC REF */}
+          <td
+            onClick={() => navigateToVoucher(txn.docRef)}
+            className="px-6 py-4 text-blue-700 font-semibold hover:underline cursor-pointer"
+          >
+            {txn.docRef}
+          </td>
+
+          {/* PARTICULARS */}
+          <td className="px-6 py-4">
+            <Truncate text={txn.particulars} limit={20} />
+          </td>
+
+          {/* AED DEBIT */}
+          <td className="px-6 py-4 text-center border-l border-gray-200">
+            {txn.aed.debit > 0 ? (
+              <span className="text-red-600 font-semibold">
+                {formatIndianAmount(txn.aed.debit)}
+              </span>
+            ) : (
+              <span className="text-gray-400">--</span>
+            )}
+          </td>
+
+          {/* AED CREDIT */}
+          <td className="px-6 py-4 text-center">
+            {txn.aed.credit > 0 ? (
+              <span className="text-green-600 font-semibold">
+                {formatIndianAmount(txn.aed.credit)}
+              </span>
+            ) : (
+              <span className="text-gray-400">--</span>
+            )}
+          </td>
+
+          {/* AED BALANCE */}
+          <td className="px-6 py-4 text-center text-blue-700 font-bold">
+            {txn.aed.balance !== 0 ? (
+              <span>{formatWithCRDR(txn.aed.balance, "AED")}</span>
+            ) : (
+              <span className="text-gray-400">--</span>
+            )}
+          </td>
+
+          {/* INR DEBIT */}
+          <td className="px-6 py-4 text-center border-l border-gray-200">
+            {txn.inr.debit > 0 ? (
+              <span className="text-red-600 font-semibold">
+                {formatIndianAmount(txn.inr.debit)}
+              </span>
+            ) : (
+              <span className="text-gray-400">--</span>
+            )}
+          </td>
+
+          {/* INR CREDIT */}
+          <td className="px-6 py-4 text-center">
+            {txn.inr.credit > 0 ? (
+              <span className="text-green-600 font-semibold">
+                {formatIndianAmount(txn.inr.credit)}
+              </span>
+            ) : (
+              <span className="text-gray-400">--</span>
+            )}
+          </td>
+
+          {/* INR BALANCE */}
+          <td className="px-6 py-4 text-center font-bold text-blue-700">
+            {txn.inr.balance !== 0 ? (
+              <span>{formatWithCRDR(txn.inr.balance, "INR")}</span>
+            ) : (
+              <span className="text-gray-400">--</span>
+            )}
+          </td>
+
+          {/* GOLD DEBIT */}
+          <td className="px-6 py-4 text-center border-l border-gray-200">
+            {txn.goldInGMS.debit > 0 ? (
+              <span className="text-red-600 font-semibold">
+                {formatIndianAmount(txn.goldInGMS.debit)}
+              </span>
+            ) : (
+              <span className="text-gray-400">--</span>
+            )}
+          </td>
+
+          {/* GOLD CREDIT */}
+          <td className="px-6 py-4 text-center">
+            {txn.goldInGMS.credit > 0 ? (
+              <span className="text-green-600 font-semibold">
+                {formatIndianAmount(txn.goldInGMS.credit)}
+              </span>
+            ) : (
+              <span className="text-gray-400">--</span>
+            )}
+          </td>
+
+          {/* GOLD BALANCE */}
+          <td className="px-6 py-4 text-center font-bold text-blue-700">
+            {txn.goldInGMS.balance !== 0 ? (
+              <span>{formatWithCRDR(txn.goldInGMS.balance, "GMS")}</span>
+            ) : (
+              <span className="text-gray-400">--</span>
+            )}
+          </td>
+
+        </tr>
+      ))}
+
+    </React.Fragment>
+  ))}
+
+  {/* BALANCE CARRIED FORWARD */}
+  <tr className="bg-gradient-to-r from-gray-50 to-gray-100 font-semibold border-t-2 border-gray-300">
+    <td colSpan="3" className="px-6 py-4 text-gray-800">
+      Balance Carried Forward
+    </td>
+
+    <td className="px-6 py-4 text-center text-red-600 border-l border-gray-200">
+      {formatIndianAmount(summary.AED.debit)}
+    </td>
+
+    <td className="px-6 py-4 text-center text-green-600">
+      {formatIndianAmount(summary.AED.credit)}
+    </td>
+
+    <td className="px-6 py-4 text-center text-blue-700 font-bold">
+      {formatWithCRDR(summary.AED.balance, "AED")}
+    </td>
+
+    <td className="px-6 py-4 text-center text-red-600 border-l border-gray-200">
+      {formatIndianAmount(summary.INR.debit)}
+    </td>
+
+    <td className="px-6 py-4 text-center text-green-600">
+      {formatIndianAmount(summary.INR.credit)}
+    </td>
+
+    <td className="px-6 py-4 text-center text-blue-700 font-bold">
+      {formatWithCRDR(summary.INR.balance, "INR")}
+    </td>
+
+    <td className="px-6 py-4 text-center text-red-600 border-l border-gray-200">
+      {formatIndianAmount(summary.gold.debit)}
+    </td>
+
+    <td className="px-6 py-4 text-center text-green-600">
+      {formatIndianAmount(summary.gold.credit)}
+    </td>
+
+    <td className="px-6 py-4 text-center text-blue-700 font-bold">
+      {formatWithCRDR(summary.gold.balance, "GMS")}
+    </td>
+  </tr>
+
+</tbody>
+
             </table>
           </div>
 
           {totalPages > 1 && (
             <div className="bg-white rounded-lg shadow-md p-4 mt-6">
               <div className="flex items-center justify-between">
-                <p className="text-sm text-gray-700">
-                  Showing {startIndex + 1} to{" "}
-                  {Math.min(endIndex, filteredRegistries.length)} of{" "}
-                  {filteredRegistries.length} entries
-                </p>
+              <p className="text-sm text-gray-700">
+  Page {currentPage} of {totalPages}
+</p>
+
                 <div className="flex items-center space-x-2">
                   <button
                     onClick={goToPrevious}

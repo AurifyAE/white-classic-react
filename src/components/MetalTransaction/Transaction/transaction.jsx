@@ -1,8 +1,8 @@
-// Updated main component - Transaction.jsx
+// Transaction.jsx - Redesigned version
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowUp, ArrowDown } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import SelectTrader from './components/SelectTrader';
-import RecentOrders from './components/RecentOrders';
 import TradeModalFX from './components/TradeModalFX';
 import TradeModalMetal from './components/TradeModalMetal';
 import GoldFixPage from './components/GoldFixPage';
@@ -22,11 +22,12 @@ const isGoldFixTab = (id) => ['gold'].includes(id);
 const isMetalTab = (id) => ['purchase', 'sales'].includes(id);
 
 export default function Transaction() {
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState('currency');
   const [selectedTrader, setSelectedTrader] = useState(null);
   const [editingTransaction, setEditingTransaction] = useState(null);
-  const [refreshKey, setRefreshKey] = useState(0);
-  
+  const [isInitialized, setIsInitialized] = useState(false);
+
   const { marketData } = useMarketData(["GOLD"]);
   const traderRefetchRef = useRef(null);
   const bidPrice = marketData?.bid ? marketData.bid.toFixed(2) : "3283.36";
@@ -34,6 +35,30 @@ export default function Transaction() {
   const [prevBid, setPrevBid] = useState(bidPrice);
   const [pulse, setPulse] = useState(false);
   const [priceDirection, setPriceDirection] = useState(null);
+
+  // Handle navigation state for editing
+useEffect(() => {
+  if (location.state) {
+    const { activeTab: navTab, editTransaction, traderData } = location.state;
+
+    if (navTab) setActiveTab(navTab);
+    if (traderData) setSelectedTrader(traderData);
+if (editTransaction) {
+  setEditingTransaction({
+    ...editTransaction,
+    _fromRecentOrders: true   // ⭐ mark it clearly
+  });
+}
+
+    // Always reset initialized when coming from navigation
+    setIsInitialized(false);
+
+    // Clear the state so back button doesn't re-trigger
+    setTimeout(() => {
+      window.history.replaceState({}, document.title);
+    }, 100);
+  }
+}, [location.state]);
 
   useEffect(() => {
     if (bidPrice !== prevBid) {
@@ -48,87 +73,60 @@ export default function Transaction() {
   }, [bidPrice, prevBid]);
 
   const handleTraderChange = (trader) => {
-    // console.log("Selected trader:", trader);
     setSelectedTrader(trader);
   };
 
-  const handleEditTransaction = (transaction) => {
-    // console.log("Editing transaction:", transaction);
+const handleCancelEdit = () => {
+  setEditingTransaction(null);
+  setSelectedTrader(null);        // ← Must clear trader
+  setIsInitialized(false);
+};
 
-    const party = transaction.partyId || transaction.party || transaction.partyCode;
 
-    if (party) {
-      const traderOption = {
-        value: party._id,
-        label: party.customerName ? `${party.customerName} (${party.accountCode})` : 'Selected Trader',
-        trader: party,
-        name: party.customerName,
-        _id: party._id
-      };
-      setSelectedTrader(traderOption);
-    }
 
-    setEditingTransaction(transaction);
-  };
+const handleTabChange = (tabId) => {
+  setActiveTab(tabId);
+  setEditingTransaction(null);
+  setSelectedTrader(null);
+  setIsInitialized(false);  // ← Also reset here!
+};
+  /* ---------------------------------------------------------
+      Keyboard Shortcuts
+      c → Currency Fix
+      g → Gold Fix
+      p → Purchase Metal
+      s → Sales Metal
+  --------------------------------------------------------- */
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      const key = e.key.toLowerCase();
 
-  // Handle delete from RecentOrders
-  const handleDeleteTransaction = async (transactionId) => {
-    if (window.confirm("Are you sure you want to delete this transaction?")) {
-      try {
-        let endpoint = '';
-        
-        switch (activeTab) {
-          case 'purchase':
-          case 'sales':
-            endpoint = `/metal-transaction/${transactionId}`;
-            break;
-          case 'currency':
-            endpoint = `/currency-trading/trades/${transactionId}`;
-            break;
-          case 'gold':
-            endpoint = `/gold-trade/trades/${transactionId}`;
-            break;
-          default:
-            console.warn('Delete not implemented for this tab');
-            return;
-        }
-        
-        await axiosInstance.delete(endpoint);
-        toast.success('Transaction deleted successfully');
-        
-        // Trigger refresh
-        setRefreshKey(prev => prev + 1);
-        
-        // Refetch trader balances
-       
-        if (traderRefetchRef?.current && typeof traderRefetchRef.current === 'function') {
-          await traderRefetchRef.current();
-        }
-      } catch (error) {
-        console.error('Delete failed:', error);
-        toast.error('Failed to delete transaction');
-      }
-    }
-  };
+      // Avoid shortcuts when typing in input boxes
+      const targetTag = e.target.tagName.toLowerCase();
+      if (targetTag === "input" || targetTag === "textarea") return;
 
-  // Handle successful trade creation/update
-  const handleTradeSuccess = () => {
-    setEditingTransaction(null);
-    setRefreshKey(prev => prev + 1);
-  };
+      if (key === 'c') setActiveTab('currency');
+      if (key === 'g') setActiveTab('gold');
+      if (key === 'p') setActiveTab('purchase');
+      if (key === 's') setActiveTab('sales');
+    };
 
-  // Handle cancel editing
-  const handleCancelEdit = () => {
-    setEditingTransaction(null);
-  };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   return (
-    <div className="bg-gray-50">
+    <div className="bg-gray-50 min-h-screen">
       {/* Top Navbar */}
-      <div className="bg-white shadow-sm border-b border-gray-200 px-4 py-3">
-        <div className="px-3 flex justify-between items-center">
-          <div className="text-lg font-semibold text-gray-800">
+      <div className="bg-white shadow-sm border-b border-gray-200 px-4 py-3 rounded-lg">
+        <div className="px-3 flex justify-between items-center h-16 rounded-xl">
+          <div className="text-lg font-semibold text-gray-800 ">
             Transaction Dashboard
+            {editingTransaction && (
+              <span className="ml-3 text-sm bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+                Editing Mode
+              </span>
+            )}
           </div>
 
           {isMetalTab(activeTab) && (
@@ -157,6 +155,7 @@ export default function Transaction() {
                     <ArrowDown className="text-red-600 w-5 h-5 animate-bounce" />
                   )}
                 </div>
+
                 <div className="flex justify-end space-x-4 text-xs mt-1">
                   <span className="text-gray-600">
                     Bid: <span className="font-medium text-gray-800">{bidPrice}</span>
@@ -166,6 +165,7 @@ export default function Transaction() {
                   </span>
                 </div>
               </div>
+
               <div className="relative">
                 <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
                 <div className="absolute inset-0 w-3 h-3 bg-green-500 rounded-full animate-ping"></div>
@@ -176,74 +176,79 @@ export default function Transaction() {
       </div>
 
       {/* Main Content */}
-      <div className="p-4">
-        {/* Tabs */}
-        <div className="flex border-b border-gray-200 mb-6 bg-white rounded-t-lg overflow-hidden">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => {
-                setActiveTab(tab.id);
-                setEditingTransaction(null);
-                setSelectedTrader(null);
-              }}
-              className={`px-6 py-3 font-medium text-sm border-b-2 transition-all duration-200 ${
-                activeTab === tab.id
-                  ? "border-blue-600 text-blue-600 bg-blue-50"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+      <div className="p-4 flex justify-center">
+        <div className="w-full max-w-7xl">
+          {/* Tabs */}
+          <div className="flex justify-center mb-6">
+            <div className="flex bg-gray-100 rounded-2xl p-1.5 shadow-inner gap-2">
+              {tabs.map((tab) => {
+                const isActive = activeTab === tab.id;
 
-        {/* Two Column Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          {/* Left: Trader & Trade Modals */}
-          <div className="lg:col-span-2 bg-white border border-gray-200 rounded-lg p-6 space-y-6 max-h-fit">
-            <SelectTrader 
-              onTraderChange={handleTraderChange} 
-              value={selectedTrader} 
-              ref={traderRefetchRef}
-            />
-
-            {isFixTab(activeTab) && (
-              <TradeModalFX 
-                selectedTrader={selectedTrader}
-                editTransaction={editingTransaction}
-                onClose={handleCancelEdit}
-                traderRefetch={traderRefetchRef}
-              />
-            )}
-            {isGoldFixTab(activeTab) && (
-              <GoldFixPage 
-                selectedTrader={selectedTrader}
-                traderRefetch={traderRefetchRef}
-                editTransaction={editingTransaction}
-                onClose={handleCancelEdit}
-              />
-            )}
-            {isMetalTab(activeTab) && (
-              <TradeModalMetal
-              type={activeTab}
-              selectedTrader={selectedTrader}
-              liveRate={bidPrice}
-              traderRefetch={traderRefetchRef}
-              existingTransaction={editingTransaction}
-              onClose={handleCancelEdit}
-            />
-            )}
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => handleTabChange(tab.id)}
+                    className={`relative px-6 py-2 text-sm font-medium rounded-xl
+                      transition-all duration-300
+                      ${isActive ? "text-blue-600" : "text-gray-600 hover:text-gray-800"}
+                    `}
+                    style={{
+                      transform: isActive ? "scale(1.05) translateY(-1px)" : "scale(1)",
+                      opacity: isActive ? 1 : 0.8,
+                    }}
+                  >
+                    {isActive && (
+                      <span
+                        className="absolute inset-0 rounded-xl bg-white shadow-md border border-blue-200 transition-all duration-300"
+                        style={{ zIndex: -1 }}
+                      ></span>
+                    )}
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          {/* Right: Recent Orders */}
-          <div className="lg:col-span-3 bg-white border border-gray-200 rounded-lg p-6 h-[60vh] overflow-y-auto scrollbar-hide">
-            <RecentOrders 
-              key={refreshKey}
-              type={activeTab} 
-              onEditTransaction={handleEditTransaction}
-              onDeleteTransaction={handleDeleteTransaction}
-            />
+          {/* Main Panel */}
+          <div className="space-y-4">
+          {isFixTab(activeTab) && (
+<TradeModalFX
+  selectedTrader={selectedTrader}
+  editTransaction={editingTransaction}
+  onClose={(success) => {
+    if (success) {
+      handleCancelEdit();
+    }
+  }}
+  traderRefetch={traderRefetchRef}
+/>
+)}
+
+            {isGoldFixTab(activeTab) && (
+              <GoldFixPage
+                selectedTrader={selectedTrader}
+                traderRefetch={traderRefetchRef}
+                editTransaction={editingTransaction}
+                onClose={handleCancelEdit}
+              />
+            )}
+
+           {isMetalTab(activeTab) && (
+  <TradeModalMetal
+    type={activeTab}
+    selectedTrader={selectedTrader}
+    liveRate={bidPrice}
+    traderRefetch={traderRefetchRef}
+    existingTransaction={editingTransaction}
+    initiatedFromRecentOrders={location.state?.initiatedFromRecentOrders || false}   // ⭐ ADD THIS
+    onClose={(success) => {
+      if (success) handleCancelEdit();
+    }}
+  />
+)}
+
+            
           </div>
         </div>
       </div>
