@@ -118,21 +118,17 @@ export default function TradeModalFX({
 
 // ---------- AUTO-FILL + FULL RESET WHEN EDIT ENDS ----------
 useEffect(() => {
-  if (!editTransaction) {
-    // This runs when edit is done/cancelled → FULL CLEAN STATE
-    setPayAmount('');
-    setReceiveAmount('');
-    setRateLakh('');
-    setIsBuy(true);
-    setLastEdited(null);
-    setLocalSelectedTrader(null);     // ← CLEAR TRADER!
-    isEditMode.current = false;
+ if (!editTransaction) {
+  setPayAmount('');
+  setReceiveAmount('');
+  setRateLakh('');
+  setLastEdited(null);
+  setLocalSelectedTrader(null);
+  isEditMode.current = false;
+  fetchVoucherCode();
+  return;
+}
 
-    // Generate BRAND NEW voucher for next trade
-    fetchVoucherCode();
-
-    return;
-  }
 
   // EDIT MODE: Fill with existing data
   isEditMode.current = true;
@@ -435,24 +431,24 @@ const handleSubmit = useCallback(async () => {
           isBuy ? "translate-x-0 bg-blue-600" : "translate-x-full bg-red-600"
         }`}
       />
-      <button
-        onClick={() => !editTransaction && setIsBuy(true)}
-        className={`relative z-10 flex-1 py-3 text-sm font-semibold transition-colors text-center ${
-          isBuy ? "text-white" : "text-gray-800"
-        }`}
-        disabled={!!editTransaction}
-      >
-        BUY
-      </button>
-      <button
-        onClick={() => !editTransaction && setIsBuy(false)}
-        className={`relative z-10 flex-1 py-3 text-sm font-semibold transition-colors text-center ${
-          !isBuy ? "text-white" : "text-gray-800"
-        }`}
-        disabled={!!editTransaction}
-      >
-        SELL
-      </button>
+     <button
+  onClick={() => setIsBuy(true)}
+  className={`relative z-10 flex-1 py-3 font-semibold ${
+    isBuy ? "text-white" : "text-gray-800"
+  }`}
+>
+  BUY
+</button>
+
+<button
+  onClick={() => setIsBuy(false)}
+  className={`relative z-10 flex-1 py-3 font-semibold ${
+    !isBuy ? "text-white" : "text-gray-800"
+  }`}
+>
+  SELL
+</button>
+
     </div>
       {/* Currency Pair Display */}
       <div className="px-6 pt-2 flex justify-end -mt-10">
