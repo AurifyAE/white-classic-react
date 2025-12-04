@@ -86,7 +86,7 @@ export default function TradeModalMetal({ type, selectedTrader, liveRate, onClos
   };
 
   // Handle melting charge input
-  const handleMeltingChargeChange = (value) => {
+const handleMeltingChargeChange = (value) => {
     const numericValue = value.replace(/[^0-9.]/g, '');
     const parts = numericValue.split('.');
     if (parts.length > 2) return;
@@ -128,12 +128,16 @@ const ratePerGram = useMemo(() => {
 
   const metalAmountCalc = useMemo(() => {
     if (!ratePerGram || !pureWeight) return 0;
-    return (ratePerGram * pureWeight);
+    return (ratePerGram * pureWeight)/1000
   }, [ratePerGram, pureWeight]);
 
-  const totalAmount = useMemo(() => {
+const totalAmount = useMemo(() => {
     const metal = metalAmountCalc || 0;
-    const numericMeltingCharge = parseFloat(parseFormattedNumber(meltingCharge)) || 0;
+    const rawMeltingCharge = parseFloat(parseFormattedNumber(meltingCharge)) || 0;
+    
+    // Apply the same conversion as rate field: 1 = 1000, 100 = 100000, etc.
+    const numericMeltingCharge = rawMeltingCharge * 1000;
+    
     return (metal + numericMeltingCharge);
   }, [metalAmountCalc, meltingCharge]);
 
@@ -902,6 +906,7 @@ const newTrade = {
           className="w-full bg-transparent outline-none text-gray-900 text-base text-center cursor-not-allowed"
         />
       </div>
+      <p className="text-xs text-gray-600 text-center">1 = 1000 | 100 = 1 Lakh</p>
 
     </div>
 
@@ -928,6 +933,7 @@ const newTrade = {
           <span className="absolute right-2 text-base font-semibold">₹</span>
         </div>
       </div>
+      <p className="text-xs text-gray-600 text-center">1 = 1000 | 100 = 1 Lakh</p>
 
     </div>
 
@@ -947,6 +953,7 @@ const newTrade = {
           ₹{formatNumber(totalAmount.toFixed(2))}
         </span>
       </div>
+      <p className="text-xs text-gray-600 text-center">1 = 1000 | 100 = 1 Lakh</p>
 
     </div>
 
