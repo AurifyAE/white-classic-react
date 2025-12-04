@@ -1,14 +1,14 @@
 // Transaction.jsx - Redesigned version
-import React, { useState, useEffect, useRef } from 'react';
-import { ArrowUp, ArrowDown } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
-import SelectTrader from './components/SelectTrader';
-import TradeModalFX from './components/TradeModalFX';
-import TradeModalMetal from './components/TradeModalMetal';
-import GoldFixPage from './components/GoldFixPage';
+import React, { useState, useEffect, useRef } from "react";
+import { ArrowUp, ArrowDown } from "lucide-react";
+import { useLocation } from "react-router-dom";
+import SelectTrader from "./components/SelectTrader";
+import TradeModalFX from "./components/TradeModalFX";
+import TradeModalMetal from "./components/TradeModalMetal";
+import GoldFixPage from "./components/GoldFixPage";
 import useMarketData from "../../marketData";
-import axiosInstance from '../../../api/axios';
-import { toast } from 'react-toastify';
+import axiosInstance from "../../../api/axios";
+import { toast } from "react-toastify";
 
 const tabs = [
   { id: "currency", label: "Currency Fix" },
@@ -17,13 +17,13 @@ const tabs = [
   { id: "sales", label: "Sales Metal" },
 ];
 
-const isFixTab = (id) => ['currency'].includes(id);
-const isGoldFixTab = (id) => ['gold'].includes(id);
-const isMetalTab = (id) => ['purchase', 'sales'].includes(id);
+const isFixTab = (id) => ["currency"].includes(id);
+const isGoldFixTab = (id) => ["gold"].includes(id);
+const isMetalTab = (id) => ["purchase", "sales"].includes(id);
 
 export default function Transaction() {
   const location = useLocation();
-  const [activeTab, setActiveTab] = useState('currency');
+  const [activeTab, setActiveTab] = useState("currency");
   const [selectedTrader, setSelectedTrader] = useState(null);
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -37,28 +37,28 @@ export default function Transaction() {
   const [priceDirection, setPriceDirection] = useState(null);
 
   // Handle navigation state for editing
-useEffect(() => {
-  if (location.state) {
-    const { activeTab: navTab, editTransaction, traderData } = location.state;
+  useEffect(() => {
+    if (location.state) {
+      const { activeTab: navTab, editTransaction, traderData } = location.state;
 
-    if (navTab) setActiveTab(navTab);
-    if (traderData) setSelectedTrader(traderData);
-if (editTransaction) {
-  setEditingTransaction({
-    ...editTransaction,
-    _fromRecentOrders: true   // ⭐ mark it clearly
-  });
-}
+      if (navTab) setActiveTab(navTab);
+      if (traderData) setSelectedTrader(traderData);
+      if (editTransaction) {
+        setEditingTransaction({
+          ...editTransaction,
+          _fromRecentOrders: true, // ⭐ mark it clearly
+        });
+      }
 
-    // Always reset initialized when coming from navigation
-    setIsInitialized(false);
+      // Always reset initialized when coming from navigation
+      setIsInitialized(false);
 
-    // Clear the state so back button doesn't re-trigger
-    setTimeout(() => {
-      window.history.replaceState({}, document.title);
-    }, 100);
-  }
-}, [location.state]);
+      // Clear the state so back button doesn't re-trigger
+      setTimeout(() => {
+        window.history.replaceState({}, document.title);
+      }, 100);
+    }
+  }, [location.state]);
 
   useEffect(() => {
     if (bidPrice !== prevBid) {
@@ -76,20 +76,18 @@ if (editTransaction) {
     setSelectedTrader(trader);
   };
 
-const handleCancelEdit = () => {
-  setEditingTransaction(null);
-  setSelectedTrader(null);        // ← Must clear trader
-  setIsInitialized(false);
-};
+  const handleCancelEdit = () => {
+    setEditingTransaction(null);
+    setSelectedTrader(null); // ← Must clear trader
+    setIsInitialized(false);
+  };
 
-
-
-const handleTabChange = (tabId) => {
-  setActiveTab(tabId);
-  setEditingTransaction(null);
-  setSelectedTrader(null);
-  setIsInitialized(false);  // ← Also reset here!
-};
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    setEditingTransaction(null);
+    setSelectedTrader(null);
+    setIsInitialized(false); // ← Also reset here!
+  };
   /* ---------------------------------------------------------
       Keyboard Shortcuts
       c → Currency Fix
@@ -105,14 +103,14 @@ const handleTabChange = (tabId) => {
       const targetTag = e.target.tagName.toLowerCase();
       if (targetTag === "input" || targetTag === "textarea") return;
 
-      if (key === 'c') setActiveTab('currency');
-      if (key === 'g') setActiveTab('gold');
-      if (key === 'p') setActiveTab('purchase');
-      if (key === 's') setActiveTab('sales');
+      if (key === "c") setActiveTab("currency");
+      if (key === "g") setActiveTab("gold");
+      if (key === "p") setActiveTab("purchase");
+      if (key === "s") setActiveTab("sales");
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
   return (
@@ -158,10 +156,14 @@ const handleTabChange = (tabId) => {
 
                 <div className="flex justify-end space-x-4 text-xs mt-1">
                   <span className="text-gray-600">
-                    Bid: <span className="font-medium text-gray-800">{bidPrice}</span>
+                    Bid:{" "}
+                    <span className="font-medium text-gray-800">
+                      {bidPrice}
+                    </span>
                   </span>
                   <span className="text-gray-600">
-                    Ask: <span className="font-medium text-red-600">{askPrice}</span>
+                    Ask:{" "}
+                    <span className="font-medium text-red-600">{askPrice}</span>
                   </span>
                 </div>
               </div>
@@ -190,10 +192,16 @@ const handleTabChange = (tabId) => {
                     onClick={() => handleTabChange(tab.id)}
                     className={`relative px-6 py-2 text-sm font-medium rounded-xl
                       transition-all duration-300
-                      ${isActive ? "text-blue-600" : "text-gray-600 hover:text-gray-800"}
+                      ${
+                        isActive
+                          ? "text-blue-600"
+                          : "text-gray-600 hover:text-gray-800"
+                      }
                     `}
                     style={{
-                      transform: isActive ? "scale(1.05) translateY(-1px)" : "scale(1)",
+                      transform: isActive
+                        ? "scale(1.05) translateY(-1px)"
+                        : "scale(1)",
                       opacity: isActive ? 1 : 0.8,
                     }}
                   >
@@ -212,18 +220,18 @@ const handleTabChange = (tabId) => {
 
           {/* Main Panel */}
           <div className="space-y-4">
-          {isFixTab(activeTab) && (
-<TradeModalFX
-  selectedTrader={selectedTrader}
-  editTransaction={editingTransaction}
-  onClose={(success) => {
-    if (success) {
-      handleCancelEdit();
-    }
-  }}
-  traderRefetch={traderRefetchRef}
-/>
-)}
+            {isFixTab(activeTab) && (
+              <TradeModalFX
+                selectedTrader={selectedTrader}
+                editTransaction={editingTransaction}
+                onClose={(success) => {
+                  if (success) {
+                    handleCancelEdit();
+                  }
+                }}
+                traderRefetch={traderRefetchRef}
+              />
+            )}
 
             {isGoldFixTab(activeTab) && (
               <GoldFixPage
@@ -234,21 +242,21 @@ const handleTabChange = (tabId) => {
               />
             )}
 
-           {isMetalTab(activeTab) && (
-  <TradeModalMetal
-    type={activeTab}
-    selectedTrader={selectedTrader}
-    liveRate={bidPrice}
-    traderRefetch={traderRefetchRef}
-    existingTransaction={editingTransaction}
-    initiatedFromRecentOrders={location.state?.initiatedFromRecentOrders || false}   // ⭐ ADD THIS
-    onClose={(success) => {
-      if (success) handleCancelEdit();
-    }}
-  />
-)}
-
-            
+            {isMetalTab(activeTab) && (
+              <TradeModalMetal
+                type={activeTab}
+                selectedTrader={selectedTrader}
+                liveRate={bidPrice}
+                traderRefetch={traderRefetchRef}
+                existingTransaction={editingTransaction}
+                initiatedFromRecentOrders={
+                  location.state?.initiatedFromRecentOrders || false
+                } // ⭐ ADD THIS
+                onClose={(success) => {
+                  if (success) handleCancelEdit();
+                }}
+              />
+            )}
           </div>
         </div>
       </div>
